@@ -54,12 +54,12 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
     #aimask_img = np.zeros((H, W, 3), dtype=np.uint8)
 
     if processing == "test-pixelshifts-x8":
-        print(f"test-pixelshifts-x8 exit called...")
+        #print(f"test-pixelshifts-x8 exit called...")
         pixel_shifts_x8 = pixel_shifts * 8
         sbs_result[:, flip_offset:flip_offset+W,0] = np.clip(pixel_shifts_x8, 0, 255).astype(np.uint8)
         sbs_result[:, flip_offset:flip_offset+W,1] = np.clip(-pixel_shifts_x8, 0, 255).astype(np.uint8)
         sbs_result[:, flip_offset:flip_offset+W,2] = np.clip(0, 0, 255).astype(np.uint8)
-        print(f"test-appliedshifts-x8 processed: {sbs_result.shape}")
+        #print(f"test-appliedshifts-x8 processed: {sbs_result.shape}")
         return sbs_result
         
     # try to improve per line
@@ -78,14 +78,14 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
 
 
     if processing == "test-appliedshifts-x8":
-        print(f"test-appliedshifts-x8 exit called...")
+        #print(f"test-appliedshifts-x8 exit called...")
         for y in range(H):
             for x in range(W):
                 shiftx8=int(shifted_x[y,x]-x) * 8
                 sbs_result[y, flip_offset+x, 0] = max(min(-shiftx8, 255), 0)
                 sbs_result[y, flip_offset+x, 1] = max(min(shiftx8, 255), 0)
                 sbs_result[y, flip_offset+x, 2] = 0
-        print(f"test-appliedshifts-x8 processed: {sbs_result.shape}")
+        #print(f"test-appliedshifts-x8 processed: {sbs_result.shape}")
         return sbs_result
 
     # Interpolation with remap
@@ -93,9 +93,9 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
 
 
     if processing == "test-remap":
-        print(f"test-remap exit called...")
+        #print(f"test-remap exit called...")
         sbs_result[:, flip_offset:flip_offset+W] = shifted_img
-        print(f"test-remap processed: {sbs_result.shape}")
+        #print(f"test-remap processed: {sbs_result.shape}")
         return sbs_result
 
     if processing == "pixel-shift-x8":   
@@ -144,7 +144,7 @@ if current_dir not in sys.path:
 # Import our depth estimation implementation
 try:
     from depth_estimator import DepthEstimator
-    print("Successfully imported DepthEstimator")
+    #print("Successfully imported DepthEstimator")
 except ImportError as e:
     print(f"Error importing DepthEstimator: {e}")
 
@@ -195,13 +195,13 @@ class ImageSBSConverter:
         """
         # Create a new instance of our depth model if needed
         #if self.depth_model is None:
-        print("Creating new DepthEstimator instance")
+        #print("Creating new DepthEstimator instance")
         self.depth_model = DepthEstimator()
 
         # Load the model
         try:
             self.depth_model.load_model()
-            print("Successfully loaded DepthEstimator model")
+            #print("Successfully loaded DepthEstimator model")
         except Exception as e:
             import traceback
             print(f"Error loading DepthEstimator model: {e}")
@@ -231,12 +231,12 @@ class ImageSBSConverter:
                 img_np = image[b].cpu().numpy() * 255.0  # Scale to 0-255
                 img_np = img_np.astype(np.uint8)
 
-                print(f"Processing image {b+1}/{B} with shape: {img_np.shape}")
+                #print(f"Processing image {b+1}/{B} with shape: {img_np.shape}")
 
                 # Use our depth model's predict_depth method
                 depth = depth_model.predict_depth(img_np)
 
-                print(f"Raw depth output: shape={depth.shape}, min={np.min(depth)}, max={np.max(depth)}, mean={np.mean(depth)}")
+                #print(f"Raw depth output: shape={depth.shape}, min={np.min(depth)}, max={np.max(depth)}, mean={np.mean(depth)}")
 
                 # Make sure depth is normalized to [0,1]
                 if np.min(depth) < 0 or np.max(depth) > 1:
@@ -255,7 +255,7 @@ class ImageSBSConverter:
             # Stack the depth maps
             depth_out = torch.stack(out)
 
-            print(f"Stacked depth maps: shape={depth_out.shape}, min={depth_out.min().item()}, max={depth_out.max().item()}, mean={depth_out.mean().item()}")
+            #print(f"Stacked depth maps: shape={depth_out.shape}, min={depth_out.min().item()}, max={depth_out.max().item()}, mean={depth_out.mean().item()}")
 
             # Make sure it's in the right format for ComfyUI (B,H,W,C)
             # For grayscale, we need to expand to 3 channels for ComfyUI compatibility
@@ -265,7 +265,7 @@ class ImageSBSConverter:
             elif len(depth_out.shape) == 4:  # [B,C,H,W]
                 depth_out = depth_out.permute(0, 2, 3, 1).cpu().float()  # [B,H,W,C]
 
-            print(f"Final depth map shape: {depth_out.shape}, min: {depth_out.min().item()}, max: {depth_out.max().item()}, mean: {depth_out.mean().item()}")
+            #print(f"Final depth map shape: {depth_out.shape}, min: {depth_out.min().item()}, max: {depth_out.max().item()}, mean: {depth_out.mean().item()}")
 
             return depth_out
         except Exception as e:
@@ -306,7 +306,7 @@ class ImageSBSConverter:
             #self.depth_model.blur_radius = blur_radius
 
         # Generate depth map
-        print(f"Generating depth map with invert_depth={invert_depth}...")
+        #print(f"Generating depth map with invert_depth={invert_depth}...")
         depth_map = self.generate_depth_map(base_image)
 
         # Get batch size
@@ -326,7 +326,7 @@ class ImageSBSConverter:
             if hasattr(self, 'original_depths') and len(self.original_depths) > b:
                 # Use the original grayscale depth map for this image in the batch
                 depth_for_sbs = self.original_depths[b].copy()
-                print(f"Using original depth map for image {b+1}/{B}: shape={depth_for_sbs.shape}, min={np.min(depth_for_sbs)}, max={np.max(depth_for_sbs)}")
+                #print(f"Using original depth map for image {b+1}/{B}: shape={depth_for_sbs.shape}, min={np.min(depth_for_sbs)}, max={np.max(depth_for_sbs)}")
             else:
                 # If original depth is not available, extract from the colored version
                 current_depth_map = depth_map[b].cpu().numpy()  # Get depth map b from batch
@@ -336,7 +336,7 @@ class ImageSBSConverter:
                     current_depth_map = np.transpose(current_depth_map, (1, 2, 0))
 
                 # Debug info
-                print(f"Depth map shape: {current_depth_map.shape}, min: {current_depth_map.min()}, max: {current_depth_map.max()}, mean: {current_depth_map.mean()}")
+                #print(f"Depth map shape: {current_depth_map.shape}, min: {current_depth_map.min()}, max: {current_depth_map.max()}, mean: {current_depth_map.mean()}")
 
                 # If we have a colored depth map, use the red channel (which should have our depth values)
                 if len(current_depth_map.shape) == 3 and current_depth_map.shape[2] == 3:
@@ -347,7 +347,7 @@ class ImageSBSConverter:
 
             # Invert depth if requested (swap foreground/background)
             if invert_depth:
-                print("Inverting depth map (swapping foreground/background)")
+                #print("Inverting depth map (swapping foreground/background)")
                 depth_for_sbs = 1.0 - depth_for_sbs
 
             # Get the dimensions of the original img
@@ -438,6 +438,6 @@ class ImageSBSConverter:
        # Stack the results to create batched tensors
         sbs_images_batch = torch.stack(sbs_images)
       # Print final output stats
-        print(f"Final SBS image batch shape: {sbs_images_batch.shape}, min: {sbs_images_batch.min().item()}, max: {sbs_images_batch.max().item()}")
+        ##print(f"Final SBS image batch shape: {sbs_images_batch.shape}, min: {sbs_images_batch.min().item()}, max: {sbs_images_batch.max().item()}")
  
         return (sbs_images_batch, )

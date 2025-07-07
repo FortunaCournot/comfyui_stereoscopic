@@ -36,7 +36,7 @@ def download_file(url, local_path):
     total_size = int(response.headers.get('content-length', 0))
     block_size = 1024  # 1 Kibibyte
 
-    print(f"Downloading {url} to {local_path}")
+    #print(f"Downloading {url} to {local_path}")
     progress_bar = tqdm(total=total_size, unit='iB', unit_scale=True)
 
     with open(local_path, 'wb') as file:
@@ -50,7 +50,7 @@ def download_file(url, local_path):
         print("ERROR: Download incomplete")
         return False
 
-    print(f"Download complete: {local_path}")
+    #print(f"Download complete: {local_path}")
     return True
 
 class DepthEstimator:
@@ -72,7 +72,7 @@ class DepthEstimator:
             return True
 
         try:
-            print(f"Loading Depth-Anything-V2-Small model from {self.model_id}")
+            #print(f"Loading Depth-Anything-V2-Small model from {self.model_id}")
 
             # Load the model and processor
             self.processor = AutoImageProcessor.from_pretrained(self.model_id)
@@ -81,7 +81,7 @@ class DepthEstimator:
             # Move model to the appropriate device
             self.model.to(self.device)
 
-            print(f"Successfully loaded Depth-Anything-V2-Small model")
+            #print(f"Successfully loaded Depth-Anything-V2-Small model")
             return True
 
         except Exception as e:
@@ -179,13 +179,13 @@ class DepthEstimator:
                 # Apply Gaussian blur to smooth the depth map
                 depth_map = cv2.GaussianBlur(depth_map, (blur_radius, blur_radius), 0)
 
-                print(f"Generated depth map using Depth-Anything-V2-Small model with shape: {depth_map.shape}")
-                print(f"Depth map min: {depth_map.min()}, max: {depth_map.max()}")
+                #print(f"Generated depth map using Depth-Anything-V2-Small model with shape: {depth_map.shape}")
+                #print(f"Depth map min: {depth_map.min()}, max: {depth_map.max()}")
 
                 return depth_map
             else:
                 # Fall back to simple gradient if model loading failed
-                print("Using fallback gradient depth map")
+                #print("Using fallback gradient depth map")
 
                 # Get image dimensions
                 if len(image.shape) == 3:
@@ -202,7 +202,7 @@ class DepthEstimator:
                 # Apply Gaussian blur to smooth the depth map
                 depth = cv2.GaussianBlur(depth, (blur_radius, blur_radius), 0)
 
-                print(f"Generated fallback gradient depth map with shape: {depth.shape}")
+                #print(f"Generated fallback gradient depth map with shape: {depth.shape}")
 
                 return depth
 
@@ -236,27 +236,27 @@ def test_depth(image_path):
         img = Image.open(image_path).convert('RGB')
         img_np = np.array(img)
 
-        print(f"Image shape: {img_np.shape}")
+        #print(f"Image shape: {img_np.shape}")
 
         # Create a depth model
         depth_model = DepthEstimator()
 
         # Generate a depth map
-        print("Generating depth map...")
+        #print("Generating depth map...")
         depth_map = depth_model.predict_depth(img_np)
 
-        print(f"Depth map shape: {depth_map.shape}")
-        print(f"Depth map min: {np.min(depth_map)}, max: {np.max(depth_map)}, mean: {np.mean(depth_map)}")
+        #print(f"Depth map shape: {depth_map.shape}")
+        #print(f"Depth map min: {np.min(depth_map)}, max: {np.max(depth_map)}, mean: {np.mean(depth_map)}")
 
         # Save the depth map
         depth_colored = cv2.applyColorMap((depth_map * 255).astype(np.uint8), cv2.COLORMAP_PLASMA)
         cv2.imwrite('depth_result.png', depth_colored)
-        print(f"Result saved to: depth_result.png")
+        #print(f"Result saved to: depth_result.png")
 
         # Save grayscale version - ensure closer objects are lighter (standard convention)
         # Note: depth_map is already inverted in predict_depth so that closer objects are lighter
         cv2.imwrite('depth_result_gray.png', (depth_map * 255).astype(np.uint8))
-        print(f"Grayscale result saved to: depth_result_gray.png")
+        #print(f"Grayscale result saved to: depth_result_gray.png")
 
         return depth_map
 
