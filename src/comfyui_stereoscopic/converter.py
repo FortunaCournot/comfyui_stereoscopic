@@ -42,8 +42,7 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
     F[..., 1] = y_coords
     P = invert_map(F)
     pixel_shifts = x_coords - P[..., 0]
-    #else:
-    #    pixel_shifts = pixel_shifts_in
+
     
     # Apply shift to x-coordinates
     shifted_x = x_coords - pixel_shifts  # left shift for left eye
@@ -76,15 +75,7 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
             else:
                 previous_value=value
 
-    # Create shift mask for post processing
-    #for y in range(H):
-    #    for x in range(W):
-    #        value = max(0,min(255,int(128.0-128.0*(shifted_x[y,x]-shifted_x[y,x-1]))))
-    #        if value >= 32:
-    #            #print(f"ai-shift-masking: x: {x}, min: {int(shifted_x[y,x])}")
-    #            for x2 in range(int(shifted_x[y,x]), x):
-    #                aimask_img[y,x2]=(255,255,255)
-    #shifted_aimask = cv2.remap(aimask_img, shifted_x, y_coords, interpolation=cv2.INTER_LINEAR,borderMode=cv2.BORDER_REFLECT)
+
 
     if processing == "test-appliedshifts-x8":
         print(f"test-appliedshifts-x8 exit called...")
@@ -290,20 +281,12 @@ class ImageSBSConverter:
         blur_radius, symetric, processing
         ):
         """
-        Create a side-by-side (SBS) stereoscopic image from a standard image or image sequence.
+        Convert image to a side-by-side (SBS) stereoscopic image.
         The depth map is automatically generated using our custom depth estimation approach.
 
-        Parameters:
-        - base_image: tensor representing the base image(s) with shape [B,H,W,C].
-        - depth_scale: float representing the scaling factor for depth.
-        - blur_radius: integer controlling the smoothness of the depth map.
-        - invert_depth: boolean to invert the depth map (swap foreground/background).
-        - mode: "Parallel" or "Cross-eyed" viewing mode.
-        - processing: "Normal" or "".
 
         Returns:
         - sbs_image: the stereoscopic image(s).
-        - depth_map: the generated depth map(s).
         """
 
         #define constant
@@ -361,10 +344,6 @@ class ImageSBSConverter:
                 else:
                     depth_for_sbs = current_depth_map.copy()
 
-            # DEBUG:
-            #end_depth = time.perf_counter()
-            #print(f"Depth map generation time: {end_depth - start_depth:.4f} sec")
-            #start_prep = time.perf_counter()
 
             # Invert depth if requested (swap foreground/background)
             if invert_depth:
@@ -380,7 +359,7 @@ class ImageSBSConverter:
 
             # Calculate the shift matrix (pixel_shifts)
             depth_np      = np.array(depth_map_img, dtype=np.float32) - 128.0
-            #pixel_shifts  = (depth_np * (depth_scale / width)).astype(np.int32)
+
 
             # Preparing the source image in NumPy [0–255] and create a "canvas" for the SBS image twice as wide
             current_image_np = (current_image * 255).astype(np.uint8)
@@ -396,19 +375,9 @@ class ImageSBSConverter:
 
             # Define the viewing mode (parallel, cross)
             fliped = 0 if mode == "Parallel" else width
-
-            # DEBUG:
-            #end_prep = time.perf_counter()
-            #print(f"Data preparation time: {end_prep - start_prep:.4f} sec")
-            #start_apply = time.perf_counter()
-
-            #processingMode = -1
-            #if processing == "pixel-shift-x8":
-            #    processingMode = -2
             
             displaytext = 'depth_scale ' + str(depth_scale) + ', depth_offset = ' + str(depth_offset)
             
-            # Setting for 1.0 at 1024: 50.0. 
             depth_scale_local = depth_scale * width * 50.0 / 1000000.0
             if symetric:
                 depth_scale_local = depth_scale_local / 2.0
@@ -425,7 +394,6 @@ class ImageSBSConverter:
                 pixel_shifts = cv2.UMat.get(smoothed_gpu)
             shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
             sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
-            #shifted_aimask_image[:, fliped:fliped + width] = shifted_aimask[:, fliped:fliped + width]
             if processing == "shift-grid":
                 shifted_half, shifted_aimask = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
                 sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
@@ -440,7 +408,6 @@ class ImageSBSConverter:
                     pixel_shifts = cv2.UMat.get(smoothed_gpu)
                 shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
                 sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
-                #shifted_aimask_image[:, fliped:fliped + width] = shifted_aimask[:, fliped:fliped + width]
                 if processing == "shift-grid":
                     shifted_half, shifted_aimask = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
                     sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
@@ -463,62 +430,14 @@ class ImageSBSConverter:
                 sbs_image_swapped[:, width : width + width] = sbs_image[:, 0: width]
                 sbs_image = sbs_image_swapped
 
-            # DEBUG:
-            #end_apply = time.perf_counter()
-            #print(f"Pixel shift time: {end_apply - start_apply:.4f} sec")
-            #start_post = time.perf_counter()
 
             # Convert to tensor
             sbs_image_tensor = torch.tensor(sbs_image.astype(np.float32) / 255.0)
-            #shifted_aimask_tensor = torch.tensor(shifted_aimask_image.astype(np.float32) / 255.0)
-            
-            #Convert Color to Mask (MIT License, Copyright (c) 2023 Matteo Spinelli
-            #threshold=0
-            #temp = (torch.clamp(shifted_aimask_tensor, 0, 1.0) * 255.0).round().to(torch.int)
-            #red=255
-            #green=255 
-            #blue=255
-            #color = torch.tensor([red, green, blue])
-            #lower_bound = (color - threshold).clamp(min=0)
-            #upper_bound = (color + threshold).clamp(max=255)
-            #lower_bound = lower_bound.view(1, 1, 1, 3)
-            #upper_bound = upper_bound.view(1, 1, 1, 3)
-            #mask = (temp >= lower_bound) & (temp <= upper_bound)
-            #mask = mask.all(dim=-1)
-            #mask = mask.float()
-            #shifted_aimask_tensor = mask
-            
-            # Create a properly formatted depth map for output
-            # Make sure it's normalized to [0,1]
-            #if np.min(depth_for_sbs) < 0 or np.max(depth_for_sbs) > 1:
-            #    depth_gray = cv2.normalize(depth_for_sbs, None, 0, 1, cv2.NORM_MINMAX)
-            #else:
-            #    depth_gray = depth_for_sbs
-
-            
-            # Convert to 3-channel grayscale (all channels have same value)
-            #depth_3ch = np.stack([depth_gray, depth_gray, depth_gray], axis=-1)
-
-            # Convert to tensor format
-            #enhanced_depth_map = torch.tensor(depth_3ch)
-
             # Add to our batch lists
             sbs_images.append(sbs_image_tensor)
-            #enhanced_depth_maps.append(enhanced_depth_map)
-            #shifted_aimask_tensor_maps.append(shifted_aimask_tensor)
-
-        # Stack the results to create batched tensors
+       # Stack the results to create batched tensors
         sbs_images_batch = torch.stack(sbs_images)
-        #enhanced_depth_maps_batch = torch.stack(enhanced_depth_maps)
-        #shifted_aimask_tensor_maps_batch = torch.stack(shifted_aimask_tensor_maps)
-
-        # DEBUG:
-        #end_post = time.perf_counter()
-        #print(f"Post processing time: {end_post - start_post:.4f} sec")
-
-        # Print final output stats
+      # Print final output stats
         print(f"Final SBS image batch shape: {sbs_images_batch.shape}, min: {sbs_images_batch.min().item()}, max: {sbs_images_batch.max().item()}")
-        #print(f"Final depth map batch shape: {enhanced_depth_maps_batch.shape}, min: {enhanced_depth_maps_batch.min().item()}, max: {enhanced_depth_maps_batch.max().item()}")
-        #print(f"Final shifted aimask batch shape: {shifted_aimask_tensor_maps_batch.shape}, min: {shifted_aimask_tensor_maps_batch.min().item()}, max: {shifted_aimask_tensor_maps_batch.max().item()}")
-
+ 
         return (sbs_images_batch, )
