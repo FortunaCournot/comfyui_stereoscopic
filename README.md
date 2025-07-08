@@ -12,9 +12,11 @@ The target of this package is to improve
 We try to use existing libraries that make use of GPU whereever possible. We improved the output quality, so it keeps useable even with extremer depth scales.
 Finally we try to want to keep it easy for users by standardizing parameters and offer CLI-capable workflows to convert large-size images and long-length videos.
 
-The package contains example workflows in example folder.
+The package contains example workflows in example folder. Installation can be done over the ComfyUI Manager.
 
-### I2I
+### Image-to-Image (I2I) Converter
+The included workflow depends on other custom node package: comfyui_fearnworksnodes. Please install them first.
+
 Workflow Snapshot:
 ![base_image](./docs/img/I2I-SBS-Workflow-Snapshot.png)
 
@@ -29,8 +31,12 @@ Output (contains workflow):
 To give users an option to see what is going on and maybe to tweak things better, we provide a processing option that can be set to generate test output:
 ![base_image](./docs/img/I2I-SBS-Analysis-Snapshot.png)
 
-### V2V
+### Video-to-Video (V2V) Converter
+The included workflow depends on other custom node package: comfyui_fearnworksnodes. Please install them first.
 
+Due to memory limitation, the conversion over videos needs to be done in smaller pieces. Durations of 1 seconds with up to 24 frames may work. If not, reduce fps-rate. if this is not enough, you need to reduce resolution as well.
+
+The workflow [V2V Template](examples/workflows/V2V SBS Converter.json) is used as template for an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
 
 
 ## Node "Convert to Side-by-Side"
