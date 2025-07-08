@@ -326,7 +326,6 @@ class ImageSBSConverter:
             if hasattr(self, 'original_depths') and len(self.original_depths) > b:
                 # Use the original grayscale depth map for this image in the batch
                 depth_for_sbs = self.original_depths[b].copy()
-                #print(f"Using original depth map for image {b+1}/{B}: shape={depth_for_sbs.shape}, min={np.min(depth_for_sbs)}, max={np.max(depth_for_sbs)}")
             else:
                 # If original depth is not available, extract from the colored version
                 current_depth_map = depth_map[b].cpu().numpy()  # Get depth map b from batch
@@ -435,9 +434,10 @@ class ImageSBSConverter:
             sbs_image_tensor = torch.tensor(sbs_image.astype(np.float32) / 255.0)
             # Add to our batch lists
             sbs_images.append(sbs_image_tensor)
-       # Stack the results to create batched tensors
+            
+        # Stack the results to create batched tensors
         sbs_images_batch = torch.stack(sbs_images)
-      # Print final output stats
+        # Print final output stats
         ##print(f"Final SBS image batch shape: {sbs_images_batch.shape}, min: {sbs_images_batch.min().item()}, max: {sbs_images_batch.max().item()}")
  
         return (sbs_images_batch, )
