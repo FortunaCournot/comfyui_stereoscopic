@@ -12,11 +12,32 @@ The target of this package is to improve
 We try to use existing libraries that make use of GPU whereever possible. We improved the output quality, so it keeps useable even with extremer depth scales.
 Finally we try to want to keep it easy for users by standardizing parameters and offer CLI-capable workflows to convert large-size images and long-length videos.
 
+The package contains example workflows in example folder.
 
-## Node "SBS Converter"
+### I2I
+Workflow Snapshot:
+![base_image](./docs/img/I2I-SBS-Workflow-Snapshot.png)
+
+Input:
+![base_image](./examples/input/SmallIconicTown.png) 
+
+Output:
+![stereoscopic_image](./examples/output/SmallIconicTown-sbs.mp4_00003.png)
+
+### V2V
+
+
+
+## Node "Convert to Side-by-Side"
 This node converts an image to a side-by-side image.
 
 ### Parameters
+
+#### base_image
+The image you want to convert to side-by-side.
+
+#### depth_image
+The depth image corresposning to the base image. E.g.: Generate it with Depth Anything V2 from comfyui_controlnet_aux; where the resolution can be calculated with the provided helper node GetDepthResolution below.
 
 #### depth_scale
 The value of depth scale has influence on the stength of the 3D effect. It is normalized, to make it indepenend of image resolution, 1.0 is considered as normal value, 0.0 means no scale, higher values than 1.0 generate stronger effects. For a stronger 3D effect try 2.0.
@@ -36,6 +57,9 @@ If true the shift is equally devided to left and right. if false, only one image
 #### processing
 Normal. Other values are for development tests and not going to be documented.
 
+
+## Node "Get Resolution"
+This helper node returns the resolution of the base image (minimum of width, height) to be feed into the depth image generator.
 
 
 

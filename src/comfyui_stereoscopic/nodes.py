@@ -7,7 +7,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-# Import our depth estimation implementation
+# Import our implementations
+
 try:
     from converter import ImageSBSConverter
     print("Successfully imported ImageSBSConverter")
@@ -25,16 +26,35 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from tools import GetResolutionForDepth
+    print("Successfully imported ImageSBSConverter")
+except ImportError as e:
+    print(f"Error importing GetResolutionForDepth: {e}")
+
+    # Create a placeholder class
+    class GetResolutionForDepth:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading GetResolutionForDepth"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "image"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
 
 
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 NODE_CLASS_MAPPINGS = {
-    "ImageSBSConverter" : ImageSBSConverter
+    "ImageSBSConverter" : ImageSBSConverter,
+    "GetResolutionForDepth" : GetResolutionForDepth
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "ImageSBSConverter Selector": "Image SBS Converter"
+    "ImageSBSConverter": "Convert to Side-by-Side",
+    "GetResolutionForDepth": "Get Resolution"
 }
 
