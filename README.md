@@ -21,8 +21,8 @@ Workflow Snapshot:
 Input:
 ![base_image](./examples/input/SmallIconicTown.png) 
 
-Output:
-![stereoscopic_image](./examples/output/SmallIconicTown-sbs.mp4_00003.png)
+Output (contains workflow):
+![stereoscopic_image](./examples/output/SBS_00002_.png)
 
 ### V2V
 
