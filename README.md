@@ -1,6 +1,8 @@
 # comfyui_stereoscopic
 ComfyUI Custom Nodes to create stereoscopic images and movies.
 
+Discord: [Activation Link]([./docs/img/I2I-SBS-Workflow-Snapshot.png](https://discord.gg/ZegT6Cc8FG))
+
 ## Introduction
 This package is based on the great work of Sam Seen from https://github.com/MrSamSeen/ComfyUI_SSStereoscope, that gave us a good starting point.
 
