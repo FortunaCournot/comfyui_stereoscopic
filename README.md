@@ -64,7 +64,7 @@ The value of depth scale has influence on the stength of the 3D effect. It is no
 The value of depth_offset is shifting to whole image to make it appear closer or farer away. The value is normalized, to make it indepenend of image resolution. 0.0 is considered as normal value producing a shift half to front, half to back. A value equal to depth_scale is all shift to front (closer to the viewer), negative values shift it all shift the back (farer away). 
 
 #### switch_sides
-Switch left/right. This might be required to be set depending on use-case and device.
+Switch left/right. This might be required to be set depending on use-case and device, or if the depth image generator produces inverted images. The default is False and configured to work with Depth Anything V2.
 
 #### blur_radius
 Blur kernel size dimension. -1 turns blurring off. We set default to 45. With high depth scale and resolution you may try values up to 99.

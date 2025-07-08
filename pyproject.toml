@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui_stereoscopic"
-version = "0.0.2"
+version = "1.0.0"
 description = "Nodes to create stereoscopic images and movies."
 authors = [
   {name = "Fortuna Cournot", email = "fortunacournot@gmail.com"}

@@ -177,7 +177,7 @@ class ImageSBSConverter:
 
         #define constant
         mode="Parallel"
-        invert_depth=False
+        invert_depth=True  # The use of depth anything as depth generator requires this.
         
         # DEBUG: start_depth =  time.perf_counter()
 
