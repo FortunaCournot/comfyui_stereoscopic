@@ -36,8 +36,12 @@ The included workflow depends on other custom node package: comfyui_fearnworksno
 
 Due to memory limitation, the conversion over videos needs to be done in smaller pieces. Durations of 1 seconds with up to 24 frames may work. If not, reduce fps-rate. if this is not enough, you need to reduce resolution as well.
 
-The workflow [V2V Template](examples/workflows/V2V SBS Converter.json) is used as template for an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
-
+The workflow [V2V Template](examples/workflows/V2V_SBS_Converter.json) is used as template for an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
+To simply things an [V2V Shell Script](api/v2v_sbs_converter.sh) for Git Bash is included that can be used is this way:
+```
+cd .../ComfyUI_windows_portable/ComfyUI
+./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh 1.0 0.0 ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4
+```
 
 ## Node "Convert to Side-by-Side"
 This node converts an image to a side-by-side image.
