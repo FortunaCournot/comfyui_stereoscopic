@@ -22,7 +22,7 @@ Input:
 ![base_image](./examples/input/SmallIconicTown.png) 
 
 Output (contains workflow):
-![stereoscopic_image](./examples/output/SBS_00002_.png)
+![stereoscopic_image](./examples/result/SBS_00002_.png)
 
 ### V2V
 
