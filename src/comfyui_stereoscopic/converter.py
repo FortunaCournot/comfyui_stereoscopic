@@ -143,7 +143,7 @@ if current_dir not in sys.path:
 
 # Import our depth estimation implementation
 try:
-    from depth_estimator import DepthEstimator
+    from depthestimator import DepthEstimator
     #print("Successfully imported DepthEstimator")
 except ImportError as e:
     print(f"Error importing DepthEstimator: {e}")
