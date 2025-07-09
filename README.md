@@ -18,10 +18,12 @@ The package contains example workflows in example folder. Installation can be do
 
 Below you will find documentation of workflow, nodes and some VR Software.
 
+The workflows have been tested on NVIDEA Geforce 5070 Ti, GTX 1050ti, Intel UHD Graphics 630.
+
 ## Workflows
 
 ### Image-to-Image (I2I) Converter
-The included workflow depends on other custom node package: comfyui_fearnworksnodes. Please install them first.
+**PREREQUISTES:** The included workflow depends on other custom node packages: *TODO: LIST TO BE CREATED*. Please install them first.
 
 Workflow Snapshot:
 ![base_image](./docs/img/I2I-SBS-Workflow-Snapshot.png)
@@ -91,7 +93,7 @@ To simply the configuration follow their guide: [How to Adjust 2D/3D/VR Video Fo
 e.g. by putting all videos and images under a folder with the name "fullsbs".
 
 ### [DEO VR Player](https://deovr.com/app)
-Download for free. Supports many platforms. We have tested it on Meta Quest 3.
+Download for free. Supports many platforms. We have tested it on Meta Quest 3, HTC vive pro 2 .
 To simply the configuration follow their guide: [Naming convention](https://deovr.com/app/doc#naming), e.g. by adding "_SBS_LR" to the end of the file name.
 
 

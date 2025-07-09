@@ -4,7 +4,6 @@ import numpy as np
 import os
 import sys
 import cv2
-import numba
 from comfy.utils import ProgressBar
 #DEBUG: import time
 
@@ -285,7 +284,7 @@ class ImageSBSConverter:
             shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
             sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
             if processing == "shift-grid":
-                shifted_half, shifted_aimask = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
+                shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
                 sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
 
             if symetric:
@@ -299,7 +298,7 @@ class ImageSBSConverter:
                 shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
                 sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
                 if processing == "shift-grid":
-                    shifted_half, shifted_aimask = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
+                    shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
                     sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
                 fliped = width - fliped
 
