@@ -16,6 +16,10 @@ Finally we try to want to keep it easy for users by standardizing parameters and
 
 The package contains example workflows in example folder. Installation can be done over the ComfyUI Manager.
 
+Below you will find documentation of workflow, nodes and some VR Software.
+
+## Workflows
+
 ### Image-to-Image (I2I) Converter
 The included workflow depends on other custom node package: comfyui_fearnworksnodes. Please install them first.
 
@@ -46,10 +50,10 @@ cd .../ComfyUI_windows_portable/ComfyUI
 
 Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converter.json) that has been transformed into an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
 
-## Node "Convert to Side-by-Side"
-This node converts an image to a side-by-side image.
+## Nodes
 
-### Parameters
+### Node "Convert to Side-by-Side"
+This node converts an image to a side-by-side image.
 
 #### base_image
 The image you want to convert to side-by-side.
@@ -60,7 +64,7 @@ The depth image corresposning to the base image. E.g.: Generate it with Depth An
 #### depth_scale
 The value of depth scale has influence on the stength of the 3D effect. It is normalized, to make it indepenend of image resolution, 1.0 is considered as normal value, 0.0 means no scale, higher values than 1.0 generate stronger effects. For a stronger 3D effect try 2.0.
 
-#### depth_offset
+### #depth_offset
 The value of depth_offset is shifting to whole image to make it appear closer or farer away. The value is normalized, to make it indepenend of image resolution. 0.0 is considered as normal value producing a shift half to front, half to back. A value equal to depth_scale is all shift to front (closer to the viewer), negative values shift it all shift the back (farer away). 
 
 #### switch_sides
@@ -76,8 +80,19 @@ If true the shift is equally devided to left and right. if false, only one image
 Normal. Other values are for development tests and not going to be documented.
 
 
-## Node "Get Resolution"
+### Node "Get Resolution"
 This helper node returns the resolution of the base image (minimum of width, height) to be feed into the depth image generator.
+
+## VR Software and devices
+
+### [Skybox VR Player](https://skybox.xyz/)
+Commercial application. Supports many platforms. We have tested it on Meta Quest 3.
+To simply the configuration follow their guide: [How to Adjust 2D/3D/VR Video Formats](https://skybox.xyz/support/How-to-Adjust-2D&3D&VR-Video-Formats),
+e.g. by putting all videos and images under a folder with the name "fullsbs".
+
+### [DEO VR Player](https://deovr.com/app)
+Download for free. Supports many platforms. We have tested it on Meta Quest 3.
+To simply the configuration follow their guide: [Naming convention](https://deovr.com/app/doc#naming), e.g. by adding "_SBS_LR" to the end of the file name.
 
 
 
