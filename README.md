@@ -22,16 +22,20 @@ Below you will find documentation of workflow, nodes and some VR Software.
 The workflows have been tested on NVIDEA Geforce 5070 Ti, GTX 1050ti, Intel UHD Graphics 630.
 
 ## Workflows
-Prerequisite: For scripts the local ComfyUI_windows_portable server must be running on default port.
+**PREREQUISTES:**
 
-### Image-to-Image (I2I) Converter
-**PREREQUISTES:** The included workflow depends on other custom node packages. Please install them first:
+- For scripts the local ComfyUI_windows_portable server must be running on default port.
+
+The included workflow depends on other custom node packages. Please install them first:
 - comfyui_controlnet_aux
 - comfyui-videohelpersuite
 - bjornulf_custom_nodes
 - comfyui-easy-use
 - comfyui-custom-scripts
 - ComfyLiterals
+- comfy-mtb
+
+### Image-to-Image (I2I) Converter
 
 Workflow Snapshot:
 ![base_image](./docs/img/I2I-SBS-Workflow-Snapshot.png)
