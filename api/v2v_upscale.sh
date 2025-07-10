@@ -99,6 +99,7 @@ else
 		echo "Wait until comfyui tasks are done (check ComfyUI queue in browser), then call the script manually: $UPSCALEDIR/concat.sh"
 	else
 		echo "Skipping upscaling of large video $INPUT"
+		cp $INPUT "$TARGETPREFIX"".mp4"
 	fi
 fi
 

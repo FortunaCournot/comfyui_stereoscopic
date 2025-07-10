@@ -67,8 +67,7 @@ cd .../ComfyUI_windows_portable/ComfyUI
 ```
 
 It creates SBS video from a base video (input) and places result, with _SBS_LR appended to filename, under ComfyUI/output/sbs folder.
-The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
-There exists batch scripts for mass conversion, see below.
+The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
 
 Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converter.json) that has been transformed into an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
 
@@ -80,10 +79,10 @@ cd .../ComfyUI_windows_portable/ComfyUI
 ./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.sh ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4 1.0
 ```
 
-It upscales a base video (input) by Real-ESRGAN-x2, for small resolutions 4plus and places result, with _x2 or _x4 appended to filename,  under ComfyUI/output/upscale folder.
-The number at the end is optional, and is the blur sigma. The video must have already have a decent quality, or the model will fail.
-The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
-There exists batch scripts for mass conversion, see below.
+It upscales a base video (input) by Real-ESRGAN-x2, for small resolutions 4plus and places result, with _x2 or _x4 appended to filename, under ComfyUI/output/upscale folder.
+Videos with large resolution are just copied.
+In the call above, the number at the end is optional, and is the sigma of the blur. The video must have already have a decent quality, or the model will fail.
+The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
 
 ### Bonus Workflow: V2V Rescale
 This is same as V2V Upscale with Real-ESRGAN-x2, but first it is downscaled by factor, so resolution stays same. This is intended for hires videos with bad quality.
@@ -96,8 +95,7 @@ cd .../ComfyUI_windows_portable/ComfyUI
 
 It down-/upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x1 appended to filename,  under ComfyUI/output/upscale folder.
 The number at the end is optional, and is the blur sigma. The video must have already have a decent quality, or the model will fail.
-The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
-There exists batch scripts for mass conversion, see below.
+The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
 
 ### Mass Conversion
 
