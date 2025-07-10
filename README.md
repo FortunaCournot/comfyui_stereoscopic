@@ -73,10 +73,25 @@ Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converte
 To simply things an [V2V Shell Script](api/v2v_upscale.sh) for Git Bash is included that can be used is this way:
 ```
 cd .../ComfyUI_windows_portable/ComfyUI
-./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.sh ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4
+./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.sh ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4 1.0
 ```
 
 It upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x4 appended to filename,  under ComfyUI/output/upscale folder.
+The number at the end is optional, and is the blur sigma.
+The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
+There exists batch scripts for mass conversion, see below.
+
+### Bonus Workflow: V2V Rescale
+This is same as V2V Upscale with Real-ESRGAN-x4plus, but first it is downscaled by factor, so resolution stays same. This is intended for hires videos with bad quality.
+
+To simply things an [V2V Shell Script](api/v2v_rescale.sh) for Git Bash is included that can be used is this way:
+```
+cd .../ComfyUI_windows_portable/ComfyUI
+./custom_nodes/comfyui_stereoscopic/api/v2v_rescale.sh ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4 1.0
+```
+
+It down-/upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x1 appended to filename,  under ComfyUI/output/upscale folder.
+The number at the end is optional, and is the blur sigma.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 There exists batch scripts for mass conversion, see below.
 
@@ -88,16 +103,34 @@ The end condition for batch is checked automatic, if queue gets empty the batch_
 Don't forget to remove the input videos from the input folders afterwards.
 
 #### Batch SBS Convert
+Place videos in ComfyUI/input/sbs_in, then:
+
 ```
 cd .../ComfyUI_windows_portable/ComfyUI
 ./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.0 0.0
 ```
 
+Results are in ComfyUI/output/sbs
+
 #### Batch Upscale
+Place videos in ComfyUI/input/upscale_in, then:
+
 ```
 cd .../ComfyUI_windows_portable/ComfyUI
-./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh
+./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh 1.0
 ```
+
+Results are in ComfyUI/output/upscale
+
+#### Batch Rescale
+Place videos in ComfyUI/input/upscale_in, then:
+
+```
+cd .../ComfyUI_windows_portable/ComfyUI
+./custom_nodes/comfyui_stereoscopic/api/batch_rescale.sh 1.0
+```
+
+Results are in ComfyUI/output/upscale
 
 ## Nodes
 

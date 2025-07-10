@@ -251,7 +251,7 @@ prompt_text = """
         0
       ],
       "image": [
-        "69",
+        "182",
         0
       ]
     },
@@ -287,6 +287,19 @@ prompt_text = """
     "class_type": "PrimitiveFloat",
     "_meta": {
       "title": "Sigma"
+    }
+  },
+  "182": {
+    "inputs": {
+      "scale_by": 0.25000000000000006,
+      "images": [
+        "69",
+        0
+      ]
+    },
+    "class_type": "easy imageScaleDownBy",
+    "_meta": {
+      "title": "Image Scale Down By"
     }
   }
 }
