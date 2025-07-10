@@ -12,13 +12,19 @@ COMFYUIPATH=.
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.sh 
 CONCATBATCHSCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh 
 
-if test $# -ne 0
+if test $# -ne 0 -a $# -ne 1
 then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
 	cd $COMFYUIPATH
+
+	SIGMA=1.0
+	if test $# -eq 1
+	then
+		SIGMA=$1
+	fi
 
 	for nextinputfile in input/upscale_in/*.mp4 ; do
 		newfn=${nextinputfile//[^[:alnum:.]]/}
