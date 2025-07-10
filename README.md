@@ -22,6 +22,7 @@ Below you will find documentation of workflow, nodes and some VR Software.
 The workflows have been tested on NVIDEA Geforce 5070 Ti, GTX 1050ti, Intel UHD Graphics 630.
 
 ## Workflows
+Prerequisite: For scripts the local ComfyUI_windows_portable server must be running on default port.
 
 ### Image-to-Image (I2I) Converter
 **PREREQUISTES:** The included workflow depends on other custom node packages. Please install them first:
@@ -57,6 +58,10 @@ cd .../ComfyUI_windows_portable/ComfyUI
 ./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh 1.0 0.0 ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4
 ```
 
+It creates SBS video from a base video (input) and places result, with _SBS_LR appended to filename, under ComfyUI/output/sbs folder.
+The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
+There exists batch scripts for mass conversion, see below.
+
 Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converter.json) that has been transformed into an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
 
 ### Bonus Workflow: V2V Upscale with Real-ESRGAN-x4plus
@@ -65,6 +70,29 @@ To simply things an [V2V Shell Script](api/v2v_upscale.sh) for Git Bash is inclu
 ```
 cd .../ComfyUI_windows_portable/ComfyUI
 ./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.sh ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4
+```
+
+It upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x4 appended to filename,  under ComfyUI/output/upscale folder.
+The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
+There exists batch scripts for mass conversion, see below.
+
+### Mass Conversion
+
+To convert or upscale many videos, they can be placed in ComfyUI/input/sbs_in or ComfyUI/input/upscale_in.
+The end condition for batch is checked automatic, if queue gets empty the batch_concat.sh script is called.  
+
+Don't forget to remove the input videos from the input folders afterwards.
+
+#### Batch SBS Convert
+```
+cd .../ComfyUI_windows_portable/ComfyUI
+./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.0 0.0
+```
+
+#### Batch Upscale
+```
+cd .../ComfyUI_windows_portable/ComfyUI
+./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh
 ```
 
 ## Nodes
@@ -110,6 +138,3 @@ e.g. by putting all videos and images under a folder with the name "fullsbs".
 ### [DEO VR Player](https://deovr.com/app)
 Download for free. Supports many platforms. We have tested it on Meta Quest 3, HTC vive pro 2 .
 To simply the configuration follow their guide: [Naming convention](https://deovr.com/app/doc#naming), e.g. by adding "_SBS_LR" to the end of the file name.
-
-
-

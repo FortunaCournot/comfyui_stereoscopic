@@ -2,7 +2,9 @@
 #
 # v2v_upscale.sh
 #
-# Upscales a base video (input) by Real-ESRGAN-x4plus and places result under output/upscale folder.
+# Upscales a base video (input) by Real-ESRGAN-x4plus and places result under ComfyUI/output/upscale folder.
+# The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
+#
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
 # ComfyUI API script needs the following custom node packages: 
@@ -37,6 +39,7 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
+	TARGETPREFIX="$TARGETPREFIX""_x4"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpupscale"
 	SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
