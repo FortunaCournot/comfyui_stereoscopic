@@ -23,7 +23,13 @@ The workflows have been tested on NVIDEA Geforce 5070 Ti, GTX 1050ti, Intel UHD 
 ## Workflows
 
 ### Image-to-Image (I2I) Converter
-**PREREQUISTES:** The included workflow depends on other custom node packages: *TODO: LIST TO BE CREATED*. Please install them first.
+**PREREQUISTES:** The included workflow depends on other custom node packages. Please install them first:
+- comfyui_controlnet_aux
+- comfyui-videohelpersuite
+- bjornulf_custom_nodes
+- comfyui-easy-use
+- comfyui-custom-scripts
+- ComfyLiterals
 
 Workflow Snapshot:
 ![base_image](./docs/img/I2I-SBS-Workflow-Snapshot.png)
