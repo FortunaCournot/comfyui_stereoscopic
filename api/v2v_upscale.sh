@@ -26,17 +26,25 @@ COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.py
 
-if test $# -ne 1
+if test $# -ne 1 -a $# -ne 2
 then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 input"
-    echo "E.g.: $0 SmallIconicTown.mp4"
-else
+    echo "Usage: $0 input [sigma]"
+    echo "E.g.: $0 SmallIconicTown.mp4 3.0"
+fi
+
+if test $# -eq 1 -o $# -eq 2
+then
 	cd $COMFYUIPATH
 
+	SIGMA=3.0
 	INPUT="$1"
 	shift
-	
+	if test $# -eq 1
+	then
+		SIGMA=$1
+		shift	
+	fi
 	TARGETPREFIX=${INPUT##*/}
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
 	TARGETPREFIX="$TARGETPREFIX""_x4"
@@ -56,7 +64,7 @@ else
 			mv "$f" "${f%.mp4}_na.mp4"
 			nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 		fi
-		../python_embeded/python.exe $SCRIPTPATH $targetprefix "$f" "$UPSCALEDIR"/sbssegment
+		../python_embeded/python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $SIGMA
 	done
 	
 	

@@ -208,7 +208,7 @@ prompt_text = """
       "pingpong": false,
       "save_output": true,
       "images": [
-        "169",
+        "172",
         0
       ],
       "audio": [
@@ -258,6 +258,35 @@ prompt_text = """
     "_meta": {
       "title": "Upscale Image (using Model)"
     }
+  },
+  "172": {
+    "inputs": {
+      "sigmaX": [
+        "174",
+        0
+      ],
+      "sigmaY": [
+        "174",
+        0
+      ],
+      "image": [
+        "169",
+        0
+      ]
+    },
+    "class_type": "Blur (mtb)",
+    "_meta": {
+      "title": "Blur (mtb)"
+    }
+  },
+  "174": {
+    "inputs": {
+      "value": 2
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Sigma"
+    }
   }
 }
 """
@@ -276,12 +305,20 @@ def queue_prompt(prompt):
     req =  request.Request("http://127.0.0.1:8188/prompt", data=data)
     request.urlopen(req)
 
-if len(sys.argv) != 2 + 1:
-   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix")
-else:
+if len(sys.argv) == 2 + 1:
     prompt = json.loads(prompt_text)
     prompt["159"]["inputs"]["value"] = sys.argv[1]
     prompt["160"]["inputs"]["value"] = sys.argv[2] 
+    prompt["174"]["inputs"]["value"] = 2.0
     
     queue_prompt(prompt)
+elif len(sys.argv) == 3 + 1:
+    prompt = json.loads(prompt_text)
+    prompt["159"]["inputs"]["value"] = sys.argv[1]
+    prompt["160"]["inputs"]["value"] = sys.argv[2] 
+    prompt["174"]["inputs"]["value"] = sys.argv[3]
+    
+    queue_prompt(prompt)
+else:
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix [sigma]")
 
