@@ -76,13 +76,13 @@ cd .../ComfyUI_windows_portable/ComfyUI
 ./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.sh ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4 1.0
 ```
 
-It upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x4 appended to filename,  under ComfyUI/output/upscale folder.
+It upscales a base video (input) by Real-ESRGAN-x2, for small resolutions 4plus and places result, with _x2 or _x4 appended to filename,  under ComfyUI/output/upscale folder.
 The number at the end is optional, and is the blur sigma. The video must have already have a decent quality, or the model will fail.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 There exists batch scripts for mass conversion, see below.
 
 ### Bonus Workflow: V2V Rescale
-This is same as V2V Upscale with Real-ESRGAN-x4plus, but first it is downscaled by factor, so resolution stays same. This is intended for hires videos with bad quality.
+This is same as V2V Upscale with Real-ESRGAN-x2, but first it is downscaled by factor, so resolution stays same. This is intended for hires videos with bad quality.
 
 To simply things an [V2V Shell Script](api/v2v_rescale.sh) for Git Bash is included that can be used is this way:
 ```

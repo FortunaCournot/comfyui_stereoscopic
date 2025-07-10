@@ -34,7 +34,6 @@ then
 else
 	cd $COMFYUIPATH
 
-	UPSCALEMODEL=RealESRGAN_x2.pth
 	SIGMA=3.0
 	INPUT="$1"
 	shift
@@ -45,7 +44,13 @@ else
 	fi
 	TARGETPREFIX=${INPUT##*/}
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
-	TARGETPREFIX="$TARGETPREFIX""_x4"
+	UPSCALEMODEL=RealESRGAN_x2.pth
+	TARGETPREFIX="$TARGETPREFIX""_x2"
+	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le  540
+	then 
+		UPSCALEMODEL=RealESRGAN_x4plus.pth
+		TARGETPREFIX="$TARGETPREFIX""_x4"
+	fi
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpupscale"
 	SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
@@ -57,10 +62,6 @@ else
 	
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
-		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le  540
-		then 
-			UPSCALEMODEL=RealESRGAN_x4plus.pth
-		fi
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 		for f in "$SEGDIR"/*.mp4 ; do
 			TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
