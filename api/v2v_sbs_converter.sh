@@ -2,11 +2,11 @@
 #
 # v2v_sbs_converter.sh
 #
-# Creates SBS video from a base video (input)
+# Creates SBS video from a base video (input) and places result under output/sbs folder.
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
 # ComfyUI API script needs the following custom node packages: 
-#  comfyui_stereoscopic, comfyui_fearnworksnodes
+#  comfyui_stereoscopic, comfyui_controlnet_aux, comfyui-videohelpersuite, bjornulf_custom_nodes, comfyui-easy-use, comfyui-custom-scripts, ComfyLiterals
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 # Prerequisite: Configured path variables below.

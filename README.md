@@ -13,6 +13,7 @@ The target of this package is to improve
 
 We try to use existing libraries that make use of GPU whereever possible. We improved the output quality, so it keeps useable even with extremer depth scales.
 Finally we try to want to keep it easy for users by standardizing parameters and offer CLI-capable workflows to convert large-size images and long-length videos.
+The execution times vary, depending on resolution and framerate, but expect not more than one minute for one second of video.
 
 The package contains example workflows in example folder. Installation can be done over the ComfyUI Manager.
 
@@ -57,6 +58,14 @@ cd .../ComfyUI_windows_portable/ComfyUI
 ```
 
 Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converter.json) that has been transformed into an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
+
+### Bonus Workflow: V2V Upscale with Real-ESRGAN-x4plus
+
+To simply things an [V2V Shell Script](api/v2v_upscale.sh) for Git Bash is included that can be used is this way:
+```
+cd .../ComfyUI_windows_portable/ComfyUI
+./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.sh ./custom_nodes/comfyui_stereoscopic/examples/input/SmallIconicTown.mp4
+```
 
 ## Nodes
 

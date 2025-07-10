@@ -327,7 +327,7 @@ def queue_prompt(prompt):
     request.urlopen(req)
 
 if len(sys.argv) != 4 + 1:
-   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + "depth_scale depth_offset InputVideoPath OutputPathPrefix")
+   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_scale depth_offset InputVideoPath OutputPathPrefix")
 else:
     prompt = json.loads(prompt_text)
     prompt["163"]["inputs"]["depth_scale"] = float(sys.argv[1])
