@@ -35,6 +35,8 @@ The included workflow depends on other custom node packages. Please install them
 - ComfyLiterals
 - comfy-mtb
 
+Filenames should not contain spaces.
+
 ### Image-to-Image (I2I) Converter
 
 Workflow Snapshot:
