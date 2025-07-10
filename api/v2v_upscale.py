@@ -307,28 +307,28 @@ def queue_prompt(prompt):
     request.urlopen(req)
 
       
-if len(sys.argv) == 2 + 1:
+if len(sys.argv) == 3 + 1:
     prompt = json.loads(prompt_text)
     prompt["159"]["inputs"]["value"] = sys.argv[1]
     prompt["160"]["inputs"]["value"] = sys.argv[2] 
     prompt["174"]["inputs"]["value"] = 1.0
-    prompt["168"]["inputs"]["model_name"] = "RealESRGAN_x4plus.pth"
+    prompt["168"]["inputs"]["model_name"] = sys.argv[3]
     prompt["164"]["inputs"]["format"] = "video/h264-mp4"
     prompt["164"]["inputs"]["pix_fmt"] = "yuv420p"
     prompt["164"]["inputs"]["crf"] = 17
     
     queue_prompt(prompt)
-elif len(sys.argv) == 3 + 1:
+elif len(sys.argv) == 4 + 1:
     prompt = json.loads(prompt_text)
     prompt["159"]["inputs"]["value"] = sys.argv[1]
     prompt["160"]["inputs"]["value"] = sys.argv[2] 
-    #prompt["174"]["inputs"]["value"] = sys.argv[3]
-    prompt["168"]["inputs"]["model_name"] = "RealESRGAN_x4plus.pth"
+    prompt["174"]["inputs"]["value"] = sys.argv[4]
+    prompt["168"]["inputs"]["model_name"] = sys.argv[3]
     prompt["164"]["inputs"]["format"] = "video/h264-mp4"
     prompt["164"]["inputs"]["pix_fmt"] = "yuv420p"
     prompt["164"]["inputs"]["crf"] = 17
     
     queue_prompt(prompt)
 else:
-    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix [sigma]")
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix upscalemodel [sigma]")
 

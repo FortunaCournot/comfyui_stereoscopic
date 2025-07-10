@@ -291,7 +291,7 @@ prompt_text = """
   },
   "182": {
     "inputs": {
-      "scale_by": 0.25000000000000006,
+      "scale_by": 0.5,
       "images": [
         "69",
         0
@@ -325,7 +325,7 @@ if len(sys.argv) == 2 + 1:
     prompt["159"]["inputs"]["value"] = sys.argv[1]
     prompt["160"]["inputs"]["value"] = sys.argv[2] 
     prompt["174"]["inputs"]["value"] = 1.0
-    prompt["168"]["inputs"]["model_name"] = "RealESRGAN_x4plus.pth"
+    prompt["168"]["inputs"]["model_name"] = "RealESRGAN_x2.pth"
     prompt["164"]["inputs"]["format"] = "video/h264-mp4"
     prompt["164"]["inputs"]["pix_fmt"] = "yuv420p"
     prompt["164"]["inputs"]["crf"] = 17
@@ -335,8 +335,8 @@ elif len(sys.argv) == 3 + 1:
     prompt = json.loads(prompt_text)
     prompt["159"]["inputs"]["value"] = sys.argv[1]
     prompt["160"]["inputs"]["value"] = sys.argv[2] 
-    #prompt["174"]["inputs"]["value"] = sys.argv[3]
-    prompt["168"]["inputs"]["model_name"] = "RealESRGAN_x4plus.pth"
+    prompt["174"]["inputs"]["value"] = sys.argv[3]
+    prompt["168"]["inputs"]["model_name"] = "RealESRGAN_x2.pth"
     prompt["164"]["inputs"]["format"] = "video/h264-mp4"
     prompt["164"]["inputs"]["pix_fmt"] = "yuv420p"
     prompt["164"]["inputs"]["crf"] = 17

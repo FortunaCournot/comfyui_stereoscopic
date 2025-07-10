@@ -31,12 +31,10 @@ then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 input [sigma]"
     echo "E.g.: $0 SmallIconicTown.mp4 3.0"
-fi
-
-if test $# -eq 1 -o $# -eq 2
-then
+else
 	cd $COMFYUIPATH
 
+	UPSCALEMODEL=RealESRGAN_x2.pth
 	SIGMA=3.0
 	INPUT="$1"
 	shift
@@ -57,8 +55,12 @@ then
 	echo "prompting for $TARGETPREFIX"
 	rm "$TARGETPREFIX"
 	
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le  540
+	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
+		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le  540
+		then 
+			UPSCALEMODEL=RealESRGAN_x4plus.pth
+		fi
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 		for f in "$SEGDIR"/*.mp4 ; do
 			TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
@@ -66,10 +68,8 @@ then
 				mv "$f" "${f%.mp4}_na.mp4"
 				nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 			fi
-			../python_embeded/python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $SIGMA
+			../python_embeded/python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $UPSCALEMODEL $SIGMA
 		done
-		
-		
 		
 		echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
 		echo "cd \"\$(dirname \"\$0\")\"" >>"$UPSCALEDIR/concat.sh"
