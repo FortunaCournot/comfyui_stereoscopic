@@ -77,7 +77,7 @@ cd .../ComfyUI_windows_portable/ComfyUI
 ```
 
 It upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x4 appended to filename,  under ComfyUI/output/upscale folder.
-The number at the end is optional, and is the blur sigma.
+The number at the end is optional, and is the blur sigma. The video must have already have a decent quality, or the model will fail.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 There exists batch scripts for mass conversion, see below.
 
@@ -91,7 +91,7 @@ cd .../ComfyUI_windows_portable/ComfyUI
 ```
 
 It down-/upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x1 appended to filename,  under ComfyUI/output/upscale folder.
-The number at the end is optional, and is the blur sigma.
+The number at the end is optional, and is the blur sigma. The video must have already have a decent quality, or the model will fail.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 There exists batch scripts for mass conversion, see below.
 

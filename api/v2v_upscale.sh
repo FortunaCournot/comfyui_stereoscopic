@@ -57,33 +57,38 @@ then
 	echo "prompting for $TARGETPREFIX"
 	rm "$TARGETPREFIX"
 	
-	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
-	for f in "$SEGDIR"/*.mp4 ; do
-		TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
-		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
-			mv "$f" "${f%.mp4}_na.mp4"
-			nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
-		fi
-		../python_embeded/python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $SIGMA
-	done
-	
-	
-	
-	echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
-	echo "cd \"\$(dirname \"\$0\")\"" >>"$UPSCALEDIR/concat.sh"
-	echo "rm -rf \"$TARGETPREFIX\"\".tmpseg\"" >>"$UPSCALEDIR/concat.sh"
-	echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$UPSCALEDIR/concat.sh"
-	echo "then" >>"$UPSCALEDIR/concat.sh"
-	echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$UPSCALEDIR/concat.sh"
-	echo "    rm \$list" >>"$UPSCALEDIR/concat.sh"
-	echo "fi" >>"$UPSCALEDIR/concat.sh"
-	echo "for f in ./*.mp4 ; do" >>"$UPSCALEDIR/concat.sh"
-	echo "	echo \"file \$f\" >> "$UPSCALEDIR"/list.txt" >>"$UPSCALEDIR/concat.sh"
-	echo "done" >>"$UPSCALEDIR/concat.sh"
-	echo "nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
-	echo "cd .." >>"$UPSCALEDIR/concat.sh"
-	echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
-	echo " "
-	echo "Wait until comfyui tasks are done (check ComfyUI queue in browser), then call the script manually: $UPSCALEDIR/concat.sh"
+	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le  540
+	then 
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
+		for f in "$SEGDIR"/*.mp4 ; do
+			TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
+			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
+				mv "$f" "${f%.mp4}_na.mp4"
+				nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
+			fi
+			../python_embeded/python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $SIGMA
+		done
+		
+		
+		
+		echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
+		echo "cd \"\$(dirname \"\$0\")\"" >>"$UPSCALEDIR/concat.sh"
+		echo "rm -rf \"$TARGETPREFIX\"\".tmpseg\"" >>"$UPSCALEDIR/concat.sh"
+		echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$UPSCALEDIR/concat.sh"
+		echo "then" >>"$UPSCALEDIR/concat.sh"
+		echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$UPSCALEDIR/concat.sh"
+		echo "    rm \$list" >>"$UPSCALEDIR/concat.sh"
+		echo "fi" >>"$UPSCALEDIR/concat.sh"
+		echo "for f in ./*.mp4 ; do" >>"$UPSCALEDIR/concat.sh"
+		echo "	echo \"file \$f\" >> "$UPSCALEDIR"/list.txt" >>"$UPSCALEDIR/concat.sh"
+		echo "done" >>"$UPSCALEDIR/concat.sh"
+		echo "nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "cd .." >>"$UPSCALEDIR/concat.sh"
+		echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
+		echo " "
+		echo "Wait until comfyui tasks are done (check ComfyUI queue in browser), then call the script manually: $UPSCALEDIR/concat.sh"
+	else
+		echo "Skipping upscaling of large video $INPUT"
+	fi
 fi
 
