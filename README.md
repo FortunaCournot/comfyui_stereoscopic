@@ -48,7 +48,9 @@ Input:
 Output (contains workflow):
 ![stereoscopic_image](./examples/result/SBS_00002_.png)
 
-#### Analysis
+For I2I we currently offer no CLI scripts.
+
+#### Converter Analysis
 
 To give users an option to see what is going on and maybe to tweak things better, we provide a processing option that can be set to generate test output:
 ![base_image](./docs/img/I2I-SBS-Analysis-Snapshot.png)
