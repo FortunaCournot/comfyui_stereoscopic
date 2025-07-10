@@ -38,7 +38,7 @@ else
 	shift
 	depth_offset="$1"
 	shift
-	INPUT="$1"
+	INPUT=`realpath "$1"`
 	shift
 	
 	TARGETPREFIX=${INPUT##*/}
@@ -46,6 +46,8 @@ else
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpsbs"
+	touch "$TARGETPREFIX"".tmpsbs"/x
+	rm "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpsbs"/*
 	SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
 	SBSDIR=`realpath "$TARGETPREFIX"".tmpsbs"`
 	touch $TARGETPREFIX
@@ -63,8 +65,6 @@ else
 		../python_embeded/python.exe $SCRIPTPATH $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
 	done
 	
-	
-	
 	echo "#!/bin/sh" >"$SBSDIR/concat.sh"
 	echo "cd \"\$(dirname \"\$0\")\"" >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpseg\"" >>"$SBSDIR/concat.sh"
@@ -76,7 +76,13 @@ else
 	echo "for f in ./*.mp4 ; do" >>"$SBSDIR/concat.sh"
 	echo "	echo \"file \$f\" >> "$SBSDIR"/list.txt" >>"$SBSDIR/concat.sh"
 	echo "done" >>"$SBSDIR/concat.sh"
-	echo "nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$SBSDIR/concat.sh"
+	echo "then" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "else" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "cd .." >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
 	echo " "
