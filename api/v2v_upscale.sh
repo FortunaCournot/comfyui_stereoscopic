@@ -87,7 +87,7 @@ else
 		echo "	echo \"file \$f\" >> "$UPSCALEDIR"/list.txt" >>"$UPSCALEDIR/concat.sh"
 		echo "done" >>"$UPSCALEDIR/concat.sh"
 		echo "nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "nice "$FFMPEGPATH"ffmpeg -i output.mp4 -i $INPUT -c copy -map 0:v -map 0:a -map 1:a $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "nice "$FFMPEGPATH"ffmpeg -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "cd .." >>"$UPSCALEDIR/concat.sh"
 		echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
 		echo " "
