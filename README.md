@@ -21,6 +21,8 @@ Below you will find documentation of workflow, nodes and some VR Software.
 
 The workflows have been tested on NVIDEA Geforce 5070 Ti, GTX 1050ti, Intel UHD Graphics 630.
 
+Sample videos can be found in the gallery under the Civitai asset page [I2I V2V Side-By-Side Converter Workflow comfyui_stereoscopic](https://civitai.com/models/1757677).
+
 ## Workflows
 **PREREQUISTES:**
 
@@ -183,3 +185,6 @@ e.g. by putting all videos and images under a folder with the name "fullsbs".
 ### [DEO VR Player](https://deovr.com/app)
 Download for free. Supports many platforms. We have tested it on Meta Quest 3, HTC vive pro 2 .
 To simply the configuration follow their guide: [Naming convention](https://deovr.com/app/doc#naming), e.g. by adding "_SBS_LR" to the end of the file name.
+
+### [4XVR Video Player](https://www.4xvr.net/)
+Commercial application. Auto-detection of aspect ratio currently not working (support pending). Manual setup per file required to 3D FSBS.
