@@ -37,6 +37,12 @@ The included workflow depends on other custom node packages. Please install them
 
 Filenames should not contain spaces.
 
+The general recommendation is, to use the upscale scripts first, to ensure the video has a certain resolution, before starting the SBS Converter.
+The upscale script only run on videos not greater than 1920x1080. I recommend the following parameters for Upscaler and Converter:
+Sigma (Blur): 1.0
+Depth Scale: 1.0
+Depth Offset: 0.0
+
 ### Image-to-Image (I2I) Converter
 
 Workflow Snapshot:
