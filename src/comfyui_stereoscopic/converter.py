@@ -7,8 +7,16 @@ import cv2
 from comfy.utils import ProgressBar
 #DEBUG: import time
 
-# https://stackoverflow.com/questions/41703210/inverting-a-real-valued-index-grid/78950229#78950229
 def invert_map(F):
+    """
+    Performs mapping of pixel locations from image source to destination system.
+    Source and discussion of the algorithm:
+    https://stackoverflow.com/questions/41703210/inverting-a-real-valued-index-grid/78950229#78950229
+
+    F: shifted coordinates (pixel locations) defined in image source system
+
+    Returns shifted coordinates (pixel locations) solved to representation in image destination system.
+    """
     # shape is (h, w, 2), an "xymap"
     (h, w) = F.shape[:2]
     I = np.zeros_like(F)
@@ -19,7 +27,7 @@ def invert_map(F):
         P += correction * 0.5
     return P
 
-#     
+  
 def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displaytext):
     """
     Performs a subpixel shift of the image depending on the shift map
@@ -166,9 +174,7 @@ class ImageSBSConverter:
         blur_radius, symetric, processing
         ):
         """
-        Convert image to a side-by-side (SBS) stereoscopic image.
-        The depth map is automatically generated using our custom depth estimation approach.
-
+        Convert image to a side-by-side (SBS) stereoscopic image using a provided depth map.
 
         Returns:
         - sbs_image: the stereoscopic image(s).
@@ -190,11 +196,6 @@ class ImageSBSConverter:
             self.depth_model.gradient_weight = 0.0
             #self.depth_model.blur_radius = blur_radius
 
-        # Generate depth map
-        #print(f"Generating depth map with invert_depth={invert_depth}...")
-        #depth_map = self.generate_depth_map(base_image)
-        #depth_image
-        
         # Get batch size
         B = base_image.shape[0]
 
@@ -209,24 +210,6 @@ class ImageSBSConverter:
             current_image_pil = Image.fromarray((current_image * 255).astype(np.uint8))  # Convert to PIL
             current_depth_image = depth_image[b].cpu().numpy()  # Get depth_image b from batch
 
-            # Get the current depth map
-            #if hasattr(self, 'original_depths') and len(self.original_depths) > b:
-            #    # Use the original grayscale depth map for this image in the batch
-            #    depth_for_sbs = self.original_depths[b].copy()
-            #else:
-            #    # If original depth is not available, extract from the colored version
-            #    current_depth_map = depth_map[b].cpu().numpy()  # Get depth map b from batch#
-            #
-            #    # Check [3, H, W]
-            #    if current_depth_map.shape[0] == 3 and len(current_depth_map.shape) == 3:
-            #        current_depth_map = np.transpose(current_depth_map, (1, 2, 0))
-            #    # Debug info
-            #    #print(f"Depth map shape: {current_depth_map.shape}, min: {current_depth_map.min()}, max: {current_depth_map.max()}, mean: {current_depth_map.mean()}")
-            #    # If we have a colored depth map, use the red channel (which should have our depth values)
-            #    if len(current_depth_map.shape) == 3 and current_depth_map.shape[2] == 3:
-            #        depth_for_sbs = current_depth_map[:, :, 0].copy()  # Use red channel
-            #    else:
-            #        depth_for_sbs = current_depth_map.copy()
             depth_for_sbs = current_depth_image
             if len(depth_for_sbs.shape) == 3 and depth_for_sbs.shape[2] == 3:
                 depth_for_sbs = depth_for_sbs[:, :, 0].copy()  # Use red channel
@@ -242,7 +225,6 @@ class ImageSBSConverter:
             width, height = current_image_pil.size
 
             # Convert depth_for_sbs to 8-bit PIL image and resize
-            #depth_map_img = Image.fromarray((depth_for_sbs * 255).astype(np.uint8), mode='L')
             depth_map_img = Image.fromarray((depth_for_sbs * 255).astype(np.uint8))
             depth_map_img = depth_map_img.resize((width, height), Image.NEAREST)
 
@@ -318,7 +300,6 @@ class ImageSBSConverter:
                 sbs_image_swapped[:, 0: width] = sbs_image[:, width : width + width]
                 sbs_image_swapped[:, width : width + width] = sbs_image[:, 0: width]
                 sbs_image = sbs_image_swapped
-
 
             # Convert to tensor
             sbs_image_tensor = torch.tensor(sbs_image.astype(np.float32) / 255.0)
