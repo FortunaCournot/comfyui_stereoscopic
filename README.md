@@ -5,8 +5,10 @@ Discord: [Activation Link]([./docs/img/I2I-SBS-Workflow-Snapshot.png](https://di
 
 ## Introduction
 This package is based on the great work of Sam Seen from https://github.com/MrSamSeen/ComfyUI_SSStereoscope, that gave us a good starting point.
+This package is developed by me, Fortuna, and Iablunoshka, who is responsible for the insane speed of the algorithm in the hope, that we soon see more VR content,
+AI or classic.
 
-The target of this package is to improve
+Our development goals in this package are to improve
 - processing speed
 - output quality 
 - ease of use
