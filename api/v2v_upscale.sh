@@ -45,11 +45,14 @@ else
 	TARGETPREFIX=${INPUT##*/}
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
 	UPSCALEMODEL=RealESRGAN_x2.pth
-	TARGETPREFIX="$TARGETPREFIX""_x2"
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
+	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
-		UPSCALEMODEL=RealESRGAN_x4plus.pth
-		TARGETPREFIX="$TARGETPREFIX""_x4"
+		TARGETPREFIX="$TARGETPREFIX""_x2"
+		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
+		then 
+			UPSCALEMODEL=RealESRGAN_x4plus.pth
+			TARGETPREFIX="$TARGETPREFIX""_x4"
+		fi
 	fi
 	
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
