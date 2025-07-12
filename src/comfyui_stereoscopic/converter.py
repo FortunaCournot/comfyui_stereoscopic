@@ -78,17 +78,17 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
         #print(f"test-appliedshifts-x8 processed: {sbs_result.shape}")
         return sbs_result
         
-    # try to improve per line
+    # monotony per line (purly related to depth scale)
     for y in range(H):
         for x in range(W):
-            xr=W-x-1
-            value=shifted_x[y,xr]
-            #print(f"test improve: xr={xr} value={value}")
-            if xr>W-1:
-                if value<=previous_value:
+            #xr=W-x-1
+            value=shifted_x[y,x]
+            if x>0:
+                if value>=previous_value:
                     previous_value=value
                 else:
-                    shifted_x[y,xr]=previous_value
+                    #print(f"test improve: USE PREVIOUS at x={x} value={value} => previous_value={previous_value}")
+                    shifted_x[y,x]=previous_value
             else:
                 previous_value=value
 
