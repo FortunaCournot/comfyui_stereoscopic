@@ -7,6 +7,15 @@ import cv2
 from comfy.utils import ProgressBar
 #DEBUG: import time
 
+def gpu_blur(input_array, blur_radius):
+
+    gpu_mat = cv2.UMat(input_array)
+    kernel_size = (blur_radius, blur_radius)
+    smoothed_gpu = cv2.blur(gpu_mat, kernel_size)
+
+    blurred = cv2.UMat.get(smoothed_gpu)
+    return blurred
+
 def invert_map(F):
     """
     Performs mapping of pixel locations from image source to destination system.
@@ -259,10 +268,7 @@ class ImageSBSConverter:
             
             pixel_shifts = (depth_np * depth_scale_local + depth_offset_local).astype(np.float32)# np.int32 to np.float32     
             if blur_radius>0:
-                gpu_mat = cv2.UMat(pixel_shifts)
-                kernel_size = (blur_radius, blur_radius)
-                smoothed_gpu = cv2.blur(gpu_mat, kernel_size)
-                pixel_shifts = cv2.UMat.get(smoothed_gpu)
+                pixel_shifts = gpu_blur(pixel_shifts,blur_radius)
             shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
             sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
             if processing == "shift-grid":
@@ -273,10 +279,7 @@ class ImageSBSConverter:
                 fliped = width - fliped
                 pixel_shifts = (depth_np * -depth_scale_local + depth_offset_local).astype(np.float32)# np.int32 to np.float32     
                 if blur_radius>0:
-                    gpu_mat = cv2.UMat(pixel_shifts)
-                    kernel_size = (blur_radius, blur_radius)
-                    smoothed_gpu = cv2.blur(gpu_mat, kernel_size)
-                    pixel_shifts = cv2.UMat.get(smoothed_gpu)
+                    pixel_shifts = gpu_blur(pixel_shifts,blur_radius)
                 shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
                 sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
                 if processing == "shift-grid":
