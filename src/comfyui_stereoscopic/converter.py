@@ -259,9 +259,10 @@ class ImageSBSConverter:
             displaytext = 'depth_scale ' + str(depth_scale) + ', depth_offset = ' + str(depth_offset)
             
             depth_scale_local = depth_scale * width * 50.0 / 1000000.0
+            depth_offset_local = depth_offset * -8
             if symetric:
                 depth_scale_local = depth_scale_local / 2.0
-            depth_offset_local = depth_offset * -8
+                depth_offset_local = depth_offset_local / 2.0
             if invert_depth:
                 depth_offset_local = -depth_offset_local            
             crop_size = int ((depth_offset + depth_scale) * 4)
@@ -289,14 +290,14 @@ class ImageSBSConverter:
 
             
             #Blackout parts without sufficient information
-            if processing != "shift-grid" and processing != "display-values":
-                fillcolor=(255, 0, 0)
-                if processing == "Normal" or processing == "display-values": 
-                    fillcolor=(0, 0, 0)
-                if crop_size>0:
-                    cv2.rectangle(sbs_image, (fliped, 0), (crop_size - 1, height - 1), fillcolor, -1)
-                elif crop_size<0:
-                    cv2.rectangle(sbs_image, (fliped + width - crop_size, 0), (fliped + width - 1, height - 1), fillcolor, -1)
+            #if processing != "shift-grid" and processing != "display-values":
+            #    fillcolor=(255, 0, 0)
+            #    if processing == "Normal" or processing == "display-values": 
+            #        fillcolor=(0, 0, 0)
+            #    if crop_size>0:
+            #        cv2.rectangle(sbs_image, (fliped, 0), (crop_size - 1, height - 1), fillcolor, -1)
+            #    elif crop_size<0:
+            #        cv2.rectangle(sbs_image, (fliped + width - crop_size, 0), (fliped + width - 1, height - 1), fillcolor, -1)
 
             if switch_sides:
                 sbs_image_swapped = np.zeros((height, width * 2, 3), dtype=np.uint8)
