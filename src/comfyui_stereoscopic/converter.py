@@ -168,7 +168,7 @@ class ImageSBSConverter:
                 "switch_sides": ("BOOLEAN", {"default": False}),
                 "blur_radius": ("INT", {"default": 45, "min": -1, "max": 99, "step": 2}),
                 "symetric": ("BOOLEAN", {"default": True}),
-                "processing": (["Normal", "test-pixelshifts-x8",  "test-appliedshifts-x8", "test-remap", "pixel-shift-x8", "shift-grid", "display-values"], {"default": "Normal"}),
+                "processing": (["Normal", "test-pixelshifts-x8",  "test-appliedshifts-x8", "test-remap", "test-blackout", "shift-grid", "display-values"], {"default": "Normal"}),
             }
         }
 
@@ -260,12 +260,19 @@ class ImageSBSConverter:
             
             depth_scale_local = depth_scale * width * 50.0 / 1000000.0
             depth_offset_local = depth_offset * -8
+
             if symetric:
                 depth_scale_local = depth_scale_local / 2.0
                 depth_offset_local = depth_offset_local / 2.0
             if invert_depth:
                 depth_offset_local = -depth_offset_local            
-            crop_size = int ((depth_offset + depth_scale) * 4)
+            crop_size = int (depth_scale * 6)
+            crop_size = crop_size + int (depth_offset * 8)
+            if symetric:
+                crop_size = int(crop_size / 2)
+                crop_size2 = int (depth_scale * 6)
+                crop_size2 = crop_size2 - int (depth_offset * 8)
+                crop_size2 = int(crop_size2 / 2)
             
             pixel_shifts = (depth_np * depth_scale_local + depth_offset_local).astype(np.float32)# np.int32 to np.float32     
             if blur_radius>0:
@@ -288,17 +295,22 @@ class ImageSBSConverter:
                     sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
                 fliped = width - fliped
 
-            
             #Blackout parts without sufficient information
-            #if processing != "shift-grid" and processing != "display-values":
-            #    fillcolor=(255, 0, 0)
-            #    if processing == "Normal" or processing == "display-values": 
-            #        fillcolor=(0, 0, 0)
-            #    if crop_size>0:
-            #        cv2.rectangle(sbs_image, (fliped, 0), (crop_size - 1, height - 1), fillcolor, -1)
-            #    elif crop_size<0:
-            #        cv2.rectangle(sbs_image, (fliped + width - crop_size, 0), (fliped + width - 1, height - 1), fillcolor, -1)
-
+            if processing != "shift-grid" and processing != "display-values":
+                fillcolor=(0, 0, 0)
+                thickness = -1
+                if processing == "test-blackout": 
+                    fillcolor=(255, 0, 0)
+                    thickness = 1
+                if crop_size>0:
+                    cv2.rectangle(sbs_image, (width - crop_size, 0), (width - 1, height - 1), fillcolor, thickness)
+                elif crop_size<0:
+                    cv2.rectangle(sbs_image, (0, 0), (-crop_size - 1, height - 1), fillcolor, thickness)
+                if symetric:
+                    if crop_size2>0:
+                        cv2.rectangle(sbs_image, (width, 0), (width+crop_size2, height - 1), fillcolor, thickness)
+                    elif crop_size2<0:
+                        cv2.rectangle(sbs_image, (2*width+crop_size2, 0), (2*width -1, height - 1), fillcolor, thickness)
             if switch_sides:
                 sbs_image_swapped = np.zeros((height, width * 2, 3), dtype=np.uint8)
                 sbs_image_swapped[:, 0: width] = sbs_image[:, width : width + width]
