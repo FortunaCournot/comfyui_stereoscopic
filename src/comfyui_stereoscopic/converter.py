@@ -83,6 +83,7 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
         for x in range(W):
             xr=W-x-1
             value=shifted_x[y,xr]
+            #print(f"test improve: xr={xr} value={value}")
             if xr>W-1:
                 if value<=previous_value:
                     previous_value=value
@@ -108,18 +109,12 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
     shifted_img = cv2.remap(image, shifted_x, y_coords, interpolation=cv2.INTER_LINEAR,borderMode=cv2.BORDER_REFLECT)
 
 
-    if processing == "test-remap":
-        #print(f"test-remap exit called...")
-        sbs_result[:, flip_offset:flip_offset+W] = shifted_img
-        #print(f"test-remap processed: {sbs_result.shape}")
-        return sbs_result
-
     if processing == "pixel-shift-x8":   
         pixel_shifts_x2 = pixel_shifts * 8
         sbs_result[:, flip_offset:flip_offset+W,0] = np.clip(pixel_shifts_x2, 0, 255).astype(np.uint8)
         sbs_result[:, flip_offset:flip_offset+W,1] = np.clip(pixel_shifts_x2, 0, 255).astype(np.uint8)
         sbs_result[:, flip_offset:flip_offset+W,2] = np.clip(pixel_shifts_x2, 0, 255).astype(np.uint8)
-    elif processing == "shift-grid":
+    elif processing == "test-shift-grid":
         # draw vertical lines
         step=10
         z=0
@@ -168,7 +163,7 @@ class ImageSBSConverter:
                 "switch_sides": ("BOOLEAN", {"default": False}),
                 "blur_radius": ("INT", {"default": 45, "min": -1, "max": 99, "step": 2}),
                 "symetric": ("BOOLEAN", {"default": True}),
-                "processing": (["Normal", "test-pixelshifts-x8",  "test-appliedshifts-x8", "test-remap", "test-blackout", "shift-grid", "display-values"], {"default": "Normal"}),
+                "processing": (["Normal", "test-pixelshifts-x8",  "test-appliedshifts-x8", "test-blackout", "test-shift-grid", "display-values"], {"default": "Normal"}),
             }
         }
 
@@ -279,9 +274,9 @@ class ImageSBSConverter:
                 pixel_shifts = gpu_blur(pixel_shifts,blur_radius)
             shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
             sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
-            if processing == "shift-grid":
-                shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
-                sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
+            #if processing == "test-shift-grid":
+            #    shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
+            #    sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
 
             if symetric:
                 fliped = width - fliped
@@ -290,13 +285,14 @@ class ImageSBSConverter:
                     pixel_shifts = gpu_blur(pixel_shifts,blur_radius)
                 shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
                 sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
-                if processing == "shift-grid":
-                    shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
-                    sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
+                #if processing == "test-shift-grid":
+                #    shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
+                #    sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
+                
                 fliped = width - fliped
 
             #Blackout parts without sufficient information
-            if processing != "shift-grid" and processing != "display-values":
+            if processing != "test-shift-grid" and processing != "display-values":
                 fillcolor=(0, 0, 0)
                 thickness = -1
                 if processing == "test-blackout": 
