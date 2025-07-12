@@ -30,14 +30,14 @@ if test $# -ne 1 -a $# -ne 2
 then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 input [sigma]"
-    echo "E.g.: $0 SmallIconicTown.mp4 3.0"
+    echo "E.g.: $0 SmallIconicTown.mp4 0.2"
 fi
 
 if test $# -eq 1 -o $# -eq 2
 then
 	cd $COMFYUIPATH
 
-	SIGMA=3.0
+	SIGMA=0.2
 	INPUT="$1"
 	shift
 	if test $# -eq 1
