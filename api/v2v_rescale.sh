@@ -38,7 +38,7 @@ then
 	cd $COMFYUIPATH
 
 	SIGMA=3.0
-	INPUT=`realpath "$1"`
+	INPUT="$1"
 	shift
 	if test $# -eq 1
 	then
@@ -46,6 +46,7 @@ then
 		shift	
 	fi
 	TARGETPREFIX=${INPUT##*/}
+	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
 	TARGETPREFIX="$TARGETPREFIX""_x1"
 	mkdir -p "$TARGETPREFIX"".tmpseg"

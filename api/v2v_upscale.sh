@@ -35,7 +35,7 @@ else
 	cd $COMFYUIPATH
 
 	SIGMA=1.0
-	INPUT=`realpath "$1"`
+	INPUT="$1"
 	shift
 	if test $# -eq 1
 	then
@@ -43,6 +43,7 @@ else
 		shift	
 	fi
 	TARGETPREFIX=${INPUT##*/}
+	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
 	UPSCALEMODEL=RealESRGAN_x2.pth
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080

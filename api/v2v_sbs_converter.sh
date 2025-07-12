@@ -38,10 +38,11 @@ else
 	shift
 	depth_offset="$1"
 	shift
-	INPUT=`realpath "$1"`
+	INPUT="$1"
 	shift
 	
 	TARGETPREFIX=${INPUT##*/}
+	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/sbs/${TARGETPREFIX%.mp4}
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
