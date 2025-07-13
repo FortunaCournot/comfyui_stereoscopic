@@ -43,7 +43,7 @@ Filenames should not contain spaces.
 
 The general recommendation is, to use the upscale scripts first, to ensure the video has a certain resolution, before starting the SBS Converter.
 The upscale script only run on videos not greater than 1920x1080. I recommend the following parameters for Upscaler and Converter:
-Sigma (Blur): 1.0
+Sigma (Blur): 0.2
 Depth Scale: 1.0
 Depth Offset: 0.0
 

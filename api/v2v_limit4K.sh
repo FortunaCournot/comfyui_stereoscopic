@@ -21,12 +21,15 @@ else
 
 	INPUT="$1"
 	shift
+	
 	TARGETPREFIX=${INPUT##*/}
 	TARGETPREFIX=${TARGETPREFIX%.mp4}_4K
 	INPUT=`realpath "$INPUT"`
+	INPUTPATH=`dirname $INPUT`
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840
 	then 
-		nice "$FFMPEGPATH"ffmpeg -i "$INPUT" -filter:v scale=3840:-1 -c:a copy "$TARGETPREFIX"".mp4"
+		echo "Downscaling to $INPUTPATH/$TARGETPREFIX"".mp4"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" -filter:v scale=3840:-1 -c:a copy "$INPUTPATH/$TARGETPREFIX"".mp4"
 	else
 		echo "Skipping downscaling of video $INPUT: not above 4K"
 	fi

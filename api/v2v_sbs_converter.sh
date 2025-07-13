@@ -65,24 +65,36 @@ else
 	TARGETPREFIX=`realpath "$TARGETPREFIX"`
 	echo "Converting to SBS from $TARGETPREFIX"
 	rm "$TARGETPREFIX"
+
+	SPLITINPUT="$INPUT"
 	
+	# Prepare to restrict resolution to 4K
+	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840 -o `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  2160
+	then 
+		echo "Resolution > 4K: Downscaling..."
+		$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
+		SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
+		mv $SPLITINPUT $SEGDIR
+		SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
+	fi
+
 	# Prepare to restrict fps
-	fpsv=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $INPUT`
+	fpsv=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
 	fps=$(($fpsv))
 	echo "Source FPS: $fps ($fpsv)"
-	SPLITINPUT="$INPUT"
 	FPSOPTION=""
 	echo $fps 30.0 | awk '{if ($1 > $2) FPSOPTION="-filter:v fps=fps=30" }'
 	if [[ -n "$FPSOPTION" ]]
 	then 
-		SPLITINPUT="$SEGDIR/splitinput_fps30.mp4"
+		SPLITINPUTFPS30="$SEGDIR/splitinput_fps30.mp4"
 		echo "Rencoding to 30.0 ..."
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -filter:v fps=fps=30 "$SPLITINPUT"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUT"
+		SPLITINPUT="$SPLITINPUTFPS30"
 	fi
 	
 	echo "Splitting into segments and prompting ..."
 	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 -map 0:a:0  -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
-	for f in "$SEGDIR"/*.mp4 ; do
+	for f in "$SEGDIR"/segment*.mp4 ; do
 		TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
 		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 			mv "$f" "${f%.mp4}_na.mp4"
@@ -118,14 +130,14 @@ else
 	echo "cd .." >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
 	echo "echo done." >>"$SBSDIR/concat.sh"
-
+	
 	echo "Waiting for queue to finish..."
 	sleep 4  # Give some extra time to start...
 	lastcount=""
 	start=`date +%s`
 	startjob=$start
 	itertimemsg=""
-    until [ "$queuecount" = "0" ]
+	until [ "$queuecount" = "0" ]
 	do
 		sleep 1
 		curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
