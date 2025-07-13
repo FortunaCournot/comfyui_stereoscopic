@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui_stereoscopic"
-version = "1.2.0"
+version = "1.2.1"
 description = "Nodes to create stereoscopic images and movies."
 authors = [
   {name = "Fortuna Cournot", email = "fortunacournot@gmail.com"}
 ]
 readme = "README.md"
 license = {text = "MIT license"}
+requires-python = ">=3.12"
 classifiers = []
 dependencies = [
 
@@ -31,13 +32,13 @@ dev = [
 [project.urls]
 bugs = "https://github.com/FortunaCournot/comfyui_stereoscopic/issues"
 homepage = "https://github.com/FortunaCournot/comfyui_stereoscopic"
-
+Repository = "https://github.com/FortunaCournot/comfyui_stereoscopic"
 
 [tool.comfy]
-PublisherId = "stereoscopic"
-DisplayName = "Fortuna Cournot"
+PublisherId = "fortunacournot"
+DisplayName = "Stereoscopic"
 Icon = ""
-
+requires-comfyui = ">=0.3.39"  # ComfyUI version compatibility
 
 [tool.setuptools.package-data]
 "*" = ["*.*"]
