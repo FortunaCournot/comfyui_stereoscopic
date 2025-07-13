@@ -63,7 +63,7 @@ else
 	SBSDIR=`realpath "$TARGETPREFIX"".tmpsbs"`
 	touch $TARGETPREFIX
 	TARGETPREFIX=`realpath "$TARGETPREFIX"`
-	echo "prompting for $TARGETPREFIX"
+	echo "Converting to SBS from $TARGETPREFIX"
 	rm "$TARGETPREFIX"
 	
 	# Prepare to restrict fps
@@ -108,10 +108,12 @@ else
 	echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic output3.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "else" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic output3.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "cd .." >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
@@ -119,15 +121,29 @@ else
 
 	echo "Waiting for queue to finish..."
 	sleep 4  # Give some extra time to start...
-	queuecount=""
+	lastcount=""
+	start=`date +%s`
+	startjob=$start
+	itertimemsg=""
     until [ "$queuecount" = "0" ]
 	do
 		sleep 1
 		curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
 		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-		echo -ne "queuecount: $queuecount  \r"
+		if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
+		then
+			end=`date +%s`
+			runtime=$((end-start))
+			start=`date +%s`
+			eta=$(("$queuecount * runtime"))
+			itertimemsg=", $runtime""s/prompt, ETA: $eta""s"
+		fi
+		lastcount="$queuecount"
+			
+		echo -ne "queuecount: $queuecount $itertimemsg     \r"
 	done
-	echo '\ndone.'
+	runtime=$((end-startjob))
+	echo "done. duration: $runtime""s.                  "
 	rm queuecheck.json
 	echo "Calling $SBSDIR/concat.sh"
 	$SBSDIR/concat.sh
