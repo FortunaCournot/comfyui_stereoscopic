@@ -20,7 +20,7 @@ then
 else
 	cd $COMFYUIPATH
 
-	SIGMA=1.0
+	SIGMA=0.2
 	if test $# -eq 1
 	then
 		SIGMA=$1

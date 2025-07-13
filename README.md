@@ -31,10 +31,10 @@ Sample videos can be found in the gallery under the Civitai asset page [I2I V2V 
 - For scripts the local ComfyUI_windows_portable server must be running on default port.
 
 The included workflow depends on other custom node packages. Please install them first:
-- comfyui_controlnet_aux nightly
+- comfyui_controlnet_aux nightly 1.1.0
 - comfyui-videohelpersuite 1.6.1
-- bjornulf_custom_nodes 1.1.6
-- comfyui-easy-use (https://github.com/yolain/ComfyUI-Easy-Use v1.3.0) 
+- bjornulf_custom_nodes 1.1.8
+- comfyui-easy-use 1.3.1
 - comfyui-custom-scripts 1.2.5
 - ComfyLiterals nightly
 - comfy-mtb 0.5.4

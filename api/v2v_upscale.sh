@@ -34,7 +34,7 @@ then
 else
 	cd $COMFYUIPATH
 
-	SIGMA=1.0
+	SIGMA=0.2
 	INPUT="$1"
 	shift
 	
