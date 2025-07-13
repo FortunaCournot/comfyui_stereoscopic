@@ -67,14 +67,14 @@ else
 	rm "$TARGETPREFIX"
 	
 	# Prepare to restrict fps
-	fps=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $INPUT`
-	echo "Source FPS: $fps"
-	fps=$(($fps))
+	fpsv=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $INPUT`
+	fps=$(($fpsv))
+	echo "Source FPS: $fps ($fpsv)"
 	SPLITINPUT="$INPUT"
 	FPSOPTION=""
-	if test fps > 30.0
+	echo $fps 30.0 | awk '{if ($1 > $2) FPSOPTION="-filter:v fps=fps=30" }'
+	if [[ -n "$FPSOPTION" ]]
 	then 
-		FPSOPTION="-filter:v fps=fps=30"
 		SPLITINPUT="$SEGDIR/splitinput_fps30.mp4"
 		echo "Rencoding to 30.0 ..."
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -filter:v fps=fps=30 "$SPLITINPUT"
