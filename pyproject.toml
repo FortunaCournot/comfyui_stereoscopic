@@ -34,8 +34,8 @@ homepage = "https://github.com/FortunaCournot/comfyui_stereoscopic"
 
 
 [tool.comfy]
-PublisherId = "FortunaCournot"
-DisplayName = "Stereoscopic Converter Nodepack"
+PublisherId = "fortunacournot"
+DisplayName = "Stereoscopic"
 Icon = ""
 
 
