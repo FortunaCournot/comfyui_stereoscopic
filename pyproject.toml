@@ -34,8 +34,8 @@ homepage = "https://github.com/FortunaCournot/comfyui_stereoscopic"
 
 
 [tool.comfy]
-PublisherId = "fortunacournot"
-DisplayName = "Stereoscopic"
+PublisherId = "stereoscopic"
+DisplayName = "Fortuna Cournot"
 Icon = ""
 
 
