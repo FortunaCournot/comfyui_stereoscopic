@@ -18,5 +18,6 @@ else
 		/bin/bash "$nextscript"
 	done
 	echo "done."
+	echo "Batch done."
 fi
 

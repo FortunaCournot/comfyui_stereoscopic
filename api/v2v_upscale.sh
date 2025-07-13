@@ -37,6 +37,14 @@ else
 	SIGMA=1.0
 	INPUT="$1"
 	shift
+	
+	PROGRESS=" "
+	if [ -e input/upscale_in/BATCHPROGRESS.TXT ]
+	then
+		PROGRESS=`cat input/upscale_in/BATCHPROGRESS.TXT`" "
+	fi
+	echo "========== $PROGRESS""rescale $INPUT =========="
+	
 	if test $# -eq 1
 	then
 		SIGMA=$1
@@ -60,6 +68,7 @@ else
 	then 
 		mkdir -p "$TARGETPREFIX"".tmpseg"
 		mkdir -p "$TARGETPREFIX"".tmpupscale"
+		touch "$TARGETPREFIX"".tmpseg"/x
 		touch "$TARGETPREFIX"".tmpupscale"/x
 		rm "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpupscale"/*
 		SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
@@ -69,6 +78,7 @@ else
 		echo "prompting for $TARGETPREFIX"
 		rm "$TARGETPREFIX"
 		
+		echo "Splitting into segments and prompting ..."
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 		for f in "$SEGDIR"/*.mp4 ; do
 			TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
@@ -100,8 +110,24 @@ else
 		echo "fi" >>"$UPSCALEDIR/concat.sh"
 		echo "cd .." >>"$UPSCALEDIR/concat.sh"
 		echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
-		echo " "
-		echo "Wait until comfyui tasks are done (check ComfyUI queue in browser), then call the script manually: $UPSCALEDIR/concat.sh"
+		echo "echo done." >>"$UPSCALEDIR/concat.sh"
+		#echo "Wait until comfyui tasks are done (check ComfyUI queue in browser), then call the script manually: $UPSCALEDIR/concat.sh"
+		
+		echo "Waiting for queue to finish..."
+		sleep 4  # Give some extra time to start...
+		queuecount=""
+		until [ "$queuecount" = "0" ]
+		do
+			sleep 1
+			curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+			echo -ne "queuecount: $queuecount  \r"
+		done
+		echo -ne '\ndone.'
+		rm queuecheck.json
+		echo "Calling $UPSCALEDIR/concat.sh"
+		$UPSCALEDIR/concat.sh
+		
 	else
 		echo "Skipping upscaling of large video $INPUT"
 		cp $INPUT "$TARGETPREFIX"".mp4"

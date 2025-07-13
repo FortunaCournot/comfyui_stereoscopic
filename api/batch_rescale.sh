@@ -28,7 +28,11 @@ else
 		shift	
 	fi
 
+	COUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	declare -i INDEX=0
 	for nextinputfile in input/upscale_in/*.mp4 ; do
+		INDEX+=1
+		echo "$INDEX/$COUNT">input/upscale_in/BATCHPROGRESS.TXT
 		newfn=${nextinputfile//[^[:alnum:.]]/}
 		newfn=${newfn// /_}
 		newfn=${newfn//\(/_}
@@ -37,20 +41,8 @@ else
 		
 		/bin/bash $SCRIPTPATH "$newfn"
 	done
+	rm input/upscale_in/BATCHPROGRESS.TXT
+	echo "Batch done."
 
-	
-	echo "Waiting for queue to finish..."
-	sleep 10   # Give some time to start...
-	queuecount=""
-    until [ "$queuecount" = "0" ]
-	do
-		sleep 1
-		curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
-		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-		echo -ne "queuecount: $queuecount  \r"
-	done
-	echo -ne '\ndone.'
-	rm queuecheck.json
-	$CONCATBATCHSCRIPTPATH	
 fi
 
