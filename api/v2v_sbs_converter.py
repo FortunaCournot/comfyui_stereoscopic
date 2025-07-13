@@ -47,7 +47,7 @@ prompt_text = """
         "91",
         0
       ],
-      "count": 142
+      "count": 138
     },
     "class_type": "VHS_BatchManager",
     "_meta": {
@@ -85,7 +85,7 @@ prompt_text = """
   },
   "88": {
     "inputs": {
-      "Number": "24"
+      "Number": "30"
     },
     "class_type": "Int",
     "_meta": {
@@ -156,7 +156,7 @@ prompt_text = """
     },
     "class_type": "VHS_LoadVideoPath",
     "_meta": {
-      "title": ""
+      "title": "Pre-Load Video (Path) for Info"
     }
   },
   "115": {
@@ -240,7 +240,7 @@ prompt_text = """
     },
     "class_type": "DepthAnythingV2Preprocessor",
     "_meta": {
-      "title": ""
+      "title": "Depth Anything V2 - Relative"
     }
   },
   "163": {
@@ -249,7 +249,7 @@ prompt_text = """
       "depth_offset": 0,
       "switch_sides": false,
       "blur_radius": 45,
-      "symetric": true,
+      "symetric": false,
       "processing": "Normal",
       "base_image": [
         "129",
@@ -276,10 +276,11 @@ prompt_text = """
         "160",
         0
       ],
-      "format": "video/h265-mp4",
-      "pix_fmt": "yuv420p10le",
-      "crf": 22,
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 17,
       "save_metadata": true,
+      "trim_to_audio": false,
       "pingpong": false,
       "save_output": true,
       "images": [
@@ -293,7 +294,7 @@ prompt_text = """
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {
-      "title": ""
+      "title": "Video Combine"
     }
   },
   "166": {
@@ -306,7 +307,7 @@ prompt_text = """
     },
     "class_type": "MathExpression|pysssss",
     "_meta": {
-      "title": ""
+      "title": "Math Expression 🐍"
     }
   }
 }

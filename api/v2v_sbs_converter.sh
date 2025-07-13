@@ -66,8 +66,22 @@ else
 	echo "prompting for $TARGETPREFIX"
 	rm "$TARGETPREFIX"
 	
+	# Prepare to restrict fps
+	fps=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $INPUT`
+	echo "Source FPS: $fps"
+	fps=$(($fps))
+	SPLITINPUT="$INPUT"
+	FPSOPTION=""
+	if test fps > 30.0
+	then 
+		FPSOPTION="-filter:v fps=fps=30"
+		SPLITINPUT="$SEGDIR/splitinput_fps30.mp4"
+		echo "Rencoding to 30.0 ..."
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -filter:v fps=fps=30 "$SPLITINPUT"
+	fi
+	
 	echo "Splitting into segments and prompting ..."
-	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
+	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 	for f in "$SEGDIR"/*.mp4 ; do
 		TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
 		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
@@ -79,6 +93,7 @@ else
 	
 	echo "#!/bin/sh" >"$SBSDIR/concat.sh"
 	echo "cd \"\$(dirname \"\$0\")\"" >>"$SBSDIR/concat.sh"
+	echo "FPSOPTION=\"$FPSOPTION\"" >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpseg\"" >>"$SBSDIR/concat.sh"
 	echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$SBSDIR/concat.sh"
 	echo "then" >>"$SBSDIR/concat.sh"
@@ -93,15 +108,15 @@ else
 	echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "else" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "cd .." >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
 	echo "echo done." >>"$SBSDIR/concat.sh"
-	
+
 	echo "Waiting for queue to finish..."
 	sleep 4  # Give some extra time to start...
 	queuecount=""
