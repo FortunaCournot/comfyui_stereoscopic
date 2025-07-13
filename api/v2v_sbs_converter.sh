@@ -81,7 +81,7 @@ else
 	fi
 	
 	echo "Splitting into segments and prompting ..."
-	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
+	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 -map 0:a:0  -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 	for f in "$SEGDIR"/*.mp4 ; do
 		TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
 		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then

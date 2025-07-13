@@ -80,7 +80,7 @@ else
 		rm "$TARGETPREFIX"
 		
 		echo "Splitting into segments and prompting ..."
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0 -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0:v:0 -map 0:a:0  -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 		for f in "$SEGDIR"/*.mp4 ; do
 			TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
 			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
@@ -103,13 +103,15 @@ else
 		echo "done" >>"$UPSCALEDIR/concat.sh"
 		echo "$FFMPEGPATH""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$UPSCALEDIR/concat.sh"
 		echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$UPSCALEDIR/concat.sh"
+		echo "files=(*.mp4)"  >>"$UPSCALEDIR/concat.sh"
+		echo "nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i \${files[0]} -vf \"thumbnail\" -frames:v 1 thumbnail.png" >>"$UPSCALEDIR/concat.sh"
 		echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "else" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "fi" >>"$UPSCALEDIR/concat.sh"
 		echo "cd .." >>"$UPSCALEDIR/concat.sh"
 		echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
@@ -117,15 +119,29 @@ else
 		
 		echo "Waiting for queue to finish..."
 		sleep 4  # Give some extra time to start...
-		queuecount=""
+		lastcount=""
+		start=`date +%s`
+		startjob=$start
+		itertimemsg=""
 		until [ "$queuecount" = "0" ]
 		do
 			sleep 1
 			curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
 			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-			echo -ne "queuecount: $queuecount  \r"
+			if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
+			then
+				end=`date +%s`
+				runtime=$((end-start))
+				start=`date +%s`
+				eta=$(("$queuecount * runtime"))
+				itertimemsg=", $runtime""s/prompt, ETA: $eta""s"
+			fi
+			lastcount="$queuecount"
+				
+			echo -ne "queuecount: $queuecount $itertimemsg     \r"
 		done
-		echo '\ndone.'
+		runtime=$((end-startjob))
+		echo "done. duration: $runtime""s.                  "
 		rm queuecheck.json
 		echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
