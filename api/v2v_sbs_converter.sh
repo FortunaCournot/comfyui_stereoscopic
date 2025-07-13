@@ -93,10 +93,15 @@ else
 	fi
 	
 	echo "Splitting into segments and prompting ..."
-	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 -map 0:a:0  -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
+	TESTAUDIO=`ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
+	AUDIOMAPOPT="-map 0:a:0"
+	if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
+		AUDIOMAPOPT=""
+	fi
+	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 	for f in "$SEGDIR"/segment*.mp4 ; do
-		TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
 		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
+			# create audio
 			mv "$f" "${f%.mp4}_na.mp4"
 			nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 		fi
@@ -130,7 +135,7 @@ else
 	echo "cd .." >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
 	echo "echo done." >>"$SBSDIR/concat.sh"
-	
+
 	echo "Waiting for queue to finish..."
 	sleep 4  # Give some extra time to start...
 	lastcount=""
