@@ -82,13 +82,12 @@ else
 	fpsv=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
 	fps=$(($fpsv))
 	echo "Source FPS: $fps ($fpsv)"
-	FPSOPTION=""
-	echo $fps 30.0 | awk '{if ($1 > $2) FPSOPTION="-filter:v fps=fps=30" }'
+	FPSOPTION=`echo $fps 30.0 | awk '{if ($1 > $2) print "-filter:v fps=fps=30" }'`
 	if [[ -n "$FPSOPTION" ]]
 	then 
 		SPLITINPUTFPS30="$SEGDIR/splitinput_fps30.mp4"
 		echo "Rencoding to 30.0 ..."
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUT"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUTFPS30"
 		SPLITINPUT="$SPLITINPUTFPS30"
 	fi
 	
