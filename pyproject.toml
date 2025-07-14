@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui_stereoscopic"
-version = "1.2.2"
+version = "1.2.3"
 description = "Nodes to create stereoscopic images and movies."
 authors = [
   {name = "Fortuna Cournot", email = "fortunacournot@gmail.com"}
@@ -14,10 +14,8 @@ license = {text = "MIT license"}
 requires-python = ">=3.12"
 classifiers = []
 dependencies = [
-
+"torch", "opencv-python>=4.11.0.86", "numpy"
 ]
-
-
 
 [project.optional-dependencies]
 dev = [
@@ -30,8 +28,6 @@ dev = [
 ]
 
 [project.urls]
-bugs = "https://github.com/FortunaCournot/comfyui_stereoscopic/issues"
-homepage = "https://github.com/FortunaCournot/comfyui_stereoscopic"
 Repository = "https://github.com/FortunaCournot/comfyui_stereoscopic"
 
 [tool.comfy]

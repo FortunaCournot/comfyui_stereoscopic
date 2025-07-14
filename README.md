@@ -47,7 +47,7 @@ Sigma (Blur): 0.2
 Depth Scale: 1.0
 Depth Offset: 0.0
 
-The converter limits fps to 30.0
+The converter limits fps to 30.0. Resolution input is automatic limited to 4K, the script can be manually called to limit resolution output as well (e.g. to upload to Civitai).
 
 ### Image-to-Image (I2I) Converter
 
