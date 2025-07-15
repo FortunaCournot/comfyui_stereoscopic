@@ -47,7 +47,7 @@ Now, you can install the Stereoscopic custom node package with ComfyUI Manager.
 
 After restart, test installation: Copy Drop the workflow custom_nodes\comfyui_stereoscopic\examples\workflows\I2I_SBS_Converter.json into ComfyUI, select an image, e.g. custom_nodes\comfyui_stereoscopic\examples\input\Demo-Image.png and Execute.
 
-Finally, for ComfyUI Desktop the ports need to be changed, since the scripts are using thje default port of ComfyUI Portable. Go to Settings->Server Config, and set the value for the port to 8188.
+Finally, for ComfyUI Desktop the ports need to be changed, since the scripts are using the default port of ComfyUI Portable. Go to Settings->Server Config, and set the value for the port to 8188.
 
 ### Usage and Restrictions
 
