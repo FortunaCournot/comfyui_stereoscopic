@@ -45,11 +45,12 @@ Afterwards use the ComfyUI Manager to install other custom node packs:
 
 Now, you can install the Stereoscopic custom node package with ComfyUI Manager.
 
-After restart, test installation: Copy Drop the workflow custom_nodes\comfyui_stereoscopic\examples\workflows\I2I_SBS_Converter.json into ComfyUI, select an image, e.g. custom_nodes\comfyui_stereoscopic\examples\input\Demo-Image.png and Execute.
+After restart, test installation: Drop the workflow from  custom_nodes\comfyui_stereoscopic\examples\workflows\I2I_SBS_Converter.json into ComfyUI, select an image, e.g. custom_nodes\comfyui_stereoscopic\examples\input\Demo-Image.png and execute. See workflow below.
+
+Use the Manager to install the Upscale Models: RealESRGAN x2 and x4.
 
 Finally, for ComfyUI Desktop the ports need to be changed, since the scripts are using the default port of ComfyUI Portable. Go to Settings->Server Config, and set the value for the port to 8188.
 
-TODO: Some steps are not complete to support the api scripts with ComfyUI desktop.
 
 ### Usage and Restrictions
 

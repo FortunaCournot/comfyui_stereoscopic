@@ -25,6 +25,11 @@ FFMPEGPATH=
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_rescale.py
+# Use Systempath for python by default, but set it explictly for comfyui portable.
+PYTHON_BIN_PATH=
+if [ -d "../python_embeded" ]; then
+  PYTHON_BIN_PATH=../python_embeded/
+fi
 
 if test $# -ne 1 -a $# -ne 2
 then
@@ -83,7 +88,7 @@ then
 			mv "$f" "${f%.mp4}_na.mp4"
 			nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 		fi
-		../python_embeded/python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $SIGMA
+		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $SIGMA
 	done
 	
 	echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
