@@ -29,7 +29,7 @@ Sample videos can be found in the gallery under the Civitai asset page [I2I V2V 
 
 ## Installation
 
-You need to install [ComfyUI](https://www.comfy.org/) (Python 3.12) and Git Bash ([for Windows](https://gitforwindows.org/)).
+You need to install [ComfyUI](https://www.comfy.org/) (Python 3.12) and Git Bash ([for Windows](https://gitforwindows.org/)). Installing ComfyUI Desktop is simpler for this task, however, this tool has been developed with ComfyUI Portable (Description not covered here, because it is much harder to install).
 
 In ComfyUI, if not already there, install Manager.
 
