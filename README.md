@@ -49,6 +49,8 @@ After restart, test installation: Copy Drop the workflow custom_nodes\comfyui_st
 
 Finally, for ComfyUI Desktop the ports need to be changed, since the scripts are using the default port of ComfyUI Portable. Go to Settings->Server Config, and set the value for the port to 8188.
 
+TODO: Some steps are not complete to support the api scripts with ComfyUI desktop.
+
 ### Usage and Restrictions
 
 File names and path and should not contain spaces. 
