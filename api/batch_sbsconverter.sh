@@ -27,18 +27,21 @@ else
 
 	COUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
-	for nextinputfile in input/sbs_in/*.mp4 ; do
-		INDEX+=1
-		echo "$INDEX/$COUNT">input/sbs_in/BATCHPROGRESS.TXT
-		newfn=${nextinputfile//[^[:alnum:.]]/}
-		newfn=${newfn// /_}
-		newfn=${newfn//\(/_}
-		newfn=${newfn//\)/_}
-		mv "$nextinputfile" $newfn 
-		
-		/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
-	done	
-	rm input/sbs_in/BATCHPROGRESS.TXT
+	MP4FILES=input/sbs_in/*.mp4
+	if [[ $COUNT -gt 0 ]] ; then
+		for nextinputfile in $MP4FILES ; do
+			INDEX+=1
+			echo "$INDEX/$COUNT">input/sbs_in/BATCHPROGRESS.TXT
+			newfn=${nextinputfile//[^[:alnum:.]]/}
+			newfn=${newfn// /_}
+			newfn=${newfn//\(/_}
+			newfn=${newfn//\)/_}
+			mv "$nextinputfile" $newfn 
+			
+			/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
+		done
+	fi	
+	rm  -f input/sbs_in/BATCHPROGRESS.TXT 
 	echo "Batch done."
 fi
 

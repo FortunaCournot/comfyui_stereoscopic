@@ -47,6 +47,8 @@ else
 	INPUT="$1"
 	shift
 
+	SETMETADATA="-metadata description=\"Created with Side-By-Side Converter: https://civitai.com/models/1757677\" -movflags +use_metadata_tags -metadata depth_scale=\"$depth_scale\" -metadata depth_offset=\"$depth_offset\""
+
 	PROGRESS=" "
 	if [ -e input/sbs_in/BATCHPROGRESS.TXT ]
 	then
@@ -130,11 +132,11 @@ else
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic output3.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "else" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic output3.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "cd .." >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"

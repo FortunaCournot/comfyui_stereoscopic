@@ -10,7 +10,7 @@ authors = [
   {name = "Fortuna Cournot", email = "fortunacournot@gmail.com"}
 ]
 readme = "README.md"
-license = {text = "MIT license"}
+license = {file = "LICENSE"}
 requires-python = ">=3.12"
 classifiers = []
 dependencies = [
