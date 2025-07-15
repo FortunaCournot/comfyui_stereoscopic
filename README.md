@@ -5,8 +5,10 @@ Discord: [Activation Link]([./docs/img/I2I-SBS-Workflow-Snapshot.png](https://di
 
 ## Introduction
 This package is based on the great work of Sam Seen from https://github.com/MrSamSeen/ComfyUI_SSStereoscope, that gave us a good starting point.
-This package is developed by me, Fortuna, and Iablunoshka, who is responsible for the insane speed of the algorithm in the hope, that we soon see more VR content,
+This package is developed by me, Fortuna, and Iablunoshka, who is responsible for the insane speed of the algorithm. We did this in the hope, that we soon see more VR content,
 AI or classic.
+
+## Project Goals
 
 Our development goals in this package are to improve
 - processing speed
@@ -25,12 +27,14 @@ The workflows have been tested on NVIDEA Geforce 5070 Ti, GTX 1050ti, Intel UHD 
 
 Sample videos can be found in the gallery under the Civitai asset page [I2I V2V Side-By-Side Converter Workflow comfyui_stereoscopic](https://civitai.com/models/1757677).
 
-## Workflows
-**PREREQUISTES:**
+## Installation
 
-- For scripts the local ComfyUI_windows_portable server must be running on default port.
+You need to install ComfyUI (Python 3.12) and Git Bash (for Windows).
 
-The included workflow depends on other custom node packages. Please install them first:
+In ComfyUI, if not already there, install Manager.
+
+Afterwards use the ComfyUI Manager to install other custom node packs:
+
 - comfyui_controlnet_aux 1.1.0
 - comfyui-videohelpersuite 1.6.1
 - bjornulf_custom_nodes 1.1.8
@@ -39,12 +43,20 @@ The included workflow depends on other custom node packages. Please install them
 - ComfyLiterals nightly
 - comfy-mtb 0.5.4
 
+Now, you can install the Stereoscopic custom node package with ComfyUI Manager.
+
+After restart, test installation: Copy Drop the workflow custom_nodes\comfyui_stereoscopic\examples\workflows\I2I_SBS_Converter.json into ComfyUI, select an image, e.g. custom_nodes\comfyui_stereoscopic\examples\input\Demo-Image.png and Execute.
+
+Finally, for ComfyUI Desktop the ports need to be changed, since the scripts are using thje default port of ComfyUI Portable. Go to Settings->Server Config, and set the value for the port to 8188.
+
+### Usage and Restrictions
+
 File names and path and should not contain spaces. 
 
 The general recommendation is, to use the upscale scripts first, to ensure the video has a certain resolution, before starting the SBS Converter.
 The upscale script only run on videos not greater than 1920x1080. I recommend the following parameters for Upscaler and Converter:
 Sigma (Blur): 0.2
-Depth Scale: 1.0
+Depth Scale: 1.0, use 1.5 or 2.0 for stronger effect
 Depth Offset: 0.0
 
 The converter limits fps to 30.0. Resolution input is automatic limited to 4K, the script can be manually called to limit resolution output as well (e.g. to upload to Civitai).
