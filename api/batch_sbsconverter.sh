@@ -47,6 +47,7 @@ else
 	IMGFILES=`find input/sbs_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
 	COUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
+	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
 			INDEX+=1
@@ -61,8 +62,8 @@ else
 		done
 		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
 		
-		echo "Waiting for queue to finish..."
-		sleep 4  # Give some extra time to start...
+		echo "Waiting one minute for first prompt in queue to finish..."
+		sleep 60  # Give some extra time to start...
 		lastcount=""
 		start=`date +%s`
 		startjob=$start
@@ -88,6 +89,23 @@ else
 		echo "done. duration: $runtime""s.                  "
 		rm queuecheck.json
 		
+		while read INTERMEDIATE; do
+			echo "Finalizing $INTERMEDIATE ..."
+			
+			if [ -e "$INTERMEDIATE" ]
+			then
+				# metadata copy not working yet, but it is also used to rename file.
+				"$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$INPUT"  -map_metadata 0 -f ffmetadata metadata.txt
+				FINALTARGET="${INTERMEDIATE%_00001_.png}"".png"
+				"$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$INTERMEDIATE" -i metadata.txt -q:v 7 -map_metadata 1 "$FINALTARGET"
+				rm -f "$INTERMEDIATE" metadata.txt
+			else
+				echo "Warning: File not found: $INTERMEDIATE"
+			fi
+			
+		done <intermediateimagefiles.txt
+		rm intermediateimagefiles.txt
+
 	fi	
 	echo "Batch done."
 fi

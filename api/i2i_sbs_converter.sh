@@ -20,6 +20,8 @@
 # - Wait until comfyui is done, then call created script manually.
 
 
+# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
+FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
@@ -60,9 +62,15 @@ else
 	TARGETPREFIX=output/sbs/${TARGETPREFIX%.*}
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 	TARGETPREFIX=`realpath "$TARGETPREFIX"`
-	echo "Converting to SBS from $INPUT"
-
-
-	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
+	echo "Converting SBS from $INPUT"
+	if [ -e "$INPUT" ]
+	then
+		echo "Generating to $TARGETPREFIX ..."
+		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
+		INTERMEDIATE="$TARGETPREFIX""_00001_.png"
+		echo $INTERMEDIATE >>intermediateimagefiles.txt
+	else
+		echo "Input file not found: "
+	fi
 fi
 
