@@ -147,10 +147,10 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
 
 
 class ImageSBSConverter:
-    def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.depth_model = None
-        self.original_depths = []
+    #def __init__(self):
+    #    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #    self.depth_model = None
+    #    self.original_depths = []
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -193,20 +193,18 @@ class ImageSBSConverter:
         #blur_radius = 0
         
         # Update the depth model parameters
-        if self.depth_model is not None:
-            # Set default edge_weight for compatibility
-            self.depth_model.edge_weight = 0.5
-            # Keep gradient_weight for compatibility but set to 0
-            self.depth_model.gradient_weight = 0.0
-            #self.depth_model.blur_radius = blur_radius
+        #if self.depth_model is not None:
+        #    # Set default edge_weight for compatibility
+        #    self.depth_model.edge_weight = 0.5
+        #    # Keep gradient_weight for compatibility but set to 0
+        #    self.depth_model.gradient_weight = 0.0
+        #    #self.depth_model.blur_radius = blur_radius
 
         # Get batch size
         B = base_image.shape[0]
 
         # Process each image in the batch
         sbs_images = []
-        enhanced_depth_maps = []
-        shifted_aimask_tensor_maps = []
 
         for b in range(B):
             # Get the current image from the batch

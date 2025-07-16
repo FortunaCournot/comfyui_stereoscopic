@@ -10,6 +10,7 @@
 COMFYUIPATH=.
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh 
+SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter.sh 
 CONCATBATCHSCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh 
 
 if test $# -ne 2
@@ -40,8 +41,53 @@ else
 			
 			/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
 		done
+		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
 	fi	
-	rm  -f input/sbs_in/BATCHPROGRESS.TXT 
+	
+	IMGFILES=`find input/sbs_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
+	COUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	INDEX=0
+	if [[ $COUNT -gt 0 ]] ; then
+		for nextinputfile in $IMGFILES ; do
+			INDEX+=1
+			echo "$INDEX/$COUNT">input/sbs_in/BATCHPROGRESS.TXT
+			newfn=${nextinputfile//[^[:alnum:.]]/}
+			newfn=${newfn// /_}
+			newfn=${newfn//\(/_}
+			newfn=${newfn//\)/_}
+			mv "$nextinputfile" $newfn 
+			
+			/bin/bash $SCRIPTPATH2 $depth_scale $depth_offset "$newfn"
+		done
+		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
+		
+		echo "Waiting for queue to finish..."
+		sleep 4  # Give some extra time to start...
+		lastcount=""
+		start=`date +%s`
+		startjob=$start
+		itertimemsg=""
+		until [ "$queuecount" = "0" ]
+		do
+			sleep 1
+			curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+			if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
+			then
+				end=`date +%s`
+				runtime=$((end-start))
+				start=`date +%s`
+				eta=$(("$queuecount * runtime"))
+				itertimemsg=", $runtime""s/prompt, ETA: $eta""s"
+			fi
+			lastcount="$queuecount"
+				
+			echo -ne "queuecount: $queuecount $itertimemsg     \r"
+		done
+		runtime=$((end-startjob))
+		echo "done. duration: $runtime""s.                  "
+		rm queuecheck.json
+		
+	fi	
 	echo "Batch done."
 fi
-

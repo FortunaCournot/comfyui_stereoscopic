@@ -14,6 +14,7 @@ Our development goals in this package are to improve
 - processing speed
 - output quality 
 - ease of use
+- batch processing via command line: upscale of videos, sbs conversion of videos and images.
 
 We try to use existing libraries that make use of GPU whereever possible. We improved the output quality, so it keeps useable even with extremer depth scales.
 Finally we try to want to keep it easy for users by standardizing parameters and offer CLI-capable workflows to convert large-size images and long-length videos.
@@ -169,7 +170,7 @@ This helper node returns the resolution of the base image (minimum of width, hei
 ### [Skybox VR Player](https://skybox.xyz/)
 Commercial application. Supports many platforms. We have tested it on Meta Quest 3.
 To simply the configuration follow their guide: [How to Adjust 2D/3D/VR Video Formats](https://skybox.xyz/support/How-to-Adjust-2D&3D&VR-Video-Formats),
-e.g. by putting all videos and images under a folder with the name "fullsbs".
+e.g. by putting all videos and images under a folder with the name "fullsbs". To view images, the curved node must be deactivated (bugged).
 
 ### [DEO VR Player](https://deovr.com/app)
 Download for free. Supports many platforms. We have tested it on Meta Quest 3, HTC vive pro 2 .
@@ -177,3 +178,4 @@ To simply the configuration follow their guide: [Naming convention](https://deov
 
 ### [4XVR Video Player](https://www.4xvr.net/)
 Commercial application. Auto-detection of aspect ratio currently not working (support pending). Manual setup per file required to 3D FSBS.
+The player does not support images.
