@@ -28,8 +28,12 @@ else
 	INPUTPATH=`dirname $INPUT`
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840
 	then 
-		echo "Downscaling to $INPUTPATH/$TARGETPREFIX"".mp4"
+		echo "H-Downscaling to $INPUTPATH/$TARGETPREFIX"".mp4"
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" -filter:v scale=3840:-1 -c:a copy "$INPUTPATH/$TARGETPREFIX"".mp4"
+	elif test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt 3840
+	then 
+		echo "V-Downscaling to $INPUTPATH/$TARGETPREFIX"".mp4"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" -filter:v scale=-1:3840 -c:a copy "$INPUTPATH/$TARGETPREFIX"".mp4"
 	else
 		echo "Skipping downscaling of video $INPUT: not above 4K"
 	fi
