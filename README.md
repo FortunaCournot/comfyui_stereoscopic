@@ -90,7 +90,8 @@ To give users an option to see what is going on and maybe to tweak things better
 To convert or upscale many videos, they can be placed in ComfyUI/input/sbs_in or ComfyUI/input/upscale_in. The end condition for batch is checked automatic, if queue gets empty the batch_concat.sh script is called. Don't forget to remove the input videos from the input folders afterwards. The converter supports now also single images (jpg and png).
 
 Please create two folders under the ComfyUI/input folder: upscale_in and sbs_in
-Then place mp4 files in this folders, open a Git Bash shell (under Start->Git) and change directory (with cd) to your ComfyUI folder (you can use drag and drop instead of typing).
+Then place mp4 files in this folders, open a Git Bash shell (under Start->Git). Files in subfolders are not processed.
+change directory (with cd) to your ComfyUI folder (you can use drag and drop instead of typing).
 From there you can execute the shell scripts delivered with Stereoscopic.
 Upscale results will go to input/sbs_in, and converter results to output/fullsbs.
 
