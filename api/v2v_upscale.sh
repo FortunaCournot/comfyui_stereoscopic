@@ -163,7 +163,7 @@ else
 		
 	else
 		echo "Skipping upscaling of large video $INPUT"
-		cp $INPUT "$TARGETPREFIX"".mp4"
+		cp $INPUT "$FINALTARGETFOLDER"
 	fi
 fi
 
