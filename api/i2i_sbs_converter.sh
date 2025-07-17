@@ -69,6 +69,8 @@ else
 		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
 		INTERMEDIATE="$TARGETPREFIX""_00001_.png"
 		echo $INTERMEDIATE >>intermediateimagefiles.txt
+		mkdir -p input/sbs_in/done
+		mv "$INPUT" input/sbs_in/done
 	else
 		echo "Input file not found: "
 	fi

@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# v2v_upscale.sh
+# v2v_upscale_downscale.sh
 #
-# Upscales a base video (input) by Real-ESRGAN-x4plus and places result under ComfyUI/output/upscale folder.
+# Upscales a base video (input) by 4x_foolhardy_Remacri , then downscales it and places result under ComfyUI/output/upscale folder.
 # The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
@@ -24,22 +24,25 @@ FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.py
-# Use Systempath for python by default, but set it explictly for comfyui portable.
-PYTHON_BIN_PATH=
-if [ -d "../python_embeded" ]; then
-  PYTHON_BIN_PATH=../python_embeded/
-fi
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.py
 
-if test $# -ne 1 -a $# -ne 2
+
+if test $# -ne 1
 then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 input [sigma]"
-    echo "E.g.: $0 SmallIconicTown.mp4 3.0"
-else
+    echo "Usage: $0 input"
+    echo "E.g.: $0 SmallIconicTown.mp4"
+elif [ -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
+then
 	cd $COMFYUIPATH
 
-	SIGMA=0.2
+	# Use Systempath for python by default, but set it explictly for comfyui portable.
+	PYTHON_BIN_PATH=
+	if [ -d "../python_embeded" ]; then
+	  PYTHON_BIN_PATH=../python_embeded/
+	fi
+
+	DOWNSCALE=1.0
 	INPUT="$1"
 	shift
 	
@@ -51,24 +54,20 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS""rescale "`echo $INPUT | grep -oP "$regex"`" =========="
 	
-	if test $# -eq 1
-	then
-		SIGMA=$1
-		shift	
-	fi
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
 	FINALTARGETFOLDER=`realpath "input/sbs_in"`
-	UPSCALEMODEL=RealESRGAN_x2.pth
+	UPSCALEMODEL="4x_foolhardy_Remacri.pth"
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
 		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
 		then 
-			UPSCALEMODEL=RealESRGAN_x4plus.pth
 			TARGETPREFIX="$TARGETPREFIX""_x4"
+			DOWNSCALE=1.0
 		else
 			TARGETPREFIX="$TARGETPREFIX""_x2"
+			DOWNSCALE=0.5
 		fi
 	fi
 	
@@ -99,7 +98,7 @@ else
 				mv "$f" "${f%.mp4}_na.mp4"
 				nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 			fi
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $UPSCALEMODEL $SIGMA
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $UPSCALEMODEL $DOWNSCALE
 		done
 		
 		echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
@@ -161,10 +160,15 @@ else
 		echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
 	else
-		echo "Skipping upscaling of large video $INPUT"
+		echo "Skipping upscaling of video $INPUT"
 		cp $INPUT "$FINALTARGETFOLDER"
 	fi
 	mkdir -p input/upscale_in/done
 	mv "$INPUT" input/upscale_in/done
+else
+	if [ ! -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
+	then
+		echo "Warning: Upscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth"
+	fi
 fi
 

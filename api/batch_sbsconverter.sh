@@ -13,7 +13,10 @@ SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh
 SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter.sh 
 CONCATBATCHSCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh 
 
-if test $# -ne 2
+status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+if [ "$status" = "closed" ]; then
+    echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+elif test $# -ne 2
 then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 depth_scale depth_offset"
@@ -63,9 +66,10 @@ else
 		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
 		
 		echo "Waiting one minute for first prompt in queue to finish..."
-		sleep 60  # Give some extra time to start...
 		lastcount=""
 		start=`date +%s`
+		sleep 60  # Give some extra time to start...
+		end=`date +%s`
 		startjob=$start
 		itertimemsg=""
 		until [ "$queuecount" = "0" ]
@@ -95,15 +99,12 @@ else
 			
 			if [ -e "$INTERMEDIATE" ]
 			then
-				# metadata copy not working yet, but it is also used to rename file.
-				"$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$INPUT"  -map_metadata 0 -f ffmetadata metadata.txt
 				FINALTARGET="${INTERMEDIATE%_00001_.png}"".png"
-				"$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$INTERMEDIATE" -i metadata.txt -q:v 7 -map_metadata 1 "$FINALTARGET"
-				rm -f "$INTERMEDIATE" metadata.txt
+				echo "Moving to $FINALTARGET"
+				mv "$INTERMEDIATE" "$FINALTARGET"
 			else
 				echo "Warning: File not found: $INTERMEDIATE"
 			fi
-			
 		done <intermediateimagefiles.txt
 		rm intermediateimagefiles.txt
 

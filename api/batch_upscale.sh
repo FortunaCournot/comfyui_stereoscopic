@@ -9,22 +9,18 @@
 # Default: Executed in ComfyUI folder
 COMFYUIPATH=.
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale.sh 
-CONCATBATCHSCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh 
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.sh 
 
-if test $# -ne 0 -a $# -ne 1
+status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+if [ "$status" = "closed" ]; then
+    echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+elif test $# -ne 0 
 then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
 	cd $COMFYUIPATH
-
-	SIGMA=0.2
-	if test $# -eq 1
-	then
-		SIGMA=$1
-	fi
 
 	COUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0

@@ -21,9 +21,7 @@ Finally we try to want to keep it easy for users by standardizing parameters and
 The execution times vary, depending on resolution and framerate, but expect not more than one minute for one second of video.
 
 The package contains example workflows in example folder. Installation can be done over the ComfyUI Manager.
-
 Below you will find documentation of workflow, nodes and some VR Software.
-
 The workflows have been tested on NVIDEA Geforce 5070 Ti, GTX 1050ti, Intel UHD Graphics 630.
 
 Sample videos can be found in the gallery under the Civitai asset page [I2I V2V Side-By-Side Converter Workflow comfyui_stereoscopic](https://civitai.com/models/1757677).
@@ -90,22 +88,28 @@ To give users an option to see what is going on and maybe to tweak things better
 To convert or upscale many videos, they can be placed in ComfyUI/input/sbs_in or ComfyUI/input/upscale_in. The end condition for batch is checked automatic, if queue gets empty the batch_concat.sh script is called. Don't forget to remove the input videos from the input folders afterwards. The converter supports now also single images (jpg and png).
 
 Please create two folders under the ComfyUI/input folder: upscale_in and sbs_in
-Then place mp4 files in this folders, open a Git Bash shell (under Start->Git). Files in subfolders are not processed.
+Then place mp4 files in these folders, open a Git Bash shell (under Start->Git). Files in subfolders are not processed.
 change directory (with cd) to your ComfyUI folder (you can use drag and drop instead of typing).
 From there you can execute the shell scripts delivered with Stereoscopic.
 Upscale results will go to input/sbs_in, and converter results to output/fullsbs.
 
 ##### Upscale Script
+Upscale is recommended to ensure a certain quality of SBS images and videos.
+
 In ComfyUI folder call
 
 ./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh
-It will upscale all videos from input/upscale_in to output/upscale
+
+It will upscale all videos from input/upscale_in to input/sbs_in, so you can directly call the sbs converter afterwards. Processed videos of input/upscale_in are moved down to subfolder "done".
+
 
 ##### SBS Converter Script
 In ComfyUI folder call
 
 ./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.5 0
-1.5 is the depth, 0 the offset., It will convert all videos from input/sbs_in to output/fullsbs
+
+Where 1.5 is the depth, 0 the offset., It will convert all videos from input/sbs_in to output/fullsbs. Processed videos of input/sbs_in are moved down to subfolder "done".
+Performance: On modern systems less then a second per frame at 480p resolution.
 
 #### V2V Workflow details
 Due to memory limitation, the conversion over videos needs to be done in smaller pieces. Durations of 1 seconds with up to 24 frames may work. If not, reduce fps-rate. if this is not enough, you need to reduce resolution as well.
@@ -115,14 +119,14 @@ The end condition must be checked manually in ComfyUI Frontend (Browser). If que
 
 Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converter.json) that has been transformed into an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
 
-### Bonus Workflow: V2V Upscale with Real-ESRGAN-x4plus
+##### About V2V Upscale with Real-ESRGAN-x4plus
 
 It upscales a base video (input) by Real-ESRGAN-x2, for small resolutions 4plus and places result, with _x2 or _x4 appended to filename, under ComfyUI/input/sbs_in folder, so you can directly start the converter script afterwards.
 Videos with large resolution are just copied.
 In the call above, the number at the end is optional, and is the sigma of the blur. The video must have already have a decent quality, or the model will fail.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
 
-### Bonus Workflow: V2V Rescale
+##### About V2V Rescale
 This is same as V2V Upscale with Real-ESRGAN-x2, but first it is downscaled by factor, so resolution stays same. This is intended for hires videos with bad quality.
 
 To simply things an [V2V Shell Script](api/v2v_rescale.sh) for Git Bash is included that can be used as well.

@@ -150,6 +150,7 @@ then
 	rm queuecheck.json
 	echo "Calling $UPSCALEDIR/concat.sh"
 	$UPSCALEDIR/concat.sh
-	
+	mkdir -p input/upscale_in/done
+	mv "$INPUT" input/upscale_in/done
 fi
 

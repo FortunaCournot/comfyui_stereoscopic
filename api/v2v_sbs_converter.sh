@@ -178,6 +178,8 @@ else
 	rm queuecheck.json
 	echo "Calling $SBSDIR/concat.sh"
 	$SBSDIR/concat.sh
+	mkdir -p input/sbs_in/done
+	mv "$INPUT" input/sbs_in/done
 	
 fi
 
