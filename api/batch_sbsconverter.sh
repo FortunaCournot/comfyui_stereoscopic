@@ -84,10 +84,10 @@ else
 			fi
 			lastcount="$queuecount"
 				
-			echo -ne "queuecount: $queuecount $itertimemsg     \r"
+			echo -ne "queuecount: $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))
-		echo "done. duration: $runtime""s.                  "
+		echo "done. duration: $runtime""s.                      "
 		rm queuecheck.json
 		
 		while read INTERMEDIATE; do

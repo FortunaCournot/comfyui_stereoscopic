@@ -59,7 +59,7 @@ else
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=input/sbs_in
+	FINALTARGETFOLDER=`realpath "input/sbs_in"`
 	UPSCALEMODEL=RealESRGAN_x2.pth
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
@@ -153,10 +153,10 @@ else
 			fi
 			lastcount="$queuecount"
 				
-			echo -ne "queuecount: $queuecount $itertimemsg     \r"
+			echo -ne "queuecount: $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))
-		echo "done. duration: $runtime""s.                  "
+		echo "done. duration: $runtime""s.                      "
 		rm queuecheck.json
 		echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh

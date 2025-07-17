@@ -62,7 +62,7 @@ then
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=input/sbs_in
+	FINALTARGETFOLDER=`realpath "input/sbs_in"`
 	TARGETPREFIX="$TARGETPREFIX""_x1"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpupscale"
@@ -143,10 +143,10 @@ then
 		fi
 		lastcount="$queuecount"
 			
-		echo -ne "queuecount: $queuecount $itertimemsg     \r"
+		echo -ne "queuecount: $queuecount $itertimemsg         \r"
 	done
 	runtime=$((end-startjob))
-	echo "done. duration: $runtime""s.                  "
+	echo "done. duration: $runtime""s.                      "
 	rm queuecheck.json
 	echo "Calling $UPSCALEDIR/concat.sh"
 	$UPSCALEDIR/concat.sh
