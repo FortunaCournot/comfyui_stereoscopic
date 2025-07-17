@@ -58,15 +58,16 @@ else
 	fi
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=input/sbs_in/${TARGETPREFIX%.mp4}
 	UPSCALEMODEL=RealESRGAN_x2.pth
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
-		TARGETPREFIX="$TARGETPREFIX""_x2"
 		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
 		then 
 			UPSCALEMODEL=RealESRGAN_x4plus.pth
 			TARGETPREFIX="$TARGETPREFIX""_x4"
+		else
+			TARGETPREFIX="$TARGETPREFIX""_x2"
 		fi
 	fi
 	

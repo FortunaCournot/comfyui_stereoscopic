@@ -92,6 +92,7 @@ To convert or upscale many videos, they can be placed in ComfyUI/input/sbs_in or
 Please create two folders under the ComfyUI/input folder: upscale_in and sbs_in
 Then place mp4 files in this folders, open a Git Bash shell (under Start->Git) and change directory (with cd) to your ComfyUI folder (you can use drag and drop instead of typing).
 From there you can execute the shell scripts delivered with Stereoscopic.
+Upscale results will go to input/sbs_in, and converter results to output/sbs.
 
 ##### Upscale Script
 In ComfyUI folder call
@@ -106,7 +107,6 @@ In ComfyUI folder call
 1.5 is the depth, 0 the offset., It will convert all videos from input/sbs_in to output/sbs
 
 #### V2V Workflow details
-The included workflow depends on other custom node package: comfyui_fearnworksnodes. Please install 
 Due to memory limitation, the conversion over videos needs to be done in smaller pieces. Durations of 1 seconds with up to 24 frames may work. If not, reduce fps-rate. if this is not enough, you need to reduce resolution as well.
 
 It creates SBS video from a base video (input) and places result, with _SBS_LR appended to filename, under ComfyUI/output/sbs folder.
@@ -116,7 +116,7 @@ Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converte
 
 ### Bonus Workflow: V2V Upscale with Real-ESRGAN-x4plus
 
-It upscales a base video (input) by Real-ESRGAN-x2, for small resolutions 4plus and places result, with _x2 or _x4 appended to filename, under ComfyUI/output/upscale folder.
+It upscales a base video (input) by Real-ESRGAN-x2, for small resolutions 4plus and places result, with _x2 or _x4 appended to filename, under ComfyUI/input/sbs_in folder, so you can directly start the converter script afterwards.
 Videos with large resolution are just copied.
 In the call above, the number at the end is optional, and is the sigma of the blur. The video must have already have a decent quality, or the model will fail.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
@@ -126,7 +126,7 @@ This is same as V2V Upscale with Real-ESRGAN-x2, but first it is downscaled by f
 
 To simply things an [V2V Shell Script](api/v2v_rescale.sh) for Git Bash is included that can be used as well.
 
-It down-/upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x1 appended to filename,  under ComfyUI/output/upscale folder.
+It down-/upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x1 appended to filename,  under ComfyUI/input/sbs_in folder.
 The number at the end is optional, and is the blur sigma. The video must have already have a decent quality, or the model will fail.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
 

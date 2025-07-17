@@ -59,7 +59,7 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/sbs/${TARGETPREFIX%.*}
+	TARGETPREFIX=output/fullsbs/${TARGETPREFIX%.*}
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 	TARGETPREFIX=`realpath "$TARGETPREFIX"`
 	echo "Converting SBS from $INPUT"

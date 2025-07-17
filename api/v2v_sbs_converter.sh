@@ -59,7 +59,7 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/sbs/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=output/fullsbs/${TARGETPREFIX%.mp4}
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpsbs"

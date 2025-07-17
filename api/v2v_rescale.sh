@@ -61,7 +61,7 @@ then
 	fi
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=input/sbs_in/${TARGETPREFIX%.mp4}
 	TARGETPREFIX="$TARGETPREFIX""_x1"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpupscale"
