@@ -61,7 +61,8 @@ then
 	fi
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=input/sbs_in/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
+	FINALTARGETFOLDER=input/sbs_in
 	TARGETPREFIX="$TARGETPREFIX""_x1"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpupscale"
@@ -114,6 +115,8 @@ then
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 	echo "fi" >>"$UPSCALEDIR/concat.sh"
+	echo "mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
+	echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
 	echo "cd .." >>"$UPSCALEDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
 	echo "echo done." >>"$UPSCALEDIR/concat.sh"
