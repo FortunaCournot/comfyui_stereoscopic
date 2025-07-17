@@ -92,7 +92,7 @@ To convert or upscale many videos, they can be placed in ComfyUI/input/sbs_in or
 Please create two folders under the ComfyUI/input folder: upscale_in and sbs_in
 Then place mp4 files in this folders, open a Git Bash shell (under Start->Git) and change directory (with cd) to your ComfyUI folder (you can use drag and drop instead of typing).
 From there you can execute the shell scripts delivered with Stereoscopic.
-Upscale results will go to input/sbs_in, and converter results to output/sbs.
+Upscale results will go to input/sbs_in, and converter results to output/fullsbs.
 
 ##### Upscale Script
 In ComfyUI folder call
@@ -104,12 +104,12 @@ It will upscale all videos from input/upscale_in to output/upscale
 In ComfyUI folder call
 
 ./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.5 0
-1.5 is the depth, 0 the offset., It will convert all videos from input/sbs_in to output/sbs
+1.5 is the depth, 0 the offset., It will convert all videos from input/sbs_in to output/fullsbs
 
 #### V2V Workflow details
 Due to memory limitation, the conversion over videos needs to be done in smaller pieces. Durations of 1 seconds with up to 24 frames may work. If not, reduce fps-rate. if this is not enough, you need to reduce resolution as well.
 
-It creates SBS video from a base video (input) and places result, with _SBS_LR appended to filename, under ComfyUI/output/sbs folder.
+It creates SBS video from a base video (input) and places result, with _SBS_LR appended to filename, under ComfyUI/output/fullsbs folder.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
 
 Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converter.json) that has been transformed into an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
