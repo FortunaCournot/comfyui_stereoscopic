@@ -36,6 +36,7 @@ else
 	for f in input/sbs_in/*\ *; do mv "$f" "${f// /_}"; done 2>/dev/null
 	for f in input/sbs_in/*\(*; do mv "$f" "${f//\(/_}"; done 2>/dev/null
 	for f in input/sbs_in/*\)*; do mv "$f" "${f//\)/_}"; done 2>/dev/null
+	for f in input/sbs_in/*\'*; do mv "$f" "${f//\'/_}"; done 2>/dev/null
 
 	COUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
@@ -79,50 +80,7 @@ else
 			fi
 		done
 		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
-		
-		echo "Waiting 30s for first prompt in queue to finish..."
-		sleep 30  # Give some extra time to start...
-		lastcount=""
-		start=`date +%s`
-		end=`date +%s`
-		startjob=$start
-		itertimemsg=""
-		until [ "$queuecount" = "0" ]
-		do
-			sleep 1
-			curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
-			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-			if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
-			then
-				end=`date +%s`
-				runtime=$((end-start))
-				start=`date +%s`
-				secs=$(("$queuecount * runtime"))
-				eta=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-				itertimemsg=", $runtime""s/prompt, ETA: $eta"
-			fi
-			lastcount="$queuecount"
 				
-			echo -ne "queuecount: $queuecount $itertimemsg         \r"
-		done
-		runtime=$((end-startjob))
-		echo "done. duration: $runtime""s.                      "
-		rm queuecheck.json
-		
-		while read INTERMEDIATE; do
-			echo "Finalizing $INTERMEDIATE ..."
-			
-			if [ -e "$INTERMEDIATE" ]
-			then
-				FINALTARGET="${INTERMEDIATE%_00001_.png}"".png"
-				echo "Moving to $FINALTARGET"
-				mv "$INTERMEDIATE" "$FINALTARGET"
-			else
-				echo "Warning: File not found: $INTERMEDIATE"
-			fi
-		done <intermediateimagefiles.txt
-		rm intermediateimagefiles.txt
-
 	else
 		echo "No image files (png|jpg|jpeg) found in input/sbs_in"
 	fi	

@@ -75,8 +75,11 @@ else
 
 	SPLITINPUT="$INPUT"
 	
-	# Prepare to restrict resolution to 4K
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  2160
+	# Prepare to restrict resolution to 4K, and skip low res
+	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
+	then
+		echo "Skipping low resolution video: $INPUT"
+	elif test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  2160
 	then 
 		echo "H-Resolution > 4K: Downscaling..."
 		$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"

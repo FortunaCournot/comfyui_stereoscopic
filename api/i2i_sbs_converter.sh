@@ -48,7 +48,6 @@ else
 	INPUT="$1"
 	shift
 
-
 	PROGRESS=" "
 	if [ -e input/sbs_in/BATCHPROGRESS.TXT ]
 	then
@@ -56,36 +55,71 @@ else
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
-	
-	TARGETPREFIX=${INPUT##*/}
-	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/fullsbs/${TARGETPREFIX%.*}
-	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
-	TARGETPREFIX=`realpath "$TARGETPREFIX"`
-	echo "Converting SBS from $INPUT"
-	if [ -e "$INPUT" ]
+
+	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
 	then
-		echo "Generating to $TARGETPREFIX ..."
-		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
-		INTERMEDIATE="$TARGETPREFIX""_00001_.png"
-		rm -f "$TARGETPREFIX""*.png"
-		echo "$INTERMEDIATE" >>intermediateimagefiles.txt
-		mkdir -p input/sbs_in/done
-		start=`date +%s`
-		end=`date +%s`
-		secs=0
-		until [ -e "$INTERMEDIATE" ]
-		do
-			sleep 1
-			end=`date +%s`
-			secs=$((end-start))
-			itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-			echo -ne "$itertimemsg         \r"
-		done
-		echo "done in $secs""s.                      "
-		mv "$INPUT" input/sbs_in/done
+		echo "Skipping low resolution image: $INPUT"
 	else
-		echo "Input file not found: "
+		SCALINGINTERMEDIATE=
+		TARGETPREFIX=${INPUT##*/}
+
+		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt  8688
+		then
+			SCALINGINTERMEDIATE=tmpscalingH.png
+			echo "downscaling width ..."
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
+			mv "$INPUT" input/sbs_in/done
+			INPUT="$SCALINGINTERMEDIATE"
+		fi
+
+		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  8688
+		then
+			SCALINGINTERMEDIATE=tmpscalingV.png
+			echo "downscaling height ..."
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
+			if [ -z "$SCALINGINTERMEDIATE" ]; then
+				mv "$INPUT" input/sbs_in/done
+			else
+				rm "$INPUT"
+			fi
+			INPUT="$SCALINGINTERMEDIATE"
+		fi
+	
+		INPUT=`realpath "$INPUT"`
+		TARGETPREFIX=output/fullsbs/${TARGETPREFIX%.*}
+		TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
+		TARGETPREFIX=`realpath "$TARGETPREFIX"`
+		echo "Converting SBS from $INPUT"
+		if [ -e "$INPUT" ]
+		then
+			echo "Generating to $TARGETPREFIX ..."
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
+			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
+			rm -f "$TARGETPREFIX""*.png"
+			mkdir -p input/sbs_in/done
+			start=`date +%s`
+			end=`date +%s`
+			secs=0
+			until [ -e "$INTERMEDIATE" ]
+			do
+				sleep 1
+				end=`date +%s`
+				secs=$((end-start))
+				itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+				echo -ne "$itertimemsg         \r"
+			done
+			FINALTARGET="${INTERMEDIATE%_00001_.png}"".png"
+			echo "Moving to $FINALTARGET"
+			mv "$INTERMEDIATE" "$FINALTARGET"
+			if [ -z "$SCALINGINTERMEDIATE" ]; then
+				mv "$INPUT" input/sbs_in/done
+			else
+				rm "$INPUT"
+			fi
+			echo "done in $secs""s.                      "
+		else
+			echo "Input file not found: $INPUT"
+		fi
 	fi
 fi
 
