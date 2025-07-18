@@ -68,8 +68,21 @@ else
 		echo "Generating to $TARGETPREFIX ..."
 		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
 		INTERMEDIATE="$TARGETPREFIX""_00001_.png"
-		echo $INTERMEDIATE >>intermediateimagefiles.txt
+		rm -f "$TARGETPREFIX""*.png"
+		echo "$INTERMEDIATE" >>intermediateimagefiles.txt
 		mkdir -p input/sbs_in/done
+		start=`date +%s`
+		end=`date +%s`
+		secs=0
+		until [ -e "$INTERMEDIATE" ]
+		do
+			sleep 1
+			end=`date +%s`
+			secs=$((end-start))
+			itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+			echo -ne "$itertimemsg         \r"
+		done
+		echo "done in $secs""s.                      "
 		mv "$INPUT" input/sbs_in/done
 	else
 		echo "Input file not found: "

@@ -13,21 +13,29 @@ SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh
 SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter.sh 
 CONCATBATCHSCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh 
 
+cd $COMFYUIPATH
+
+FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
+FREESPACE=${FREESPACE%G}
+MINSPACE=10
 status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
 if [ "$status" = "closed" ]; then
     echo "Error: ComfyUI not present. Ensure it is running on port 8188"
-elif test $# -ne 2
-then
+elif [[ $FREESPACE -lt $MINSPACE ]] ; then
+	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
+elif test $# -ne 2; then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 depth_scale depth_offset"
     echo "E.g.: $0 1.0 0.0"
 else
-	cd $COMFYUIPATH
-
 	depth_scale="$1"
 	shift
 	depth_offset="$1"
 	shift
+
+	for f in input/sbs_in/*\ *; do mv "$f" "${f// /_}"; done 2>/dev/null
+	for f in input/sbs_in/*\(*; do mv "$f" "${f//\(/_}"; done 2>/dev/null
+	for f in input/sbs_in/*\)*; do mv "$f" "${f//\)/_}"; done 2>/dev/null
 
 	COUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
@@ -45,6 +53,8 @@ else
 			/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
 		done
 		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
+	else
+		echo "No .mp4 files found in input/sbs_in"
 	fi	
 	
 	IMGFILES=`find input/sbs_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
@@ -61,14 +71,19 @@ else
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
 			
-			/bin/bash $SCRIPTPATH2 $depth_scale $depth_offset "$newfn"
+			if [ -e "$newfn" ]
+			then
+				/bin/bash $SCRIPTPATH2 $depth_scale $depth_offset "$newfn"
+			else
+				echo "Error: prompting failed. Missing file: $newfn"
+			fi
 		done
 		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
 		
-		echo "Waiting one minute for first prompt in queue to finish..."
+		echo "Waiting 30s for first prompt in queue to finish..."
+		sleep 30  # Give some extra time to start...
 		lastcount=""
 		start=`date +%s`
-		sleep 60  # Give some extra time to start...
 		end=`date +%s`
 		startjob=$start
 		itertimemsg=""
@@ -108,6 +123,8 @@ else
 		done <intermediateimagefiles.txt
 		rm intermediateimagefiles.txt
 
+	else
+		echo "No image files (png|jpg|jpeg) found in input/sbs_in"
 	fi	
 	echo "Batch done."
 fi

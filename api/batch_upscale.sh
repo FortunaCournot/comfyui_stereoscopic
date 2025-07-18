@@ -11,17 +11,21 @@ COMFYUIPATH=.
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.sh 
 
+cd $COMFYUIPATH
+
+FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
+FREESPACE=${FREESPACE%G}
+MINSPACE=10
 status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
 if [ "$status" = "closed" ]; then
     echo "Error: ComfyUI not present. Ensure it is running on port 8188"
-elif test $# -ne 0 
-then
+elif [[ $FREESPACE -lt $MINSPACE ]] ; then
+	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
+elif test $# -ne 0 ; then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
-	cd $COMFYUIPATH
-
 	COUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then

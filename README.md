@@ -46,7 +46,7 @@ Now, you can install the Stereoscopic custom node package with ComfyUI Manager.
 
 After restart, test installation: Drop the workflow from  custom_nodes\comfyui_stereoscopic\examples\workflows\I2I_SBS_Converter.json into ComfyUI, select an image, e.g. custom_nodes\comfyui_stereoscopic\examples\input\Demo-Image.png and execute. See workflow below.
 
-Use the Manager to install the Upscale Models: RealESRGAN x2 and x4.
+Use the Model Manager to install the Upscale Model 4x_foolhardy_Remacri.
 
 Finally, for ComfyUI Desktop the ports need to be changed, since the scripts are using the default port of ComfyUI Portable. Go to Settings->Server Config, and set the value for the port to 8188.
 
@@ -119,20 +119,11 @@ The end condition must be checked manually in ComfyUI Frontend (Browser). If que
 
 Note: It uses the workflow of [V2V Template](examples/workflows/V2V_SBS_Converter.json) that has been transformed into an API callable workflow located at [V2V SBS Converter API](api/v2v_sbs_converter.py)
 
-##### About V2V Upscale with Real-ESRGAN-x4plus
+##### About V2V Upscale with 4x_foolhardy_Remacri
 
-It upscales a base video (input) by Real-ESRGAN-x2, for small resolutions 4plus and places result, with _x2 or _x4 appended to filename, under ComfyUI/input/sbs_in folder, so you can directly start the converter script afterwards.
+It upscales a base video (input) by 4x_foolhardy_Remacri, and does a downscale if not very small, then with _x2 or _x4 appended to filename, under ComfyUI/input/sbs_in folder, so you can directly start the converter script afterwards.
 Videos with large resolution are just copied.
 In the call above, the number at the end is optional, and is the sigma of the blur. The video must have already have a decent quality, or the model will fail.
-The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
-
-##### About V2V Rescale
-This is same as V2V Upscale with Real-ESRGAN-x2, but first it is downscaled by factor, so resolution stays same. This is intended for hires videos with bad quality.
-
-To simply things an [V2V Shell Script](api/v2v_rescale.sh) for Git Bash is included that can be used as well.
-
-It down-/upscales a base video (input) by Real-ESRGAN-x4plus and places result, with _x1 appended to filename,  under ComfyUI/input/sbs_in folder.
-The number at the end is optional, and is the blur sigma. The video must have already have a decent quality, or the model will fail.
 The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. Use the batch version of the script below to handle this automatic.
 
 

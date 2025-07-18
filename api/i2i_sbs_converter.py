@@ -32,7 +32,7 @@ prompt_text = """
         3
       ],
       "image": [
-        "158",
+        "229",
         0
       ]
     },
@@ -50,7 +50,7 @@ prompt_text = """
       "symetric": true,
       "processing": "Normal",
       "base_image": [
-        "158",
+        "229",
         0
       ],
       "depth_image": [
@@ -66,7 +66,7 @@ prompt_text = """
   "222": {
     "inputs": {
       "base_image": [
-        "158",
+        "229",
         0
       ]
     },
@@ -86,6 +86,18 @@ prompt_text = """
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
+    }
+  },
+  "229": {
+    "inputs": {
+      "anything": [
+        "158",
+        0
+      ]
+    },
+    "class_type": "easy clearCacheAll",
+    "_meta": {
+      "title": "Clear Cache All"
     }
   }
 }
