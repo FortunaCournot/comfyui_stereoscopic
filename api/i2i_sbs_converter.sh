@@ -97,6 +97,7 @@ else
 			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
 			rm -f "$TARGETPREFIX""*.png"
 			mkdir -p input/sbs_in/done
+
 			start=`date +%s`
 			end=`date +%s`
 			secs=0
@@ -108,6 +109,7 @@ else
 				itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 				echo -ne "$itertimemsg         \r"
 			done
+			
 			FINALTARGET="${INTERMEDIATE%_00001_.png}"".png"
 			echo "Moving to $FINALTARGET"
 			mv "$INTERMEDIATE" "$FINALTARGET"

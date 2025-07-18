@@ -1,6 +1,5 @@
 #!/bin/sh
 # Upscales videos in batch from all base videos placed in ComfyUI/input/upscale_in (input)
-# The end condition is checked automatic,  If queue gets empty the batch_concat.sh script is called. 
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 

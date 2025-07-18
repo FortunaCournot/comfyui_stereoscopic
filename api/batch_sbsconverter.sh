@@ -1,6 +1,5 @@
 #!/bin/sh
 # Creates SBS videos in batch from all base videos placed in ComfyUI/input/sbs_in folder (input)
-# The end condition is checked automatic,  If queue gets empty the batch_concat.sh script is called. 
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
@@ -11,7 +10,6 @@ COMFYUIPATH=.
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh 
 SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter.sh 
-CONCATBATCHSCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh 
 
 cd $COMFYUIPATH
 

@@ -109,7 +109,7 @@ else
 	fi
 	
 	echo "Splitting into segments and prompting ..."
-	TESTAUDIO=`ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
+	TESTAUDIO=`"$FFMPEGPATH"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
 	AUDIOMAPOPT="-map 0:a:0"
 	if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 		AUDIOMAPOPT=""
@@ -119,7 +119,7 @@ else
 		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 			# create audio
 			mv "$f" "${f%.mp4}_na.mp4"
-			nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 		fi
 		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
 	done

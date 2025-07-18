@@ -85,7 +85,7 @@ To give users an option to see what is going on and maybe to tweak things better
 ### Video-to-Video (V2V) Converter
 
 #### Simplified Execution over Shell (CLI)
-To convert or upscale many videos, they can be placed in ComfyUI/input/sbs_in or ComfyUI/input/upscale_in. The end condition for batch is checked automatic, if queue gets empty the batch_concat.sh script is called. Don't forget to remove the input videos from the input folders afterwards. The converter supports now also single images (jpg and png).
+To convert or upscale many videos, they can be placed in ComfyUI/input/sbs_in or ComfyUI/input/upscale_in. The end condition for batch is checked automatic. Don't forget to remove the input videos from the input folders afterwards. The converter supports now also single images (jpg and png).
 
 Please create two folders under the ComfyUI/input folder: upscale_in and sbs_in
 Then place mp4 files in these folders, open a Git Bash shell (under Start->Git). Files in subfolders are not processed.
