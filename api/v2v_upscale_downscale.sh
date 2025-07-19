@@ -27,11 +27,11 @@ COMFYUIPATH=.
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.py
 
 
-if test $# -ne 1
+if test $# -ne 1 -a $# -ne 2
 then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 input"
-    echo "E.g.: $0 SmallIconicTown.mp4"
+    echo "Usage: $0 input [upscalefactor]"
+    echo "E.g.: $0 SmallIconicTown.mp4 [upscalefactor]"
 elif [ -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
 then
 	cd $COMFYUIPATH
@@ -46,6 +46,24 @@ then
 	INPUT="$1"
 	shift
 	
+	UPSCALEFACTOR=0
+	if test $# -eq 1
+	then
+		UPSCALEFACTOR="$1"
+		if [ "$UPSCALEFACTOR" -eq 4 ]
+		then
+			TARGETPREFIX="$TARGETPREFIX""_x4"
+			DOWNSCALE=1.0
+		elif [ "$UPSCALEFACTOR" -eq 2 ]
+		then
+			TARGETPREFIX="$TARGETPREFIX""_x2"
+			DOWNSCALE=0.5
+		else
+			 echo "Error: Allowed upscalefactor values: 2 or 4"
+			exit
+		fi
+	fi
+	
 	PROGRESS=" "
 	if [ -e input/upscale_in/BATCHPROGRESS.TXT ]
 	then
@@ -59,20 +77,26 @@ then
 	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
 	FINALTARGETFOLDER=`realpath "input/sbs_in"`
 	UPSCALEMODEL="4x_foolhardy_Remacri.pth"
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
-	then 
-		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
+	if [ "$UPSCALEFACTOR" -eq 0 ]
+	then
+		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 		then 
-			TARGETPREFIX="$TARGETPREFIX""_x4"
-			DOWNSCALE=1.0
-		else
-			TARGETPREFIX="$TARGETPREFIX""_x2"
-			DOWNSCALE=0.5
+			if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
+			then 
+				TARGETPREFIX="$TARGETPREFIX""_x4"
+				DOWNSCALE=1.0
+				UPSCALEFACTOR=4
+			else
+				TARGETPREFIX="$TARGETPREFIX""_x2"
+				DOWNSCALE=0.5
+				UPSCALEFACTOR=2
+			fi
 		fi
 	fi
 	
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
-	then 
+	
+	if [ "$UPSCALEFACTOR" -gt 0 ]
+	then
 		mkdir -p "$TARGETPREFIX"".tmpseg"
 		mkdir -p "$TARGETPREFIX"".tmpupscale"
 		touch "$TARGETPREFIX"".tmpseg"/x
