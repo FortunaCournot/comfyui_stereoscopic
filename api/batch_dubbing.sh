@@ -1,5 +1,5 @@
 #!/bin/sh
-# Upscales videos in batch from all base videos placed in ComfyUI/input/upscale_in (input)
+# Upscales videos in batch from all base videos placed in ComfyUI/input/dubbing_in (input)
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
@@ -8,18 +8,19 @@
 # Default: Executed in ComfyUI folder
 COMFYUIPATH=.
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2m_dubbing.sh 
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_dubbing.sh 
 
 cd $COMFYUIPATH
-
-echo "Work in progress."
-exit
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
 MINSPACE=10
 status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
-if [ "$status" = "closed" ]; then
+if [ ! -d ./custom_nodes/ComfyUI-MMAudio ]; then
+    echo "Warning: Custom nodes ComfyUI-MMAudio not present. Skipping."
+elif [ ! -d ./models/mmaudio ]; then
+    echo "Warning: Models for ComfyUI-MMAudio not present. Skipping."
+elif [ "$status" = "closed" ]; then
     echo "Error: ComfyUI not present. Ensure it is running on port 8188"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
@@ -28,20 +29,23 @@ elif test $# -ne 0 ; then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
-	COUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	echo "Work in progress. Skipping"
+	exit
+	
+	COUNT=`find input/dubbing_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in input/dubbing_in/*.mp4 ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT" >input/upscale_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/dubbing_in/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
 			
-			TESTAUDIO=`"$FFMPEGPATH"ffprobe -i "$newfn" -show_streams -select_streams a -loglevel error`
-			if [[ $TESTAUDIO =~ "[STREAM]" ]]; then
+			TESTAUDIO=  # OVERWRITE AUDIO. UNCOMMENT TO CHANGE THIS. # `"$FFMPEGPATH"ffprobe -i "$newfn" -show_streams -select_streams a -loglevel error`
+			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 				/bin/bash $SCRIPTPATH "$newfn"
 				
 				echo "Waiting for queue to finish..."
@@ -72,16 +76,6 @@ else
 				echo "done. duration: $runtime""s.                      "
 				rm queuecheck.json
 				
-				#TODO: ADD GENERATED SOUND TO VIDEO
-				#nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "$newfn" -y -c:v copy -c:a aac -shortest tmpvidwithaudio.mp4
-
-				# save input
-				mkdir -p input/dubbing_in/done
-				mv $newfn input/dubbing_in/done
-				
-				# move output to next step in pipeline
-				mv tmpvidwithaudio.mp4 $newfn
-				mv $newfn input/upscale_in
 			else
 			echo "Audio found, skipping $newfn"
 				# directly move input to next step in pipeline
@@ -90,7 +84,7 @@ else
 			
 		done
 	fi
-	rm -f input/upscale_in/BATCHPROGRESS.TXT
+	rm -f input/dubbing_in/BATCHPROGRESS.TXT
 	echo "Batch done."
 
 fi
