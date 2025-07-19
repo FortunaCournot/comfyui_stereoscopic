@@ -63,66 +63,94 @@ else
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpsbs"
-	touch "$TARGETPREFIX"".tmpsbs"/x
-	touch "$TARGETPREFIX"".tmpseg"/x
-	rm "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpsbs"/*
 	SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
 	SBSDIR=`realpath "$TARGETPREFIX"".tmpsbs"`
+	if [ ! -e "$SBSDIR/concat.sh" ]
+	then
+		touch "$TARGETPREFIX"".tmpsbs"/x
+		touch "$TARGETPREFIX"".tmpseg"/x
+		rm "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpsbs"/*
+	fi
 	touch $TARGETPREFIX
 	TARGETPREFIX=`realpath "$TARGETPREFIX"`
 	echo "Converting to SBS from $TARGETPREFIX"
 	rm "$TARGETPREFIX"
 
 	SPLITINPUT="$INPUT"
-	
-	# Prepare to restrict resolution to 4K, and skip low res
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
+	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
-		echo "Skipping low resolution video: $INPUT"
-	elif test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  2160
-	then 
-		echo "H-Resolution > 4K: Downscaling..."
-		$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
-		SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
-		mv $SPLITINPUT $SEGDIR
-		SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
-	elif test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 2160 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  3840
-	then 
-		echo "V-Resolution > 4K: Downscaling..."
-		$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
-		SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
-		mv $SPLITINPUT $SEGDIR
-		SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
-	fi
+		
+		# Prepare to restrict resolution to 4K, and skip low res
+		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
+		then
+			echo "Skipping low resolution video: $INPUT"
+		elif test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  2160
+		then 
+			echo "H-Resolution > 4K: Downscaling..."
+			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
+			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
+			mv $SPLITINPUT $SEGDIR
+			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
+		elif test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 2160 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  3840
+		then 
+			echo "V-Resolution > 4K: Downscaling..."
+			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
+			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
+			mv $SPLITINPUT $SEGDIR
+			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
+		fi
 
-	# Prepare to restrict fps
-	fpsv=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
-	fps=$(($fpsv))
-	echo "Source FPS: $fps ($fpsv)"
-	FPSOPTION=`echo $fps 30.0 | awk '{if ($1 > $2) print "-filter:v fps=fps=30" }'`
-	if [[ -n "$FPSOPTION" ]]
-	then 
-		SPLITINPUTFPS30="$SEGDIR/splitinput_fps30.mp4"
-		echo "Rencoding to 30.0 ..."
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUTFPS30"
-		SPLITINPUT="$SPLITINPUTFPS30"
+		# Prepare to restrict fps
+		fpsv=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
+		fps=$(($fpsv))
+		echo "Source FPS: $fps ($fpsv)"
+		FPSOPTION=`echo $fps 30.0 | awk '{if ($1 > $2) print "-filter:v fps=fps=30" }'`
+		if [[ -n "$FPSOPTION" ]]
+		then 
+			SPLITINPUTFPS30="$SEGDIR/splitinput_fps30.mp4"
+			echo "Rencoding to 30.0 ..."
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUTFPS30"
+			SPLITINPUT="$SPLITINPUTFPS30"
+		fi
+	else
+		until [ "$queuecount" = "0" ]
+		do
+			sleep 1
+			curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+			echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
+		done
+		echo "recovering...                                                             "
+		queuecount=
 	fi
 	
-	echo "Splitting into segments and prompting ..."
 	TESTAUDIO=`"$FFMPEGPATH"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
 	AUDIOMAPOPT="-map 0:a:0"
 	if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 		AUDIOMAPOPT=""
 	fi
-	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
+	if [ ! -e "$SBSDIR/concat.sh" ]
+	then
+		echo "Splitting into segments"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 "$SEGDIR/segment%05d.mp4"
+	fi
+	echo "Prompting ..."
 	for f in "$SEGDIR"/segment*.mp4 ; do
-		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
-			# create audio
-			mv "$f" "${f%.mp4}_na.mp4"
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
+		f2=${f%.mp4}
+		f2=${f2#$SEGDIR/segment}
+		echo -ne "$f2...       \r"
+		if [ ! -e "$SBSDIR/sbssegment_$f2.mp4" ]
+		then
+			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
+				# create audio
+				mv "$f" "${f%.mp4}_na.mp4"
+				nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
+				rm -f "${f%.mp4}_na.mp4"
+			fi
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
 		fi
-		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
 	done
+	echo "Jobs running...   "
 	
 	echo "#!/bin/sh" >"$SBSDIR/concat.sh"
 	echo "cd \"\$(dirname \"\$0\")\"" >>"$SBSDIR/concat.sh"
@@ -163,6 +191,10 @@ else
 		sleep 1
 		curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
 		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+		if [[ -z "$queuecount" ]]; then
+			echo -ne "Lost connection to ComfyUI. STOPPED PROCESSING.                     "
+			exit
+		fi
 		if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
 		then
 			end=`date +%s`
