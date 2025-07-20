@@ -85,7 +85,7 @@ prompt_text = """
   },
   "88": {
     "inputs": {
-      "Number": "24"
+      "Number": "60"
     },
     "class_type": "Int",
     "_meta": {
@@ -237,7 +237,7 @@ prompt_text = """
   },
   "168": {
     "inputs": {
-      "model_name": "4x_foolhardy_Remacri.pth"
+      "model_name": "RealESRGAN_x4plus.pth"
     },
     "class_type": "UpscaleModelLoader",
     "_meta": {

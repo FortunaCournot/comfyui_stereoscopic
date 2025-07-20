@@ -48,8 +48,14 @@ else
 			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 				/bin/bash $SCRIPTPATH "$newfn"
 				
+				status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+				if [ "$status" = "closed" ]; then
+					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+					exit
+				fi
+				
 				echo "Waiting for queue to finish..."
-				sleep 4  # Give some extra time to start...
+				sleep 3  # Give some extra time to start...
 				lastcount=""
 				start=`date +%s`
 				startjob=$start

@@ -99,31 +99,79 @@ then
 	then
 		mkdir -p "$TARGETPREFIX"".tmpseg"
 		mkdir -p "$TARGETPREFIX"".tmpupscale"
-		touch "$TARGETPREFIX"".tmpseg"/x
-		touch "$TARGETPREFIX"".tmpupscale"/x
-		rm "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpupscale"/*
 		SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
 		UPSCALEDIR=`realpath "$TARGETPREFIX"".tmpupscale"`
+		if [ ! -e "$UPSCALEDIR/concat.sh" ]
+		then
+			touch "$TARGETPREFIX"".tmpseg"/x
+			touch "$TARGETPREFIX"".tmpupscale"/x
+			rm "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpupscale"/*
+		fi
 		touch $TARGETPREFIX
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
 		echo "prompting for $TARGETPREFIX"
 		rm "$TARGETPREFIX"
+	
+		SPLITINPUT="$INPUT"
+		if [ ! -e "$UPSCALEDIR/concat.sh" ]
+		then
+			# Prepare to restrict tp 30 fps (script batch maximum)
+			fpsv=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
+			fps=$(($fpsv))
+			echo "Source FPS: $fps ($fpsv)"
+			FPSOPTION=`echo $fps 30.0 | awk '{if ($1 > $2) print "-filter:v fps=fps=30" }'`
+			if [[ -n "$FPSOPTION" ]]
+			then 
+				SPLITINPUTFPS30="$SEGDIR/splitinput_fps30.mp4"
+				echo "Rencoding to 30.0 ..."
+				nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUTFPS30"
+				SPLITINPUT="$SPLITINPUTFPS30"
+			fi		
+		else
+			until [ "$queuecount" = "0" ]
+			do
+				sleep 1
+				curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+				echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
+			done
+			echo "recovering...                                                             "
+			queuecount=
+		fi
 		
-		echo "Splitting into segments and prompting ..."
-		TESTAUDIO=`ffprobe -i "$INPUT" -show_streams -select_streams a -loglevel error`
+		TESTAUDIO=`"$FFMPEGPATH"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
 		AUDIOMAPOPT="-map 0:a:0"
 		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 			AUDIOMAPOPT=""
 		fi
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
-		for f in "$SEGDIR"/*.mp4 ; do
-			TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
-			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
-				mv "$f" "${f%.mp4}_na.mp4"
-				nice ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
+		if [ ! -e "$UPSCALEDIR/concat.sh" ]
+		then
+			echo "Splitting into segments"
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 "$SEGDIR/segment%05d.mp4"
+		fi
+		echo "Prompting ..."
+		for f in "$SEGDIR"/segment*.mp4 ; do
+			f2=${f%.mp4}
+			f2=${f2#$SEGDIR/segment}
+			echo -ne "$f2...       \r"
+			if [ ! -e "$UPSCALEDIR/sbssegment_$f2.mp4" ]
+			then
+				if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
+					# create audio
+					mv "$f" "${f%.mp4}_na.mp4"
+					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
+					rm -f "${f%.mp4}_na.mp4"
+				fi
+				status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+				if [ "$status" = "closed" ]; then
+					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+					exit
+				fi
+				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $UPSCALEMODEL $DOWNSCALE
 			fi
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $UPSCALEMODEL $DOWNSCALE
 		done
+		echo "Jobs running...   "
+		
 		
 		echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
 		echo "cd \"\$(dirname \"\$0\")\"" >>"$UPSCALEDIR/concat.sh"

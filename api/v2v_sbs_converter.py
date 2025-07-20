@@ -85,7 +85,7 @@ prompt_text = """
   },
   "88": {
     "inputs": {
-      "Number": "30"
+      "Number": "60"
     },
     "class_type": "Int",
     "_meta": {

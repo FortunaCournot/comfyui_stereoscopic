@@ -73,9 +73,16 @@ else
 			if [ -e "$newfn" ]
 			then
 				/bin/bash $SCRIPTPATH2 $depth_scale $depth_offset "$newfn"
+				
+				status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+				if [ "$status" = "closed" ]; then
+					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+					exit
+				fi
+				
 			else
 				echo "Error: prompting failed. Missing file: $newfn"
-			fi
+			fi			
 		done
 		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
 				

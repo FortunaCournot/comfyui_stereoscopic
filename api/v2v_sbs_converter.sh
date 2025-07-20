@@ -147,6 +147,11 @@ else
 				nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 				rm -f "${f%.mp4}_na.mp4"
 			fi
+			status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+			if [ "$status" = "closed" ]; then
+				echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+				exit
+			fi
 			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
 		fi
 	done
