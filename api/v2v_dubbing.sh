@@ -137,7 +137,7 @@ else
 	if [ ! -e "$DUBBINGDIR/concat.sh" ]
 	then
 		echo -ne "Splitting into segments..."
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time $SEGMENTTIME -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -vcodec libx264 "$SEGDIR/segment%05d.ts"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time $SEGMENTTIME -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -vcodec libx264 "$SEGDIR/segment%05d.ts"
 		echo "done.                                               "
 	fi
 	 
@@ -230,7 +230,8 @@ else
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i "$TARGETPREFIX"".flac" -c:v copy -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo "Error: failed to create dubbed.mp4 (NA)" && exit ; fi
 		fi
-		mv $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
+		mv -f $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
+		mv -vf "$TARGETPREFIX""_dub.mp4" "$FINALTARGETFOLDER"
 		
 		rm -rf "$TARGETPREFIX"".tmpseg" "$TARGETPREFIX"".tmpdubbing"
 		mkdir -p ./input/dubbing_in/done
