@@ -24,6 +24,13 @@ elif [ "$status" = "closed" ]; then
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
 elif [ -d "custom_nodes" ]; then
+
+	echo "**************************"
+	echo "******* SLIDESHOW ********"
+	echo "**************************"
+    ./custom_nodes/comfyui_stereoscopic/api/batch_makeslideshow.sh
+	mkdir -p input/dubbing
+	mv -f output/slideshow/*.mp4 input/dubbing_in  >/dev/null 2>&1
 	
 	echo "**************************"
 	echo "******** DUBBING *********"

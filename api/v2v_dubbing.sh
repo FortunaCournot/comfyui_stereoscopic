@@ -210,7 +210,7 @@ else
 			if [ -e "$DUBBINGDIR/merged-temp.flac" ]; then
 				mv -f $DUBBINGDIR/merged-temp.flac $DUBBINGDIR/merged.flac
 			else
-				echo "Warning: failed to create merged-temp.flac($p)"
+				echo "Warning: failed to create merged-temp.flac($p). This occurs for short video input (2 seconds)."
 			fi
 		fi
 
@@ -228,10 +228,14 @@ else
 			#https://stackoverflow.com/questions/35509147/ffmpeg-amix-filter-volume-issue-with-inputs-of-different-duration
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/source.mp3 -i "$TARGETPREFIX"".flac" -filter_complex "[0]adelay=0|0,volume=$DUBSTRENGTH_ORIGINAL[a];[1]adelay=0|0,volume=$DUBSTRENGTH_AI[b];[a][b]amix=inputs=2:duration=longest:dropout_transition=0" $DUBBINGDIR/sourcemerge.flac
 			if [ ! -e "$DUBBINGDIR/sourcemerge.flac" ]; then echo "Error: failed to create sourcemerge.flac" && exit ; fi
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/sourcemerge.flac -c:v copy -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 4 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i $DUBBINGDIR/sourcemerge.flac -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.flac
+			if [ ! -e "$DUBBINGDIR/padded.flac" ]; then echo "Error: failed to create padded.flac" && exit ; fi
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.flac -shortest -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo "Error: failed to create dubbed.mp4 (A)" && exit ; fi
 		else
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i "$TARGETPREFIX"".flac" -c:v copy -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 4 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "$TARGETPREFIX"".flac" -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.flac
+			if [ ! -e "$DUBBINGDIR/padded.flac" ]; then echo "Error: failed to create padded.flac" && exit ; fi
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.flac -shortest -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo "Error: failed to create dubbed.mp4 (NA)" && exit ; fi
 		fi
 		mv -f $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
