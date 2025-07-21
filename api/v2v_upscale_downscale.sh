@@ -73,8 +73,8 @@ then
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=`realpath "input/sbs_in"`
+	TARGETPREFIX=output/upscale/intermediate/${TARGETPREFIX%.mp4}
+	FINALTARGETFOLDER=`realpath "output/upscale"`
 	UPSCALEMODEL="4x_foolhardy_Remacri.pth"
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
@@ -235,7 +235,7 @@ then
 		cp $INPUT "$FINALTARGETFOLDER"
 	fi
 	mkdir -p input/upscale_in/done
-	mv "$INPUT" input/upscale_in/done
+	mv -fv "$INPUT" input/upscale_in/done
 else
 	if [ ! -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
 	then

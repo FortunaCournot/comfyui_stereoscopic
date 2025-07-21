@@ -58,8 +58,9 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/fullsbs/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=output/fullsbs/intermediate/${TARGETPREFIX%.mp4}
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
+	FINALTARGETFOLDER=`realpath "output/fullsbs"`
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpsbs"
 	SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
@@ -180,6 +181,8 @@ else
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic output3.mp4" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
+	echo "mkdir -p $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
+	echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
 	echo "cd .." >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
 	echo "echo done." >>"$SBSDIR/concat.sh"
@@ -218,7 +221,7 @@ else
 	echo "Calling $SBSDIR/concat.sh"
 	$SBSDIR/concat.sh
 	mkdir -p input/sbs_in/done
-	mv "$INPUT" input/sbs_in/done
+	mv -fv "$INPUT" input/sbs_in/done
 	
 fi
 

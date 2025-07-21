@@ -114,7 +114,7 @@ else
 			echo "Moving to $FINALTARGET"
 			mv "$INTERMEDIATE" "$FINALTARGET"
 			if [ -z "$SCALINGINTERMEDIATE" ]; then
-				mv "$INPUT" input/sbs_in/done
+				mv -fv "$INPUT" input/sbs_in/done
 			else
 				rm "$INPUT"
 			fi

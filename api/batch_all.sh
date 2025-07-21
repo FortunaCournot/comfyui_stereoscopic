@@ -29,11 +29,13 @@ elif [ -d "custom_nodes" ]; then
 	echo "******** DUBBING *********"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
+	mv -f output/dubbing/*.flac output/dubbing/*.mp4 input/upscale_in  >/dev/null 2>&1
 	
 	echo "**************************"
 	echo "******* UPSCALING ********"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh
+	mv -f output/upscale/*.mp4 output/dubbing/*.png output/dubbing/*.jpg output/dubbing/*.jpeg output/dubbing/*.PNG output/dubbing/*.JPG output/dubbing/*.JPEG input/sbs_in  >/dev/null 2>&1
 	
 	echo "**************************"
 	echo "*****  SBSCONVERTING *****"

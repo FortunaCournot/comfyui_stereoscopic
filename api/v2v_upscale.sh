@@ -58,8 +58,8 @@ else
 	fi
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=`realpath "input/sbs_in"`
+	TARGETPREFIX=output/upscale/intermediate/${TARGETPREFIX%.mp4}
+	FINALTARGETFOLDER=`realpath "output/upscale"`
 	UPSCALEMODEL=RealESRGAN_x2.pth
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
@@ -165,6 +165,6 @@ else
 		cp $INPUT "$FINALTARGETFOLDER"
 	fi
 	mkdir -p input/upscale_in/done
-	mv "$INPUT" input/upscale_in/done
+	mv -fv "$INPUT" input/upscale_in/done
 fi
 

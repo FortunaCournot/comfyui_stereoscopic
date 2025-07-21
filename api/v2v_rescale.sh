@@ -61,8 +61,8 @@ then
 	fi
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/upscale/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=`realpath "input/sbs_in"`
+	TARGETPREFIX=output/upscale/intermediate/${TARGETPREFIX%.mp4}
+	FINALTARGETFOLDER=`realpath "output/upscale"`
 	TARGETPREFIX="$TARGETPREFIX""_x1"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpupscale"
@@ -151,6 +151,6 @@ then
 	echo "Calling $UPSCALEDIR/concat.sh"
 	$UPSCALEDIR/concat.sh
 	mkdir -p input/upscale_in/done
-	mv "$INPUT" input/upscale_in/done
+	mv -fv "$INPUT" input/upscale_in/done
 fi
 

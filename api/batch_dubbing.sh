@@ -83,8 +83,5 @@ else
 	rm -f input/dubbing_in/BATCHPROGRESS.TXT
 	echo "Batch done."
 
-	echo "Work in progress. Skipping"
-	exit
-
 fi
 

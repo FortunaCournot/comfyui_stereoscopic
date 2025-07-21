@@ -30,6 +30,9 @@ if [ -d "../python_embeded" ]; then
   PYTHON_BIN_PATH=../python_embeded/
 fi
 
+DUBSTRENGTH_ORIGINAL=1.75	# WEIGHT IF AUDIO IS ALREADY PRESENT
+DUBSTRENGTH_AI=0.25			# WEIGHT IF AUDIO IS ALREADY PRESENT
+
 SEGMENTTIME=2
 PARALLELITY=2
 AUDIOSEGMENTLENGTH=$((SEGMENTTIME * PARALLELITY))
@@ -83,7 +86,7 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/dubbing/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=output/dubbing/intermediate/${TARGETPREFIX%.mp4}
 	FINALTARGETFOLDER=`realpath "output/dubbing"`
 	
 	FADEOUTSTART=$((SEGMENTTIME-1))
@@ -126,7 +129,7 @@ else
 			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 			echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
 		done
-		echo "recovering...                                                             "
+		echo "recovering...                                                   "
 		queuecount=
 	fi
 	
@@ -135,9 +138,10 @@ else
 	then
 		echo -ne "Splitting into segments..."
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time $SEGMENTTIME -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -vcodec libx264 "$SEGDIR/segment%05d.ts"
-		echo "done.                                                          "
+		echo "done.                                               "
 	fi
 	 
+	#PINPUTOPT=
 	for ((p=1; p<=$PARALLELITY; p++))
 	do
 		echo -ne "Prompting $p/$PARALLELITY ...         \r"
@@ -165,10 +169,10 @@ else
 					TMPFILE=$DUBBINGDIR/currentvideosegment.ts
 					TMPFILE=`realpath "$TMPFILE"`
 					cd "$SEGDIR"
-					"$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$concatopt" -c copy "$TMPFILE"
+					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$concatopt" -c copy "$TMPFILE"
 					cd "$COMFYUIPATH"
 					
-					echo -ne "$p/$PARALLELITY: Prompting $dindex ...                                 \r"
+					echo -ne "Prompting $p/$PARALLELITY: segment #$dindex ...                                 \r"
 					
 					"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR"/$p/dubsegment $AUDIOSEGMENTLENGTH $POSITIVEPATH $NEGATIVEPATH
 					
@@ -185,107 +189,55 @@ else
 					dindex=$((dindex+1))
 					pindex=0					
 				fi
-				
 
 			fi
 		done
 
-
-	done
-	echo "Prompting done.                                                          "
-	set +x
-	
-	echo "Jobs running...                                                          "
-echo "exit"
-exit
-
-
-for i in *.flac; do
-	FADEOUTSTART=$((SEGMENTTIME-1))
-	nice ffmpeg -hide_banner -loglevel error -y -ss 0 -i $i -af "afade=type=in:start_time=0:duration=1,afade=type=out:start_time=$FADEOUTSTART:duration=1" -c:a libmp3lame faded.flac
-	mv faded.flac $i
-	echo "file $i">>list.txt
-done
-
-	
-	echo "#!/bin/sh" >"$DUBBINGDIR/concat.sh"
-	echo "cd \"\$(dirname \"\$0\")\"" >>"$DUBBINGDIR/concat.sh"
-	echo "rm -rf \"$TARGETPREFIX\"\".tmpseg\"" >>"$DUBBINGDIR/concat.sh"
-	echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$DUBBINGDIR/concat.sh"
-	echo "then" >>"$DUBBINGDIR/concat.sh"
-	echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$DUBBINGDIR/concat.sh"
-	echo "    rm \$list" >>"$DUBBINGDIR/concat.sh"
-	echo "fi" >>"$DUBBINGDIR/concat.sh"
-	echo "for f in ./*.mp4 ; do" >>"$DUBBINGDIR/concat.sh"
-	echo "	echo \"file \$f\" >> "$DUBBINGDIR"/list.txt" >>"$DUBBINGDIR/concat.sh"
-	echo "done" >>"$DUBBINGDIR/concat.sh"
-	echo "$FFMPEGPATH""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$DUBBINGDIR/concat.sh"
-	echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$DUBBINGDIR/concat.sh"
-	echo "files=(*.mp4)"  >>"$DUBBINGDIR/concat.sh"
-	echo "nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i \${files[0]} -vf \"thumbnail\" -frames:v 1 thumbnail.png" >>"$DUBBINGDIR/concat.sh"
-	echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$DUBBINGDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$DUBBINGDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$DUBBINGDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$DUBBINGDIR/concat.sh"
-	echo "else" >>"$DUBBINGDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$DUBBINGDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$DUBBINGDIR/concat.sh"
-	echo "fi" >>"$DUBBINGDIR/concat.sh"
-	echo "mkdir -p $FINALTARGETFOLDER" >>"$DUBBINGDIR/concat.sh"
-	echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$DUBBINGDIR/concat.sh"
-	echo "cd .." >>"$DUBBINGDIR/concat.sh"
-	echo "rm -rf \"$TARGETPREFIX\"\".tmpdubbing\"" >>"$DUBBINGDIR/concat.sh"
-	echo "echo done." >>"$DUBBINGDIR/concat.sh"
-	
-	echo "Waiting for queue to finish..."
-	sleep 4  # Give some extra time to start...
-	lastcount=""
-	start=`date +%s`
-	startjob=$start
-	itertimemsg=""
-	until [ "$queuecount" = "0" ]
-	do
-		sleep 1
-		curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
-		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-		if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
-		then
-			end=`date +%s`
-			runtime=$((end-start))
-			start=`date +%s`
-			secs=$(("$queuecount * runtime"))
-			eta=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-			itertimemsg=", $runtime""s/prompt, ETA: $eta"
-		fi
-		lastcount="$queuecount"
+		cd "$DUBBINGDIR/$p"
+		echo "" >list.txt
+		for f in *.flac; do echo "file '$f'" >> list.txt; done
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
+		if [ ! -e "../output$p.flac" ]; then echo "Error: failed to create output$p.flac" && exit ; fi
+		cd "$COMFYUIPATH"
 		
-		echo -ne "queuecount: $queuecount $itertimemsg         \r"
+		if [ $p -eq 1 ]; then
+			cp $DUBBINGDIR/output1.flac $DUBBINGDIR/merged.flac
+		else
+			# Combining two audio files and introducing an offset with FFMPEG
+			# https://superuser.com/questions/1719361/combining-two-audio-files-and-introducing-an-offset-with-ffmpeg
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/output$p.flac -i $DUBBINGDIR/merged.flac -filter_complex "aevalsrc=0:d=$(((p-1)*SEGMENTTIME))[s1];[s1][1:a]concat=n=2:v=0:a=1[ac2];[0:a]apad[ac1];[ac1][ac2]amerge=2[a]" -map "[a]" $DUBBINGDIR/merged-temp.flac
+			if [ ! -e "$DUBBINGDIR/merged-temp.flac" ]; then echo "Error: failed to create merged-temp.flac($p)" && exit ; fi
+			mv -f $DUBBINGDIR/merged-temp.flac $DUBBINGDIR/merged.flac
+		fi
+
 	done
-	runtime=$((end-startjob))
-	echo "done. duration: $runtime""s.                      "
-	rm queuecheck.json
-	echo "Calling $DUBBINGDIR/concat.sh"
-	#$DUBBINGDIR/concat.sh
-
-	mkdir -p input/dubbing_in/done
-	#mv "$INPUT" input/dubbing_in/done
-
-exit
-	echo "" >list.txt
-	for i in *.flac; do
-		"$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -ss 0 -i $i -af "afade=type=in:start_time=0:duration=1,afade=type=out:start_time=$FADEOUTSTART:duration=1" -c:a libmp3lame faded.flac
-		mv faded.flac $i
-		echo "file $i">>list.txt
-	done
-
-	nice "$FFMPEGPATH"ffmpeg.exe -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt output.mp3
+	echo "Prompting done, dubbing...                               "
 	
+	if [ -e "$DUBBINGDIR/merged.flac" ]; then
+		mv $DUBBINGDIR/merged.flac "$TARGETPREFIX"".flac"
+		
+		TESTAUDIO=`"$FFMPEGPATH"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
+		AUDIOMAPOPT="-map 0:a:0"
+		if [[ $TESTAUDIO =~ "[STREAM]" ]]; then
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -q:a 0 -map a $DUBBINGDIR/source.mp3
+			if [ ! -e "$DUBBINGDIR/source.mp3" ]; then echo "Error: failed to create source.mp3" && exit ; fi
+			#https://stackoverflow.com/questions/35509147/ffmpeg-amix-filter-volume-issue-with-inputs-of-different-duration
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/source.mp3 -i "$TARGETPREFIX"".flac" -filter_complex "[0]adelay=0|0,volume=$DUBSTRENGTH_ORIGINAL[a];[1]adelay=0|0,volume=$DUBSTRENGTH_AI[b];[a][b]amix=inputs=2:duration=longest:dropout_transition=0" $DUBBINGDIR/sourcemerge.flac
+			if [ ! -e "$DUBBINGDIR/sourcemerge.flac" ]; then echo "Error: failed to create sourcemerge.flac" && exit ; fi
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/sourcemerge.flac -c:v copy -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
+			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo "Error: failed to create dubbed.mp4 (A)" && exit ; fi
+		else
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i "$TARGETPREFIX"".flac" -c:v copy -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
+			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo "Error: failed to create dubbed.mp4 (NA)" && exit ; fi
+		fi
+		mv $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
+		
+		rm -rf "$TARGETPREFIX"".tmpseg" "$TARGETPREFIX"".tmpdubbing"
+		mkdir -p ./input/dubbing_in/done
+		mv -fv $INPUT ./input/dubbing_in/done
+	fi
 
-ffmpeg -ss 0 -hide_banner -loglevel error -y -i sbssegment_00002_.flac -af "afade=type=in:start_time=0:duration=1" -c:a flac fadedin.flac
-ffmpeg -ss 0 -hide_banner -loglevel error -y -i sbssegment_00002_.flac -af "afade=type=out:start_time=$FADEOUTSTART:duration=1" -c:a flac fadedout.flac
+	echo "Dubbing done."
 
-ffmpeg.exe -hide_banner -loglevel error -y -i sbssegment_00004_.flac -vf fade=in:0:d=1,fade=out:st=$FADEOUTSTART:d=2 -af afade=in:0:d=1,afade=out:st=$FADEOUTSTART:d=2 -c:a flac fadedinout.flac
-
-	
 fi
 
