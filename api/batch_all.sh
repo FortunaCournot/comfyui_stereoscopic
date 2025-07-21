@@ -29,7 +29,9 @@ elif [ -d "custom_nodes" ]; then
 	echo "******** DUBBING *********"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
-	mv -f output/dubbing/*.flac output/dubbing/*.mp4 input/upscale_in  >/dev/null 2>&1
+	mkdir -p output/dubbing/sbs
+	mv -f output/dubbing/*SBS_LR.mp4 output/dubbing/sbs  >/dev/null 2>&1
+	mv -f output/dubbing/*.mp4 input/upscale_in  >/dev/null 2>&1
 	
 	echo "**************************"
 	echo "******* UPSCALING ********"

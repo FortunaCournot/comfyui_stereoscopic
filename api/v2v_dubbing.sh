@@ -197,17 +197,21 @@ else
 		echo "" >list.txt
 		for f in *.flac; do echo "file '$f'" >> list.txt; done
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
-		if [ ! -e "../output$p.flac" ]; then echo "Error: failed to create output$p.flac" && exit ; fi
+		if [ ! -e "../output$p.flac" ]; then echo "Warning: failed to create output$p.flac" ; fi
 		cd "$COMFYUIPATH"
 		
 		if [ $p -eq 1 ]; then
+			if [ ! -e "$DUBBINGDIR/output1.flac" ]; then echo "Error: failed to create output$p.flac" && exit ; fi
 			cp $DUBBINGDIR/output1.flac $DUBBINGDIR/merged.flac
 		else
 			# Combining two audio files and introducing an offset with FFMPEG
 			# https://superuser.com/questions/1719361/combining-two-audio-files-and-introducing-an-offset-with-ffmpeg
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/output$p.flac -i $DUBBINGDIR/merged.flac -filter_complex "aevalsrc=0:d=$(((p-1)*SEGMENTTIME))[s1];[s1][1:a]concat=n=2:v=0:a=1[ac2];[0:a]apad[ac1];[ac1][ac2]amerge=2[a]" -map "[a]" $DUBBINGDIR/merged-temp.flac
-			if [ ! -e "$DUBBINGDIR/merged-temp.flac" ]; then echo "Error: failed to create merged-temp.flac($p)" && exit ; fi
-			mv -f $DUBBINGDIR/merged-temp.flac $DUBBINGDIR/merged.flac
+			if [ -e "$DUBBINGDIR/merged-temp.flac" ]; then
+				mv -f $DUBBINGDIR/merged-temp.flac $DUBBINGDIR/merged.flac
+			else
+				echo "Warning: failed to create merged-temp.flac($p)"
+			fi
 		fi
 
 	done
