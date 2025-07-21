@@ -3,7 +3,6 @@
 # v2v_upscale_downscale.sh
 #
 # Upscales a base video (input) by 4x_foolhardy_Remacri , then downscales it and places result under ComfyUI/output/upscale folder.
-# The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
@@ -223,7 +222,7 @@ then
 				itertimemsg=", $runtime""s/prompt, ETA: $eta"
 			fi
 			lastcount="$queuecount"
-				
+			
 			echo -ne "queuecount: $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))

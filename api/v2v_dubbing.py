@@ -15,61 +15,16 @@ from urllib import request
 #this is the one for the default workflow
 prompt_text = """
 {
-  "69": {
-    "inputs": {
-      "video": "",
-      "force_rate": 0,
-      "custom_width": 0,
-      "custom_height": 0,
-      "frame_load_cap": 0,
-      "skip_first_frames": 0,
-      "select_every_nth": 1,
-      "format": "None"
-    },
-    "class_type": "VHS_LoadVideoPath",
-    "_meta": {
-      "title": "Load Video"
-    }
-  },
   "73": {
     "inputs": {
       "video_info": [
-        "69",
+        "178",
         3
       ]
     },
     "class_type": "VHS_VideoInfo",
     "_meta": {
       "title": "Video Info"
-    }
-  },
-  "164": {
-    "inputs": {
-      "frame_rate": [
-        "73",
-        0
-      ],
-      "loop_count": 0,
-      "filename_prefix": "dub",
-      "format": "video/h264-mp4",
-      "pix_fmt": "yuv420p",
-      "crf": 17,
-      "save_metadata": true,
-      "trim_to_audio": false,
-      "pingpong": false,
-      "save_output": true,
-      "images": [
-        "69",
-        0
-      ],
-      "audio": [
-        "171",
-        0
-      ]
-    },
-    "class_type": "VHS_VideoCombine",
-    "_meta": {
-      "title": "Video Combine"
     }
   },
   "169": {
@@ -99,16 +54,19 @@ prompt_text = """
     "inputs": {
       "duration": [
         "73",
-        2
+        7
       ],
       "steps": 25,
       "cfg": 6,
-      "seed": 0,
+      "seed": 249391616827393,
       "prompt": [
-        "172",
-        2
+        "193",
+        0
       ],
-      "negative_prompt": "",
+      "negative_prompt": [
+        "195",
+        0
+      ],
       "mask_away_clip": false,
       "force_offload": true,
       "mmaudio_model": [
@@ -120,7 +78,7 @@ prompt_text = """
         0
       ],
       "images": [
-        "69",
+        "178",
         0
       ]
     },
@@ -139,9 +97,9 @@ prompt_text = """
       "num_beams": 3,
       "do_sample": false,
       "output_mask_select": "",
-      "seed": 60622919171493,
+      "seed": 554639759133520,
       "image": [
-        "69",
+        "182",
         0
       ],
       "florence2_model": [
@@ -165,6 +123,128 @@ prompt_text = """
     "_meta": {
       "title": "Florence2ModelLoader"
     }
+  },
+  "174": {
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "audioUI": "",
+      "audio": [
+        "171",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "Output - Save Audio"
+    }
+  },
+  "178": {
+    "inputs": {
+      "video": "88968441.mp4",
+      "force_rate": 25,
+      "custom_width": 0,
+      "custom_height": 0,
+      "frame_load_cap": [
+        "192",
+        0
+      ],
+      "skip_first_frames": 0,
+      "select_every_nth": 1,
+      "format": "None"
+    },
+    "class_type": "VHS_LoadVideo",
+    "_meta": {
+      "title": "Input - Load Video"
+    }
+  },
+  "182": {
+    "inputs": {
+      "batch_index": [
+        "184",
+        0
+      ],
+      "length": 1,
+      "image": [
+        "178",
+        0
+      ]
+    },
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "ImageFromBatch"
+    }
+  },
+  "184": {
+    "inputs": {
+      "expression": "a/3",
+      "a": [
+        "73",
+        6
+      ]
+    },
+    "class_type": "MathExpression|pysssss",
+    "_meta": {
+      "title": "Math Expression"
+    }
+  },
+  "191": {
+    "inputs": {
+      "value": 8
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Input - AudioLength"
+    }
+  },
+  "192": {
+    "inputs": {
+      "expression": "min(a,8)*25",
+      "a": [
+        "191",
+        0
+      ]
+    },
+    "class_type": "MathExpression|pysssss",
+    "_meta": {
+      "title": "Math Expression"
+    }
+  },
+  "193": {
+    "inputs": {
+      "string_a": [
+        "172",
+        2
+      ],
+      "string_b": [
+        "194",
+        0
+      ],
+      "delimiter": " "
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "194": {
+    "inputs": {
+      "file_path": "",
+      "dictionary_name": "[filename]"
+    },
+    "class_type": "Load Text File",
+    "_meta": {
+      "title": "Input - Load Text File - Positive"
+    }
+  },
+  "195": {
+    "inputs": {
+      "file_path": "",
+      "dictionary_name": "[filename]"
+    },
+    "class_type": "Load Text File",
+    "_meta": {
+      "title": "Input - Load Text File"
+    }
   }
 }
 """
@@ -184,13 +264,15 @@ def queue_prompt(prompt):
     request.urlopen(req)
 
       
-if len(sys.argv) == 2 + 1:
+if len(sys.argv) == 1 + 5:
     prompt = json.loads(prompt_text)
-    prompt["69"]["inputs"]["video"] = sys.argv[1]
-    prompt["164"]["inputs"]["filename_prefix"] = sys.argv[2] 
-    prompt["164"]["inputs"]["crf"] = 17
+    prompt["178"]["inputs"]["video"] = sys.argv[1]
+    prompt["174"]["inputs"]["filename_prefix"] = sys.argv[2] 
+    prompt["191"]["inputs"]["value"] = int(sys.argv[3])
+    prompt["194"]["inputs"]["file_path"] = sys.argv[4]
+    prompt["195"]["inputs"]["file_path"] = sys.argv[5]
     
     queue_prompt(prompt)
 else:
-    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix")
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix AudioLength PositivePromptTextfile NegativePromptTextfile")
 

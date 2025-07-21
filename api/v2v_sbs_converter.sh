@@ -3,7 +3,6 @@
 # v2v_sbs_converter.sh
 #
 # Creates SBS video from a base video (input) and places result under ComfyUI/output/sbs folder.
-# The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 

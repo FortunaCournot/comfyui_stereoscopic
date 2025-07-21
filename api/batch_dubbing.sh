@@ -29,8 +29,6 @@ elif test $# -ne 0 ; then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
-	echo "Work in progress. Skipping"
-	exit
 	
 	COUNT=`find input/dubbing_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
@@ -44,54 +42,49 @@ else
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
 			
-			TESTAUDIO=  # OVERWRITE AUDIO. UNCOMMENT TO CHANGE THIS. # `"$FFMPEGPATH"ffprobe -i "$newfn" -show_streams -select_streams a -loglevel error`
-			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
-				/bin/bash $SCRIPTPATH "$newfn"
-				
-				status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
-				if [ "$status" = "closed" ]; then
-					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
-					exit
-				fi
-				
-				echo "Waiting for queue to finish..."
-				sleep 3  # Give some extra time to start...
-				lastcount=""
-				start=`date +%s`
-				startjob=$start
-				itertimemsg=""
-				until [ "$queuecount" = "0" ]
-				do
-					sleep 1
-					curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
-					queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-					if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
-					then
-						end=`date +%s`
-						runtime=$((end-start))
-						start=`date +%s`
-						secs=$(("$queuecount * runtime"))
-						eta=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-						itertimemsg=", $runtime""s/prompt, ETA: $eta"
-					fi
-					lastcount="$queuecount"
-						
-					echo -ne "queuecount: $queuecount $itertimemsg         \r"
-				done
-				runtime=$((end-startjob))
-				echo "done. duration: $runtime""s.                      "
-				rm queuecheck.json
-				
-			else
-			echo "Audio found, skipping $newfn"
-				# directly move input to next step in pipeline
-				mv $newfn input/upscale_in
+			/bin/bash $SCRIPTPATH "$newfn"
+			
+			status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+			if [ "$status" = "closed" ]; then
+				echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+				exit
 			fi
 			
+			echo "Waiting for queue to finish..."
+			sleep 3  # Give some extra time to start...
+			lastcount=""
+			start=`date +%s`
+			startjob=$start
+			itertimemsg=""
+			until [ "$queuecount" = "0" ]
+			do
+				sleep 1
+				curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+				if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
+				then
+					end=`date +%s`
+					runtime=$((end-start))
+					start=`date +%s`
+					secs=$(("$queuecount * runtime"))
+					eta=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+					itertimemsg=", $runtime""s/prompt, ETA: $eta"
+				fi
+				lastcount="$queuecount"
+					
+				echo -ne "queuecount: $queuecount $itertimemsg         \r"
+			done
+			runtime=$((end-startjob))
+			echo "done. duration: $runtime""s.                      "
+			rm queuecheck.json
+				
 		done
 	fi
 	rm -f input/dubbing_in/BATCHPROGRESS.TXT
 	echo "Batch done."
+
+	echo "Work in progress. Skipping"
+	exit
 
 fi
 
