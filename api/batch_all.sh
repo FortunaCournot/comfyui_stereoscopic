@@ -25,6 +25,8 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
 elif [ -d "custom_nodes" ]; then
 
+	echo "****************************************************"
+	
 	# SLIDESHOW: 2+ Images -> 4K Video
 	# In:  input/slideshow_in
 	# Out: output/slideshow	
