@@ -7,6 +7,8 @@
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable
 COMFYUIPATH=.
+# relative to COMFYUIPATH:
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.sh 
 
 cd $COMFYUIPATH
 
@@ -20,11 +22,14 @@ TLENGTH=0
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
 MINSPACE=10
+status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
 if test $# -ne 0
 then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 "
     echo "E.g.: $0 "
+elif [ "$status" = "closed" ]; then
+    echo "Error: ComfyUI not present. Ensure it is running on port 8188"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
@@ -48,8 +53,8 @@ else
 			INDEXM1=$(( INDEX - 1 ))
 			INDEXM2=$(( INDEX - 2 ))
 			INTERMEDPREFIX=${nextinputfile##*/}
-
-			echo -ne "Scaling $INDEX/$COUNT $INTERMEDPREFIX ...                              \r"
+			echo "$INDEX/$COUNT" >input/upscale_in/BATCHPROGRESS.TXT
+			
 			
 			
 			newfn=${nextinputfile//[^[:alnum:.]]/}
@@ -59,61 +64,88 @@ else
 			mv "$nextinputfile" $newfn 
 			
 			if [ -e "$newfn" ]; then
-				SCALINGINTERMEDIATE=
-				RESULT=
-				if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $newfn` -gt  `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $newfn`
-				then
-					SCALINGINTERMEDIATE=tmpscalingH.png
-					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$newfn" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
-					RESULT="$SCALINGINTERMEDIATE"
-				else
-					SCALINGINTERMEDIATE=tmpscalingV.png
-					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$newfn" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
-					RESULT="$SCALINGINTERMEDIATE"
-				fi
-				if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $RESULT` -gt  2160
-				then
-					SCALINGINTERMEDIATE=tmpscalingD.png
-					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$RESULT" -vf scale=-1:2160 "$SCALINGINTERMEDIATE"
-					RESULT="$SCALINGINTERMEDIATE"
-				fi
-				mv -f "$newfn" input/slideshow_in/done
-				if [ -e "$RESULT" ]; then
-					mv $RESULT $INTERMEDIATEFOLDER/$INTERMEDPREFIX
-					
-					INPUTOPT="$INPUTOPT -loop 1 -t $DISPLAYLENGTH -i $INTERMEDIATEFOLDER/$INTERMEDPREFIX"
-					TOFFSET=$(( DISPLAYLENGTH + TOFFSET - TLENGTH ))
-					TRANSITION=`shuf -n1 -e fade hlslice hrslice vuslice vdslice`
-					# Tested with ffmpeg git-2020-08-31-4a11a6f: hlslice hrslice vuslice vdslice
-					# Tested: wipeleft wiperight wipeup wipedown slideleft slideright slideup slidedown
-					# Untested: smoothleft smoothright smoothup smoothdown circlecrop rectcrop circleclose circleopen horzclose horzopen vertclose vertopen diagbl diagbr diagtl diagtr  dissolve pixelize radial hblur wipetl wipetr wipebl wipebr zoomin transition for xfade zoomin  coverleft coverright coverup coverdown revealleft revealright revealup revealdown
-					# Problems: hlwind hrwind vuwind vdwind
-					FILTER=xfade="transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET"
-					if [[ $TLENGTH -lt 1 ]] ; then
-						TRANSITION="fade"
+			
+				/bin/bash $SCRIPTPATH "$newfn"
+				
+				TARGETPREFIX=${newfn##*/}
+				TARGETPREFIX=${TARGETPREFIX%.*}
+				SCRIPTRESULT=`ls output/upscale/$TARGETPREFIX*.png`
+				if [ -e "$SCRIPTRESULT" ]; then
+				
+					SCALINGINTERMEDIATE=
+					RESULT=
+					if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $newfn` -gt  `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $newfn`
+					then
+						SCALINGINTERMEDIATE=tmpscalingH.png
+						nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$SCRIPTRESULT" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
+						RESULT="$SCALINGINTERMEDIATE"
+					else
+						SCALINGINTERMEDIATE=tmpscalingV.png
+						nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$SCRIPTRESULT" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
+						RESULT="$SCALINGINTERMEDIATE"
 					fi
-					if [[ $INDEX -gt 1 ]] ; then
-						if [[ $INDEX -lt $COUNT ]] ; then
-							FILTEROPT="$FILTEROPT"";[f"$INDEXM2"]["$INDEX"]FILTER[f"$INDEXM1"]"
+					# ... this is possible in one step, but i am to lazy...
+					if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $RESULT` -gt  2160
+					then
+						SCALINGINTERMEDIATE=tmpscalingD.png
+						nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$RESULT" -vf scale=-1:2160 "$SCALINGINTERMEDIATE"
+						RESULT="$SCALINGINTERMEDIATE"
+					fi
+					
+					# Padding: ... this is maybe possible as well in one step, but i am to lazy...
+					SCALINGINTERMEDIATE=tmppadding.png
+					nice "$FFMPEGPATH"ffmpeg -i "$RESULT" -vf "scale=w=3840:h=2160:force_original_aspect_ratio=1,pad=3840:2160:(ow-iw)/2:(oh-ih)/2" "$SCALINGINTERMEDIATE"
+					rm -f "$RESULT"
+					RESULT="$SCALINGINTERMEDIATE"
+					
+					mv -f "$newfn" input/slideshow_in/done
+					rm "$SCRIPTRESULT"
+					
+					if [ -e "$RESULT" ]; then
+						mv $RESULT $INTERMEDIATEFOLDER/$INTERMEDPREFIX
+						
+						INPUTOPT="$INPUTOPT -loop 1 -t $DISPLAYLENGTH -i $INTERMEDIATEFOLDER/$INTERMEDPREFIX"
+						TOFFSET=$(( DISPLAYLENGTH + TOFFSET - TLENGTH ))
+						TRANSITION=`shuf -n1 -e fade hlslice hrslice vuslice vdslice`
+						# Tested with ffmpeg git-2020-08-31-4a11a6f: hlslice hrslice vuslice vdslice
+						# Tested: wipeleft wiperight wipeup wipedown slideleft slideright slideup slidedown
+						# Untested: smoothleft smoothright smoothup smoothdown circlecrop rectcrop circleclose circleopen horzclose horzopen vertclose vertopen diagbl diagbr diagtl diagtr  dissolve pixelize radial hblur wipetl wipetr wipebl wipebr zoomin transition for xfade zoomin  coverleft coverright coverup coverdown revealleft revealright revealup revealdown
+						# Problems: hlwind hrwind vuwind vdwind
+						FILTER=xfade="transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET"
+						if [[ $TLENGTH -lt 1 ]] ; then
+							TRANSITION="fade"
+						fi
+						if [[ $INDEX -gt 1 ]] ; then
+							if [[ $INDEX -lt $COUNT ]] ; then
+								FILTEROPT="$FILTEROPT"";[f"$INDEXM2"]["$INDEX"]"$FILTER"[f"$INDEXM1"]"
+							fi
+						else
+							FILTEROPT="[0][1]xfade=transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET[f0]"
 						fi
 					else
-						FILTEROPT="[0][1]xfade=transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET[f0]"
+						echo "Error: Missing result: $RESULT"
+						sleep 10
+						exit
 					fi
 				else
-					echo "\nError: Missing result: $RESULT"
+					echo "Error: Missing script result: $SCRIPTRESULT"
+					sleep 10
 					exit
 				fi
 			else
-				echo "\nError: Missing input: $newfn"
+				echo "Error: Missing input: $newfn"
+				sleep 10
 				exit
 			fi			
 		done
-		echo "Images processed.                                                  "
+		echo "========== Images processed. Generating Slideshow ==========                         "
 			
 		NOW=$( date '+%F_%H%M' )	
+		set -x
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4
-		mv -f $INTERMEDIATEFOLDER/output.mp4 output/slideshow/slideshow-$NOW.mp4
 		set +x
+		mv -f $INTERMEDIATEFOLDER/output.mp4 output/slideshow/slideshow-$NOW.mp4
+		rm input/upscale_in/BATCHPROGRESS.TXT
 		
 	else
 		# Not enought image files (png|jpg|jpeg) found in input/slideshow_in. At least 2.

@@ -26,11 +26,11 @@ COMFYUIPATH=.
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.py
 
 
-if test $# -ne 2 -a $# -ne 3
+if test $# -ne 1 -a $# -ne 2
 then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 input outputpath [upscalefactor]"
-    echo "E.g.: $0 SmallIconicTown.png output/upscale/SmallIconTown 2"
+    echo "Usage: $0 input [upscalefactor]"
+    echo "E.g.: $0 SmallIconicTown.png 2"
 elif [ -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
 then
 	cd $COMFYUIPATH
@@ -43,9 +43,6 @@ then
 
 	DOWNSCALE=1.0
 	INPUT="$1"
-	shift
-	
-	OUTPUTSUBPATH="$1"
 	shift
 	
 	UPSCALEFACTOR=0
@@ -103,11 +100,11 @@ then
 		echo "prompting for $TARGETPREFIX"
 
 	
-		echo "Prompting ..."
-		rm -f output/upscale_in/tmpscaleresult*.png
+		echo -ne "Prompting ..."
+		rm -f output/upscale/tmpscaleresult*.png
 		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" upscale/tmpscaleresult $UPSCALEMODEL $DOWNSCALE
 		
-		echo "Waiting for queue to finish..."
+		echo -ne "Waiting for queue to finish..."
 		sleep 2  # Give some extra time to start...
 		lastcount=""
 		start=`date +%s`
@@ -131,10 +128,10 @@ then
 			fi
 			lastcount="$queuecount"
 			
-			echo -ne "queuecount: $queuecount $itertimemsg         \r"
+			#echo -ne "queuecount: $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))
-		echo "done. duration: $runtime""s.                      "
+		echo "done."
 		rm queuecheck.json
 
 		sleep 1
@@ -142,7 +139,8 @@ then
 		then
 			mv -f output/upscale/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX"".png"
 		else	
-			echo "Failed to upscale. File output/upscale/tmpscaleresult_00001_.png not found "
+			echo " "
+			echo "Error: Failed to upscale. File output/upscale/tmpscaleresult_00001_.png not found "
 		fi
 
 	else

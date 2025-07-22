@@ -142,10 +142,16 @@ else
 	fi
 	 
 	#PINPUTOPT=
+	lastcount=""
+	start=`date +%s`
+	startjob=$start
+	itertimemsg=""
 	for ((p=1; p<=$PARALLELITY; p++))
 	do
 		echo -ne "Prompting $p/$PARALLELITY ...         \r"
 		mkdir -p $DUBBINGDIR/$p
+
+		SEGCOUNT=`find $SEGDIR -maxdepth 1 -type f -name 'segment*.ts' | wc -l`
 
 		i=0
 		pindex=0
@@ -172,7 +178,7 @@ else
 					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$concatopt" -c copy "$TMPFILE"
 					cd "$COMFYUIPATH"
 					
-					echo -ne "Prompting $p/$PARALLELITY: segment #$dindex ...                                 \r"
+					echo -ne "Prompting $p/$PARALLELITY: segment $dindex/$SEGCOUNT$itertimemsg                        \r"
 					
 					"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR"/$p/dubsegment $AUDIOSEGMENTLENGTH $POSITIVEPATH $NEGATIVEPATH
 					
@@ -183,7 +189,14 @@ else
 						curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
 						queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 					done
-					
+
+					end=`date +%s`
+					runtime=$((end-start))
+					start=`date +%s`
+					secs=$(( $SEGCOUNT * $PARALLELITY * $runtime ))
+					eta=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+					itertimemsg=", $runtime""s/prompt, ETA: $eta"
+
 					rm $TMPFILE
 					
 					dindex=$((dindex+1))
@@ -192,6 +205,7 @@ else
 
 			fi
 		done
+		echo "done. duration: $runtime""s.                                       "
 
 		cd "$DUBBINGDIR/$p"
 		echo "" >list.txt
