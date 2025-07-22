@@ -93,7 +93,6 @@ then
 		fi
 	fi
 	
-	
 	if [ "$UPSCALEFACTOR" -gt 0 ]
 	then
 		mkdir -p "$TARGETPREFIX"".tmpseg"

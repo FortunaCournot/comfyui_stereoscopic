@@ -49,7 +49,18 @@ else
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
 			
-			/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
+			TARGETPREFIX=${newfn##*/}
+			if [[ "$TARGETPREFIX" = "*_SBS_LR" ]]; then
+				echo "Skipping $newfn (already SBS)"
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K" ]]; then
+				echo "Skipping $newfn (already SBS)"
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB" ]]; then
+				echo "Skipping $newfn (already SBS)"
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB" ]]; then
+				echo "Skipping $newfn (already SBS)"
+			else
+				/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
+			fi
 		done
 		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
 	else

@@ -39,12 +39,20 @@ else
 			
 			if [ -e "$newfn" ]
 			then
-				/bin/bash $SCRIPTPATH "$newfn"
-				
-				status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
-				if [ "$status" = "closed" ]; then
-					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
-					exit
+				duration=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $newfn`
+				duration=${duration%.*}
+				if test $duration -ge 10
+				then
+					echo "long video (>10s) detected. Ignored in batch, call $SCRIPTPATH directly. Skipping $newfn"
+					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
+				else
+					/bin/bash $SCRIPTPATH "$newfn"
+					
+					status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+					if [ "$status" = "closed" ]; then
+						echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+						exit
+					fi
 				fi
 			else
 				echo "Error: prompting failed. Missing file: $newfn"
