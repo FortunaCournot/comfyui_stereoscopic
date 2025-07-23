@@ -6,8 +6,8 @@
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
-# ComfyUI is not used.
-
+# abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
+COMFYUIPATH=.
 # set FFMPEGPATH if ffmpeg binary is not in your enviroment path
 FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
