@@ -2,7 +2,7 @@
 #
 # v2v_starloop.sh
 #
-# Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all.
+# Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio.
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
