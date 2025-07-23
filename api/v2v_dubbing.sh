@@ -120,6 +120,19 @@ else
 	NEGATIVEPATH=`realpath "$NEGATIVEPATH"`
 
 	SPLITINPUT="$INPUT"
+	height=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT`
+	if [ $((height%2)) -ne 0 ];
+	then
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -r 24 -an "$DUBBINGDIR/tmppadded.mp4"
+		if [ ! -e "$DUBBINGDIR/tmppadded.mp4" ]
+		then
+			echo "Error: padding failed."
+			exit
+		fi
+		echo "height odd - padded."
+		SPLITINPUT="$DUBBINGDIR/tmppadded.mp4"
+	fi
+	
 	if [ -e "$DUBBINGDIR/concat.sh" ]
 	then
 		until [ "$queuecount" = "0" ]

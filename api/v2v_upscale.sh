@@ -61,6 +61,8 @@ else
 	TARGETPREFIX=output/upscale/intermediate/${TARGETPREFIX%.mp4}
 	FINALTARGETFOLDER=`realpath "output/upscale"`
 	UPSCALEMODEL=RealESRGAN_x2.pth
+	
+	
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
 		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
@@ -83,16 +85,32 @@ else
 		UPSCALEDIR=`realpath "$TARGETPREFIX"".tmpupscale"`
 		touch $TARGETPREFIX
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
+		
+		UPSCALEINPUT="$INPUT"
+		height=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $UPSCALEINPUT`
+		if [ $((height%2)) -ne 0 ];
+		then
+			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$UPSCALEINPUT" -vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -r 24 -an "$UPSCALEDIR/tmppadded.mp4"
+			if [ ! -e "$UPSCALEDIR/tmppadded.mp4" ]
+			then
+				echo "Error: padding failed."
+				exit
+			fi
+			echo "height odd - padded."
+			UPSCALEINPUT="$UPSCALEDIR/tmppadded.mp4"
+		fi
+		
+		
 		echo "prompting for $TARGETPREFIX"
 		rm "$TARGETPREFIX"
 		
 		echo "Splitting into segments and prompting ..."
-		TESTAUDIO=`ffprobe -i "$INPUT" -show_streams -select_streams a -loglevel error`
+		TESTAUDIO=`ffprobe -i "$UPSCALEINPUT" -show_streams -select_streams a -loglevel error`
 		AUDIOMAPOPT="-map 0:a:0"
 		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 			AUDIOMAPOPT=""
 		fi
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$INPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$UPSCALEINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 		for f in "$SEGDIR"/*.mp4 ; do
 			TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
 			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
@@ -113,13 +131,13 @@ else
 		echo "for f in ./*.mp4 ; do" >>"$UPSCALEDIR/concat.sh"
 		echo "	echo \"file \$f\" >> "$UPSCALEDIR"/list.txt" >>"$UPSCALEDIR/concat.sh"
 		echo "done" >>"$UPSCALEDIR/concat.sh"
-		echo "$FFMPEGPATH""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$UPSCALEDIR/concat.sh"
+		echo "$FFMPEGPATH""ffprobe -i $UPSCALEINPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$UPSCALEDIR/concat.sh"
 		echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$UPSCALEDIR/concat.sh"
 		echo "files=(*.mp4)"  >>"$UPSCALEDIR/concat.sh"
 		echo "nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i \${files[0]} -vf \"thumbnail\" -frames:v 1 thumbnail.png" >>"$UPSCALEDIR/concat.sh"
 		echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $UPSCALEINPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "else" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
@@ -161,10 +179,10 @@ else
 		echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
 	else
-		echo "Skipping upscaling of large video $INPUT"
-		cp $INPUT "$FINALTARGETFOLDER"
+		echo "Skipping upscaling of large video $UPSCALEINPUT"
+		cp $UPSCALEINPUT "$FINALTARGETFOLDER"
 	fi
 	mkdir -p input/upscale_in/done
-	mv -fv "$INPUT" input/upscale_in/done
+	mv -fv "$UPSCALEINPUT" input/upscale_in/done
 fi
 
