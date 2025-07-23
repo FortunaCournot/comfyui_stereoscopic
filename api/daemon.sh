@@ -19,8 +19,9 @@ else
 		DUBCOUNT=`find input/dubbing_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 		SCALECOUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 		SBSCOUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+		OVERRIDECOUNT=`find input/upscale_in/override -maxdepth 1 -type f -name '*.mp4' | wc -l`
 		
-		COUNT=$(( SLIDECOUNT + DUBCOUNT + SCALECOUNT + SBSCOUNT ))
+		COUNT=$(( SLIDECOUNT + DUBCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT ))
 		if [[ $COUNT -gt 0 ]] ; then
 			echo "Found $COUNT files in incoming folders."
 		

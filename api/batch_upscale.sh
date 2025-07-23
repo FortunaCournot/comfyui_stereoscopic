@@ -29,7 +29,7 @@ else
 		OVERRIDESUBPATH="$1"
 		shift
 		
-		mv input/upscale_in$OVERRIDESUBPATH/*.mp4 input/upscale_in
+		mv -fv "input/upscale_in""$OVERRIDESUBPATH"/*.mp4 input/upscale_in
 	fi
 	
 	COUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
@@ -53,7 +53,7 @@ else
 				fi
 				if test $duration -ge 10
 				then
-					echo "long video (>10s) detected. Ignored in batch, call $SCRIPTPATH directly. Skipping $newfn"
+					echo "long video (>10s) detected. Ignored; call $SCRIPTPATH directly or move it to input/upscale_in$OVERRIDESUBPATH. Skipping $newfn"
 					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
 				else
 					/bin/bash $SCRIPTPATH "$newfn"
