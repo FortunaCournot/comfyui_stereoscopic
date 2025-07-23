@@ -27,15 +27,14 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	rm -rf output/*/intermediate/*
 elif [ -d "custom_nodes" ]; then
 
-	echo "****************************************************"
-	
+
 	# PREPARE 4K SLIDES
 	# In:  input/slides_in
 	# Out: output/slides
 	echo "**************************"
 	echo "*** PREPARE 4K SLIDES ****"
 	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_upscale_pad.sh
+    ./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh
 	# move to next stage
 	mkdir -p input/slideshow_in
 	mv -f output/slides/*.* input/sbs_in  >/dev/null 2>&1
@@ -84,7 +83,7 @@ elif [ -d "custom_nodes" ]; then
 	echo "**************************"
 	echo "***** MAKE SLIDESHOW *****"
 	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_makeslideshow.sh
+    ./custom_nodes/comfyui_stereoscopic/api/batch_make_slideshow.sh
 else
 	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
 fi

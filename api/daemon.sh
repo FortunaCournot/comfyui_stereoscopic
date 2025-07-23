@@ -26,6 +26,7 @@ else
 			echo "Found $COUNT files in incoming folders."
 		
 			./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
+			echo "****************************************************"
 		else
 			echo -ne "Waiting for new files...  \r"
 			sleep 2s
