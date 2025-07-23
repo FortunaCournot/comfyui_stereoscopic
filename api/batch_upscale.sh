@@ -20,11 +20,18 @@ if [ "$status" = "closed" ]; then
     echo "Error: ComfyUI not present. Ensure it is running on port 8188"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
-elif test $# -ne 0 ; then
+elif test $# -ne 0 -a $# -ne 1; then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 "
-    echo "E.g.: $0 "
+    echo "Usage: $0 [OVERRIDESUBPATH]"
+    echo "E.g.: $0 /override"
 else
+	if test $# -eq 1; then
+		OVERRIDESUBPATH="$1"
+		shift
+		
+		mv input/upscale_in$OVERRIDESUBPATH/*.mp4 input/upscale_in
+	fi
+	
 	COUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
@@ -39,8 +46,11 @@ else
 			
 			if [ -e "$newfn" ]
 			then
-				duration=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $newfn`
-				duration=${duration%.*}
+				duration=-1
+				if [ -z "$OVERRIDESUBPATH" ]; then
+					duration=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $newfn`
+					duration=${duration%.*}
+				fi
 				if test $duration -ge 10
 				then
 					echo "long video (>10s) detected. Ignored in batch, call $SCRIPTPATH directly. Skipping $newfn"

@@ -144,6 +144,7 @@ else
 	#PINPUTOPT=
 	lastcount=""
 	start=`date +%s`
+	end=`date +%s`
 	startjob=$start
 	itertimemsg=""
 	for ((p=1; p<=$PARALLELITY; p++))

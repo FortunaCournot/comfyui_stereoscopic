@@ -7,17 +7,16 @@
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable
 COMFYUIPATH=.
-# relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.sh 
+
 
 cd $COMFYUIPATH
 
 # Length of each Image to display in seconds (INTEGER)
 DISPLAYLENGTH=6
 # FPS Rate of the slideshow (INTEGER). Minimum=2
-FPSRATE=2
+FPSRATE=25
 # TRANSITION LENGTH (INTEGER). Minimum=0
-TLENGTH=0
+TLENGTH=1
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
@@ -53,7 +52,7 @@ else
 			INDEXM1=$(( INDEX - 1 ))
 			INDEXM2=$(( INDEX - 2 ))
 			INTERMEDPREFIX=${nextinputfile##*/}
-			echo "$INDEX/$COUNT" >input/upscale_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/slideshow_in/BATCHPROGRESS.TXT
 			
 			
 			
@@ -65,70 +64,33 @@ else
 			
 			if [ -e "$newfn" ]; then
 			
-				/bin/bash $SCRIPTPATH "$newfn"
-				
 				TARGETPREFIX=${newfn##*/}
 				TARGETPREFIX=${TARGETPREFIX%.*}
-				SCRIPTRESULT=`ls output/upscale/$TARGETPREFIX*.png`
-				if [ -e "$SCRIPTRESULT" ]; then
 				
-					SCALINGINTERMEDIATE=
-					RESULT=
-					if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $newfn` -gt  `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $newfn`
-					then
-						SCALINGINTERMEDIATE=tmpscalingH.png
-						nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$SCRIPTRESULT" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
-						RESULT="$SCALINGINTERMEDIATE"
-					else
-						SCALINGINTERMEDIATE=tmpscalingV.png
-						nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$SCRIPTRESULT" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
-						RESULT="$SCALINGINTERMEDIATE"
+				RESULT=$newfn
+				
+				if [ -e "$RESULT" ]; then
+					INPUTOPT="$INPUTOPT -loop 1 -t $DISPLAYLENGTH -i $RESULT"
+					TOFFSET=$(( DISPLAYLENGTH + TOFFSET - TLENGTH ))
+					# 
+					TRANSITION=`shuf -n1 -e fade vuslice vdslice smoothup smoothdown`
+					# Tested with ffmpeg git-2020-08-31-4a11a6f: vuslice vdslice smoothup smoothdown dissolve.  
+					# bad effect for VR: hlslice hrslice slideup slidedown slideleft slideright hblur pixelize radial dissolve
+					# bad effect for VR: smoothleft smoothright   circlecrop rectcrop circleclose circleopen horzclose horzopen vertclose vertopen diagbl diagbr diagtl diagtr        coverleft coverright   
+					# No support old version: hlwind hrwind vuwind vdwind zoomin wipeup wipedown revealleft revealright wipeleft wiperight  wipetl wipetr wipebl wipebr coverup coverdown
+					FILTER=xfade="transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET"
+					if [[ $TLENGTH -lt 1 ]] ; then
+						TRANSITION="fade"
 					fi
-					# ... this is possible in one step, but i am to lazy...
-					if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $RESULT` -gt  2160
-					then
-						SCALINGINTERMEDIATE=tmpscalingD.png
-						nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$RESULT" -vf scale=-1:2160 "$SCALINGINTERMEDIATE"
-						RESULT="$SCALINGINTERMEDIATE"
-					fi
-					
-					# Padding: ... this is maybe possible as well in one step, but i am to lazy...
-					SCALINGINTERMEDIATE=tmppadding.png
-					nice "$FFMPEGPATH"ffmpeg -i "$RESULT" -vf "scale=w=3840:h=2160:force_original_aspect_ratio=1,pad=3840:2160:(ow-iw)/2:(oh-ih)/2" "$SCALINGINTERMEDIATE"
-					rm -f "$RESULT"
-					RESULT="$SCALINGINTERMEDIATE"
-					
-					mv -f "$newfn" input/slideshow_in/done
-					rm "$SCRIPTRESULT"
-					
-					if [ -e "$RESULT" ]; then
-						mv $RESULT $INTERMEDIATEFOLDER/$INTERMEDPREFIX
-						
-						INPUTOPT="$INPUTOPT -loop 1 -t $DISPLAYLENGTH -i $INTERMEDIATEFOLDER/$INTERMEDPREFIX"
-						TOFFSET=$(( DISPLAYLENGTH + TOFFSET - TLENGTH ))
-						TRANSITION=`shuf -n1 -e fade hlslice hrslice vuslice vdslice`
-						# Tested with ffmpeg git-2020-08-31-4a11a6f: hlslice hrslice vuslice vdslice
-						# Tested: wipeleft wiperight wipeup wipedown slideleft slideright slideup slidedown
-						# Untested: smoothleft smoothright smoothup smoothdown circlecrop rectcrop circleclose circleopen horzclose horzopen vertclose vertopen diagbl diagbr diagtl diagtr  dissolve pixelize radial hblur wipetl wipetr wipebl wipebr zoomin transition for xfade zoomin  coverleft coverright coverup coverdown revealleft revealright revealup revealdown
-						# Problems: hlwind hrwind vuwind vdwind
-						FILTER=xfade="transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET"
-						if [[ $TLENGTH -lt 1 ]] ; then
-							TRANSITION="fade"
-						fi
-						if [[ $INDEX -gt 1 ]] ; then
-							if [[ $INDEX -lt $COUNT ]] ; then
-								FILTEROPT="$FILTEROPT"";[f"$INDEXM2"]["$INDEX"]"$FILTER"[f"$INDEXM1"]"
-							fi
-						else
-							FILTEROPT="[0][1]xfade=transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET[f0]"
+					if [[ $INDEX -gt 1 ]] ; then
+						if [[ $INDEX -lt $COUNT ]] ; then
+							FILTEROPT="$FILTEROPT"";[f"$INDEXM2"]["$INDEX"]"$FILTER"[f"$INDEXM1"]"
 						fi
 					else
-						echo "Error: Missing result: $RESULT"
-						sleep 10
-						exit
+						FILTEROPT="[0][1]xfade=transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET[f0]"
 					fi
 				else
-					echo "Error: Missing script result: $SCRIPTRESULT"
+					echo "Error: Missing result: $RESULT"
 					sleep 10
 					exit
 				fi
@@ -138,14 +100,17 @@ else
 				exit
 			fi			
 		done
-		echo "========== Images processed. Generating Slideshow ==========                         "
+		echo "Images processed. Generating Slideshow ...                         "
 			
 		NOW=$( date '+%F_%H%M' )	
 		set -x
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4
 		set +x
 		mv -f $INTERMEDIATEFOLDER/output.mp4 output/slideshow/slideshow-$NOW.mp4
-		rm input/upscale_in/BATCHPROGRESS.TXT
+		rm input/slideshow_in/BATCHPROGRESS.TXT
+		if [ -e "output/slideshow/slideshow-$NOW.mp4" ]; then
+			mv input/slideshow_in/*.* input/slideshow_in/done
+		fi
 		
 	else
 		# Not enought image files (png|jpg|jpeg) found in input/slideshow_in. At least 2.

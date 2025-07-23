@@ -23,20 +23,22 @@ elif [ "$status" = "closed" ]; then
 	echo "Error: ComfyUI not present. Ensure it is running on port 8188"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
+	echo "trying to remove intermediate files..."
+	rm -rf output/*/intermediate/*
 elif [ -d "custom_nodes" ]; then
 
 	echo "****************************************************"
 	
-	# SLIDESHOW: 2+ Images -> 4K Video
-	# In:  input/slideshow_in
-	# Out: output/slideshow	
+	# PREPARE 4K SLIDES
+	# In:  input/slides_in
+	# Out: output/slides
 	echo "**************************"
-	echo "******* SLIDESHOW ********"
+	echo "*** PREPARE 4K SLIDES ****"
 	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_makeslideshow.sh
+    ./custom_nodes/comfyui_stereoscopic/api/batch_upscale_pad.sh
 	# move to next stage
-	mkdir -p input/dubbing
-	mv -f output/slideshow/*.mp4 input/dubbing_in  >/dev/null 2>&1
+	mkdir -p input/slideshow_in
+	mv -f output/slides/*.* input/sbs_in  >/dev/null 2>&1
 	
 	# DUBBING: Video -> Video with SFX
 	# In:  input/dubbing_in
@@ -58,8 +60,9 @@ elif [ -d "custom_nodes" ]; then
 	echo "******* UPSCALING ********"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh
+    ./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh /override
 	# move to next stage
-	mv -f output/upscale/*.mp4 output/dubbing/*.png output/dubbing/*.jpg output/dubbing/*.jpeg output/dubbing/*.PNG output/dubbing/*.JPG output/dubbing/*.JPEG input/sbs_in  >/dev/null 2>&1
+	mv -f output/upscale/*.mp4 output/upscale/*.png output/upscale/*.jpg output/upscale/*.jpeg output/upscale/*.PNG output/upscale/*.JPG output/upscale/*.JPEG input/sbs_in  >/dev/null 2>&1
 	
 	# SBS CONVERTER: Video -> Video, Image -> Image
 	# In:  input/sbs_in
@@ -68,7 +71,20 @@ elif [ -d "custom_nodes" ]; then
 	echo "*****  SBSCONVERTING *****"
 	echo "**************************"
 	./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.25 0
+	# move to next stage
+	mkdir -p input/slideshow_in
+	mkdir -p output/fullsbs/final
+	mv -f output/fullsbs/*.mp4 output/fullsbs/final  >/dev/null 2>&1
+	mv -f output/fullsbs/*.* input/slideshow_in  >/dev/null 2>&1
+	mv -f output/fullsbs/final/*.mp4 output/fullsbs  >/dev/null 2>&1
 	
+	# MAKE SLIDESHOW
+	# In:  input/slideshow_in
+	# Out: output/slideshow
+	echo "**************************"
+	echo "***** MAKE SLIDESHOW *****"
+	echo "**************************"
+    ./custom_nodes/comfyui_stereoscopic/api/batch_makeslideshow.sh
 else
 	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
 fi
