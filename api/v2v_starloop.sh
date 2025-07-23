@@ -37,13 +37,18 @@ else
 		LOOPSEGMENT="part_$i.mp4"
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i `realpath "$FORWARD"` -filter_complex "[0:v]reverse,fifo[r];[0:v][r] concat=n=2:v=1 [v]" -map "[v]" "$LOOPSEGMENT"
 		echo "file part_$i.mp4" >>mylist.txt
-
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy "$TARGET"
 	done
-	echo -ne "All done.                                         "
+
+	echo -ne "Concat...                             \r"
+	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mkv
+	
+	echo -ne "Add audio channel...                             \r"
+	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i result.mkv -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$TARGET"
+
 	cd ../../..
 	
 	if [ -e "$TARGET" ]; then
 		rm -f output/starloop/intermediate/*
 	fi
+	echo "All done.                             "
 fi
