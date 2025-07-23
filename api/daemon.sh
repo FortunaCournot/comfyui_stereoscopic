@@ -13,6 +13,7 @@ then
 	echo "Usage: $0 "
 	echo "E.g.: $0 "
 else
+	mkdir -p input/slideshow_in input/dubbing_in input/upscale_in input/sbs_in input/upscale_in/override input/singleloop_in
 	while true;
 	do
 		SLIDECOUNT=`find input/slideshow_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
@@ -20,8 +21,9 @@ else
 		SCALECOUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 		SBSCOUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 		OVERRIDECOUNT=`find input/upscale_in/override -maxdepth 1 -type f -name '*.mp4' | wc -l`
+		SINGLELOOPCOUNT=`find input/singleloop_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 		
-		COUNT=$(( SLIDECOUNT + DUBCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT ))
+		COUNT=$(( SLIDECOUNT + DUBCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT ))
 		if [[ $COUNT -gt 0 ]] ; then
 			echo "Found $COUNT files in incoming folders."
 		

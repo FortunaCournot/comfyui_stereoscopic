@@ -2,7 +2,7 @@
 #
 # v2v_starloop.sh
 #
-# Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio.
+# Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio. All input video parameter must be absolute path.
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
@@ -21,8 +21,6 @@ else
 
 	TARGET="$1"
 	shift
-	touch "$TARGET"
-	TARGET=`realpath "$TARGET"`
 	
 	mkdir -p output/starloop/intermediate
 	rm -f output/starloop/intermediate/* 2>/dev/null
@@ -35,7 +33,7 @@ else
 		i+=1
 		echo -ne "Reversing #$i: ...                \r"
 		LOOPSEGMENT="part_$i.mp4"
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i `realpath "$FORWARD"` -filter_complex "[0:v]reverse,fifo[r];[0:v][r] concat=n=2:v=1 [v]" -map "[v]" "$LOOPSEGMENT"
+		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$FORWARD" -filter_complex "[0:v]reverse,fifo[r];[0:v][r] concat=n=2:v=1 [v]" -map "[v]" "$LOOPSEGMENT"
 		echo "file part_$i.mp4" >>mylist.txt
 	done
 

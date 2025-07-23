@@ -62,6 +62,9 @@ elif [ -d "custom_nodes" ]; then
     ./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh /override
 	# move to next stage
 	mv -f output/upscale/*.mp4 output/upscale/*.png output/upscale/*.jpg output/upscale/*.jpeg output/upscale/*.PNG output/upscale/*.JPG output/upscale/*.JPEG input/sbs_in  >/dev/null 2>&1
+	# prepare input of previous stage for cleanup
+	mkdir -p output/dubbing/intermediate/dubbing_in
+	# PRIMARY INPUT NOT MOVED BY DEFAULT # mv -f input/dubbing_in/done/*.* output/dubbing/intermediate/dubbing_in  >/dev/null 2>&1
 	
 	# SBS CONVERTER: Video -> Video, Image -> Image
 	# In:  input/sbs_in
@@ -76,6 +79,9 @@ elif [ -d "custom_nodes" ]; then
 	mv -f output/fullsbs/*.mp4 output/fullsbs/final  >/dev/null 2>&1
 	mv -f output/fullsbs/*.* input/slideshow_in  >/dev/null 2>&1
 	mv -f output/fullsbs/final/*.mp4 output/fullsbs  >/dev/null 2>&1
+	# prepare input of previous stage for cleanup
+	mkdir -p output/upscale/intermediate/upscale_in
+	mv -f input/upscale_in/done/*.* output/upscale/intermediate/upscale_in  >/dev/null 2>&1
 	
 	# MAKE SLIDESHOW
 	# In:  input/slideshow_in
@@ -84,6 +90,20 @@ elif [ -d "custom_nodes" ]; then
 	echo "***** MAKE SLIDESHOW *****"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_make_slideshow.sh
+	# prepare input of previous stage for cleanup
+	mkdir -p output/slides/intermediate/slide_in
+	# PRIMARY INPUT NOT MOVED BY DEFAULT # mv -f input/slide_in/done/*.* output/slides/intermediate/slide_in  >/dev/null 2>&1
+	mkdir -p output/slideshow/intermediate/slideshow_in
+	mv -f input/slideshow_in/done/*.* output/slideshow/intermediate/slideshow_in  >/dev/null 2>&1
+	
+	# SINGLE LOOP
+	# In:  input/loop_in
+	# Out: output/loop
+	echo "**************************"
+	echo "******* LOOP VIDEO *******"
+	echo "**************************"
+    ./custom_nodes/comfyui_stereoscopic/api/batch_single_loop.sh
+	
 else
 	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
 fi
