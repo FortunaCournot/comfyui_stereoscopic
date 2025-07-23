@@ -50,14 +50,22 @@ else
 			mv "$nextinputfile" $newfn 
 			
 			TARGETPREFIX=${newfn##*/}
-			if [[ "$TARGETPREFIX" = "*_SBS_LR" ]]; then
+			if [[ "$TARGETPREFIX" = "*_SBS_LR.mp4" ]]; then
 				echo "Skipping $newfn (already SBS)"
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K" ]]; then
+				mkdir -p output/fullsbs/final
+				mv -fv $newfn output/fullsbs/final
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K.mp4" ]]; then
 				echo "Skipping $newfn (already SBS)"
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB" ]]; then
+				mkdir -p output/fullsbs/final
+				mv -fv $newfn output/fullsbs/final
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB.mp4" ]]; then
 				echo "Skipping $newfn (already SBS)"
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB" ]]; then
+				mkdir -p output/fullsbs/final
+				mv -fv $newfn output/fullsbs/final
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB.mp4" ]]; then
 				echo "Skipping $newfn (already SBS)"
+				mkdir -p output/fullsbs/final
+				mv -fv $newfn output/fullsbs/final
 			else
 				/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
 			fi
