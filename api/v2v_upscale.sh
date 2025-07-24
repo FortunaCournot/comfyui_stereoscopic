@@ -167,7 +167,7 @@ else
 				start=`date +%s`
 				secs=$(("$queuecount * runtime"))
 				eta=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-				itertimemsg=", $runtime""s/prompt, ETA: $eta"
+				itertimemsg=", $runtime""s/prompt, ETA in $eta"
 			fi
 			lastcount="$queuecount"
 				

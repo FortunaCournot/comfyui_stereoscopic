@@ -192,7 +192,7 @@ else
 					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$concatopt" -c copy "$TMPFILE"
 					cd "$COMFYUIPATH"
 					
-					echo -ne "Prompting $p/$PARALLELITY: segment $dindex/$SEGCOUNT$itertimemsg                        \r"
+					echo -ne "Prompting $p/$PARALLELITY: segment $dindex/$SEGCOUNT$itertimemsg           \r"
 					
 					"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR"/$p/dubsegment $AUDIOSEGMENTLENGTH $POSITIVEPATH $NEGATIVEPATH
 					
@@ -209,7 +209,7 @@ else
 					start=`date +%s`
 					secs=$(( $SEGCOUNT * $PARALLELITY * $runtime ))
 					eta=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-					itertimemsg=", $runtime""s/prompt, ETA: $eta"
+					itertimemsg=", $runtime""s/prompt, ETA in $eta"
 
 					rm $TMPFILE
 					

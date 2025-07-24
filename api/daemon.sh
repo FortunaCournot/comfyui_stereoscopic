@@ -30,8 +30,9 @@ else
 			./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
 			echo "****************************************************"
 		else
-			echo -ne "Waiting for new files...  \r"
-			sleep 2s
+			BLINK=`shuf -n1 -e "..." "   "`
+			echo -ne "Waiting for new files$BLINK     \r"
+			sleep 1
 		fi
 	done #KILL ME
 fi

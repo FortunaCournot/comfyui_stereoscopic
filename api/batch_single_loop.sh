@@ -48,13 +48,16 @@ else
 			then
 				TARGETPREFIX=${newfn##*/}
 				TARGETPREFIX=${TARGETPREFIX%.mp4}
-				/bin/bash $SCRIPTPATH `realpath "output/singleloop/intermediate/$TARGETPREFIX""_L.mp4"` `realpath "$newfn"`
+				TARGETPREFIX=${TARGETPREFIX//"_dub"/}
+				/bin/bash $SCRIPTPATH `realpath "output/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"` `realpath "$newfn"`
 				if [ -e output/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" ]
 				then
 					mv output/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" output/singleloop/$TARGETPREFIX"_loop.mp4"
 					mv $newfn input/singleloop_in/done
 				else
-					echo "Error: creating loop failed. Missing file: output/singleloop/intermediate/$TARGETPREFIX""_L.mp4"
+					echo "Error: creating loop failed. Missing file: output/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"
+					mkdir -p input/starloop_in/error
+					mv $newfn input/singleloop_in/error
 				fi
 			else
 				echo "Error: prompting failed. Missing file: $newfn"

@@ -48,8 +48,8 @@ elif [ -d "custom_nodes" ]; then
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
 	# move to next stage
-	mkdir -p output/dubbing/sbs
-	mv -f output/dubbing/*SBS_LR.mp4 output/dubbing/sbs  >/dev/null 2>&1
+	mkdir -p output/dubbing/final
+	mv -f output/dubbing/*SBS_LR*.mp4 output/dubbing/final  >/dev/null 2>&1
 	mv -f output/dubbing/*.mp4 input/upscale_in  >/dev/null 2>&1
 	
 	# UPSCALING: Video -> Video. Limited to 10s and 4K.
@@ -103,7 +103,8 @@ elif [ -d "custom_nodes" ]; then
 	echo "******* LOOP VIDEO *******"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_single_loop.sh
-	
+	mkdir -p input/dubbing_in
+	mv -f output/singleloop/*.* input/dubbing_in  >/dev/null 2>&1
 else
 	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
 fi
