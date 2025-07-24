@@ -100,11 +100,12 @@ else
 					fi
 					
 					# Padding: ... this is maybe possible as well in one step, but i am to lazy...
-					echo "padding"
+					echo "padding..."
 					SCALINGINTERMEDIATE=tmppadding.png
-					nice "$FFMPEGPATH"ffmpeg -i "$RESULT" -vf "scale=w=3840:h=2160:force_original_aspect_ratio=1,pad=3840:2160:(ow-iw)/2:(oh-ih)/2" "$SCALINGINTERMEDIATE"
+					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$RESULT" -vf "scale=w=3840:h=2160:force_original_aspect_ratio=1,pad=3840:2160:(ow-iw)/2:(oh-ih)/2" "$SCALINGINTERMEDIATE"
 					rm -f "$RESULT"
 					RESULT="$SCALINGINTERMEDIATE"
+					echo "padding done."
 					
 					if [ -e "$RESULT" ]; then
 						mv $RESULT $TARGETFOLDER/$TARGETPREFIX".png"

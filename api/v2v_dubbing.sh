@@ -91,15 +91,16 @@ else
 	
 	FADEOUTSTART=$((SEGMENTTIME-1))
 	
-	mkdir -p "$TARGETPREFIX"".tmpseg"
+	uuid=$(openssl rand -hex 16)
+	mkdir -p "$TARGETPREFIX""-$uuid"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpdubbing"
-	SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
+	SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
 	DUBBINGDIR=`realpath "$TARGETPREFIX"".tmpdubbing"`
 	if [ ! -e "$DUBBINGDIR/concat.sh" ]
 	then
-		touch "$TARGETPREFIX"".tmpseg"/x
+		touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
 		touch "$TARGETPREFIX"".tmpdubbing"/x
-		rm -rf "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpdubbing"/*
+		rm -rf "$TARGETPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpdubbing"/*
 	fi
 	touch $TARGETPREFIX
 	TARGETPREFIX=`realpath "$TARGETPREFIX"`

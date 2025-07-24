@@ -103,13 +103,19 @@ else
 		echo "Images processed. Generating Slideshow ...                         "
 			
 		NOW=$( date '+%F_%H%M' )	
-		set -x
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4
-		set +x
-		mv -f $INTERMEDIATEFOLDER/output.mp4 output/slideshow/slideshow-$NOW"_SBS_LR".mp4
+		#set -x
+		nice "$FFMPEGPATH"ffmpeg -v warning -hide_banner -stats -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4
+		#set +x
+		TARGET=output/slideshow/slideshow-$NOW"_SBS_LR".mp4
+		mv -f $INTERMEDIATEFOLDER/output.mp4 "$TARGET"
 		rm input/slideshow_in/BATCHPROGRESS.TXT
-		if [ -e "output/slideshow/slideshow-$NOW.mp4" ]; then
-			mv input/slideshow_in/*.* input/slideshow_in/done
+		mkdir -p input/slideshow_in/done
+		mv input/slideshow_in/*.* input/slideshow_in/done
+		if [ -e "$TARGET" ]; then
+		else
+			echo "Error: Failed to make slideshow"
+			sleep 10
+			exit
 		fi
 		
 	else

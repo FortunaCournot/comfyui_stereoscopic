@@ -17,6 +17,7 @@ else
 	while true;
 	do
 		SLIDECOUNT=`find input/slides_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+		SLIDESBSCOUNT=`find input/slideshow_in -maxdepth 1 -type f -name '*.png' | wc -l`
 		DUBCOUNT=`find input/dubbing_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 		SCALECOUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
 		SBSCOUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
@@ -25,9 +26,10 @@ else
 		
 		COUNT=$(( DUBCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT ))
 		COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
-		if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] ; then
-			echo "Found $COUNT files in incoming folders. ($SLIDECOUNT slides, $DUBCOUNT to dub, $SBSCOUNT + $OVERRIDECOUNT for sbs, $SINGLELOOPCOUNT to loop)"
-		
+		COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
+		if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] || [[ $COUNTSBSSLIDES -gt 1 ]] ; then
+			echo "Found $COUNT files in incoming folders. ($SLIDECOUNT slides, $DUBCOUNT to dub, $SBSCOUNT + $OVERRIDECOUNT for sbs, $SINGLELOOPCOUNT to loop, $COUNTSBSSLIDES for slideshow)"
+			sleep 1
 			./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
 			echo "****************************************************"
 		else

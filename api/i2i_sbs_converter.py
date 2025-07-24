@@ -121,7 +121,7 @@ if len(sys.argv) != 5 + 1:
    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset InputImagePath OutputPathPrefix")
 else:
     prompt = json.loads(prompt_text)
-    #prompt["207"]["inputs"]["ckpt_name"] = sys.argv[1]
+    prompt["207"]["inputs"]["ckpt_name"] = sys.argv[1]
     prompt["220"]["inputs"]["depth_scale"] = float(sys.argv[2])
     prompt["220"]["inputs"]["depth_offset"] = float(sys.argv[3])
     prompt["220"]["inputs"]["blur_radius"] = int(45)

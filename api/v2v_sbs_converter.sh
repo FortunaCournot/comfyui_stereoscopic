@@ -48,6 +48,14 @@ else
 
 	SETMETADATA="-metadata description=\"Created with Side-By-Side Converter: https://civitai.com/models/1757677\" -movflags +use_metadata_tags -metadata depth_scale=\"$depth_scale\" -metadata depth_offset=\"$depth_offset\""
 
+	PROGRESS=" "
+	if [ -e input/sbs_in/BATCHPROGRESS.TXT ]
+	then
+		PROGRESS=`cat input/sbs_in/BATCHPROGRESS.TXT`" "
+	fi
+	regex="[^/]*$"
+	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
+
 	DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitl.pth"
 	if [ -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant/depth_anything_v2_vitg.pth" ]
 	then
@@ -58,28 +66,22 @@ else
 		echo "Warning: Missing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
 	fi
 
-	PROGRESS=" "
-	if [ -e input/sbs_in/BATCHPROGRESS.TXT ]
-	then
-		PROGRESS=`cat input/sbs_in/BATCHPROGRESS.TXT`" "
-	fi
-	regex="[^/]*$"
-	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
-	
+
+	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/fullsbs/intermediate/${TARGETPREFIX%.mp4}
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 	FINALTARGETFOLDER=`realpath "output/fullsbs"`
-	mkdir -p "$TARGETPREFIX"".tmpseg"
+	mkdir -p "$TARGETPREFIX""-$uuid"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpsbs"
-	SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
+	SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
 	SBSDIR=`realpath "$TARGETPREFIX"".tmpsbs"`
 	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
 		touch "$TARGETPREFIX"".tmpsbs"/x
-		touch "$TARGETPREFIX"".tmpseg"/x
-		rm "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpsbs"/*
+		touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
+		rm "$TARGETPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpsbs"/*
 	fi
 	touch $TARGETPREFIX
 	TARGETPREFIX=`realpath "$TARGETPREFIX"`
@@ -206,6 +208,7 @@ else
 	sleep 4  # Give some extra time to start...
 	lastcount=""
 	start=`date +%s`
+	end=`date +%s`
 	startjob=$start
 	itertimemsg=""
 	until [ "$queuecount" = "0" ]

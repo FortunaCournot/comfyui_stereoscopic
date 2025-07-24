@@ -95,15 +95,15 @@ then
 	
 	if [ "$UPSCALEFACTOR" -gt 0 ]
 	then
-		mkdir -p "$TARGETPREFIX"".tmpseg"
+		uuid=$(openssl rand -hex 16)
 		mkdir -p "$TARGETPREFIX"".tmpupscale"
-		SEGDIR=`realpath "$TARGETPREFIX"".tmpseg"`
+		SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
 		UPSCALEDIR=`realpath "$TARGETPREFIX"".tmpupscale"`
 		if [ ! -e "$UPSCALEDIR/concat.sh" ]
 		then
-			touch "$TARGETPREFIX"".tmpseg"/x
+			touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
 			touch "$TARGETPREFIX"".tmpupscale"/x
-			rm "$TARGETPREFIX"".tmpseg"/* "$TARGETPREFIX"".tmpupscale"/*
+			rm "$TARGETPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpupscale"/*
 		fi
 		touch $TARGETPREFIX
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`

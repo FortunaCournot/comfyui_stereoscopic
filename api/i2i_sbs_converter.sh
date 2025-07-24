@@ -66,6 +66,8 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
 
+	uuid=$(openssl rand -hex 16)
+
 	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
 	then
 		echo "Skipping low resolution image: $INPUT"
@@ -75,7 +77,7 @@ else
 
 		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt  8688
 		then
-			SCALINGINTERMEDIATE=tmpscalingH.png
+			SCALINGINTERMEDIATE=tmpscalingH-$uuid.png
 			echo "downscaling width ..."
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
 			mv "$INPUT" input/sbs_in/done
@@ -84,7 +86,7 @@ else
 
 		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  8688
 		then
-			SCALINGINTERMEDIATE=tmpscalingV.png
+			SCALINGINTERMEDIATE=tmpscalingV-$uuid.png
 			echo "downscaling height ..."
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
 			if [ -z "$SCALINGINTERMEDIATE" ]; then
@@ -105,6 +107,17 @@ else
 		if [ -e "$INPUT" ]
 		then
 			echo "Generating to $TARGETPREFIX ..."
+			
+			if [ -z "$SCALINGINTERMEDIATE" ]; then
+				INTERMEDIATE_INPUT=output/fullsbs/intermediate/$uuid
+				#EXTENSION="${INPUT##*.}"
+				#mkdir -p "$INTERMEDIATE_INPUT"
+				#cp -v "$INPUT" "$INTERMEDIATE_INPUT"/"copy."$EXTENSION
+				#INPUT="$INTERMEDIATE_INPUT"/"copy.""$EXTENSION"
+				# WHATEVER BUGGED
+			fi
+			
+			
 			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT_NAME" $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
 			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
 			rm -f "$TARGETPREFIX""*.png"
