@@ -7,6 +7,13 @@ COMFYUIPATH=.
 
 cd $COMFYUIPATH
 
+if [ -e custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then
+	VERSION=`cat custom_nodes/comfyui_stereoscopic/pyproject.toml | grep "version = " | grep -v "minversion" | grep -v "target-version"`
+else
+	echo "Error: script not started in ComfyUI folder!"
+	exit
+fi
+
 if test $# -ne 0
 then
 	# targetprefix path is relative; parent directories are created as needed
@@ -16,12 +23,13 @@ else
 	mkdir -p input/vr/slideshow input/vr/dubbing input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/starloop
 	SERVERERROR=
 	
-	echo "Stereoscopic Pipeline Processing started."
+	echo "Stereoscopic Pipeline Processing started. $VERSION"
 	echo ""
 	echo "Waiting for your files to be placed in folders:"
 	echo " - To create a VR video:  input/vr/dubbing" 
 	echo " - To create a VR slides: input/vr/slides" 
 	echo "The results will be saved to output/vr/fullsbs" 
+	echo "For other processings read docs on https://civitai.com/models/1757677" 
 	echo "" 
 	
 	while true;
