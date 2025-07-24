@@ -76,9 +76,9 @@ elif [ -d "custom_nodes" ]; then
 	# move to next stage
 	mkdir -p input/slideshow_in
 	mkdir -p output/fullsbs/final
-	mv -f output/fullsbs/*.mp4 output/fullsbs/final  >/dev/null 2>&1
-	mv -f output/fullsbs/*.* input/slideshow_in  >/dev/null 2>&1
-	mv -f output/fullsbs/final/*.mp4 output/fullsbs  >/dev/null 2>&1
+	mv -f output/fullsbs/*.* output/fullsbs/final  >/dev/null 2>&1
+	#mv -f output/fullsbs/*.* input/slideshow_in  >/dev/null 2>&1
+	#mv -f output/fullsbs/final/*.mp4 output/fullsbs  >/dev/null 2>&1
 	# prepare input of previous stage for cleanup
 	mkdir -p output/upscale/intermediate/upscale_in
 	mv -f input/upscale_in/done/*.* output/upscale/intermediate/upscale_in  >/dev/null 2>&1

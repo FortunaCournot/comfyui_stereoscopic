@@ -89,7 +89,11 @@ else
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
 			
-			if [ -e "$newfn" ]
+			if [[ "$newfn" == *"_SBS_LR"* ]]; then
+				echo "Skipping $newfn (already SBS)"
+				mkdir -p output/fullsbs
+				mv -fv $newfn output/fullsbs
+			elif [ -e "$newfn" ]
 			then
 				/bin/bash $SCRIPTPATH2 $depth_scale $depth_offset "$newfn"
 				

@@ -47,6 +47,16 @@ else
 	shift
 	INPUT="$1"
 	shift
+						   
+	DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitl.pth"
+	if [ -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant/depth_anything_v2_vitg.pth" ]
+	then
+		DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitg.pth"
+		echo "Giant depth model detected."
+	elif [ ! -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth" ]
+	then
+		echo "Warning: Missing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
+	fi
 
 	PROGRESS=" "
 	if [ -e input/sbs_in/BATCHPROGRESS.TXT ]
@@ -85,15 +95,17 @@ else
 			INPUT="$SCALINGINTERMEDIATE"
 		fi
 	
+		
 		INPUT=`realpath "$INPUT"`
 		TARGETPREFIX=output/fullsbs/${TARGETPREFIX%.*}
 		TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
+		queuecount=
 		echo "Converting SBS from $INPUT"
 		if [ -e "$INPUT" ]
 		then
 			echo "Generating to $TARGETPREFIX ..."
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT_NAME" $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
 			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
 			rm -f "$TARGETPREFIX""*.png"
 			mkdir -p input/sbs_in/done
@@ -101,17 +113,29 @@ else
 			start=`date +%s`
 			end=`date +%s`
 			secs=0
-			until [ -e "$INTERMEDIATE" ]
+			until [ -e "$INTERMEDIATE" ] || [ "$queuecount" = "0" ]
 			do
 				sleep 1
+				
+				status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+				if test $# -ne 0
+				then	
+					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+					exit
+				fi
+				curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+			
 				end=`date +%s`
 				secs=$((end-start))
 				itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 				echo -ne "$itertimemsg         \r"
 			done
 			
-			FINALTARGET="${INTERMEDIATE%_00001_.png}"".png"
+			TARGETPREFIX=${TARGETPREFIX##*/}
+			FINALTARGET="output/fullsbs/""$TARGETPREFIX"".png"
 			echo "Moving to $FINALTARGET"
+			sleep 1 # Device or resource busy
 			mv "$INTERMEDIATE" "$FINALTARGET"
 			if [ -z "$SCALINGINTERMEDIATE" ]; then
 				mv -fv "$INPUT" input/sbs_in/done

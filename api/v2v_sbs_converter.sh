@@ -48,6 +48,16 @@ else
 
 	SETMETADATA="-metadata description=\"Created with Side-By-Side Converter: https://civitai.com/models/1757677\" -movflags +use_metadata_tags -metadata depth_scale=\"$depth_scale\" -metadata depth_offset=\"$depth_offset\""
 
+	DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitl.pth"
+	if [ -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant/depth_anything_v2_vitg.pth" ]
+	then
+		DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitg.pth"
+		echo "Giant depth model detected."
+	elif [ ! -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth" ]
+	then
+		echo "Warning: Missing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
+	fi
+
 	PROGRESS=" "
 	if [ -e input/sbs_in/BATCHPROGRESS.TXT ]
 	then
@@ -157,7 +167,7 @@ else
 				echo "Error: ComfyUI not present. Ensure it is running on port 8188"
 				exit
 			fi
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT_NAME" $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
 		fi
 	done
 	echo "Jobs running...   "

@@ -117,15 +117,16 @@ def queue_prompt(prompt):
     req =  request.Request("http://127.0.0.1:8188/prompt", data=data)
     request.urlopen(req)
 
-if len(sys.argv) != 4 + 1:
-   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_scale depth_offset InputImagePath OutputPathPrefix")
+if len(sys.argv) != 5 + 1:
+   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset InputImagePath OutputPathPrefix")
 else:
     prompt = json.loads(prompt_text)
-    prompt["220"]["inputs"]["depth_scale"] = float(sys.argv[1])
-    prompt["220"]["inputs"]["depth_offset"] = float(sys.argv[2])
+    #prompt["207"]["inputs"]["ckpt_name"] = sys.argv[1]
+    prompt["220"]["inputs"]["depth_scale"] = float(sys.argv[2])
+    prompt["220"]["inputs"]["depth_offset"] = float(sys.argv[3])
     prompt["220"]["inputs"]["blur_radius"] = int(45)
-    prompt["158"]["inputs"]["image"] = sys.argv[3]
-    prompt["227"]["inputs"]["filename_prefix"] = sys.argv[4] 
+    prompt["158"]["inputs"]["image"] = sys.argv[4]
+    prompt["227"]["inputs"]["filename_prefix"] = sys.argv[5] 
     
     queue_prompt(prompt)
 
