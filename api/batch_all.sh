@@ -29,63 +29,63 @@ elif [ -d "custom_nodes" ]; then
 
 
 	# PREPARE 4K SLIDES
-	# In:  input/slides_in
+	# In:  input/vr/slides
 	# Out: output/slides
 	echo "**************************"
-	echo "*** PREPARE 4K SLIDES ****"
+	echo "***** PREPARE SLIDES *****"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh
 	# move to next stage
-	mkdir -p input/slideshow_in
-	mv -f output/slides/*.* input/sbs_in  >/dev/null 2>&1
+	mkdir -p input/vr/slideshow
+	mv -f output/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 	
 	# DUBBING: Video -> Video with SFX
-	# In:  input/dubbing_in
-	# Out: output/dubbing
-	# Config: input/dubbing_in/positive.txt, input/dubbing_in/negative.txt
+	# In:  input/vr/dubbing
+	# Out: output/vr/dubbing
+	# Config: input/vr/dubbing/positive.txt, input/vr/dubbing/negative.txt
 	echo "**************************"
 	echo "******** DUBBING *********"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
 	# move to next stage
-	mkdir -p output/dubbing/final
-	mv -f output/dubbing/*SBS_LR*.mp4 output/dubbing/final  >/dev/null 2>&1
-	mv -f output/dubbing/*.mp4 input/upscale_in  >/dev/null 2>&1
+	mkdir -p output/vr/dubbing/final
+	mv -f output/vr/dubbing/*SBS_LR*.mp4 output/vr/dubbing/final  >/dev/null 2>&1
+	mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
 	
 	# UPSCALING: Video -> Video. Limited to 10s and 4K.
-	# In:  input/upscale_in
-	# Out: output/upscale
+	# In:  input/vr/scaling
+	# Out: output/vr/scaling
 	echo "**************************"
-	echo "******* UPSCALING ********"
+	echo "******** SCALING *********"
 	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh
-    ./custom_nodes/comfyui_stereoscopic/api/batch_upscale.sh /override
+    ./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
+    ./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override
 	# move to next stage
-	mv -f output/upscale/*.mp4 output/upscale/*.png output/upscale/*.jpg output/upscale/*.jpeg output/upscale/*.PNG output/upscale/*.JPG output/upscale/*.JPEG input/sbs_in  >/dev/null 2>&1
+	mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
 	# prepare input of previous stage for cleanup
-	mkdir -p output/dubbing/intermediate/dubbing_in
-	# PRIMARY INPUT NOT MOVED BY DEFAULT # mv -f input/dubbing_in/done/*.* output/dubbing/intermediate/dubbing_in  >/dev/null 2>&1
+	mkdir -p output/vr/dubbing/intermediate/dubbing_in
+	# PRIMARY INPUT NOT MOVED BY DEFAULT # mv -f input/vr/dubbing/done/*.* output/vr/dubbing/intermediate/dubbing_in  >/dev/null 2>&1
 	
 	# SBS CONVERTER: Video -> Video, Image -> Image
-	# In:  input/sbs_in
+	# In:  input/vr/fullsbs
 	# Out: output/sbs
 	echo "**************************"
 	echo "*****  SBSCONVERTING *****"
 	echo "**************************"
 	./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.25 0
 	# move to next stage
-	mkdir -p input/slideshow_in
-	mkdir -p output/fullsbs/final
-	mv -f output/fullsbs/*.* output/fullsbs/final  >/dev/null 2>&1
-	#mv -f output/fullsbs/*.* input/slideshow_in  >/dev/null 2>&1
-	#mv -f output/fullsbs/final/*.mp4 output/fullsbs  >/dev/null 2>&1
+	mkdir -p input/vr/slideshow
+	mkdir -p output/vr/fullsbs
+	mv -f output/vr/fullsbs/*.* output/vr/fullsbs  >/dev/null 2>&1
+	#mv -f output/vr/fullsbs/*.* input/vr/slideshow  >/dev/null 2>&1
+	#mv -f output/vr/fullsbs/final/*.mp4 output/vr/fullsbs  >/dev/null 2>&1
 	# prepare input of previous stage for cleanup
-	mkdir -p output/upscale/intermediate/upscale_in
-	mv -f input/upscale_in/done/*.* output/upscale/intermediate/upscale_in  >/dev/null 2>&1
+	mkdir -p output/vr/scaling/intermediate/upscale_in
+	mv -f input/vr/scaling/done/*.* output/vr/scaling/intermediate/upscale_in  >/dev/null 2>&1
 	
 	# MAKE SLIDESHOW
-	# In:  input/slideshow_in
-	# Out: output/slideshow
+	# In:  input/vr/slideshow
+	# Out: output/vr/slideshow
 	echo "**************************"
 	echo "***** MAKE SLIDESHOW *****"
 	echo "**************************"
@@ -93,8 +93,8 @@ elif [ -d "custom_nodes" ]; then
 	# prepare input of previous stage for cleanup
 	mkdir -p output/slides/intermediate/slide_in
 	# PRIMARY INPUT NOT MOVED BY DEFAULT # mv -f input/slide_in/done/*.* output/slides/intermediate/slide_in  >/dev/null 2>&1
-	mkdir -p output/slideshow/intermediate/slideshow_in
-	mv -f input/slideshow_in/done/*.* output/slideshow/intermediate/slideshow_in  >/dev/null 2>&1
+	mkdir -p output/vr/slideshow/intermediate/slideshow_in
+	mv -f input/vr/slideshow/done/*.* output/vr/slideshow/intermediate/slideshow_in  >/dev/null 2>&1
 	
 	# SINGLE LOOP
 	# In:  input/loop_in
@@ -103,8 +103,8 @@ elif [ -d "custom_nodes" ]; then
 	echo "******* LOOP VIDEO *******"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_single_loop.sh
-	mkdir -p input/dubbing_in
-	mv -f output/singleloop/*.* input/dubbing_in  >/dev/null 2>&1
+	mkdir -p input/vr/dubbing
+	mv -f output/vr/singleloop/*.* input/vr/dubbing  >/dev/null 2>&1
 else
 	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
 fi

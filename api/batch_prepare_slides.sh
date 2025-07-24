@@ -34,13 +34,13 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
 
-	IMGFILES=`find input/slides_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	COUNT=`find input/slides_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	IMGFILES=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
+	COUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
 	INTERMEDIATEFOLDER=output/slides/intermediate
 	TARGETFOLDER=output/slides
 	mkdir -p "$INTERMEDIATEFOLDER"
-	mkdir -p input/slides_in/done
+	mkdir -p input/vr/slides/done
 	rm -rf "$INTERMEDIATEFOLDER"/*  >/dev/null 2>&1
 	
 	if [[ $COUNT -gt 0 ]] ; then
@@ -53,7 +53,7 @@ else
 			INDEX=$(( INDEX + 1 ))
 			INDEXM1=$(( INDEX - 1 ))
 			INDEXM2=$(( INDEX - 2 ))
-			echo "$INDEX/$COUNT" >input/upscale_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
@@ -66,12 +66,12 @@ else
 				/bin/bash $SCRIPTPATH "$newfn"
 				
 				TARGETPREFIX=${newfn##*/}
-				if [ -e "output/upscale/$TARGETPREFIX" ]; then
-					SCRIPTRESULT=`ls output/upscale/$TARGETPREFIX`
+				if [ -e "output/vr/scaling/$TARGETPREFIX" ]; then
+					SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX`
 					TARGETPREFIX=${TARGETPREFIX%.*}
 				else
 					TARGETPREFIX=${TARGETPREFIX%.*}
-					SCRIPTRESULT=`ls output/upscale/$TARGETPREFIX*.png`
+					SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX*.png`
 				fi
 				
 				if [ -e "$SCRIPTRESULT" ]; then 
@@ -110,7 +110,7 @@ else
 					if [ -e "$RESULT" ]; then
 						mv $RESULT $TARGETFOLDER/$TARGETPREFIX".png"
 						rm "$SCRIPTRESULT"
-						mv -f "$newfn" input/slides_in/done
+						mv -f "$newfn" input/vr/slides/done
 						
 					else
 						echo "Error: Missing result: $RESULT"
@@ -127,11 +127,11 @@ else
 		echo "========== Images processed. Generating Slideshow ==========                         "
 			
 		
-		rm input/upscale_in/BATCHPROGRESS.TXT
+		rm input/vr/scaling/BATCHPROGRESS.TXT
 		
 	else
-		# Not enought image files (png|jpg|jpeg) found in input/slides_in. At least 2.
-		echo "No images in input/slides_in"
+		# Not enought image files (png|jpg|jpeg) found in input/vr/slides. At least 2.
+		echo "No images in input/vr/slides"
 	fi	
 	
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Creates SBS videos in batch from all base videos placed in ComfyUI/input/sbs_in folder (input)
+# Creates SBS videos in batch from all base videos placed in ComfyUI/input/vr/fullsbs folder (input)
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
@@ -31,18 +31,18 @@ else
 	depth_offset="$1"
 	shift
 
-	for f in input/sbs_in/*\ *; do mv "$f" "${f// /_}"; done 2>/dev/null
-	for f in input/sbs_in/*\(*; do mv "$f" "${f//\(/_}"; done 2>/dev/null
-	for f in input/sbs_in/*\)*; do mv "$f" "${f//\)/_}"; done 2>/dev/null
-	for f in input/sbs_in/*\'*; do mv "$f" "${f//\'/_}"; done 2>/dev/null
+	for f in input/vr/fullsbs/*\ *; do mv "$f" "${f// /_}"; done 2>/dev/null
+	for f in input/vr/fullsbs/*\(*; do mv "$f" "${f//\(/_}"; done 2>/dev/null
+	for f in input/vr/fullsbs/*\)*; do mv "$f" "${f//\)/_}"; done 2>/dev/null
+	for f in input/vr/fullsbs/*\'*; do mv "$f" "${f//\'/_}"; done 2>/dev/null
 
-	COUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
-	MP4FILES=input/sbs_in/*.mp4
+	MP4FILES=input/vr/fullsbs/*.mp4
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $MP4FILES ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/sbs_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -52,37 +52,37 @@ else
 			TARGETPREFIX=${newfn##*/}
 			if [[ "$TARGETPREFIX" = "*_SBS_LR.mp4" ]]; then
 				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/fullsbs/final
-				mv -fv $newfn output/fullsbs/final
+				mkdir -p output/vr/fullsbs/final
+				mv -fv $newfn output/vr/fullsbs/final
 			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K.mp4" ]]; then
 				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/fullsbs/final
-				mv -fv $newfn output/fullsbs/final
+				mkdir -p output/vr/fullsbs/final
+				mv -fv $newfn output/vr/fullsbs/final
 			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB.mp4" ]]; then
 				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/fullsbs/final
-				mv -fv $newfn output/fullsbs/final
+				mkdir -p output/vr/fullsbs/final
+				mv -fv $newfn output/vr/fullsbs/final
 			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB.mp4" ]]; then
 				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/fullsbs/final
-				mv -fv $newfn output/fullsbs/final
+				mkdir -p output/vr/fullsbs/final
+				mv -fv $newfn output/vr/fullsbs/final
 			else
 				/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
 			fi
 		done
-		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
+		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
 	else
-		echo "No .mp4 files found in input/sbs_in"
+		echo "No .mp4 files found in input/vr/fullsbs"
 	fi	
 	
-	IMGFILES=`find input/sbs_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	COUNT=`find input/sbs_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
+	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/sbs_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -91,8 +91,8 @@ else
 			
 			if [[ "$newfn" == *"_SBS_LR"* ]]; then
 				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/fullsbs
-				mv -fv $newfn output/fullsbs
+				mkdir -p output/vr/fullsbs
+				mv -fv $newfn output/vr/fullsbs
 			elif [ -e "$newfn" ]
 			then
 				/bin/bash $SCRIPTPATH2 $depth_scale $depth_offset "$newfn"
@@ -107,10 +107,10 @@ else
 				echo "Error: prompting failed. Missing file: $newfn"
 			fi			
 		done
-		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
+		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
 				
 	else
-		echo "No image files (png|jpg|jpeg) found in input/sbs_in"
+		echo "No image files (png|jpg|jpeg) found in input/vr/fullsbs"
 	fi	
 	echo "Batch done."
 fi

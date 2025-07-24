@@ -1,5 +1,5 @@
 #!/bin/sh
-# Upscales videos in batch from all base videos placed in ComfyUI/input/dubbing_in (input)
+# Upscales videos in batch from all base videos placed in ComfyUI/input/vr/dubbing (input)
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
@@ -30,12 +30,12 @@ elif test $# -ne 0 ; then
     echo "E.g.: $0 "
 else
 	
-	COUNT=`find input/dubbing_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=`find input/vr/dubbing -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		for nextinputfile in input/dubbing_in/*.mp4 ; do
+		for nextinputfile in input/vr/dubbing/*.mp4 ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT" >input/dubbing_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/dubbing/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -54,6 +54,7 @@ else
 			sleep 3  # Give some extra time to start...
 			lastcount=""
 			start=`date +%s`
+			end=`date +%s`
 			startjob=$start
 			itertimemsg=""
 			until [ "$queuecount" = "0" ]
@@ -80,7 +81,7 @@ else
 				
 		done
 	fi
-	rm -f input/dubbing_in/BATCHPROGRESS.TXT
+	rm -f input/vr/dubbing/BATCHPROGRESS.TXT
 	echo "Batch done."
 
 fi

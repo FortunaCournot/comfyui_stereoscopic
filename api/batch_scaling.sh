@@ -1,5 +1,5 @@
 #!/bin/sh
-# Upscales videos in batch from all base videos placed in ComfyUI/input/upscale_in (input)
+# Upscales videos in batch from all base videos placed in ComfyUI/input/vr/scaling (input)
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
@@ -29,15 +29,15 @@ else
 		OVERRIDESUBPATH="$1"
 		shift
 		
-		mv -fv "input/upscale_in""$OVERRIDESUBPATH"/*.mp4 input/upscale_in
+		mv -fv "input/vr/scaling""$OVERRIDESUBPATH"/*.mp4 input/vr/scaling
 	fi
 	
-	COUNT=`find input/upscale_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		for nextinputfile in input/upscale_in/*.mp4 ; do
+		for nextinputfile in input/vr/scaling/*.mp4 ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT" >input/upscale_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -53,7 +53,7 @@ else
 				fi
 				if test $duration -ge 10
 				then
-					echo "long video (>10s) detected. Ignored; call $SCRIPTPATH directly or move it to input/upscale_in$OVERRIDESUBPATH. Skipping $newfn"
+					echo "long video (>10s) detected. Ignored; call $SCRIPTPATH directly or move it to input/vr/scaling$OVERRIDESUBPATH. Skipping $newfn"
 					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
 				else
 					/bin/bash $SCRIPTPATH "$newfn"
@@ -70,7 +70,7 @@ else
 			
 		done
 	fi
-	rm -f input/upscale_in/BATCHPROGRESS.TXT
+	rm -f input/vr/scaling/BATCHPROGRESS.TXT
 	echo "Batch done."
 
 fi

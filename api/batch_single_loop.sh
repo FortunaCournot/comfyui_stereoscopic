@@ -25,18 +25,18 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 else
 	cd $COMFYUIPATH
 
-	mkdir -p output/singleloop/intermediate
-	mkdir -p input/singleloop_in/done
-	mkdir -p input/starloop_in
+	mkdir -p output/vr/singleloop/intermediate
+	mkdir -p input/vr/singleloop/done
+	mkdir -p input/vr/starloop
 	
-	IMGFILES=`find input/singleloop_in -maxdepth 1 -type f -name '*.mp4'`
-	COUNT=`find input/singleloop_in -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	IMGFILES=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4'`
+	COUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 	
-		for nextinputfile in input/singleloop_in/*.mp4 ; do
+		for nextinputfile in input/vr/singleloop/*.mp4 ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/sbs_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -49,22 +49,22 @@ else
 				TARGETPREFIX=${newfn##*/}
 				TARGETPREFIX=${TARGETPREFIX%.mp4}
 				TARGETPREFIX=${TARGETPREFIX//"_dub"/}
-				/bin/bash $SCRIPTPATH `realpath "output/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"` `realpath "$newfn"`
-				if [ -e output/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" ]
+				/bin/bash $SCRIPTPATH `realpath "output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"` `realpath "$newfn"`
+				if [ -e output/vr/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" ]
 				then
-					mv output/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" output/singleloop/$TARGETPREFIX"_loop.mp4"
-					mv $newfn input/singleloop_in/done
+					mv output/vr/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" output/vr/singleloop/$TARGETPREFIX"_loop.mp4"
+					mv $newfn input/vr/singleloop/done
 				else
-					echo "Error: creating loop failed. Missing file: output/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"
-					mkdir -p input/starloop_in/error
-					mv $newfn input/singleloop_in/error
+					echo "Error: creating loop failed. Missing file: output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"
+					mkdir -p input/vr/starloop/error
+					mv $newfn input/vr/singleloop/error
 				fi
 			else
 				echo "Error: prompting failed. Missing file: $newfn"
 			fi			
 			
 		done
-		rm  -f input/sbs_in/BATCHPROGRESS.TXT 
+		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
 	fi
 	echo "Batch done.                             "
 fi

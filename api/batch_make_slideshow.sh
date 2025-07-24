@@ -33,12 +33,12 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
 
-	IMGFILES=`find input/slideshow_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	COUNT=`find input/slideshow_in -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	IMGFILES=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
+	COUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
-	INTERMEDIATEFOLDER=output/slideshow/intermediate
+	INTERMEDIATEFOLDER=output/vr/slideshow/intermediate
 	mkdir -p "$INTERMEDIATEFOLDER"
-	mkdir -p input/slideshow_in/done
+	mkdir -p input/vr/slideshow/done
 	rm -rf "$INTERMEDIATEFOLDER"/*  >/dev/null 2>&1
 	
 	if [[ $COUNT -gt 1 ]] ; then
@@ -52,7 +52,7 @@ else
 			INDEXM1=$(( INDEX - 1 ))
 			INDEXM2=$(( INDEX - 2 ))
 			INTERMEDPREFIX=${nextinputfile##*/}
-			echo "$INDEX/$COUNT" >input/slideshow_in/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/slideshow/BATCHPROGRESS.TXT
 			
 			
 			
@@ -103,24 +103,29 @@ else
 		echo "Images processed. Generating Slideshow ...                         "
 			
 		NOW=$( date '+%F_%H%M' )	
+		
 		#set -x
-		nice "$FFMPEGPATH"ffmpeg -v warning -hide_banner -stats -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4
+
+		"$FFMPEGPATH"ffmpeg -v error -hide_banner -stats -loglevel repeat+level+error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4 
+
+		echo "done."
+		
 		#set +x
-		TARGET=output/slideshow/slideshow-$NOW"_SBS_LR".mp4
+		
+		TARGET=output/vr/slideshow/slideshow-$NOW"_SBS_LR".mp4
 		mv -f $INTERMEDIATEFOLDER/output.mp4 "$TARGET"
-		rm input/slideshow_in/BATCHPROGRESS.TXT
-		mkdir -p input/slideshow_in/done
-		mv input/slideshow_in/*.* input/slideshow_in/done
-		if [ -e "$TARGET" ]; then
-		else
+		rm input/vr/slideshow/BATCHPROGRESS.TXT
+		mkdir -p input/vr/slideshow/done
+		mv input/vr/slideshow/*.* input/vr/slideshow/done
+		if [ ! -e "$TARGET" ]; then
 			echo "Error: Failed to make slideshow"
 			sleep 10
 			exit
 		fi
 		
 	else
-		# Not enought image files (png|jpg|jpeg) found in input/slideshow_in. At least 2.
-		echo "No images (2+) for slideshow in input/slideshow_in"
+		# Not enought image files (png|jpg|jpeg) found in input/vr/slideshow. At least 2.
+		echo "No images (2+) for slideshow in input/vr/slideshow"
 	fi	
 	
 

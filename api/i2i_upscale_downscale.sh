@@ -23,7 +23,7 @@ FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.py
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/i2i_upscale_downscale.py
 
 
 if test $# -ne 1 -a $# -ne 2
@@ -64,9 +64,9 @@ then
 	fi
 	
 	PROGRESS=" "
-	if [ -e input/upscale_in/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/scaling/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/upscale_in/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/scaling/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""rescale "`echo $INPUT | grep -oP "$regex"`" =========="
@@ -75,7 +75,7 @@ then
 	EXTENSION="${TARGETPREFIX##*.}"
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=${TARGETPREFIX%.*}
-	FINALTARGETFOLDER=`realpath "output/upscale"`
+	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	UPSCALEMODEL="4x_foolhardy_Remacri.pth"
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
@@ -101,7 +101,7 @@ then
 
 	
 		echo -ne "Prompting ..."
-		rm -f output/upscale/tmpscaleresult*.png
+		rm -f output/vr/scaling/tmpscaleresult*.png
 		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" upscale/tmpscaleresult $UPSCALEMODEL $DOWNSCALE
 		
 		echo -ne "Waiting for queue to finish..."
@@ -135,12 +135,12 @@ then
 		rm queuecheck.json
 
 		sleep 1
-		if [ -e "output/upscale/tmpscaleresult_00001_.png" ]
+		if [ -e "output/vr/scaling/tmpscaleresult_00001_.png" ]
 		then
-			mv -f output/upscale/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX"".png"
+			mv -f output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX"".png"
 		else	
 			echo " "
-			echo "Error: Failed to upscale. File output/upscale/tmpscaleresult_00001_.png not found "
+			echo "Error: Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "
 		fi
 
 	else

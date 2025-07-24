@@ -2,7 +2,7 @@
 #
 # v2v_rescale.sh
 #
-# Scales a base video (input) down by factor 4 and than up by Real-ESRGAN-x4plus and places result under ComfyUI/output/upscale folder.
+# Scales a base video (input) down by factor 4 and than up by Real-ESRGAN-x4plus and places result under ComfyUI/output/vr/scaling folder.
 # The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
@@ -24,7 +24,7 @@ FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_rescale.py
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_rescale.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
@@ -47,9 +47,9 @@ then
 	shift
 	
 	PROGRESS=" "
-	if [ -e input/upscale_in/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/scaling/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/upscale_in/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/scaling/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""rescale "`echo $INPUT | grep -oP "$regex"`" =========="
@@ -61,8 +61,8 @@ then
 	fi
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/upscale/intermediate/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=`realpath "output/upscale"`
+	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.mp4}
+	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	TARGETPREFIX="$TARGETPREFIX""_x1"
 	mkdir -p "$TARGETPREFIX"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpupscale"
@@ -150,7 +150,7 @@ then
 	rm queuecheck.json
 	echo "Calling $UPSCALEDIR/concat.sh"
 	$UPSCALEDIR/concat.sh
-	mkdir -p input/upscale_in/done
-	mv -fv "$INPUT" input/upscale_in/done
+	mkdir -p input/vr/scaling/done
+	mv -fv "$INPUT" input/vr/scaling/done
 fi
 

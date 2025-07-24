@@ -23,7 +23,7 @@ FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.py
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_sbs_converter.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
@@ -49,9 +49,9 @@ else
 	SETMETADATA="-metadata description=\"Created with Side-By-Side Converter: https://civitai.com/models/1757677\" -movflags +use_metadata_tags -metadata depth_scale=\"$depth_scale\" -metadata depth_offset=\"$depth_offset\""
 
 	PROGRESS=" "
-	if [ -e input/sbs_in/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/fullsbs/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/sbs_in/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/fullsbs/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
@@ -70,9 +70,9 @@ else
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/fullsbs/intermediate/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=output/vr/fullsbs/intermediate/${TARGETPREFIX%.mp4}
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
-	FINALTARGETFOLDER=`realpath "output/fullsbs"`
+	FINALTARGETFOLDER=`realpath "output/vr/fullsbs"`
 	mkdir -p "$TARGETPREFIX""-$uuid"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpsbs"
 	SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
@@ -238,8 +238,8 @@ else
 	rm queuecheck.json
 	echo "Calling $SBSDIR/concat.sh"
 	$SBSDIR/concat.sh
-	mkdir -p input/sbs_in/done
-	mv -fv "$INPUT" input/sbs_in/done
+	mkdir -p input/vr/fullsbs/done
+	mv -fv "$INPUT" input/vr/fullsbs/done
 	
 fi
 

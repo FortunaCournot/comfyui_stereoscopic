@@ -2,7 +2,7 @@
 #
 # v2v_dubbing.sh
 #
-# dubbes a base video (input) by mmaudio and places result under ComfyUI/output/dubbing folder.
+# dubbes a base video (input) by mmaudio and places result under ComfyUI/output/vr/dubbing folder.
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
@@ -23,7 +23,7 @@ FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_dubbing.py
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_dubbing.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
@@ -77,17 +77,17 @@ else
 	shift
 
 	PROGRESS=" "
-	if [ -e input/dubbing_in/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/dubbing/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/dubbing_in/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/dubbing/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""dubbing "`echo $INPUT | grep -oP "$regex"`" =========="
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/dubbing/intermediate/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=`realpath "output/dubbing"`
+	TARGETPREFIX=output/vr/dubbing/intermediate/${TARGETPREFIX%.mp4}
+	FINALTARGETFOLDER=`realpath "output/vr/dubbing"`
 	
 	FADEOUTSTART=$((SEGMENTTIME-1))
 	
@@ -107,8 +107,8 @@ else
 	echo "prompting for $TARGETPREFIX"
 	rm "$TARGETPREFIX"
 
-	POSITIVEPATH="input/dubbing_in/positive.txt"
-	NEGATIVEPATH="input/dubbing_in/negative.txt"
+	POSITIVEPATH="input/vr/dubbing/positive.txt"
+	NEGATIVEPATH="input/vr/dubbing/negative.txt"
 	if [ ! -e "$POSITIVEPATH" ]
 	then
 		echo "" >$POSITIVEPATH
@@ -271,8 +271,8 @@ else
 		mv -vf "$TARGETPREFIX""_dub.mp4" "$FINALTARGETFOLDER"
 		
 		rm -rf "$TARGETPREFIX"".tmpseg" "$TARGETPREFIX"".tmpdubbing"
-		mkdir -p ./input/dubbing_in/done
-		mv -fv $INPUT ./input/dubbing_in/done
+		mkdir -p ./input/vr/dubbing/done
+		mv -fv $INPUT ./input/vr/dubbing/done
 	fi
 
 	echo "Dubbing done."

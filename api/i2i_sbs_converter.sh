@@ -25,7 +25,7 @@ FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter.py
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/i2i_sbs_converter.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
@@ -59,9 +59,9 @@ else
 	fi
 
 	PROGRESS=" "
-	if [ -e input/sbs_in/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/fullsbs/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/sbs_in/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/fullsbs/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
@@ -80,7 +80,7 @@ else
 			SCALINGINTERMEDIATE=tmpscalingH-$uuid.png
 			echo "downscaling width ..."
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
-			mv "$INPUT" input/sbs_in/done
+			mv "$INPUT" input/vr/fullsbs/done
 			INPUT="$SCALINGINTERMEDIATE"
 		fi
 
@@ -90,7 +90,7 @@ else
 			echo "downscaling height ..."
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
 			if [ -z "$SCALINGINTERMEDIATE" ]; then
-				mv "$INPUT" input/sbs_in/done
+				mv "$INPUT" input/vr/fullsbs/done
 			else
 				rm "$INPUT"
 			fi
@@ -99,7 +99,7 @@ else
 	
 		
 		INPUT=`realpath "$INPUT"`
-		TARGETPREFIX=output/fullsbs/${TARGETPREFIX%.*}
+		TARGETPREFIX=output/vr/fullsbs/${TARGETPREFIX%.*}
 		TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
 		queuecount=
@@ -109,7 +109,7 @@ else
 			echo "Generating to $TARGETPREFIX ..."
 			
 			if [ -z "$SCALINGINTERMEDIATE" ]; then
-				INTERMEDIATE_INPUT=output/fullsbs/intermediate/$uuid
+				INTERMEDIATE_INPUT=output/vr/fullsbs/intermediate/$uuid
 				#EXTENSION="${INPUT##*.}"
 				#mkdir -p "$INTERMEDIATE_INPUT"
 				#cp -v "$INPUT" "$INTERMEDIATE_INPUT"/"copy."$EXTENSION
@@ -121,7 +121,7 @@ else
 			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT_NAME" $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
 			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
 			rm -f "$TARGETPREFIX""*.png"
-			mkdir -p input/sbs_in/done
+			mkdir -p input/vr/fullsbs/done
 
 			start=`date +%s`
 			end=`date +%s`
@@ -146,12 +146,12 @@ else
 			done
 			
 			TARGETPREFIX=${TARGETPREFIX##*/}
-			FINALTARGET="output/fullsbs/""$TARGETPREFIX"".png"
+			FINALTARGET="output/vr/fullsbs/""$TARGETPREFIX"".png"
 			echo "Moving to $FINALTARGET"
 			sleep 1 # Device or resource busy
 			mv "$INTERMEDIATE" "$FINALTARGET"
 			if [ -z "$SCALINGINTERMEDIATE" ]; then
-				mv -fv "$INPUT" input/sbs_in/done
+				mv -fv "$INPUT" input/vr/fullsbs/done
 			else
 				rm "$INPUT"
 			fi

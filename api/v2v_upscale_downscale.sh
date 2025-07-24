@@ -2,7 +2,7 @@
 #
 # v2v_upscale_downscale.sh
 #
-# Upscales a base video (input) by 4x_foolhardy_Remacri , then downscales it and places result under ComfyUI/output/upscale folder.
+# Upscales a base video (input) by 4x_foolhardy_Remacri , then downscales it and places result under ComfyUI/output/vr/scaling folder.
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
@@ -23,7 +23,7 @@ FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=.
 # API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.py
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_upscale_downscale.py
 
 
 if test $# -ne 1 -a $# -ne 2
@@ -64,17 +64,17 @@ then
 	fi
 	
 	PROGRESS=" "
-	if [ -e input/upscale_in/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/scaling/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/upscale_in/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/scaling/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""rescale "`echo $INPUT | grep -oP "$regex"`" =========="
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/upscale/intermediate/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=`realpath "output/upscale"`
+	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.mp4}
+	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	UPSCALEMODEL="4x_foolhardy_Remacri.pth"
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
@@ -99,6 +99,8 @@ then
 		mkdir -p "$TARGETPREFIX"".tmpupscale"
 		SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
 		UPSCALEDIR=`realpath "$TARGETPREFIX"".tmpupscale"`
+		mkdir -p "$SEGDIR"
+		mkdir -p "$UPSCALEDIR"
 		if [ ! -e "$UPSCALEDIR/concat.sh" ]
 		then
 			touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
@@ -233,8 +235,8 @@ then
 		echo "Skipping upscaling of video $INPUT"
 		cp $INPUT "$FINALTARGETFOLDER"
 	fi
-	mkdir -p input/upscale_in/done
-	mv -fv "$INPUT" input/upscale_in/done
+	mkdir -p input/vr/scaling/done
+	mv -fv "$INPUT" input/vr/scaling/done
 else
 	if [ ! -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
 	then
