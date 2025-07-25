@@ -172,6 +172,7 @@ else
 		pindex=0
 		dindex=1
 		concatopt=""
+		echo -ne "Prompting $p/$PARALLELITY ($SEGCOUNT)...         \r"
 		for f in "$SEGDIR"/segment*.ts ; do
 			i=$((i+1))
 			if [ $i -ge $p ]; then
@@ -224,6 +225,17 @@ else
 
 		cd "$DUBBINGDIR/$p"
 		echo "" >list.txt
+		COUNT=`find . -maxdepth 1 -type f -name '*.flac' | wc -l`
+		if [[ $COUNT -eq 0 ]] ; then
+			echo ""
+			echo "Warning: no flac files. Just copying source..."
+			cp -fv $INPUT $FINALTARGETFOLDER
+			mkdir -p ./input/vr/dubbing/done
+			mv -fv $INPUT ./input/vr/dubbing/done
+			rm -rf "$TARGETPREFIX"".tmpseg" "$TARGETPREFIX"".tmpdubbing"
+			exit
+		fi
+		
 		for f in *.flac; do echo "file '$f'" >> list.txt; done
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
 		if [ ! -e "../output$p.flac" ]; then echo "Warning: failed to create output$p.flac" ; fi
