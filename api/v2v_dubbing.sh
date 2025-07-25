@@ -30,6 +30,9 @@ if [ -d "../python_embeded" ]; then
   PYTHON_BIN_PATH=../python_embeded/
 fi
 
+# fp16, sdpa. The model will automatic downloaded by Florence2 into ComfyUI/models/LLM.
+FLORENCE2MODEL="microsoft/Florence-2-base"
+
 DUBSTRENGTH_ORIGINAL=1.75	# WEIGHT IF AUDIO IS ALREADY PRESENT
 DUBSTRENGTH_AI=0.25			# WEIGHT IF AUDIO IS ALREADY PRESENT
 
@@ -196,7 +199,7 @@ else
 					
 					echo -ne "Prompting $p/$PARALLELITY: segment $dindex/$SEGCOUNT$itertimemsg           \r"
 					
-					"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR"/$p/dubsegment $AUDIOSEGMENTLENGTH $POSITIVEPATH $NEGATIVEPATH
+					"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR"/$p/dubsegment $AUDIOSEGMENTLENGTH "$POSITIVEPATH" "$NEGATIVEPATH" "$FLORENCE2MODEL"
 					
 					queuecount=
 					until [ "$queuecount" = "0" ]

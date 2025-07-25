@@ -93,7 +93,7 @@ prompt_text = """
       "task": "more_detailed_caption",
       "fill_mask": false,
       "keep_model_loaded": false,
-      "max_new_tokens": 1024,
+      "max_new_tokens": 4096,
       "num_beams": 3,
       "do_sample": false,
       "output_mask_select": "",
@@ -103,25 +103,13 @@ prompt_text = """
         0
       ],
       "florence2_model": [
-        "173",
+        "198",
         0
       ]
     },
     "class_type": "Florence2Run",
     "_meta": {
       "title": "Florence2Run"
-    }
-  },
-  "173": {
-    "inputs": {
-      "model": "Florence-2-base",
-      "precision": "fp16",
-      "attention": "sdpa",
-      "convert_to_safetensors": false
-    },
-    "class_type": "Florence2ModelLoader",
-    "_meta": {
-      "title": "Florence2ModelLoader"
     }
   },
   "174": {
@@ -243,7 +231,19 @@ prompt_text = """
     },
     "class_type": "Load Text File",
     "_meta": {
-      "title": "Input - Load Text File"
+      "title": "Input - Load Text File - Negative"
+    }
+  },
+  "198": {
+    "inputs": {
+      "model": "microsoft/Florence-2-base",
+      "precision": "fp16",
+      "attention": "sdpa",
+      "convert_to_safetensors": false
+    },
+    "class_type": "DownloadAndLoadFlorence2Model",
+    "_meta": {
+      "title": "DownloadAndLoadFlorence2Model"
     }
   }
 }
@@ -264,15 +264,16 @@ def queue_prompt(prompt):
     request.urlopen(req)
 
       
-if len(sys.argv) == 1 + 5:
+if len(sys.argv) == 1 + 6:
     prompt = json.loads(prompt_text)
     prompt["178"]["inputs"]["video"] = sys.argv[1]
     prompt["174"]["inputs"]["filename_prefix"] = sys.argv[2] 
     prompt["191"]["inputs"]["value"] = int(sys.argv[3])
     prompt["194"]["inputs"]["file_path"] = sys.argv[4]
     prompt["195"]["inputs"]["file_path"] = sys.argv[5]
+    prompt["198"]["inputs"]["model"] = sys.argv[6]
     
     queue_prompt(prompt)
 else:
-    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix AudioLength PositivePromptTextfile NegativePromptTextfile")
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix AudioLength PositivePromptTextfile NegativePromptTextfile florence2model")
 
