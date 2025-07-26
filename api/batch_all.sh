@@ -109,12 +109,22 @@ elif [ -d "custom_nodes" ]; then
 	mv -f input/vr/slideshow/done/*.* output/vr/slideshow/intermediate/slideshow_in  >/dev/null 2>&1
 	
 	# SINGLE LOOP
-	# In:  input/loop_in
-	# Out: output/loop
+	# In:  input/vr/singleloop_in
+	# Out: output/vr/singleloop
 	echo "**************************"
-	echo "******* LOOP VIDEO *******"
+	echo "****** SINGLE LOOP *******"
 	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_single_loop.sh
+    ./custom_nodes/comfyui_stereoscopic/api/batch_singleloop.sh
+	mkdir -p input/vr/dubbing
+	mv -f output/vr/singleloop/*.* input/vr/dubbing  >/dev/null 2>&1
+	
+	# STAR LOOP
+	# In:  input/vr/starloop_in
+	# Out: output/vr/starloop
+	echo "**************************"
+	echo "******* STAR LOOP ********"
+	echo "**************************"
+    ./custom_nodes/comfyui_stereoscopic/api/batch_starloop.sh
 	mkdir -p input/vr/dubbing
 	mv -f output/vr/singleloop/*.* input/vr/dubbing  >/dev/null 2>&1
 else

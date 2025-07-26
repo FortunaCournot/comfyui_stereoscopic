@@ -74,12 +74,14 @@ else
 			SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' | wc -l`
 			SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
+			STARLOOPCOUNT=`find input/vr/starloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
 			
-			COUNT=$(( DUBCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT ))
+			COUNT=$(( DUBCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + STARLOOPCOUNT ))
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
 			COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
 			if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] || [[ $COUNTSBSSLIDES -gt 1 ]] ; then
-				echo "Found $COUNT files in incoming folders. ($SLIDECOUNT slides, $DUBCOUNT to dub, $SBSCOUNT + $OVERRIDECOUNT for sbs, $SINGLELOOPCOUNT to loop, $COUNTSBSSLIDES for slideshow)"
+				echo "Found $COUNT files in incoming folders:"
+				echo "$SLIDECOUNT slides, $DUBCOUNT to dub, $SBSCOUNT + $OVERRIDECOUNT for sbs, $SINGLELOOPCOUNT + $STARLOOPCOUNT to loop, $COUNTSBSSLIDES for slideshow"
 				sleep 1
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
 				echo "****************************************************"

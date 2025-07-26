@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_starloop.sh
+# v2v_singleloop.sh
 #
 # Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio.
 #
@@ -40,7 +40,6 @@ fi
 
 	mkdir -p output/vr/singleloop/intermediate
 	mkdir -p input/vr/singleloop/done
-	mkdir -p input/vr/starloop
 	
 	IMGFILES=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4'`
 	COUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
@@ -49,7 +48,7 @@ fi
 	
 		for nextinputfile in input/vr/singleloop/*.mp4 ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/starloop/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -77,7 +76,7 @@ fi
 			fi			
 			
 		done
-		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
 	fi
+	rm -f input/vr/starloop/BATCHPROGRESS.TXT
 	echo "Batch done.                             "
 fi

@@ -15,7 +15,7 @@ FFMPEGPATH=
 if test $# -lt 2
 then
     echo "Usage: $0 output input..."
-    echo "E.g.: $0  output/starloop/test_SBS_LR.mp4 video1.mp4 video2.mp4 video3.mp4"
+    echo "E.g.: $0  output/vr/starloop/test_SBS_LR.mp4 video1.mp4 video2.mp4 video3.mp4"
 else
 	cd $COMFYUIPATH
 
@@ -35,18 +35,24 @@ fi
 	TARGET="$1"
 	shift
 	
-	mkdir -p output/starloop/intermediate
-	rm -f output/starloop/intermediate/* 2>/dev/null
+	PROGRESS=" "
+	if [ -e input/vr/starloop/BATCHPROGRESS.TXT ]
+	then
+		PROGRESS=`cat input/vr/starloop/BATCHPROGRESS.TXT`" "
+	fi
+	
+	mkdir -p output/vr/starloop/intermediate
+	rm -f output/vr/starloop/intermediate/* 2>/dev/null
 	
 	declare -i i=0
-	echo "" >output/starloop/intermediate/mylist.txt
+	echo "" >output/vr/starloop/intermediate/mylist.txt
 	for FORWARD in "$@"
 	do
 		if [ ! -e "$FORWARD" ]; then echo -e $"\e[91mError:\e[0m failed to load $FORWARD" && exit ; fi
 		FPATH=`realpath "$FORWARD"`
-		cd output/starloop/intermediate
+		cd output/vr/starloop/intermediate
 		i+=1
-		echo -ne "Reversing #$i: ...                \r"
+		echo -ne "$PROGRESS""Reversing #$i: ...                \r"
 		LOOPSEGMENT="part_$i.mp4"
 		# reverse audio does not sound well. it needs redubbing. [0:a]areverse[a];  -map "[a]" 
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$FPATH" -filter_complex "[0:v]reverse,fifo[rv];[0:v][rv]concat=n=2:v=1[v]" -map "[v]" "$LOOPSEGMENT"
@@ -54,22 +60,22 @@ fi
 		cd ../../..
 	done
 
-	cd output/starloop/intermediate
-	echo -ne "Concat...                             \r"
+	cd output/vr/starloop/intermediate
+	echo -ne "$PROGRESS""Concat...                             \r"
 	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
 	if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit ; fi
 	
-	#echo -ne "Add audio channel...                             \r"
+	#echo -ne "$PROGRESS""Add audio channel...                             \r"
 	#nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i result.mp4 -c:v copy -c:a aac -shortest result_sil.mp4  
 	#if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result_sil.mp4" && exit ; fi
 	cd ../../..
-	mv -f output/starloop/intermediate/result.mp4 "$TARGET"
+	mv -f output/vr/starloop/intermediate/result.mp4 "$TARGET"
 
 	
 	if [ -e "$TARGET" ]; then
-		rm -f output/starloop/intermediate/*
+		rm -f output/vr/starloop/intermediate/*
 	else
-		echo -e $"\e[91mError:\e[0m Failed to create target file $TARGET"
+		echo -e "$PROGRESS"$"\e[91mError:\e[0m Failed to create target file $TARGET"
 	fi
-	echo "All done.                             "
+	echo "$PROGRESS""All done.                             "
 fi
