@@ -52,7 +52,7 @@ elif [ -d "custom_nodes" ]; then
 	mv -f output/vr/dubbing/*SBS_LR*.mp4 output/vr/dubbing/final  >/dev/null 2>&1
 	mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
 	
-	# UPSCALING: Video -> Video. Limited to 10s and 4K.
+	# UPSCALING: Video -> Video. Limited to 60s and 4K.
 	# In:  input/vr/scaling
 	# Out: output/vr/scaling
 	echo "**************************"
