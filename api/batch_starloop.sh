@@ -7,7 +7,7 @@
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
-COMFYUIPATH=.
+COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # set FFMPEGPATH if ffmpeg binary is not in your enviroment path
 FFMPEGPATH=
 # relative to COMFYUIPATH:

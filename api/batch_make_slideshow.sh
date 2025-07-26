@@ -6,7 +6,7 @@
 # Prerequisite: Placed sbs_api.py somewhere and configured path variables below.
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable
-COMFYUIPATH=.
+COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 
 cd $COMFYUIPATH

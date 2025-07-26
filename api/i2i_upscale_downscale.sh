@@ -21,7 +21,7 @@
 # set FFMPEGPATH if ffmpeg binary is not in your enviroment path
 FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
-COMFYUIPATH=.
+COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # API relative to COMFYUIPATH, or absolute path:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/i2i_upscale_downscale.py
 

@@ -3,7 +3,7 @@
 # Copyright (c) 2025 Fortuna Cournot. MIT License.
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable
-COMFYUIPATH=.
+COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
