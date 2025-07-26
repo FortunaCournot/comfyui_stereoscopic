@@ -21,7 +21,7 @@ then
     echo "Usage: $0 "
     echo "E.g.: $0"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
-	echo -e $"\e[31mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
+	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
 	cd $COMFYUIPATH
 
@@ -68,12 +68,12 @@ fi
 					mv output/vr/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" output/vr/singleloop/$TARGETPREFIX"_loop.mp4"
 					mv $newfn input/vr/singleloop/done
 				else
-					echo -e $"\e[31mError:\e[0m creating loop failed. Missing file: output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"
+					echo -e $"\e[91mError:\e[0m creating loop failed. Missing file: output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"
 					mkdir -p input/vr/starloop/error
 					mv $newfn input/vr/singleloop/error
 				fi
 			else
-				echo -e $"\e[31mError:\e[0m prompting failed. Missing file: $newfn"
+				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			
 			
 		done

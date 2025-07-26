@@ -41,9 +41,9 @@ then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 elif [ "$status" = "closed" ]; then
-    echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+    echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
-	echo -e $"\e[31mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
+	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
 
 	IMGFILES=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
@@ -103,12 +103,12 @@ else
 						FILTEROPT="[0][1]xfade=transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET[f0]"
 					fi
 				else
-					echo -e $"\e[31mError:\e[0m Missing result: $RESULT"
+					echo -e $"\e[91mError:\e[0m Missing result: $RESULT"
 					sleep 10
 					exit
 				fi
 			else
-				echo -e $"\e[31mError:\e[0m Missing input: $newfn"
+				echo -e $"\e[91mError:\e[0m Missing input: $newfn"
 				sleep 10
 				exit
 			fi			
@@ -131,7 +131,7 @@ else
 		mkdir -p input/vr/slideshow/done
 		mv input/vr/slideshow/*.* input/vr/slideshow/done
 		if [ ! -e "$TARGET" ]; then
-			echo -e $"\e[31mError:\e[0m Failed to make slideshow"
+			echo -e $"\e[91mError:\e[0m Failed to make slideshow"
 			sleep 10
 			exit
 		fi

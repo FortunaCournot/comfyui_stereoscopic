@@ -42,9 +42,9 @@ then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 elif [ "$status" = "closed" ]; then
-    echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+    echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
-	echo -e $"\e[31mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
+	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
 
 	IMGFILES=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
@@ -126,12 +126,12 @@ else
 						mv -f "$newfn" input/vr/slides/done
 						
 					else
-						echo -e $"\e[31mError:\e[0m Missing result: $RESULT"
+						echo -e $"\e[91mError:\e[0m Missing result: $RESULT"
 						sleep 10
 						exit
 					fi
 				else
-					echo -e $"\e[31mError:\e[0m Missing script result: $SCRIPTRESULT. Please restart ComfyUI and try again."
+					echo -e $"\e[91mError:\e[0m Missing script result: $SCRIPTRESULT. Please restart ComfyUI and try again."
 					sleep 10
 					exit
 				fi

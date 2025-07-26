@@ -71,7 +71,7 @@ fi
 			TARGETPREFIX="$TARGETPREFIX""_x2"
 			DOWNSCALE=0.5
 		else
-			 echo -e $"\e[31mError:\e[0m Allowed upscalefactor values: 2 or 4"
+			 echo -e $"\e[91mError:\e[0m Allowed upscalefactor values: 2 or 4"
 			exit
 		fi
 	fi
@@ -177,7 +177,7 @@ fi
 				fi
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
-					echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 					exit
 				fi
 				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $UPSCALEMODEL $DOWNSCALE
@@ -253,7 +253,7 @@ fi
 else
 	if [ ! -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
 	then
-		echo -e $"\e[33mWarning:\e[0mUpscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth"
+		echo -e $"\e[93mWarning:\e[0mUpscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth"
 	fi
 fi
 

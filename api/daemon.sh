@@ -8,8 +8,10 @@ COMFYUIPATH=.
 cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
-
+touch "$CONFIGFILE"
+CONFIGFILE=`realpath "$CONFIGFILE"`
 export CONFIGFILE
+echo -e $"\e[1musing config file $CONFIGFILE\e[0m"
 
 if test $# -ne 0
 then
@@ -23,19 +25,19 @@ else
 	if [ -e custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then
 		VERSION=`cat custom_nodes/comfyui_stereoscopic/pyproject.toml | grep "version = " | grep -v "minversion" | grep -v "target-version"`
 	else
-		echo -e $"\e[31mError:\e[0m script not started in ComfyUI folder!"
+		echo -e $"\e[91mError:\e[0m script not started in ComfyUI folder!"
 		exit
 	fi
 
 	
 	echo ""
-	echo -e $"\e[1mStereoscopic Pipeline Processing started. $VERSION\e[0m"
+	echo -e $"\e[97m\e[1mStereoscopic Pipeline Processing started. $VERSION\e[0m"
 	echo -e $"\e[2m"
 	echo "Waiting for your files to be placed in folders:"
 	echo " - To create a VR video:  input/vr/dubbing" 
 	echo " - To create a VR slides: input/vr/slides" 
 	echo "The results will be saved to output/vr/fullsbs" 
-	echo -e $"For other processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m" 
+	echo -e $"For other processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
 	echo "" 
 	
 	./custom_nodes/comfyui_stereoscopic/api/status.sh
@@ -50,7 +52,6 @@ else
 			COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 			export COMFYUIHOST COMFYUIPORT
 		else
-			touch "$CONFIGFILE"
 			echo "config_version=1">>"$CONFIGFILE"
 			echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
 			echo "COMFYUIPORT=8188">>"$CONFIGFILE"
@@ -58,7 +59,7 @@ else
 
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ]; then
-			echo -ne $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT\r"
+			echo -ne $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT\r"
 			SERVERERROR="x"
 		else
 			if [[ ! -z $SERVERERROR ]]; then
@@ -86,7 +87,7 @@ else
 				echo " "
 			else
 				BLINK=`shuf -n1 -e "..." "   "`
-				echo -ne "Waiting for new files$BLINK     \r"
+				echo -ne $"\e[2mWaiting for new files$BLINK\e[0m     \r"
 				sleep 1
 			fi
 		fi

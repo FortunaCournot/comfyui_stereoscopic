@@ -77,7 +77,7 @@ fi
 		echo "Giant depth model detected."
 	elif [ ! -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth" ]
 	then
-		echo -e $"\e[33mWarning:\e[0mMissing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
+		echo -e $"\e[93mWarning:\e[0mMissing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
 	fi
 
 
@@ -161,7 +161,7 @@ fi
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -max_muxing_queue_size 9999 "$SEGDIR/segment%05d.mp4"
 		# -max_muxing_queue_size 9999 
 		if [ ! -e "$SEGDIR/segment00001.mp4" ]; then
-			echo -e $"\e[31mError:\e[0m No segments!"
+			echo -e $"\e[91mError:\e[0m No segments!"
 			exit
 		fi
 	fi
@@ -180,7 +180,7 @@ fi
 			fi
 			status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 			if [ "$status" = "closed" ]; then
-				echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+				echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 				exit
 			fi
 			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT_NAME" $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
@@ -231,7 +231,7 @@ fi
 		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 		if [[ -z "$queuecount" ]]; then
-			echo -ne $"\e[31mError:\e[0m Lost connection to ComfyUI. STOPPED PROCESSING.                     "
+			echo -ne $"\e[91mError:\e[0m Lost connection to ComfyUI. STOPPED PROCESSING.                     "
 			exit
 		fi
 		if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]

@@ -106,7 +106,7 @@ fi
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$UPSCALEINPUT" -vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -r 24 -an "$UPSCALEDIR/tmppadded.mp4"
 			if [ ! -e "$UPSCALEDIR/tmppadded.mp4" ]
 			then
-				echo -e $"\e[31mError:\e[0m padding failed."
+				echo -e $"\e[91mError:\e[0m padding failed."
 				exit
 			fi
 			echo "height odd - padded."

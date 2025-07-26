@@ -30,9 +30,9 @@ FREESPACE=${FREESPACE%G}
 MINSPACE=10
 status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 if [ "$status" = "closed" ]; then
-    echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+    echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
-	echo -e $"\e[31mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
+	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
 elif test $# -ne 0 -a $# -ne 1; then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 [OVERRIDESUBPATH]"
@@ -74,12 +74,12 @@ else
 					
 					status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 					if [ "$status" = "closed" ]; then
-						echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+						echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 						exit
 					fi
 				fi
 			else
-				echo -e $"\e[31mError:\e[0m prompting failed. Missing file: $newfn"
+				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			
 			
 		done
