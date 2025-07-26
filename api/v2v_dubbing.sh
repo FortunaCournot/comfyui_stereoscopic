@@ -110,14 +110,17 @@ else
 	echo "prompting for $TARGETPREFIX"
 	rm "$TARGETPREFIX"
 
-	POSITIVEPATH="input/vr/dubbing/positive.txt"
-	NEGATIVEPATH="input/vr/dubbing/negative.txt"
+	CONFIGPATH=user/default/comfyui_stereoscopic
+	POSITIVEPATH="$CONFIGPATH/positive.txt"
+	NEGATIVEPATH="$CONFIGPATH/negative.txt"
 	if [ ! -e "$POSITIVEPATH" ]
 	then
+		mkdir -p $CONFIGPATH
 		echo "" >$POSITIVEPATH
 	fi
 	if [ ! -e "$NEGATIVEPATH" ]
 	then
+		mkdir -p $CONFIGPATH
 		echo "music, voice, crying." >$NEGATIVEPATH
 	fi
 	POSITIVEPATH=`realpath "$POSITIVEPATH"`

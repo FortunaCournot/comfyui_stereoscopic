@@ -32,6 +32,9 @@ else
 	echo "For other processings read docs on https://civitai.com/models/1757677" 
 	echo "" 
 	
+	./custom_nodes/comfyui_stereoscopic/api/status.sh
+	echo " "
+	
 	while true;
 	do
 		status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
@@ -61,6 +64,8 @@ else
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
 				echo "****************************************************"
 			else
+				./custom_nodes/comfyui_stereoscopic/api/status.sh				
+				echo " "
 				BLINK=`shuf -n1 -e "..." "   "`
 				echo -ne "Waiting for new files$BLINK     \r"
 				sleep 1

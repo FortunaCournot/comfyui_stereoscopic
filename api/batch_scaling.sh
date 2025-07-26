@@ -51,9 +51,10 @@ else
 					duration=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $newfn`
 					duration=${duration%.*}
 				fi
-				if test $duration -ge 10
+				if test $duration -ge 60
 				then
-					echo "long video (>10s) detected. Ignored; call $SCRIPTPATH directly or move it to input/vr/scaling$OVERRIDESUBPATH. Skipping $newfn"
+					echo "long video (>60s) detected; call $SCRIPTPATH directly or move it to input/vr/scaling$OVERRIDESUBPATH. Skipping $newfn"
+					mv -fv "$newfn" output/vr/dubbing/final
 					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
 				else
 					/bin/bash $SCRIPTPATH "$newfn"
