@@ -68,7 +68,7 @@ fi
 	#echo -ne "$PROGRESS""Add audio channel...                             \r"
 	#nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i result.mp4 -c:v copy -c:a aac -shortest result_sil.mp4  
 	#if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result_sil.mp4" && exit ; fi
-	cd ../../..
+	cd ../../../..
 	mv -f output/vr/starloop/intermediate/result.mp4 "$TARGET"
 
 	
