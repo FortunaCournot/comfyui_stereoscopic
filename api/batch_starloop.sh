@@ -8,8 +8,8 @@
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
-# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
-FFMPEGPATH=
+# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_starloop.sh 
 
@@ -67,7 +67,7 @@ else
 		
 		cd output/vr/starloop/intermediate
 		echo -ne "Concat ($COUNT)...                             \r"
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
 		if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit ; fi
 		
 		

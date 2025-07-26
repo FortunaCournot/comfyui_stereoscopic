@@ -19,6 +19,13 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "UPSCALEMODELx2=4x_foolhardy_Remacri.pth">>"$CONFIGFILE"
 	echo "RESCALEx4=1.0">>"$CONFIGFILE"
 	echo "RESCALEx2=0.5">>"$CONFIGFILE"
+	echo "FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}">>"$CONFIGFILE"
+	
+	if ! command -v ffmpeg >/dev/null 2>&1
+	then
+		echo -e $"\e[91mError:\e[0m ffmpeg could not be found in systempath."
+		exit 1
+	fi
 fi
 CONFIGFILE=`realpath "$CONFIGFILE"`
 export CONFIGFILE

@@ -8,7 +8,7 @@
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
-# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
+# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_starloop.sh 
 

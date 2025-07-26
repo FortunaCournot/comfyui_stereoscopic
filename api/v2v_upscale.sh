@@ -19,8 +19,6 @@
 # - Creates a shell script for concating resulting sbs segments
 # - Wait until comfyui is done, then call created script manually.
 
-# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
-FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # API relative to COMFYUIPATH, or absolute path:
@@ -39,18 +37,21 @@ then
 else
 	cd $COMFYUIPATH
 
-CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
-export CONFIGFILE
-if [ -e $CONFIGFILE ] ; then
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-	export COMFYUIHOST COMFYUIPORT
-else
-    touch "$CONFIGFILE"
-    echo "config_version=1">>"$CONFIGFILE"
-fi
+	export CONFIGFILE
+	if [ -e $CONFIGFILE ] ; then
+		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
+	else
+		touch "$CONFIGFILE"
+		echo "config_version=1">>"$CONFIGFILE"
+	fi
+
+	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	SIGMA=0.2
 	INPUT="$1"
@@ -76,9 +77,9 @@ fi
 	UPSCALEMODEL=RealESRGAN_x2.pth
 	
 	
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
+	if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
-		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
+		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
 		then 
 			UPSCALEMODEL=RealESRGAN_x4plus.pth
 			TARGETPREFIX="$TARGETPREFIX""_x4"
@@ -87,7 +88,7 @@ fi
 		fi
 	fi
 	
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
+	if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 	then 
 		mkdir -p "$TARGETPREFIX"".tmpseg"
 		mkdir -p "$TARGETPREFIX"".tmpupscale"
@@ -100,10 +101,10 @@ fi
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
 		
 		UPSCALEINPUT="$INPUT"
-		height=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $UPSCALEINPUT`
+		height=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $UPSCALEINPUT`
 		if [ $((height%2)) -ne 0 ];
 		then
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$UPSCALEINPUT" -vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -r 24 -an "$UPSCALEDIR/tmppadded.mp4"
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$UPSCALEINPUT" -vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -r 24 -an "$UPSCALEDIR/tmppadded.mp4"
 			if [ ! -e "$UPSCALEDIR/tmppadded.mp4" ]
 			then
 				echo -e $"\e[91mError:\e[0m padding failed."
@@ -123,7 +124,7 @@ fi
 		if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 			AUDIOMAPOPT=""
 		fi
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -i "$UPSCALEINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i "$UPSCALEINPUT" -c:v libx264 -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment "$SEGDIR/segment%05d.mp4"
 		for f in "$SEGDIR"/*.mp4 ; do
 			TESTAUDIO=`ffprobe -i "$f" -show_streams -select_streams a -loglevel error`
 			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
@@ -144,17 +145,17 @@ fi
 		echo "for f in ./*.mp4 ; do" >>"$UPSCALEDIR/concat.sh"
 		echo "	echo \"file \$f\" >> "$UPSCALEDIR"/list.txt" >>"$UPSCALEDIR/concat.sh"
 		echo "done" >>"$UPSCALEDIR/concat.sh"
-		echo "$FFMPEGPATH""ffprobe -i $UPSCALEINPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$UPSCALEDIR/concat.sh"
+		echo "$FFMPEGPATHPREFIX""ffprobe -i $UPSCALEINPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$UPSCALEDIR/concat.sh"
 		echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$UPSCALEDIR/concat.sh"
 		echo "files=(*.mp4)"  >>"$UPSCALEDIR/concat.sh"
-		echo "nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i \${files[0]} -vf \"thumbnail\" -frames:v 1 thumbnail.png" >>"$UPSCALEDIR/concat.sh"
+		echo "nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i \${files[0]} -vf \"thumbnail\" -frames:v 1 thumbnail.png" >>"$UPSCALEDIR/concat.sh"
 		echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $UPSCALEINPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $UPSCALEINPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "else" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "fi" >>"$UPSCALEDIR/concat.sh"
 		echo "mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
 		echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"

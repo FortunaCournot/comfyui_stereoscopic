@@ -18,8 +18,6 @@
 # - Creates a shell script for concating resulting sbs segments
 # - Wait until comfyui is done, then call created script manually.
 
-# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
-FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # API relative to COMFYUIPATH, or absolute path:
@@ -35,18 +33,21 @@ elif [ -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
 then
 	cd $COMFYUIPATH
 
-CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
-export CONFIGFILE
-if [ -e $CONFIGFILE ] ; then
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-	export COMFYUIHOST COMFYUIPORT
-else
-    touch "$CONFIGFILE"
-    echo "config_version=1">>"$CONFIGFILE"
-fi
+	export CONFIGFILE
+	if [ -e $CONFIGFILE ] ; then
+		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
+	else
+		touch "$CONFIGFILE"
+		echo "config_version=1">>"$CONFIGFILE"
+	fi
+
+	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
@@ -92,9 +93,9 @@ fi
 	UPSCALEMODEL="4x_foolhardy_Remacri.pth"
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
-		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
+		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
 		then 
-			if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
+			if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
 			then 
 				TARGETPREFIX="$TARGETPREFIX""_x4"
 				DOWNSCALE=1.0

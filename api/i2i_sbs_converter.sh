@@ -20,8 +20,6 @@
 # - Wait until comfyui is done, then call created script manually.
 
 
-# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
-FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # API relative to COMFYUIPATH, or absolute path:
@@ -41,18 +39,21 @@ else
 
 	cd $COMFYUIPATH
 
-CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
-export CONFIGFILE
+	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+	export CONFIGFILE
 
-if [ -e $CONFIGFILE ] ; then
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-	export COMFYUIHOST COMFYUIPORT
-else
-    touch "$CONFIGFILE"
-    echo "config_version=1">>"$CONFIGFILE"
-fi
+	if [ -e $CONFIGFILE ] ; then
+		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
+	else
+		touch "$CONFIGFILE"
+		echo "config_version=1">>"$CONFIGFILE"
+	fi
+
+	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	depth_scale="$1"
 	shift
@@ -81,27 +82,27 @@ fi
 
 	uuid=$(openssl rand -hex 16)
 
-	if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
+	if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
 	then
 		echo "Skipping low resolution image: $INPUT"
 	else
 		SCALINGINTERMEDIATE=
 		TARGETPREFIX=${INPUT##*/}
 
-		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt  8688
+		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt  8688
 		then
 			SCALINGINTERMEDIATE=tmpscalingH-$uuid.png
 			echo "downscaling width ..."
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
 			mv "$INPUT" input/vr/fullsbs/done
 			INPUT="$SCALINGINTERMEDIATE"
 		fi
 
-		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  8688
+		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  8688
 		then
 			SCALINGINTERMEDIATE=tmpscalingV-$uuid.png
 			echo "downscaling height ..."
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
 			if [ -z "$SCALINGINTERMEDIATE" ]; then
 				mv "$INPUT" input/vr/fullsbs/done
 			else

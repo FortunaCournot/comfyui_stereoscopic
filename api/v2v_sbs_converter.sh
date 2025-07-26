@@ -18,8 +18,7 @@
 # - Creates a shell script for concating resulting sbs segments
 # - Wait until comfyui is done, then call created script manually.
 
-# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
-FFMPEGPATH=
+
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # API relative to COMFYUIPATH, or absolute path:
@@ -39,18 +38,21 @@ else
 
 	cd $COMFYUIPATH
 
-CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
-export CONFIGFILE
-if [ -e $CONFIGFILE ] ; then
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-	export COMFYUIHOST COMFYUIPORT
-else
-    touch "$CONFIGFILE"
-    echo "config_version=1">>"$CONFIGFILE"
-fi
+	export CONFIGFILE
+	if [ -e $CONFIGFILE ] ; then
+		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
+	else
+		touch "$CONFIGFILE"
+		echo "config_version=1">>"$CONFIGFILE"
+	fi
+
+	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	depth_scale="$1"
 	shift
@@ -107,17 +109,17 @@ fi
 	then
 		
 		# Prepare to restrict resolution to 4K, and skip low res
-		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
+		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
 		then
 			echo "Skipping low resolution video: $INPUT"
-		elif test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  2160
+		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  2160
 		then 
 			echo "H-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
 			mv $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
-		elif test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 2160 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  3840
+		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 2160 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  3840
 		then 
 			echo "V-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
@@ -127,7 +129,7 @@ fi
 		fi
 
 		# Prepare to restrict fps
-		fpsv=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
+		fpsv=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
 		fps=$(($fpsv))
 		echo "Source FPS: $fps ($fpsv)"
 		FPSOPTION=`echo $fps 30.0 | awk '{if ($1 > $2) print "-filter:v fps=fps=30" }'`
@@ -135,7 +137,7 @@ fi
 		then 
 			SPLITINPUTFPS30="$SEGDIR/splitinput_fps30.mp4"
 			echo "Rencoding to 30.0 ..."
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUTFPS30"
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUTFPS30"
 			SPLITINPUT="$SPLITINPUTFPS30"
 		fi
 	else
@@ -150,7 +152,7 @@ fi
 		queuecount=
 	fi
 	
-	TESTAUDIO=`"$FFMPEGPATH"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
+	TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
 	AUDIOMAPOPT="-map 0:a:0"
 	if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 		AUDIOMAPOPT=""
@@ -158,7 +160,7 @@ fi
 	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
 		echo "Splitting into segments"
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -max_muxing_queue_size 9999 "$SEGDIR/segment%05d.mp4"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -max_muxing_queue_size 9999 "$SEGDIR/segment%05d.mp4"
 		# -max_muxing_queue_size 9999 
 		if [ ! -e "$SEGDIR/segment00001.mp4" ]; then
 			echo -e $"\e[91mError:\e[0m No segments!"
@@ -175,7 +177,7 @@ fi
 			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 				# create audio
 				mv "$f" "${f%.mp4}_na.mp4"
-				nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
+				nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 				rm -f "${f%.mp4}_na.mp4"
 			fi
 			status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
@@ -200,17 +202,17 @@ fi
 	echo "for f in ./*.mp4 ; do" >>"$SBSDIR/concat.sh"
 	echo "	echo \"file \$f\" >> "$SBSDIR"/list.txt" >>"$SBSDIR/concat.sh"
 	echo "done" >>"$SBSDIR/concat.sh"
-	echo "$FFMPEGPATH""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$SBSDIR/concat.sh"
+	echo "$FFMPEGPATHPREFIX""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$SBSDIR/concat.sh"
 	echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$SBSDIR/concat.sh"
 	echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy -max_muxing_queue_size 9999 output.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 -max_muxing_queue_size 9999 output2.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy -max_muxing_queue_size 9999 output.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 -max_muxing_queue_size 9999 output2.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "else" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "mkdir -p $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
 	echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"

@@ -61,7 +61,7 @@ else
 			then
 				duration=-1
 				if [ -z "$OVERRIDESUBPATH" ]; then
-					duration=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $newfn`
+					duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $newfn`
 					duration=${duration%.*}
 				fi
 				if test $duration -ge 60

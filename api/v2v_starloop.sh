@@ -8,9 +8,8 @@
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
-# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
-FFMPEGPATH=
-# either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
+# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+
 
 if test $# -lt 2
 then
@@ -19,19 +18,21 @@ then
 else
 	cd $COMFYUIPATH
 
-CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
-export CONFIGFILE
-if [ -e $CONFIGFILE ] ; then
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-	export COMFYUIHOST COMFYUIPORT
-else
-    touch "$CONFIGFILE"
-    echo "config_version=1">>"$CONFIGFILE"
-fi
+	export CONFIGFILE
+	if [ -e $CONFIGFILE ] ; then
+		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
+	else
+		touch "$CONFIGFILE"
+		echo "config_version=1">>"$CONFIGFILE"
+	fi
 
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+	# either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 	TARGET="$1"
 	shift
 	
@@ -55,18 +56,18 @@ fi
 		echo -ne "$PROGRESS""Reversing #$i: ...                \r"
 		LOOPSEGMENT="part_$i.mp4"
 		# reverse audio does not sound well. it needs redubbing. [0:a]areverse[a];  -map "[a]" 
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$FPATH" -filter_complex "[0:v]reverse,fifo[rv];[0:v][rv]concat=n=2:v=1[v]" -map "[v]" "$LOOPSEGMENT"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$FPATH" -filter_complex "[0:v]reverse,fifo[rv];[0:v][rv]concat=n=2:v=1[v]" -map "[v]" "$LOOPSEGMENT"
 		echo "file part_$i.mp4" >>mylist.txt
 		cd ../../../..
 	done
 
 	cd output/vr/starloop/intermediate
 	echo -ne "$PROGRESS""Concat...                             \r"
-	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
 	if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit ; fi
 	
 	#echo -ne "$PROGRESS""Add audio channel...                             \r"
-	#nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i result.mp4 -c:v copy -c:a aac -shortest result_sil.mp4  
+	#nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i result.mp4 -c:v copy -c:a aac -shortest result_sil.mp4  
 	#if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result_sil.mp4" && exit ; fi
 	cd ../../../..
 	mv -f output/vr/starloop/intermediate/result.mp4 "$TARGET"

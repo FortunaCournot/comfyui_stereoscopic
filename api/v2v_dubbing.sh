@@ -18,8 +18,6 @@
 # - Creates a shell script for concating resulting audio segments and dubbes video
 # - Waits until comfyui is done, then call created script.
 
-# set FFMPEGPATH if ffmpeg binary is not in your enviroment path
-FFMPEGPATH=
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # API relative to COMFYUIPATH, or absolute path:
@@ -62,20 +60,23 @@ then
 else
 	cd $COMFYUIPATH
 
-CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
-export CONFIGFILE
-if [ -e $CONFIGFILE ] ; then
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-	export COMFYUIHOST COMFYUIPORT
-else
-    touch "$CONFIGFILE"
-    echo "config_version=1">>"$CONFIGFILE"
-fi
+	export CONFIGFILE
+	if [ -e $CONFIGFILE ] ; then
+		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
+	else
+		touch "$CONFIGFILE"
+		echo "config_version=1">>"$CONFIGFILE"
+	fi
 
 	COMFYUIPATH=`pwd`
+
+	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 	
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 	if [ "$status" = "closed" ]; then
@@ -140,10 +141,10 @@ fi
 	NEGATIVEPATH=`realpath "$NEGATIVEPATH"`
 
 	SPLITINPUT="$INPUT"
-	height=`"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT`
+	height=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT`
 	if [ $((height%2)) -ne 0 ];
 	then
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -r 24 -an "$DUBBINGDIR/tmppadded.mp4"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -r 24 -an "$DUBBINGDIR/tmppadded.mp4"
 		if [ ! -e "$DUBBINGDIR/tmppadded.mp4" ]
 		then
 			echo -e $"\e[91mError:\e[0m padding failed."
@@ -170,7 +171,7 @@ fi
 	if [ ! -e "$DUBBINGDIR/concat.sh" ]
 	then
 		echo -ne "Splitting into segments..."
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time $SEGMENTTIME -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -vcodec libx264 "$SEGDIR/segment%05d.ts"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time $SEGMENTTIME -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -vcodec libx264 "$SEGDIR/segment%05d.ts"
 		echo "done.                                               "
 	fi
 	 
@@ -210,7 +211,7 @@ fi
 					TMPFILE=$DUBBINGDIR/currentvideosegment.ts
 					TMPFILE=`realpath "$TMPFILE"`
 					cd "$SEGDIR"
-					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$concatopt" -c copy "$TMPFILE"
+					nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$concatopt" -c copy "$TMPFILE"
 					cd "$COMFYUIPATH"
 					
 					echo -ne "Prompting $p/$PARALLELITY: segment $dindex/$SEGCOUNT$itertimemsg           \r"
@@ -256,7 +257,7 @@ fi
 		fi
 		
 		for f in *.flac; do echo "file '$f'" >> list.txt; done
-		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
 		if [ ! -e "../output$p.flac" ]; then echo -e $"\e[93mWarning:\e[0mfailed to create output$p.flac" ; fi
 		cd "$COMFYUIPATH"
 		
@@ -266,7 +267,7 @@ fi
 		else
 			# Combining two audio files and introducing an offset with FFMPEG
 			# https://superuser.com/questions/1719361/combining-two-audio-files-and-introducing-an-offset-with-ffmpeg
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/output$p.flac -i $DUBBINGDIR/merged.flac -filter_complex "aevalsrc=0:d=$(((p-1)*SEGMENTTIME))[s1];[s1][1:a]concat=n=2:v=0:a=1[ac2];[0:a]apad[ac1];[ac1][ac2]amerge=2[a]" -map "[a]" $DUBBINGDIR/merged-temp.flac
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/output$p.flac -i $DUBBINGDIR/merged.flac -filter_complex "aevalsrc=0:d=$(((p-1)*SEGMENTTIME))[s1];[s1][1:a]concat=n=2:v=0:a=1[ac2];[0:a]apad[ac1];[ac1][ac2]amerge=2[a]" -map "[a]" $DUBBINGDIR/merged-temp.flac
 			if [ -e "$DUBBINGDIR/merged-temp.flac" ]; then
 				mv -f $DUBBINGDIR/merged-temp.flac $DUBBINGDIR/merged.flac
 			else
@@ -280,22 +281,22 @@ fi
 	if [ -e "$DUBBINGDIR/merged.flac" ]; then
 		mv $DUBBINGDIR/merged.flac "$TARGETPREFIX"".flac"
 		
-		TESTAUDIO=`"$FFMPEGPATH"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
+		TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
 		AUDIOMAPOPT="-map 0:a:0"
 		if [[ $TESTAUDIO =~ "[STREAM]" ]]; then
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -q:a 0 -map a $DUBBINGDIR/source.mp3
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -q:a 0 -map a $DUBBINGDIR/source.mp3
 			if [ ! -e "$DUBBINGDIR/source.mp3" ]; then echo -e $"\e[91mError:\e[0m failed to create source.mp3" && exit ; fi
 			#https://stackoverflow.com/questions/35509147/ffmpeg-amix-filter-volume-issue-with-inputs-of-different-duration
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/source.mp3 -i "$TARGETPREFIX"".flac" -filter_complex "[0]adelay=0|0,volume=$DUBSTRENGTH_ORIGINAL[a];[1]adelay=0|0,volume=$DUBSTRENGTH_AI[b];[a][b]amix=inputs=2:duration=longest:dropout_transition=0" $DUBBINGDIR/sourcemerge.flac
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/source.mp3 -i "$TARGETPREFIX"".flac" -filter_complex "[0]adelay=0|0,volume=$DUBSTRENGTH_ORIGINAL[a];[1]adelay=0|0,volume=$DUBSTRENGTH_AI[b];[a][b]amix=inputs=2:duration=longest:dropout_transition=0" $DUBBINGDIR/sourcemerge.flac
 			if [ ! -e "$DUBBINGDIR/sourcemerge.flac" ]; then echo -e $"\e[91mError:\e[0m failed to create sourcemerge.flac" && exit ; fi
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i $DUBBINGDIR/sourcemerge.flac -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.flac
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i $DUBBINGDIR/sourcemerge.flac -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.flac
 			if [ ! -e "$DUBBINGDIR/padded.flac" ]; then echo -e $"\e[91mError:\e[0m failed to create padded.flac" && exit ; fi
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.flac -shortest -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.flac -shortest -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create dubbed.mp4 (A)" && exit ; fi
 		else
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "$TARGETPREFIX"".flac" -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.flac
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "$TARGETPREFIX"".flac" -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.flac
 			if [ ! -e "$DUBBINGDIR/padded.flac" ]; then echo -e $"\e[91mError:\e[0m failed to create padded.flac" && exit ; fi
-			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.flac -shortest -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.flac -shortest -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create dubbed.mp4 (NA)" && exit ; fi
 		fi
 		mv -f $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
