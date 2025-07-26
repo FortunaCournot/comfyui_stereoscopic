@@ -35,8 +35,12 @@ elif [ "$status" = "closed" ]; then
 	echo -e $"\e[91mError:\e[0mComfyUI not present. Ensure it is running on port 8188"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo -e $"\e[91mError:\e[0mLess than $MINSPACE""G left on device: $FREESPACE""G"
-	echo "trying to remove intermediate files..."
-	rm -rf output/*/intermediate/*
+	./custom_nodes/comfyui_stereoscopic/api/clear.sh
+	FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
+	FREESPACE=${FREESPACE%G}
+	if [[ $FREESPACE -lt $MINSPACE ]] ; then
+		exit
+	fi
 elif [ -d "custom_nodes" ]; then
 
 
