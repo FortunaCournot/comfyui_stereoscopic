@@ -8,10 +8,23 @@ COMFYUIPATH=.
 cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
-touch "$CONFIGFILE"
+if [ ! -e $CONFIGFILE ] ; then
+	touch "$CONFIGFILE"
+	echo "config_version=1">>"$CONFIGFILE"
+	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
+	echo "COMFYUIPORT=8188">>"$CONFIGFILE"
+	echo "SBS_DEPTH_SCALE=1.25">>"$CONFIGFILE"
+	echo "SBS_DEPTH_OFFSET=0.0">>"$CONFIGFILE"
+	echo "UPSCALEMODELx4=4x_foolhardy_Remacri.pth">>"$CONFIGFILE"
+	echo "UPSCALEMODELx2=4x_foolhardy_Remacri.pth">>"$CONFIGFILE"
+	echo "RESCALEx4=1.0">>"$CONFIGFILE"
+	echo "RESCALEx2=0.5">>"$CONFIGFILE"
+fi
 CONFIGFILE=`realpath "$CONFIGFILE"`
 export CONFIGFILE
 echo -e $"\e[1musing config file $CONFIGFILE\e[0m"
+config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+
 
 if test $# -ne 0
 then
@@ -45,17 +58,10 @@ else
 	
 	while true;
 	do
-		if [ -e $CONFIGFILE ] ; then
-			# happens every iteration since daemon is responsibe to initially create config and detect comfyui changes
-			config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-			COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-			COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-			export COMFYUIHOST COMFYUIPORT
-		else
-			echo "config_version=1">>"$CONFIGFILE"
-			echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
-			echo "COMFYUIPORT=8188">>"$CONFIGFILE"
-		fi
+		# happens every iteration since daemon is responsibe to initially create config and detect comfyui changes
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
 
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ]; then

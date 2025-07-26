@@ -88,7 +88,8 @@ fi
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.mp4}
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
-	UPSCALEMODEL="4x_foolhardy_Remacri.pth"
+	UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"4x_foolhardy_Remacri.pth"}
+	
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
 		if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
@@ -96,11 +97,13 @@ fi
 			if test `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATH"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
 			then 
 				TARGETPREFIX="$TARGETPREFIX""_x4"
-				DOWNSCALE=1.0
+				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"4x_foolhardy_Remacri.pth"}
+				DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 				UPSCALEFACTOR=4
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
-				DOWNSCALE=0.5
+				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"4x_foolhardy_Remacri.pth"}
+				DOWNSCALE=$(awk -F "=" '/RESCALEx2/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"0.5"}
 				UPSCALEFACTOR=2
 			fi
 		fi

@@ -83,7 +83,9 @@ elif [ -d "custom_nodes" ]; then
 	echo "**************************"
 	echo "*****  SBSCONVERTING *****"
 	echo "**************************"
-	./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.25 0
+	SBS_DEPTH_SCALE=$(awk -F "=" '/SBS_DEPTH_SCALE/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_SCALE=${SBS_DEPTH_SCALE:-"1.25"}
+	SBS_DEPTH_OFFSET=$(awk -F "=" '/SBS_DEPTH_OFFSET/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_OFFSET=${SBS_DEPTH_OFFSET:-"0.0"}
+	./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh $SBS_DEPTH_SCALE $SBS_DEPTH_OFFSET
 	# move to next stage
 	mkdir -p input/vr/slideshow
 	mkdir -p output/vr/fullsbs
