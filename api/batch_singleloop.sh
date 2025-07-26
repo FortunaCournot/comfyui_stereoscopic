@@ -68,7 +68,7 @@ fi
 					mv $newfn input/vr/singleloop/done
 				else
 					echo -e $"\e[91mError:\e[0m creating loop failed. Missing file: output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"
-					mkdir -p input/vr/starloop/error
+					mkdir -p input/vr/singleloop/error
 					mv $newfn input/vr/singleloop/error
 				fi
 			else
