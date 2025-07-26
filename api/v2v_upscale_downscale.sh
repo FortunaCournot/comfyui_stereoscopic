@@ -35,6 +35,19 @@ elif [ -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
 then
 	cd $COMFYUIPATH
 
+CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+
+export CONFIGFILE
+if [ -e $CONFIGFILE ] ; then
+    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+	export COMFYUIHOST COMFYUIPORT
+else
+    touch "$CONFIGFILE"
+    echo "config_version=1">>"$CONFIGFILE"
+fi
+
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
 	if [ -d "../python_embeded" ]; then
@@ -162,7 +175,7 @@ then
 					nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
 					rm -f "${f%.mp4}_na.mp4"
 				fi
-				status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
 					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
 					exit

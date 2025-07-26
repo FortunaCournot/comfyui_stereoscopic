@@ -15,7 +15,7 @@ SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_starloop.sh
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
 MINSPACE=10
-status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 if test $# -gt 0
 then
     echo "Usage: $0 "
@@ -24,6 +24,19 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
 	cd $COMFYUIPATH
+
+CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+
+export CONFIGFILE
+if [ -e $CONFIGFILE ] ; then
+    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+	export COMFYUIHOST COMFYUIPORT
+else
+    touch "$CONFIGFILE"
+    echo "config_version=1">>"$CONFIGFILE"
+fi
 
 	mkdir -p output/vr/singleloop/intermediate
 	mkdir -p input/vr/singleloop/done

@@ -19,6 +19,19 @@ then
 else
 	cd $COMFYUIPATH
 
+CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+
+export CONFIGFILE
+if [ -e $CONFIGFILE ] ; then
+    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+	export COMFYUIHOST COMFYUIPORT
+else
+    touch "$CONFIGFILE"
+    echo "config_version=1">>"$CONFIGFILE"
+fi
+
 	INPUT="$1"
 	shift
 	

@@ -12,6 +12,19 @@ SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.sh
 
 cd $COMFYUIPATH
 
+CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+
+export CONFIGFILE
+if [ -e $CONFIGFILE ] ; then
+    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+	export COMFYUIHOST COMFYUIPORT
+else
+    touch "$CONFIGFILE"
+    echo "config_version=1">>"$CONFIGFILE"
+fi
+
 # Length of each Image to display in seconds (INTEGER)
 DISPLAYLENGTH=6
 # FPS Rate of the slideshow (INTEGER). Minimum=2
@@ -22,7 +35,7 @@ TLENGTH=0
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
 MINSPACE=10
-status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 if test $# -ne 0
 then
     # targetprefix path is relative; parent directories are created as needed

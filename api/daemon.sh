@@ -7,12 +7,9 @@ COMFYUIPATH=.
 
 cd $COMFYUIPATH
 
-if [ -e custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then
-	VERSION=`cat custom_nodes/comfyui_stereoscopic/pyproject.toml | grep "version = " | grep -v "minversion" | grep -v "target-version"`
-else
-	echo "Error: script not started in ComfyUI folder!"
-	exit
-fi
+CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+
+export CONFIGFILE
 
 if test $# -ne 0
 then
@@ -37,7 +34,27 @@ else
 	
 	while true;
 	do
-		status=`true &>/dev/null </dev/tcp/127.0.0.1/8188 && echo open || echo closed`
+		if [ -e $CONFIGFILE ] ; then
+			# happens every iteration since daemon is responsibe to initially create config and detect comfyui changes
+			config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+			COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+			COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+			export COMFYUIHOST COMFYUIPORT
+		else
+			touch "$CONFIGFILE"
+			echo "config_version=1">>"$CONFIGFILE"
+			echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
+			echo "COMFYUIPORT=8188">>"$CONFIGFILE"
+		fi
+
+		if [ -e custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then
+			VERSION=`cat custom_nodes/comfyui_stereoscopic/pyproject.toml | grep "version = " | grep -v "minversion" | grep -v "target-version"`
+		else
+			echo "Error: script not started in ComfyUI folder!"
+			exit
+		fi
+	
+		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ]; then
 			echo -ne "Error: ComfyUI not present. Ensure it is running on port 8188\r"
 			SERVERERROR="x"

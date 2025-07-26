@@ -3,6 +3,7 @@
 import json
 import sys
 from urllib import request
+import os
 
 #This is the ComfyUI api prompt format.
 
@@ -114,7 +115,7 @@ def queue_prompt(prompt):
     # Generate a key here: https://platform.comfy.org/login
 
     data = json.dumps(p).encode('utf-8')
-    req =  request.Request("http://127.0.0.1:8188/prompt", data=data)
+    req =  request.Request("http://"+os.environ["COMFYUIHOST"]+":"+os.environ["COMFYUIPORT"]+"/prompt", data=data)
     request.urlopen(req)
 
       
