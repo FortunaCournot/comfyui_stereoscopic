@@ -126,7 +126,7 @@ elif [ -d "custom_nodes" ]; then
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_starloop.sh
 	mkdir -p input/vr/dubbing
-	mv -f output/vr/singleloop/*.* input/vr/dubbing  >/dev/null 2>&1
+	mv -f output/vr/starloop/*.* input/vr/dubbing  >/dev/null 2>&1
 else
 	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
 fi
