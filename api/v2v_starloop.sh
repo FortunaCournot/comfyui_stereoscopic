@@ -57,7 +57,7 @@ fi
 		# reverse audio does not sound well. it needs redubbing. [0:a]areverse[a];  -map "[a]" 
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$FPATH" -filter_complex "[0:v]reverse,fifo[rv];[0:v][rv]concat=n=2:v=1[v]" -map "[v]" "$LOOPSEGMENT"
 		echo "file part_$i.mp4" >>mylist.txt
-		cd ../../..
+		cd ../../../..
 	done
 
 	cd output/vr/starloop/intermediate
