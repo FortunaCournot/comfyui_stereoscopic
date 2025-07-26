@@ -54,7 +54,6 @@ elif [ -d "custom_nodes" ]; then
 	# DUBBING: Video -> Video with SFX
 	# In:  input/vr/dubbing
 	# Out: output/vr/dubbing
-	# Config: input/vr/dubbing/positive.txt, input/vr/dubbing/negative.txt
 	echo "**************************"
 	echo "******** DUBBING *********"
 	echo "**************************"

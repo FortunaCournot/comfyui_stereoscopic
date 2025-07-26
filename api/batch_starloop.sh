@@ -82,8 +82,6 @@ else
 		fi
 		echo "All done.                             "
 	
-	else
-		echo -e $"\e[91mError:\e[0m No files!?"
 	fi
 	echo "Batch ($COUNT) done.                             "
 fi

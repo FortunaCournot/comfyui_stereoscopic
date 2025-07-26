@@ -124,8 +124,8 @@ fi
 	rm "$TARGETPREFIX"
 
 	CONFIGPATH=user/default/comfyui_stereoscopic
-	POSITIVEPATH="$CONFIGPATH/positive.txt"
-	NEGATIVEPATH="$CONFIGPATH/negative.txt"
+	POSITIVEPATH="$CONFIGPATH/dubbing_positive.txt"
+	NEGATIVEPATH="$CONFIGPATH/dubbing_negative.txt"
 	if [ ! -e "$POSITIVEPATH" ]
 	then
 		mkdir -p $CONFIGPATH
