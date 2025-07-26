@@ -1,4 +1,4 @@
-# comfyui_stereoscopic
+# VR we are! (comfyui_stereoscopic nodes and scripts)
 ComfyUI Custom Nodes to create stereoscopic images and movies.
 
 Project Homepage with documentation and download is on Civitai: [I2I V2V Side-By-Side Converter Workflow comfyui_stereoscopic](https://civitai.com/models/1757677)
