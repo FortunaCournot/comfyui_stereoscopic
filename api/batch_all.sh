@@ -33,9 +33,9 @@ then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 elif [ "$status" = "closed" ]; then
-	echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+	echo -e $"\e[31mError:\e[0mComfyUI not present. Ensure it is running on port 8188"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
-	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
+	echo -e $"\e[31mError:\e[0mLess than $MINSPACE""G left on device: $FREESPACE""G"
 	echo "trying to remove intermediate files..."
 	rm -rf output/*/intermediate/*
 elif [ -d "custom_nodes" ]; then

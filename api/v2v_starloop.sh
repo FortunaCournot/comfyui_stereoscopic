@@ -42,7 +42,7 @@ fi
 	echo "" >output/starloop/intermediate/mylist.txt
 	for FORWARD in "$@"
 	do
-		if [ ! -e "$FORWARD" ]; then echo "Error: failed to load $FORWARD" && exit ; fi
+		if [ ! -e "$FORWARD" ]; then echo -e $"\e[31mError:\e[0m failed to load $FORWARD" && exit ; fi
 		FPATH=`realpath "$FORWARD"`
 		cd output/starloop/intermediate
 		i+=1
@@ -57,11 +57,11 @@ fi
 	cd output/starloop/intermediate
 	echo -ne "Concat...                             \r"
 	nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
-	if [ ! -e "result.mp4" ]; then echo "Error: failed to create result.mp4" && exit ; fi
+	if [ ! -e "result.mp4" ]; then echo -e $"\e[31mError:\e[0m failed to create result.mp4" && exit ; fi
 	
 	#echo -ne "Add audio channel...                             \r"
 	#nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i result.mp4 -c:v copy -c:a aac -shortest result_sil.mp4  
-	#if [ ! -e "result.mp4" ]; then echo "Error: failed to create result_sil.mp4" && exit ; fi
+	#if [ ! -e "result.mp4" ]; then echo -e $"\e[31mError:\e[0m failed to create result_sil.mp4" && exit ; fi
 	cd ../../..
 	mv -f output/starloop/intermediate/result.mp4 "$TARGET"
 
@@ -69,7 +69,7 @@ fi
 	if [ -e "$TARGET" ]; then
 		rm -f output/starloop/intermediate/*
 	else
-		echo "Error: Failed to create target file $TARGET"
+		echo -e $"\e[31mError:\e[0m Failed to create target file $TARGET"
 	fi
 	echo "All done.                             "
 fi

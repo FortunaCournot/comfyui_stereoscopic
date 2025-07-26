@@ -71,7 +71,7 @@ fi
 			TARGETPREFIX="$TARGETPREFIX""_x2"
 			DOWNSCALE=0.5
 		else
-			 echo "Error: Allowed upscalefactor values: 2 or 4"
+			 echo -e $"\e[31mError:\e[0m Allowed upscalefactor values: 2 or 4"
 			exit
 		fi
 	fi
@@ -128,7 +128,7 @@ fi
 		until [ "$queuecount" = "0" ]
 		do
 			sleep 1
-			curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+			curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 			if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
 			then
@@ -141,7 +141,7 @@ fi
 			fi
 			lastcount="$queuecount"
 			
-			#echo -ne "queuecount: $queuecount $itertimemsg         \r"
+			#echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))
 		echo "done."
@@ -153,7 +153,7 @@ fi
 			mv -f output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX"".png"
 		else	
 			echo " "
-			echo "Error: Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "
+			echo -e $"\e[31mError:\e[0m Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "
 		fi
 
 	else
@@ -163,7 +163,7 @@ fi
 else
 	if [ ! -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
 	then
-		echo "Warning: Upscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth"
+		echo -e $"\e[33mWarning:\e[0mUpscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth"
 	fi
 fi
 

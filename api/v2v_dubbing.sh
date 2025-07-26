@@ -52,13 +52,13 @@ then
     echo "E.g.: $0 SmallIconicTown.mp4"
 elif [ ! -d "$COMFYUIPATH/custom_nodes/ComfyUI-MMAudio" ]
 then
-		echo "Error: ComfyUI-MMAudio custom nodes not installed from https://github.com/kijai/ComfyUI-MMAudio. This needs manual setup, read the manual please. "
+		echo -e $"\e[31mError:\e[0m ComfyUI-MMAudio custom nodes not installed from https://github.com/kijai/ComfyUI-MMAudio. This needs manual setup, read the manual please. "
 elif [ ! -e "$COMFYUIPATH/models/mmaudio/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" ]
 then
-		echo "Error: mmaudio models not installed. This needs manual setup, read the manual on https://github.com/kijai/ComfyUI-MMAudio please."
+		echo -e $"\e[31mError:\e[0m mmaudio models not installed. This needs manual setup, read the manual on https://github.com/kijai/ComfyUI-MMAudio please."
 elif [ ! -d "$COMFYUIPATH/custom_nodes/comfyui-florence2" ]
 then
-		echo "Error: comfyui-florence2 custom nodes not installed. Please install through ComfyUI Manager."
+		echo -e $"\e[31mError:\e[0m comfyui-florence2 custom nodes not installed. Please install through ComfyUI Manager."
 else
 	cd $COMFYUIPATH
 
@@ -79,7 +79,7 @@ fi
 	
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 	if [ "$status" = "closed" ]; then
-		echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+		echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 		exit
 	fi
 
@@ -146,7 +146,7 @@ fi
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -r 24 -an "$DUBBINGDIR/tmppadded.mp4"
 		if [ ! -e "$DUBBINGDIR/tmppadded.mp4" ]
 		then
-			echo "Error: padding failed."
+			echo -e $"\e[31mError:\e[0m padding failed."
 			exit
 		fi
 		echo "height odd - padded."
@@ -158,7 +158,7 @@ fi
 		until [ "$queuecount" = "0" ]
 		do
 			sleep 1
-			curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+			curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 			echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
 		done
@@ -221,7 +221,7 @@ fi
 					until [ "$queuecount" = "0" ]
 					do
 						sleep 1
-						curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+						curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 						queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 					done
 
@@ -247,7 +247,7 @@ fi
 		COUNT=`find . -maxdepth 1 -type f -name '*.flac' | wc -l`
 		if [[ $COUNT -eq 0 ]] ; then
 			echo ""
-			echo "Warning: no flac files. Just copying source..."
+			echo -e $"\e[33mWarning:\e[0mno flac files. Just copying source..."
 			cp -fv $INPUT $FINALTARGETFOLDER
 			mkdir -p ./input/vr/dubbing/done
 			mv -fv $INPUT ./input/vr/dubbing/done
@@ -257,11 +257,11 @@ fi
 		
 		for f in *.flac; do echo "file '$f'" >> list.txt; done
 		nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
-		if [ ! -e "../output$p.flac" ]; then echo "Warning: failed to create output$p.flac" ; fi
+		if [ ! -e "../output$p.flac" ]; then echo -e $"\e[33mWarning:\e[0mfailed to create output$p.flac" ; fi
 		cd "$COMFYUIPATH"
 		
 		if [ $p -eq 1 ]; then
-			if [ ! -e "$DUBBINGDIR/output1.flac" ]; then echo "Error: failed to create output$p.flac" && exit ; fi
+			if [ ! -e "$DUBBINGDIR/output1.flac" ]; then echo -e $"\e[31mError:\e[0m failed to create output$p.flac" && exit ; fi
 			cp $DUBBINGDIR/output1.flac $DUBBINGDIR/merged.flac
 		else
 			# Combining two audio files and introducing an offset with FFMPEG
@@ -270,7 +270,7 @@ fi
 			if [ -e "$DUBBINGDIR/merged-temp.flac" ]; then
 				mv -f $DUBBINGDIR/merged-temp.flac $DUBBINGDIR/merged.flac
 			else
-				echo "Warning: failed to create merged-temp.flac($p). This occurs for short video input (2 seconds)."
+				echo -e $"\e[33mWarning:\e[0mfailed to create merged-temp.flac($p). This occurs for short video input (2 seconds)."
 			fi
 		fi
 
@@ -284,19 +284,19 @@ fi
 		AUDIOMAPOPT="-map 0:a:0"
 		if [[ $TESTAUDIO =~ "[STREAM]" ]]; then
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -q:a 0 -map a $DUBBINGDIR/source.mp3
-			if [ ! -e "$DUBBINGDIR/source.mp3" ]; then echo "Error: failed to create source.mp3" && exit ; fi
+			if [ ! -e "$DUBBINGDIR/source.mp3" ]; then echo -e $"\e[31mError:\e[0m failed to create source.mp3" && exit ; fi
 			#https://stackoverflow.com/questions/35509147/ffmpeg-amix-filter-volume-issue-with-inputs-of-different-duration
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/source.mp3 -i "$TARGETPREFIX"".flac" -filter_complex "[0]adelay=0|0,volume=$DUBSTRENGTH_ORIGINAL[a];[1]adelay=0|0,volume=$DUBSTRENGTH_AI[b];[a][b]amix=inputs=2:duration=longest:dropout_transition=0" $DUBBINGDIR/sourcemerge.flac
-			if [ ! -e "$DUBBINGDIR/sourcemerge.flac" ]; then echo "Error: failed to create sourcemerge.flac" && exit ; fi
+			if [ ! -e "$DUBBINGDIR/sourcemerge.flac" ]; then echo -e $"\e[31mError:\e[0m failed to create sourcemerge.flac" && exit ; fi
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i $DUBBINGDIR/sourcemerge.flac -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.flac
-			if [ ! -e "$DUBBINGDIR/padded.flac" ]; then echo "Error: failed to create padded.flac" && exit ; fi
+			if [ ! -e "$DUBBINGDIR/padded.flac" ]; then echo -e $"\e[31mError:\e[0m failed to create padded.flac" && exit ; fi
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.flac -shortest -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
-			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo "Error: failed to create dubbed.mp4 (A)" && exit ; fi
+			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[31mError:\e[0m failed to create dubbed.mp4 (A)" && exit ; fi
 		else
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "$TARGETPREFIX"".flac" -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.flac
-			if [ ! -e "$DUBBINGDIR/padded.flac" ]; then echo "Error: failed to create padded.flac" && exit ; fi
+			if [ ! -e "$DUBBINGDIR/padded.flac" ]; then echo -e $"\e[31mError:\e[0m failed to create padded.flac" && exit ; fi
 			nice "$FFMPEGPATH"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.flac -shortest -map 0:v:0 -map 1:a:0 $DUBBINGDIR/dubbed.mp4
-			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo "Error: failed to create dubbed.mp4 (NA)" && exit ; fi
+			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[31mError:\e[0m failed to create dubbed.mp4 (NA)" && exit ; fi
 		fi
 		mv -f $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
 		mv -vf "$TARGETPREFIX""_dub.mp4" "$FINALTARGETFOLDER"

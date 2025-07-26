@@ -143,7 +143,7 @@ fi
     until [ "$queuecount" = "0" ]
 	do
 		sleep 1
-		curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 		if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
 		then
@@ -156,7 +156,7 @@ fi
 		fi
 		lastcount="$queuecount"
 			
-		echo -ne "queuecount: $queuecount $itertimemsg         \r"
+		echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 	done
 	runtime=$((end-startjob))
 	echo "done. duration: $runtime""s.                      "

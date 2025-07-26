@@ -68,7 +68,7 @@ fi
 		echo "Giant depth model detected."
 	elif [ ! -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth" ]
 	then
-		echo "Warning: Missing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
+		echo -e $"\e[33mWarning:\e[0mMissing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
 	fi
 
 	PROGRESS=" "
@@ -146,10 +146,10 @@ fi
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if test $# -ne 0
 				then	
-					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+					echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 					exit
 				fi
-				curl -silent "http://127.0.0.1:8188/prompt" >queuecheck.json
+				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 			
 				end=`date +%s`

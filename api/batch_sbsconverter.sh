@@ -31,9 +31,9 @@ FREESPACE=${FREESPACE%G}
 MINSPACE=10
 status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 if [ "$status" = "closed" ]; then
-    echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+    echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
-	echo "Error: Less than $MINSPACE""G left on device: $FREESPACE""G"
+	echo -e $"\e[31mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
 elif test $# -ne 2; then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 depth_scale depth_offset"
@@ -112,12 +112,12 @@ else
 				
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
-					echo "Error: ComfyUI not present. Ensure it is running on port 8188"
+					echo -e $"\e[31mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 					exit
 				fi
 				
 			else
-				echo "Error: prompting failed. Missing file: $newfn"
+				echo -e $"\e[31mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			
 		done
 		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
