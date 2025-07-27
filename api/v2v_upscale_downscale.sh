@@ -248,13 +248,16 @@ else
 		runtime=$((end-startjob))
 		echo "done. duration: $runtime""s.                      "
 		rm queuecheck.json
+		mkdir -p input/vr/scaling/done
+		mv -fv "$INPUT" input/vr/scaling/done
 		echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
 	else
 		echo "Skipping upscaling of video $INPUT"
+		mkdir -p "$FINALTARGETFOLDER"
 		cp $INPUT "$FINALTARGETFOLDER"
+		mkdir -p input/vr/scaling/done
+		mv -fv "$INPUT" input/vr/scaling/done
 	fi
-	mkdir -p input/vr/scaling/done
-	mv -fv "$INPUT" input/vr/scaling/done
 fi
 
