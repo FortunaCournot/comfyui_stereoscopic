@@ -210,7 +210,7 @@ prompt_text = """
       "pingpong": false,
       "save_output": true,
       "images": [
-        "182",
+        "191",
         0
       ],
       "audio": [
@@ -277,13 +277,135 @@ prompt_text = """
         0
       ],
       "images": [
-        "169",
+        "185",
         0
       ]
     },
     "class_type": "easy imageScaleDownBy",
     "_meta": {
       "title": "Image Scale Down By"
+    }
+  },
+  "183": {
+    "inputs": {
+      "expression": "a / b",
+      "a": [
+        "184",
+        3
+      ],
+      "b": [
+        "190",
+        0
+      ]
+    },
+    "class_type": "MathExpression|pysssss",
+    "_meta": {
+      "title": "Normalize Sigma"
+    }
+  },
+  "184": {
+    "inputs": {
+      "base_image": [
+        "169",
+        0
+      ]
+    },
+    "class_type": "GetResolutionForDepth",
+    "_meta": {
+      "title": "Get Resolution"
+    }
+  },
+  "185": {
+    "inputs": {
+      "sigmaX": [
+        "183",
+        1
+      ],
+      "sigmaY": [
+        "183",
+        1
+      ],
+      "image": [
+        "169",
+        0
+      ]
+    },
+    "class_type": "Blur (mtb)",
+    "_meta": {
+      "title": "Blur (mtb)"
+    }
+  },
+  "190": {
+    "inputs": {
+      "value": 1920
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "SigmaResolution"
+    }
+  },
+  "191": {
+    "inputs": {
+      "blend_factor": [
+        "194",
+        0
+      ],
+      "blend_mode": "normal",
+      "image1": [
+        "192",
+        0
+      ],
+      "image2": [
+        "182",
+        0
+      ]
+    },
+    "class_type": "ImageBlend",
+    "_meta": {
+      "title": "Image Blend"
+    }
+  },
+  "192": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "width": [
+        "193",
+        0
+      ],
+      "height": [
+        "193",
+        1
+      ],
+      "crop": "disabled",
+      "image": [
+        "69",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Upscale Image"
+    }
+  },
+  "193": {
+    "inputs": {
+      "base_image": [
+        "182",
+        0
+      ]
+    },
+    "class_type": "GetResolutionForDepth",
+    "_meta": {
+      "title": "Get Resolution"
+    }
+  },
+  "194": {
+    "inputs": {
+      "value": 0.7000000000000001
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "BlendFactor"
     }
   }
 }
@@ -304,28 +426,19 @@ def queue_prompt(prompt):
     request.urlopen(req)
 
       
-if len(sys.argv) == 3 + 1:
+if len(sys.argv) == 4 + 1:
     prompt = json.loads(prompt_text)
     prompt["159"]["inputs"]["value"] = sys.argv[1]
     prompt["160"]["inputs"]["value"] = sys.argv[2] 
-    prompt["174"]["inputs"]["value"] = 1.0
     prompt["168"]["inputs"]["model_name"] = sys.argv[3]
+    prompt["174"]["inputs"]["value"] = float(sys.argv[4])
     prompt["164"]["inputs"]["format"] = "video/h264-mp4"
     prompt["164"]["inputs"]["pix_fmt"] = "yuv420p"
     prompt["164"]["inputs"]["crf"] = 17
-    
-    queue_prompt(prompt)
-elif len(sys.argv) == 4 + 1:
-    prompt = json.loads(prompt_text)
-    prompt["159"]["inputs"]["value"] = sys.argv[1]
-    prompt["160"]["inputs"]["value"] = sys.argv[2] 
-    prompt["174"]["inputs"]["value"] = sys.argv[4]
-    prompt["168"]["inputs"]["model_name"] = sys.argv[3]
-    prompt["164"]["inputs"]["format"] = "video/h264-mp4"
-    prompt["164"]["inputs"]["pix_fmt"] = "yuv420p"
-    prompt["164"]["inputs"]["crf"] = 17
+    prompt["194"]["inputs"]["value"] = float(sys.argv[5])
+    prompt["190"]["inputs"]["value"] = float(sys.argv[6])
     
     queue_prompt(prompt)
 else:
-    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix upscalemodel scalefactor")
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix upscalemodel scalefactor blendfactor sigmaresolution")
 

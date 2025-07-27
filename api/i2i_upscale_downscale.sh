@@ -29,7 +29,7 @@ then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 input [upscalefactor]"
     echo "E.g.: $0 SmallIconicTown.png 2"
-elif [ -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
+elif [ -e "$COMFYUIPATH/models/upscale_models/RealESRGAN_x4plus.pth" ]
 then
 	cd $COMFYUIPATH
 
@@ -90,7 +90,10 @@ then
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=${TARGETPREFIX%.*}
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
-	UPSCALEMODEL="4x_foolhardy_Remacri.pth"
+	UPSCALEMODEL="RealESRGAN_x4plus.pth"
+	SCALEBLENDFACTOR=$(awk -F "=" '/SCALEBLENDFACTOR/ {print $2}' $CONFIGFILE) ; SCALEBLENDFACTOR=${SCALEBLENDFACTOR:-"0.7"}
+	SCALESIGMARESOLUTION=$(awk -F "=" '/SCALESIGMARESOLUTION/ {print $2}' $CONFIGFILE) ; SCALESIGMARESOLUTION=${SCALESIGMARESOLUTION:-"1920.0"}
+
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
 		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
@@ -98,10 +101,12 @@ then
 			if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
 			then 
 				TARGETPREFIX="$TARGETPREFIX""_x4"
+				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=1.0
 				UPSCALEFACTOR=4
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
+				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=0.5
 				UPSCALEFACTOR=2
 			fi
@@ -116,7 +121,7 @@ then
 	
 		echo -ne "Prompting ..."
 		rm -f output/vr/scaling/tmpscaleresult*.png
-		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" upscale/tmpscaleresult $UPSCALEMODEL $DOWNSCALE
+		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" upscale/tmpscaleresult $UPSCALEMODEL $DOWNSCALE $SCALEBLENDFACTOR $SCALESIGMARESOLUTION
 		
 		echo -ne "Waiting for queue to finish..."
 		sleep 2  # Give some extra time to start...
@@ -162,9 +167,9 @@ then
 		cp -f $INPUT "$FINALTARGETFOLDER"
 	fi
 else
-	if [ ! -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
+	if [ ! -e "$COMFYUIPATH/models/upscale_models/RealESRGAN_x4plus.pth" ]
 	then
-		echo -e $"\e[93mWarning:\e[0mUpscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth"
+		echo -e $"\e[93mWarning:\e[0mUpscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/RealESRGAN_x4plus.pth"
 	fi
 fi
 

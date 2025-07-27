@@ -17,12 +17,16 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "COMFYUIPORT=8188">>"$CONFIGFILE"
 	echo "SBS_DEPTH_SCALE=1.25">>"$CONFIGFILE"
 	echo "SBS_DEPTH_OFFSET=0.0">>"$CONFIGFILE"
-	echo "UPSCALEMODELx4=4x_foolhardy_Remacri.pth">>"$CONFIGFILE"
-	echo "UPSCALEMODELx2=4x_foolhardy_Remacri.pth">>"$CONFIGFILE"
+	echo "UPSCALEMODELx4=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
+	echo "UPSCALEMODELx2=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
 	echo "RESCALEx4=1.0">>"$CONFIGFILE"
 	echo "RESCALEx2=0.5">>"$CONFIGFILE"
 	echo "FFMPEGPATHPREFIX=">>"$CONFIGFILE"
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
+	echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitl.pth">>"$CONFIGFILE"
+	echo "SCALEBLENDFACTOR=0.7">>"$CONFIGFILE"
+	echo "SCALESIGMARESOLUTION=1920.0">>"$CONFIGFILE"
+
 
 	if ! command -v ffmpeg >/dev/null 2>&1
 	then
@@ -36,16 +40,56 @@ export CONFIGFILE
 echo -e $"\e[1musing config file $CONFIGFILE\e[0m"
 config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
-UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx4=${UPSCALEMODELx4:-"4x_foolhardy_Remacri.pth"}
-UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"4x_foolhardy_Remacri.pth"}
+UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx4=${UPSCALEMODELx4:-"RealESRGAN_x4plus.pth"}
+UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"RealESRGAN_x4plus.pth"}
 FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
+DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
 
 CONFIGERROR=
-if ! command -v "$(FFMPEGPATHPREFIX)ffmpeg" >/dev/null 2>&1
+
+### CHECK TOOLS ###
+if ! command -v $FFMPEGPATHPREFIX"ffmpeg" >/dev/null 2>&1
 then
 	echo -e $"\e[91mError:\e[0m ffmpeg could not be found."
 	CONFIGERROR="x"
 fi
+
+### CHECK MODELS ###
+if [ ! -d custom_nodes/ComfyUI-Manager ] && [ ! -d custom_nodes/ComfyUI-Manager-main ]; then
+	echo -e $"\e[91mError:\e[0m ComfyUI-Manager could not be found. Install from \e[36mhttps://github.com/Comfy-Org/ComfyUI-Manager\e[0m"
+	CONFIGERROR="x"
+fi
+
+if [ ! -d custom_nodes/comfyui_controlnet_aux ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfyui_controlnet_aux could not be found. Use Custom Nodes Manager to install v1.1.0."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfyui-videohelpersuite ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-videohelpersuite could not be found. Use Custom Nodes Manager to install v1.6.1."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/bjornulf_custom_nodes ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes bjornulf_custom_nodes could not be found. Use Custom Nodes Manager to install v1.1.8."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfyui-easy-use ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-easy-use could not be found. Use Custom Nodes Manager to install v1.3.1."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfyui-custom-scripts ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-custom-scripts could not be found. Use Custom Nodes Manager to install v1.2.5."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/ComfyLiterals ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes ComfyLiterals could not be found. Use Custom Nodes Manager to install (nightly)."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfy-mtb ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfy-mtb could not be found. Use Custom Nodes Manager to install v0.5.4."
+	CONFIGERROR="x"
+fi
+
+### CHECK MODELS ###
 if [ ! -e models/upscale_models/$UPSCALEMODELx4 ]; then
 	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx4 could not be found in models/upscale_models. Use Model Manager to install."
 	CONFIGERROR="x"
@@ -54,38 +98,30 @@ if [ ! -e models/upscale_models/$UPSCALEMODELx2 ]; then
 	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx2 could not be found in models/upscale_models. Use Model Manager to install."
 	CONFIGERROR="x"
 fi
-if [ ! -d custom_nodes/ComfyUI-Manager ] && [ ! -d custom_nodes/ComfyUI-Manager-main ]; then
-	echo -e $"\e[91mError:\e[0m ComfyUI-Manager could not be found. Install from \e[36mhttps://github.com/Comfy-Org/ComfyUI-Manager\e[0m"
-	CONFIGERROR="x"
+SEARCHCOUNT_MODEL=`find $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts -name $DEPTH_MODEL_CKPT | wc -l`
+if [[ $SEARCHCOUNT_MODEL -eq 0 ]] ; then
+	if [ "$DEPTH_MODEL_CKPT" != "depth_anything_v2_vitl.pth" ] ; then
+		echo -e $"\e[91mError:\e[0m Depth model $DEPTH_MODEL_CKPT could not be found in $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts"
+		echo -e $"It must be installed manually. Spoiler: \e[36mhttps://www.reddit.com/r/comfyui/comments/1lchvqw/depth_anything_v2_giant/\e[0m"
+		CONFIGERROR="x"
+	else
+		echo -e $"\e[94mInfo:\e[0m Depth model $DEPTH_MODEL_CKPT not yet downloaded by comfyui_controlnet_aux"
+	fi
+else
+	
+	if [ "$DEPTH_MODEL_CKPT" == "depth_anything_v2_vitl.pth" ] ; then
+		if [ -e custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant ] ; then
+			echo -e $"\e[94mInfo:\e[0m default depth model used, but Depth-Anything-V2-Giant detected!"
+			echo -e $"  Consider to update \e[92mDEPTH_MODEL_CKPT=depth_anything_v2_vitg.pth\e[0m in \e[36m$CONFIGFILE\e[0m"
+		else
+			echo -e $"\e[94mInfo:\e[0m default depth model used. To use Depth-Anything-V2-Giant install it manually."
+			echo -e $"  Then update DEPTH_MODEL_CKPT in \e[36m$CONFIGFILE\e[0m"
+			echo -e $"  Spoiler: \e[36mhttps://www.reddit.com/r/comfyui/comments/1lchvqw/depth_anything_v2_giant/\e[0m"
+		fi
+	fi
 fi
-if [ ! -d custom_nodes/comfyui_controlnet_aux ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfyui_controlnet_aux could not be found. Use Custom Nodes Manager to install v1.1.0."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/comfyui-videohelpersuite ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-videohelpersuite could not be found. Use Custom Nodes Manager to install."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/bjornulf_custom_nodes ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes bjornulf_custom_nodes could not be found. Use Custom Nodes Manager to install."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/comfyui-easy-use ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-easy-use could not be found. Use Custom Nodes Manager to install."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/comfyui-custom-scripts ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-custom-scripts could not be found. Use Custom Nodes Manager to install."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/ComfyLiterals ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes ComfyLiterals could not be found. Use Custom Nodes Manager to install."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/comfy-mtb ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfy-mtb could not be found. Use Custom Nodes Manager to install."
-	CONFIGERROR="x"
-fi
+
+### EXIT IF CHECK FAILED ###
 if [[ ! -z $CONFIGERROR ]]; then
 	exit
 fi

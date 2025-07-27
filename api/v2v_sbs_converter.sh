@@ -61,6 +61,8 @@ else
 	INPUT="$1"
 	shift
 
+	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
+
 	# some advertising ;-)
 	SETMETADATA="-metadata description=\"Created with Side-By-Side Converter: https://civitai.com/models/1757677\" -movflags +use_metadata_tags -metadata depth_scale=\"$depth_scale\" -metadata depth_offset=\"$depth_offset\""
 
@@ -71,16 +73,6 @@ else
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
-
-	DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitl.pth"
-	if [ -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant/depth_anything_v2_vitg.pth" ]
-	then
-		DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitg.pth"
-		echo "Giant depth model detected."
-	elif [ ! -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth" ]
-	then
-		echo -e $"\e[93mWarning:\e[0mMissing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
-	fi
 
 
 	uuid=$(openssl rand -hex 16)
@@ -185,7 +177,7 @@ else
 				echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 				exit
 			fi
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT_NAME" $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment
 		fi
 	done
 	echo "Jobs running...   "

@@ -62,15 +62,7 @@ else
 	INPUT="$1"
 	shift
 						   
-	DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitl.pth"
-	if [ -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant/depth_anything_v2_vitg.pth" ]
-	then
-		DEPTH_MODEL_CKPT_NAME="depth_anything_v2_vitg.pth"
-		echo "Giant depth model detected."
-	elif [ ! -e "$COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth" ]
-	then
-		echo -e $"\e[93mWarning:\e[0mMissing custom_nodes comfyui_controlnet_aux. Model not found at $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
-	fi
+	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
 
 	PROGRESS=" "
 	if [ -e input/vr/fullsbs/BATCHPROGRESS.TXT ]
@@ -132,7 +124,7 @@ else
 			fi
 			
 			
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT_NAME" $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
 			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
 			rm -f "$TARGETPREFIX""*.png"
 			mkdir -p input/vr/fullsbs/done

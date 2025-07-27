@@ -89,6 +89,10 @@ else
 	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.mp4}
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	
+	UPSCALEMODEL="RealESRGAN_x4plus.pth"
+	SCALEBLENDFACTOR=$(awk -F "=" '/SCALEBLENDFACTOR/ {print $2}' $CONFIGFILE) ; SCALEBLENDFACTOR=${SCALEBLENDFACTOR:-"0.7"}
+	SCALESIGMARESOLUTION=$(awk -F "=" '/SCALESIGMARESOLUTION/ {print $2}' $CONFIGFILE) ; SCALESIGMARESOLUTION=${SCALESIGMARESOLUTION:-"1920.0"}
+	
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
 		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
@@ -96,12 +100,12 @@ else
 			if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
 			then 
 				TARGETPREFIX="$TARGETPREFIX""_x4"
-				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"4x_foolhardy_Remacri.pth"}
+				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 				UPSCALEFACTOR=4
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
-				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"4x_foolhardy_Remacri.pth"}
+				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx2/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"0.5"}
 				UPSCALEFACTOR=2
 			fi
@@ -182,7 +186,7 @@ else
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 					exit
 				fi
-				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $UPSCALEMODEL $DOWNSCALE
+				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment $UPSCALEMODEL $DOWNSCALE $SCALEBLENDFACTOR $SCALESIGMARESOLUTION
 			fi
 		done
 		echo "Jobs running...   "
