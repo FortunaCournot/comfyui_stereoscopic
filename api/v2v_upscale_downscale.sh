@@ -29,8 +29,7 @@ then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 input [upscalefactor]"
     echo "E.g.: $0 SmallIconicTown.mp4 [upscalefactor]"
-elif [ -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
-then
+else
 	cd $COMFYUIPATH
 
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
@@ -89,7 +88,6 @@ then
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.mp4}
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
-	UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"4x_foolhardy_Remacri.pth"}
 	
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then

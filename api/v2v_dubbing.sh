@@ -28,9 +28,6 @@ if [ -d "../python_embeded" ]; then
   PYTHON_BIN_PATH=../python_embeded/
 fi
 
-# fp16, sdpa. The model will automatic downloaded by Florence2 into ComfyUI/models/LLM.
-FLORENCE2MODEL="microsoft/Florence-2-base"
-
 DUBSTRENGTH_ORIGINAL=1.75	# WEIGHT IF AUDIO IS ALREADY PRESENT
 DUBSTRENGTH_AI=0.25			# WEIGHT IF AUDIO IS ALREADY PRESENT
 
@@ -77,6 +74,10 @@ else
 
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+
+	# fp16, sdpa. The model will automatic downloaded by Florence2 into ComfyUI/models/LLM.
+	FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
+
 	
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 	if [ "$status" = "closed" ]; then

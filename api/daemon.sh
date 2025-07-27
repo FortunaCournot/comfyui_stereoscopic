@@ -9,6 +9,8 @@ cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ ! -e $CONFIGFILE ] ; then
+	E:\SD\Software\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable\ComfyUI\models\upscale_models
+
 	touch "$CONFIGFILE"
 	echo "config_version=1">>"$CONFIGFILE"
 	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
@@ -20,18 +22,37 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "RESCALEx4=1.0">>"$CONFIGFILE"
 	echo "RESCALEx2=0.5">>"$CONFIGFILE"
 	echo "FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}">>"$CONFIGFILE"
-	
+	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
+
 	if ! command -v ffmpeg >/dev/null 2>&1
 	then
 		echo -e $"\e[91mError:\e[0m ffmpeg could not be found in systempath."
 		exit 1
 	fi
 fi
+
 CONFIGFILE=`realpath "$CONFIGFILE"`
 export CONFIGFILE
 echo -e $"\e[1musing config file $CONFIGFILE\e[0m"
 config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx4=${UPSCALEMODELx4:-"4x_foolhardy_Remacri.pth"}
+UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"4x_foolhardy_Remacri.pth"}
+FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
 
+if ! command -v "$(FFMPEGPATHPREFIX)ffmpeg" >/dev/null 2>&1
+then
+	echo -e $"\e[91mError:\e[0m ffmpeg could not be found."
+	exit 1
+fi
+if [ ! -e models/upscale_models/$UPSCALEMODELx4 ]; then
+	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx4 could not be found in models/upscale_models. Use Model Manager to install."
+	exit
+fi
+if [ ! -e models/upscale_models/$UPSCALEMODELx2 ]; then
+	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx2 could not be found in models/upscale_models. Use Model Manager to install."
+	exit
+fi
 
 if test $# -ne 0
 then

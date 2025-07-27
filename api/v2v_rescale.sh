@@ -21,8 +21,6 @@
 
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
-# API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_rescale.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
