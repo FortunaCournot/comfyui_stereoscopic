@@ -40,19 +40,56 @@ UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALE
 UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"4x_foolhardy_Remacri.pth"}
 FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
 
+CONFIGERROR=
 if ! command -v "$(FFMPEGPATHPREFIX)ffmpeg" >/dev/null 2>&1
 then
 	echo -e $"\e[91mError:\e[0m ffmpeg could not be found."
-	exit 1
+	CONFIGERROR="x"
 fi
 if [ ! -e models/upscale_models/$UPSCALEMODELx4 ]; then
 	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx4 could not be found in models/upscale_models. Use Model Manager to install."
-	exit
+	CONFIGERROR="x"
 fi
 if [ ! -e models/upscale_models/$UPSCALEMODELx2 ]; then
 	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx2 could not be found in models/upscale_models. Use Model Manager to install."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/ComfyUI-Manager ] && [ ! -d custom_nodes/ComfyUI-Manager-main ]; then
+	echo -e $"\e[91mError:\e[0m ComfyUI-Manager could not be found. Install from \e[36mhttps://github.com/Comfy-Org/ComfyUI-Manager\e[0m"
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfyui_controlnet_aux ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfyui_controlnet_aux could not be found. Use Custom Nodes Manager to install v1.1.0."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfyui-videohelpersuite ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-videohelpersuite could not be found. Use Custom Nodes Manager to install."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/bjornulf_custom_nodes ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes bjornulf_custom_nodes could not be found. Use Custom Nodes Manager to install."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfyui-easy-use ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-easy-use could not be found. Use Custom Nodes Manager to install."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfyui-custom-scripts ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-custom-scripts could not be found. Use Custom Nodes Manager to install."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/ComfyLiterals ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes ComfyLiterals could not be found. Use Custom Nodes Manager to install."
+	CONFIGERROR="x"
+fi
+if [ ! -d custom_nodes/comfy-mtb ]; then
+	echo -e $"\e[91mError:\e[0m Custom nodes comfy-mtb could not be found. Use Custom Nodes Manager to install."
+	CONFIGERROR="x"
+fi
+if [[ ! -z $CONFIGERROR ]]; then
 	exit
 fi
+
 
 if test $# -ne 0
 then
