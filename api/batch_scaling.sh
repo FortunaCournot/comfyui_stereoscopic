@@ -67,8 +67,9 @@ else
 				fi
 				if test $duration -ge 60
 				then
-					echo "long video (>60s) detected; call $SCRIPTPATH directly or move it to input/vr/scaling$OVERRIDESUBPATH. Skipping $newfn"
-					mv -fv "$newfn" output/vr/dubbing/final
+					echo -e $"\e[93mWarning:\e[0m long video (>60s) detected; call $SCRIPTPATH directly or move it to input/vr/scaling$OVERRIDESUBPATH. Skipping $newfn"
+					mkdir -p input/vr/scaling/stopped
+					mv -fv "$newfn" input/vr/scaling/stopped
 					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
 				else
 					/bin/bash $SCRIPTPATH "$newfn"
