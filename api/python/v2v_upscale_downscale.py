@@ -426,7 +426,7 @@ def queue_prompt(prompt):
     request.urlopen(req)
 
       
-if len(sys.argv) == 4 + 1:
+if len(sys.argv) == 6 + 1:
     prompt = json.loads(prompt_text)
     prompt["159"]["inputs"]["value"] = sys.argv[1]
     prompt["160"]["inputs"]["value"] = sys.argv[2] 
