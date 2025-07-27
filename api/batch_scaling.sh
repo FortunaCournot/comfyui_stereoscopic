@@ -46,6 +46,7 @@ else
 	fi
 	
 	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	echo "Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in input/vr/scaling/*.mp4 ; do

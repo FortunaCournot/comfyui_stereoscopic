@@ -252,10 +252,5 @@ else
 	fi
 	mkdir -p input/vr/scaling/done
 	mv -fv "$INPUT" input/vr/scaling/done
-else
-	if [ ! -e "$COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth" ]
-	then
-		echo -e $"\e[93mWarning:\e[0mUpscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/4x_foolhardy_Remacri.pth"
-	fi
 fi
 
