@@ -94,6 +94,9 @@ else
 	UPSCALEMODEL="RealESRGAN_x4plus.pth"
 	SCALEBLENDFACTOR=$(awk -F "=" '/SCALEBLENDFACTOR/ {print $2}' $CONFIGFILE) ; SCALEBLENDFACTOR=${SCALEBLENDFACTOR:-"0.7"}
 	SCALESIGMARESOLUTION=$(awk -F "=" '/SCALESIGMARESOLUTION/ {print $2}' $CONFIGFILE) ; SCALESIGMARESOLUTION=${SCALESIGMARESOLUTION:-"1920.0"}
+	VIDEO_FORMAT=$(awk -F "=" '/VIDEO_FORMAT/ {print $2}' $CONFIGFILE) ; VIDEO_FORMAT=${VIDEO_FORMAT:-"video/h264-mp4"}
+	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
+	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
 	
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
@@ -156,18 +159,19 @@ else
 		SPLITINPUT="$INPUT"
 		if [ ! -e "$UPSCALEDIR/concat.sh" ]
 		then
-			# Prepare to restrict tp 30 fps (script batch maximum)
+			# Prepare to restrict fps
+			MAXFPS=$(awk -F "=" '/MAXFPS/ {print $2}' $CONFIGFILE) ; MAXFPS=${MAXFPS:-"30"}
 			fpsv=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
 			fps=$(($fpsv))
 			echo "Source FPS: $fps ($fpsv)"
-			FPSOPTION=`echo $fps 30.0 | awk '{if ($1 > $2) print "-filter:v fps=fps=30" }'`
+			FPSOPTION=`echo $fps $MAXFPS | awk '{if ($1 > $2) print "-filter:v fps=fps=$MAXFPS" }'`
 			if [[ -n "$FPSOPTION" ]]
 			then 
-				SPLITINPUTFPS30="$SEGDIR/splitinput_fps30.mp4"
-				echo "Rencoding to 30.0 ..."
-				nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=30 "$SPLITINPUTFPS30"
-				SPLITINPUT="$SPLITINPUTFPS30"
-			fi		
+				SPLITINPUTFPS="$SEGDIR/splitinput_fps.mp4"
+				echo "Rencoding to $MAXFPS fps ..."
+				nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=$MAXFPS "$SPLITINPUTFPS"
+				SPLITINPUT="$SPLITINPUTFPS"
+			fi
 		else
 			until [ "$queuecount" = "0" ]
 			do
@@ -208,7 +212,7 @@ else
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 					exit
 				fi
-				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION"
+				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION" "$VIDEO_FORMAT" "V$IDEO_PIXFMT" "$VIDEO_CRF"
 			fi
 		done
 		echo "Jobs running...   "

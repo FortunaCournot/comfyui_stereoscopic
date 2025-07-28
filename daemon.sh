@@ -3,7 +3,7 @@
 # Copyright (c) 2025 Fortuna Cournot. MIT License.
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable
-COMFYUIPATH=`realpath $(dirname "$0")/../../..`
+COMFYUIPATH=`realpath $(dirname "$0")/../..`
 
 cd $COMFYUIPATH
 
@@ -19,6 +19,10 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "COMFYUIPORT=8188">>"$CONFIGFILE"
 	echo "# --- video config ---">>"$CONFIGFILE"
 	echo "FFMPEGPATHPREFIX=">>"$CONFIGFILE"
+	echo "MAXFPS=30">>"$CONFIGFILE"
+	echo "VIDEO_FORMAT=video/h264-mp4">>"$CONFIGFILE"
+	echo "VIDEO_PIXFMT=yuv420p">>"$CONFIGFILE"
+	echo "VIDEO_CRF=17">>"$CONFIGFILE"
 	echo "# --- scaling config ---">>"$CONFIGFILE"
 	echo "UPSCALEMODELx4=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
 	echo "RESCALEx4=1.0">>"$CONFIGFILE"
@@ -33,11 +37,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- dubbing config ---">>"$CONFIGFILE"
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
 	# TODO:
-	echo "MAXFPS=30">>"$CONFIGFILE"
 	echo "SPLITSEGMENTTIME=1">>"$CONFIGFILE"
-	echo "VIDEO_FORMAT=video/h264-mp4">>"$CONFIGFILE"
-	echo "VIDEO_PIXFMT=yuv420p">>"$CONFIGFILE"
-	echo "VIDEO_CRF=17">>"$CONFIGFILE"
 
 
 	if ! command -v ffmpeg >/dev/null 2>&1

@@ -328,8 +328,8 @@ def queue_prompt(prompt):
     req =  request.Request("http://"+os.environ["COMFYUIHOST"]+":"+os.environ["COMFYUIPORT"]+"/prompt", data=data)
     request.urlopen(req)
 
-if len(sys.argv) != 5 + 1:
-   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset InputVideoPath OutputPathPrefix")
+if len(sys.argv) != 8 + 1:
+   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset InputVideoPath OutputPathPrefix videoformat videopixfmt videocrf")
 else:
     prompt = json.loads(prompt_text)
     prompt["162"]["inputs"]["ckpt_name"] = sys.argv[1]
@@ -338,6 +338,9 @@ else:
     prompt["163"]["inputs"]["blur_radius"] = int(45)
     prompt["159"]["inputs"]["value"] = sys.argv[4]
     prompt["160"]["inputs"]["value"] = sys.argv[5] 
+    prompt["164"]["inputs"]["format"] = sys.argv[6] 
+    prompt["164"]["inputs"]["pix_fmt"] = sys.argv[7] 
+    prompt["164"]["inputs"]["crf"] = sys.argv[8] 
     
     queue_prompt(prompt)
 
