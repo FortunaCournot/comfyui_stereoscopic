@@ -9,7 +9,6 @@ cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ ! -e $CONFIGFILE ] ; then
-	E:\SD\Software\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable\ComfyUI\models\upscale_models
 
 	touch "$CONFIGFILE"
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
