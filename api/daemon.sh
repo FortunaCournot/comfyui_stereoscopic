@@ -12,20 +12,32 @@ if [ ! -e $CONFIGFILE ] ; then
 	E:\SD\Software\ComfyUI_windows_portable_nvidia\ComfyUI_windows_portable\ComfyUI\models\upscale_models
 
 	touch "$CONFIGFILE"
+	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
 	echo "config_version=1">>"$CONFIGFILE"
+	echo "# --- comfyui server config ---">>"$CONFIGFILE"
 	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
 	echo "COMFYUIPORT=8188">>"$CONFIGFILE"
-	echo "SBS_DEPTH_SCALE=1.25">>"$CONFIGFILE"
-	echo "SBS_DEPTH_OFFSET=0.0">>"$CONFIGFILE"
-	echo "UPSCALEMODELx4=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
-	echo "UPSCALEMODELx2=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
-	echo "RESCALEx4=1.0">>"$CONFIGFILE"
-	echo "RESCALEx2=0.5">>"$CONFIGFILE"
+	echo "# --- video config ---">>"$CONFIGFILE"
 	echo "FFMPEGPATHPREFIX=">>"$CONFIGFILE"
-	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
-	echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitl.pth">>"$CONFIGFILE"
+	echo "# --- scaling config ---">>"$CONFIGFILE"
+	echo "UPSCALEMODELx4=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
+	echo "RESCALEx4=1.0">>"$CONFIGFILE"
+	echo "UPSCALEMODELx2=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
+	echo "RESCALEx2=0.5">>"$CONFIGFILE"
 	echo "SCALEBLENDFACTOR=0.7">>"$CONFIGFILE"
 	echo "SCALESIGMARESOLUTION=1920.0">>"$CONFIGFILE"
+	echo "# --- sbs converter config ---">>"$CONFIGFILE"
+	echo "SBS_DEPTH_SCALE=1.25">>"$CONFIGFILE"
+	echo "SBS_DEPTH_OFFSET=0.0">>"$CONFIGFILE"
+	echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitl.pth">>"$CONFIGFILE"
+	echo "# --- dubbing config ---">>"$CONFIGFILE"
+	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
+	# TODO:
+	echo "MAXFPS=30">>"$CONFIGFILE"
+	echo "SPLITSEGMENTTIME=1">>"$CONFIGFILE"
+	echo "VIDEO_FORMAT=video/h264-mp4">>"$CONFIGFILE"
+	echo "VIDEO_PIXFMT=yuv420p">>"$CONFIGFILE"
+	echo "VIDEO_CRF=17">>"$CONFIGFILE"
 
 
 	if ! command -v ffmpeg >/dev/null 2>&1
@@ -167,8 +179,14 @@ else
 		export COMFYUIHOST COMFYUIPORT
 
 		# move output to next stage input
+		mkdir -p input/vr/scaling input/vr/fullsbs
+		# dubbing -> scaling
+		GLOBIGNORE="*_x?*.mp4"
+		mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
 		# scaling -> fullsbs
+		GLOBIGNORE="*_SBS_LR*.mp4"
 		mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
+		unset GLOBIGNORE		
 
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ]; then
