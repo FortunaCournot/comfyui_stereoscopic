@@ -61,11 +61,11 @@ else
 			if [ -e "$newfn" ]
 			then
 				duration=-1
-				overwide_active=0
+				override_active=1
 				if [ -z "$OVERRIDESUBPATH" ]; then
 					duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $newfn`
 					duration=${duration%.*}
-					overwide_active=1
+					override_active=0
 				fi
 				if test $duration -ge 60
 				then
@@ -74,7 +74,7 @@ else
 					mv -fv "$newfn" input/vr/scaling/stopped
 					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
 				else
-					/bin/bash $SCRIPTPATH "$newfn" $overwide_active 
+					/bin/bash $SCRIPTPATH "$newfn" $override_active 
 					
 					status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 					if [ "$status" = "closed" ]; then

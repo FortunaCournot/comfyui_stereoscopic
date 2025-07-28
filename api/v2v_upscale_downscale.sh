@@ -28,7 +28,7 @@ if test $# -ne 2 -a $# -ne 3
 then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 input [upscalefactor]"
-    echo "E.g.: $0 SmallIconicTown.mp4 overwide_active [upscalefactor]"
+    echo "E.g.: $0 SmallIconicTown.mp4 override_active [upscalefactor]"
 else
 	cd $COMFYUIPATH
 
@@ -57,7 +57,7 @@ else
 	DOWNSCALE=1.0
 	INPUT="$1"
 	shift
-	overwide_active=$1
+	override_active=$1
 	shift
 	
 	UPSCALEFACTOR=0
@@ -99,10 +99,12 @@ else
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
 	PIXEL=$(( $RESW * $RESH ))
 	
-	LIMIT4X=500000
-	LIMIT2X=2000000
-	if [ $overwide_active -eq 1 ]; then
-		LIMIT2X=4000000
+	LIMIT4X=518400
+	LIMIT2X=2073600
+	if [ $override_active -gt 0 ]; then
+		echo "override active"
+		LIMIT4X=1036800
+		LIMIT2X=4147200
 	fi
 	
 	if [ "$UPSCALEFACTOR" -eq 0 ]
@@ -113,14 +115,24 @@ else
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 				UPSCALEFACTOR=4
+				echo "using $UPSCALEFACTOR""x"
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx2/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"0.5"}
 				UPSCALEFACTOR=2
+				echo "using $UPSCALEFACTOR""x"
 			fi
+		else
+			echo "$PIXEL > $LIMIT2X"
 		fi
+	else
+		echo "Forced Upscale $UPSCALEFACTOR"
+		TARGETPREFIX="$TARGETPREFIX""_x$UPSCALEFACTOR"
+		UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
+		DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 	fi
+
 	
 	if [ "$UPSCALEFACTOR" -gt 0 ]
 	then
@@ -265,7 +277,7 @@ else
 		echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
 	else
-		echo "Skipping upscaling of video $INPUT"
+		echo "Skipping upscaling of video $INPUT. $PIXEL < $LIMIT4X < $LIMIT2X"
 		mkdir -p "$FINALTARGETFOLDER"
 		cp $INPUT "$FINALTARGETFOLDER"
 		mkdir -p input/vr/scaling/done
