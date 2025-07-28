@@ -24,11 +24,11 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_upscale_downscale.py
 
 
-if test $# -ne 1 -a $# -ne 2
+if test $# -ne 2 -a $# -ne 3
 then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 input [upscalefactor]"
-    echo "E.g.: $0 SmallIconicTown.mp4 [upscalefactor]"
+    echo "E.g.: $0 SmallIconicTown.mp4 overwide_active [upscalefactor]"
 else
 	cd $COMFYUIPATH
 
@@ -56,6 +56,8 @@ else
 
 	DOWNSCALE=1.0
 	INPUT="$1"
+	shift
+	overwide_active=$1
 	shift
 	
 	UPSCALEFACTOR=0
@@ -93,12 +95,19 @@ else
 	SCALEBLENDFACTOR=$(awk -F "=" '/SCALEBLENDFACTOR/ {print $2}' $CONFIGFILE) ; SCALEBLENDFACTOR=${SCALEBLENDFACTOR:-"0.7"}
 	SCALESIGMARESOLUTION=$(awk -F "=" '/SCALESIGMARESOLUTION/ {print $2}' $CONFIGFILE) ; SCALESIGMARESOLUTION=${SCALESIGMARESOLUTION:-"1920.0"}
 	
+	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
+	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
+	PIXEL=$(( $RESW * $RESH ))
+	LIMIT4X=500000
+	LIMIT2X=2000000
+	if [ $overwide_active -eq 1 ]; then
+		LIMIT2X=4000000
+	fi
+	
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
-		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
-		then 
-			if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
-			then 
+		if [ $PIXEL -lt $LIMIT2X ]; then
+			if [ $PIXEL -lt $LIMIT4X ]; then
 				TARGETPREFIX="$TARGETPREFIX""_x4"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
@@ -128,7 +137,7 @@ else
 		fi
 		touch $TARGETPREFIX
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
-		echo "prompting for $TARGETPREFIX"
+		echo "prepare splitting $TARGETPREFIX"
 		rm "$TARGETPREFIX"
 	
 		SPLITINPUT="$INPUT"
@@ -168,7 +177,7 @@ else
 			echo "Splitting into segments"
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 22 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 "$SEGDIR/segment%05d.mp4"
 		fi
-		echo "Prompting ..."
+		echo "Prompting [$UPSCALEFACTOR"x"]..."
 		for f in "$SEGDIR"/segment*.mp4 ; do
 			f2=${f%.mp4}
 			f2=${f2#$SEGDIR/segment}
@@ -210,8 +219,10 @@ else
 		echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$UPSCALEDIR/concat.sh"
+		echo "    echo audio remapped." >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "else" >>"$UPSCALEDIR/concat.sh"
+		echo "    echo no audio to remap." >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "fi" >>"$UPSCALEDIR/concat.sh"

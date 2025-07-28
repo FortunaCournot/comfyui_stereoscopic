@@ -25,6 +25,8 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
+overwide_active=0
+
 # Length of each Image to display in seconds (INTEGER)
 DISPLAYLENGTH=6
 # FPS Rate of the slideshow (INTEGER). Minimum=2
@@ -76,7 +78,7 @@ else
 			
 			if [ -e "$newfn" ]; then
 			
-				/bin/bash $SCRIPTPATH "$newfn"
+				/bin/bash $SCRIPTPATH "$newfn" $overwide_active 
 				
 				TARGETPREFIX=${newfn##*/}
 				if [ -e "output/vr/scaling/$TARGETPREFIX" ]; then
