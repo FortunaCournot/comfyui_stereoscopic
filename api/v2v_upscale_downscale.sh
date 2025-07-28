@@ -243,11 +243,17 @@ else
 		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 		echo "fi" >>"$UPSCALEDIR/concat.sh"
+		echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$UPSCALEDIR/concat.sh"
+		echo "then" >>"$UPSCALEDIR/concat.sh"
 		echo "mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
 		echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
 		echo "cd .." >>"$UPSCALEDIR/concat.sh"
 		echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
-		echo "echo done." >>"$UPSCALEDIR/concat.sh"
+		echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$UPSCALEDIR/concat.sh"
+		echo "else" >>"$UPSCALEDIR/concat.sh"
+		echo "    echo -e \$\"\\e[91mError\\e[0m: Concat failed.\"" >>"$UPSCALEDIR/concat.sh"
+		echo "    exit -1" >>"$UPSCALEDIR/concat.sh"
+		echo "fi" >>"$UPSCALEDIR/concat.sh"
 		
 		echo "Waiting for queue to finish..."
 		sleep 4  # Give some extra time to start...

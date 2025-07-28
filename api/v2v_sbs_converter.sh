@@ -77,7 +77,6 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
 
-	set -x
 	pwd
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
@@ -89,7 +88,6 @@ else
 	mkdir -p "$TARGETPREFIX"".tmpsbs"
 	SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
 	SBSDIR=`realpath "$TARGETPREFIX"".tmpsbs"`
-	set +x
 	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
 		touch "$TARGETPREFIX"".tmpsbs"/x
@@ -190,7 +188,6 @@ else
 	
 	echo "#!/bin/sh" >"$SBSDIR/concat.sh"
 	echo "cd \"\$(dirname \"\$0\")\"" >>"$SBSDIR/concat.sh"
-	echo "pwd" >>"$SBSDIR/concat.sh"
 	echo "FPSOPTION=\"$FPSOPTION\"" >>"$SBSDIR/concat.sh"
 	echo "rm -rf \"$SEGDIR\"" >>"$SBSDIR/concat.sh"
 	echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$SBSDIR/concat.sh"
@@ -213,12 +210,17 @@ else
 	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
-	echo "mkdir -p $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
-	echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
-	echo "cd .." >>"$SBSDIR/concat.sh"
-	echo "#rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
-	echo "echo done." >>"$SBSDIR/concat.sh"
-
+	echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$SBSDIR/concat.sh"
+	echo "then" >>"$SBSDIR/concat.sh"
+	echo "    mkdir -p $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
+	echo "    mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
+	echo "    cd .." >>"$SBSDIR/concat.sh"
+	echo "    rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
+	echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$SBSDIR/concat.sh"
+	echo "else" >>"$SBSDIR/concat.sh"
+	echo "    echo -e \$\"\\e[91mError\\e[0m: Concat failed.\"" >>"$SBSDIR/concat.sh"
+	echo "    exit -1" >>"$SBSDIR/concat.sh"
+	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "Waiting for queue to finish..."
 	sleep 4  # Give some extra time to start...
 	lastcount=""
