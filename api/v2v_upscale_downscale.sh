@@ -216,7 +216,7 @@ else
 		
 		echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
 		echo "cd \"\$(dirname \"\$0\")\"" >>"$UPSCALEDIR/concat.sh"
-		echo "rm -rf \"$TARGETPREFIX\"\".tmpseg\"" >>"$UPSCALEDIR/concat.sh"
+		echo "rm -rf \"$SEGDIR\"" >>"$UPSCALEDIR/concat.sh"
 		echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$UPSCALEDIR/concat.sh"
 		echo "then" >>"$UPSCALEDIR/concat.sh"
 		echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$UPSCALEDIR/concat.sh"
@@ -272,10 +272,10 @@ else
 		runtime=$((end-startjob))
 		echo "done. duration: $runtime""s.                      "
 		rm queuecheck.json
-		mkdir -p input/vr/scaling/done
-		mv -fv "$INPUT" input/vr/scaling/done
 		echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
+		mkdir -p input/vr/scaling/done
+		mv -fv "$INPUT" input/vr/scaling/done
 	else
 		echo "Skipping upscaling of video $INPUT. $PIXEL < $LIMIT4X < $LIMIT2X"
 		mkdir -p "$FINALTARGETFOLDER"

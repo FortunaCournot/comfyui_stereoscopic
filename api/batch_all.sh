@@ -43,6 +43,8 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	fi
 elif [ -d "custom_nodes" ]; then
 
+	# workaround for recovery problem.
+	./custom_nodes/comfyui_stereoscopic/api/clear.sh
 
 	# PREPARE 4K SLIDES
 	# In:  input/vr/slides

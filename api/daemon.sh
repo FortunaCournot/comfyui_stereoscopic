@@ -123,6 +123,7 @@ fi
 
 ### EXIT IF CHECK FAILED ###
 if [[ ! -z $CONFIGERROR ]]; then
+	echo "Hint: You can use Control + Click on any links that appear."
 	exit
 fi
 
@@ -152,6 +153,7 @@ else
 	echo " - To create a VR slides: input/vr/slides" 
 	echo "The results will be saved to output/vr/fullsbs" 
 	echo -e $"For other processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
+	echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
 	echo "" 
 	
 	./custom_nodes/comfyui_stereoscopic/api/status.sh
