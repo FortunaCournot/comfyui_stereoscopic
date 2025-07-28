@@ -98,6 +98,7 @@ else
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
 	PIXEL=$(( $RESW * $RESH ))
+	
 	LIMIT4X=500000
 	LIMIT2X=2000000
 	if [ $overwide_active -eq 1 ]; then
