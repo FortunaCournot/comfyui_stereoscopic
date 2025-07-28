@@ -77,7 +77,8 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
 
-
+	set -x
+	pwd
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
@@ -88,6 +89,7 @@ else
 	mkdir -p "$TARGETPREFIX"".tmpsbs"
 	SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
 	SBSDIR=`realpath "$TARGETPREFIX"".tmpsbs"`
+	set +x
 	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
 		touch "$TARGETPREFIX"".tmpsbs"/x
@@ -181,15 +183,16 @@ else
 				echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 				exit
 			fi
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment "$VIDEO_FORMAT" "V$IDEO_PIXFMT" "$VIDEO_CRF"
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
 		fi
 	done
 	echo "Jobs running...   "
 	
 	echo "#!/bin/sh" >"$SBSDIR/concat.sh"
 	echo "cd \"\$(dirname \"\$0\")\"" >>"$SBSDIR/concat.sh"
+	echo "pwd" >>"$SBSDIR/concat.sh"
 	echo "FPSOPTION=\"$FPSOPTION\"" >>"$SBSDIR/concat.sh"
-	echo "rm -rf \"$TARGETPREFIX\"\".tmpseg\"" >>"$SBSDIR/concat.sh"
+	echo "rm -rf \"$SEGDIR\"" >>"$SBSDIR/concat.sh"
 	echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$SBSDIR/concat.sh"
 	echo "then" >>"$SBSDIR/concat.sh"
 	echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$SBSDIR/concat.sh"
@@ -213,7 +216,7 @@ else
 	echo "mkdir -p $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
 	echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
 	echo "cd .." >>"$SBSDIR/concat.sh"
-	echo "rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
+	echo "#rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
 	echo "echo done." >>"$SBSDIR/concat.sh"
 
 	echo "Waiting for queue to finish..."
