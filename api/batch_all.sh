@@ -14,6 +14,8 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 export CONFIGFILE
 if [ -e $CONFIGFILE ] ; then
+	loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+	[ $loglevel -ge 2 ] && set -x
     config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
@@ -32,9 +34,9 @@ then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 elif [ "$status" = "closed" ]; then
-	echo -e $"\e[91mError:\e[0mComfyUI not present. Ensure it is running on port 8188"
+	echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on port 8188"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
-	echo -e $"\e[91mError:\e[0mLess than $MINSPACE""G left on device: $FREESPACE""G"
+	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
 	./custom_nodes/comfyui_stereoscopic/api/clear.sh
 	FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 	FREESPACE=${FREESPACE%G}
@@ -73,9 +75,9 @@ elif [ -d "custom_nodes" ]; then
 		# UPSCALING: Video -> Video. Limited to 60s and 4K.
 		# In:  input/vr/scaling
 		# Out: output/vr/scaling
-		echo "**************************"
-		echo "******** SCALING *********"
-		echo "**************************"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "******** SCALING *********"
+		[ $loglevel -ge 1 ] && echo "**************************"
 		if [ $SCALECOUNT -ge 1 ]; then
 			./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
 		fi
@@ -95,9 +97,9 @@ elif [ -d "custom_nodes" ]; then
 		# PREPARE 4K SLIDES
 		# In:  input/vr/slides
 		# Out: output/slides
-		echo "**************************"
-		echo "***** PREPARE SLIDES *****"
-		echo "**************************"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "***** PREPARE SLIDES *****"
+		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh
 	fi
 	
@@ -112,9 +114,9 @@ elif [ -d "custom_nodes" ]; then
 		# SBS CONVERTER: Video -> Video, Image -> Image
 		# In:  input/vr/fullsbs
 		# Out: output/sbs
-		echo "**************************"
-		echo "*****  SBSCONVERTING *****"
-		echo "**************************"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "*****  SBSCONVERTING *****"
+		[ $loglevel -ge 1 ] && echo "**************************"
 		SBS_DEPTH_SCALE=$(awk -F "=" '/SBS_DEPTH_SCALE/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_SCALE=${SBS_DEPTH_SCALE:-"1.25"}
 		SBS_DEPTH_OFFSET=$(awk -F "=" '/SBS_DEPTH_OFFSET/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_OFFSET=${SBS_DEPTH_OFFSET:-"0.0"}
 		./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh $SBS_DEPTH_SCALE $SBS_DEPTH_OFFSET
@@ -126,9 +128,9 @@ elif [ -d "custom_nodes" ]; then
 		# SINGLE LOOP
 		# In:  input/vr/singleloop_in
 		# Out: output/vr/singleloop
-		echo "**************************"
-		echo "****** SINGLE LOOP *******"
-		echo "**************************"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "****** SINGLE LOOP *******"
+		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_singleloop.sh
 	fi
 
@@ -138,9 +140,9 @@ elif [ -d "custom_nodes" ]; then
 		# MAKE SLIDESHOW
 		# In:  input/vr/slideshow
 		# Out: output/vr/slideshow
-		echo "**************************"
-		echo "***** MAKE SLIDESHOW *****"
-		echo "**************************"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "***** MAKE SLIDESHOW *****"
+		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_make_slideshow.sh
 	fi
 
@@ -150,9 +152,9 @@ elif [ -d "custom_nodes" ]; then
 		# CONCAT
 		# In:  input/vr/concat_in
 		# Out: output/vr/concat
-		echo "**************************"
-		echo "******** CONCAT **********"
-		echo "**************************"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "******** CONCAT **********"
+		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh
 	fi
 
@@ -162,9 +164,9 @@ elif [ -d "custom_nodes" ]; then
 		# DUBBING: Video -> Video with SFX
 		# In:  input/vr/dubbing/sfx
 		# Out: output/vr/dubbing/sfx
-		echo "**************************"
-		echo "****** DUBBING SFX *******"
-		echo "**************************"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "****** DUBBING SFX *******"
+		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh
 	fi
 
@@ -175,6 +177,6 @@ elif [ -d "custom_nodes" ]; then
 	
 
 else
-	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
+	  echo -e $"\e[91mError:\e[0m Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
 fi
 

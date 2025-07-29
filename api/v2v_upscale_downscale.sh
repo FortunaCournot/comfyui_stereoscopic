@@ -36,6 +36,8 @@ else
 
 	export CONFIGFILE
 	if [ -e $CONFIGFILE ] ; then
+		loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+		[ $loglevel -ge 2 ] && set -x
 		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
@@ -84,7 +86,7 @@ else
 		PROGRESS=`cat input/vr/scaling/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
-	echo "========== $PROGRESS""rescale "`echo $INPUT | grep -oP "$regex"`" =========="
+	[ $loglevel -ge 0 ] && echo "========== $PROGRESS""rescale "`echo $INPUT | grep -oP "$regex"`" =========="
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
@@ -105,7 +107,7 @@ else
 	LIMIT4X=518400
 	LIMIT2X=2073600
 	if [ $override_active -gt 0 ]; then
-		echo "override active"
+		[ $loglevel -ge 1 ] && echo "override active"
 		LIMIT4X=1036800
 		LIMIT2X=4147200
 	fi
@@ -118,19 +120,19 @@ else
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 				UPSCALEFACTOR=4
-				echo "using $UPSCALEFACTOR""x"
+				[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx2/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"0.5"}
 				UPSCALEFACTOR=2
-				echo "using $UPSCALEFACTOR""x"
+				[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 			fi
 		else
-			echo "$PIXEL > $LIMIT2X"
+			[ $loglevel -ge 1 ] && echo "$PIXEL > $LIMIT2X"
 		fi
 	else
-		echo "Forced Upscale $UPSCALEFACTOR"
+		[ $loglevel -ge 1 ] && echo "Forced Upscale $UPSCALEFACTOR"
 		TARGETPREFIX="$TARGETPREFIX""_x$UPSCALEFACTOR"
 		UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 		DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
@@ -153,7 +155,7 @@ else
 		fi
 		touch $TARGETPREFIX
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
-		echo "prepare splitting $TARGETPREFIX"
+		[ $loglevel -ge 1 ] && echo "prepare splitting $TARGETPREFIX"
 		rm "$TARGETPREFIX"
 	
 		SPLITINPUT="$INPUT"
@@ -163,12 +165,12 @@ else
 			MAXFPS=$(awk -F "=" '/MAXFPS/ {print $2}' $CONFIGFILE) ; MAXFPS=${MAXFPS:-"30"}
 			fpsv=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
 			fps=$(($fpsv))
-			echo "Source FPS: $fps ($fpsv)"
+			[ $loglevel -ge 1 ] && echo "Source FPS: $fps ($fpsv)"
 			FPSOPTION=`echo $fps $MAXFPS | awk '{if ($1 > $2) print "-filter:v fps=fps=$MAXFPS" }'`
 			if [[ -n "$FPSOPTION" ]]
 			then 
 				SPLITINPUTFPS="$SEGDIR/splitinput_fps.mp4"
-				echo "Rencoding to $MAXFPS fps ..."
+				[ $loglevel -ge 1 ] && echo "Rencoding to $MAXFPS fps ..."
 				nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=$MAXFPS "$SPLITINPUTFPS"
 				SPLITINPUT="$SPLITINPUTFPS"
 			fi
@@ -178,9 +180,9 @@ else
 				sleep 1
 				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-				echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
+				[ $loglevel -ge 0 ] && echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
 			done
-			echo "recovering...                                                             "
+			[ $loglevel -ge 0 ] && echo "recovering...                                                             "
 			queuecount=
 		fi
 		
@@ -191,14 +193,14 @@ else
 		fi
 		if [ ! -e "$UPSCALEDIR/concat.sh" ]
 		then
-			echo "Splitting into segments"
+			[ $loglevel -ge 1 ] && echo "Splitting into segments"
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 17 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 "$SEGDIR/segment%05d.mp4"
 		fi
-		echo "Prompting [$UPSCALEFACTOR"x"]..."
+		[ $loglevel -ge 1 ] && echo "Prompting [$UPSCALEFACTOR"x"]..."
 		for f in "$SEGDIR"/segment*.mp4 ; do
 			f2=${f%.mp4}
 			f2=${f2#$SEGDIR/segment}
-			echo -ne "$f2...       \r"
+			[ $loglevel -ge 1 ] && echo -ne "$f2...       \r"
 			if [ ! -e "$UPSCALEDIR/sbssegment_$f2.mp4" ]
 			then
 				if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
@@ -215,7 +217,7 @@ else
 				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION" "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
 			fi
 		done
-		echo "Jobs running...   "
+		[ $loglevel -ge 1 ] && echo "Jobs running...   "
 		
 		
 		echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
@@ -255,7 +257,7 @@ else
 		echo "    exit -1" >>"$UPSCALEDIR/concat.sh"
 		echo "fi" >>"$UPSCALEDIR/concat.sh"
 		
-		echo "Waiting for queue to finish..."
+		[ $loglevel -ge 1 ] && echo "Waiting for queue to finish..."
 		sleep 4  # Give some extra time to start...
 		lastcount=""
 		start=`date +%s`
@@ -277,12 +279,12 @@ else
 			fi
 			lastcount="$queuecount"
 			
-			echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
+			[ $loglevel -ge 1 ] && echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))
-		echo "done. duration: $runtime""s.                             "
+		[ $loglevel -ge 1 ] && echo "done. duration: $runtime""s.                             "
 		rm queuecheck.json
-		echo "Calling $UPSCALEDIR/concat.sh"
+		[ $loglevel -ge 1 ] && echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
 		mkdir -p input/vr/scaling/done
 		mv -fv "$INPUT" input/vr/scaling/done

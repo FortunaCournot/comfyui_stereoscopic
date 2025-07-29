@@ -16,6 +16,8 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 export CONFIGFILE
 if [ -e $CONFIGFILE ] ; then
+	loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+	[ $loglevel -ge 2 ] && set -x
     config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
@@ -46,7 +48,7 @@ else
 	fi
 	
 	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' | wc -l`
-	echo "Count: $COUNT"
+	[ $loglevel -ge 1 ] && echo "Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in input/vr/scaling/*.mp4 ; do
@@ -89,7 +91,7 @@ else
 		done
 	fi
 	rm -f input/vr/scaling/BATCHPROGRESS.TXT
-	echo "Batch done."
+	[ $loglevel -ge 1 ] && echo "Batch done."
 
 fi
 

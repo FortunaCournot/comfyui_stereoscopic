@@ -49,7 +49,11 @@ fi
 
 CONFIGFILE=`realpath "$CONFIGFILE"`
 export CONFIGFILE
-echo -e $"\e[1musing config file $CONFIGFILE\e[0m"
+
+loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+[ $loglevel -ge 2 ] && set -x
+
+[ $loglevel -ge 0 ] && echo -e $"\e[1musing config file $CONFIGFILE\e[0m"
 config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx4=${UPSCALEMODELx4:-"RealESRGAN_x4plus.pth"}
@@ -58,6 +62,8 @@ FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL/ {print $2}' $CONFIGFILE) ; FLORENC
 DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
 
 CONFIGERROR=
+
+
 
 ### CHECK TOOLS ###
 if ! command -v $FFMPEGPATHPREFIX"ffmpeg" >/dev/null 2>&1
@@ -119,33 +125,33 @@ else
 	
 	if [ "$DEPTH_MODEL_CKPT" == "depth_anything_v2_vitl.pth" ] ; then
 		if [ -e custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant ] ; then
-			echo -e $"\e[94mInfo:\e[0m default depth model used, but Depth-Anything-V2-Giant detected!"
-			echo -e $"  Consider to update \e[92mDEPTH_MODEL_CKPT=depth_anything_v2_vitg.pth\e[0m in \e[36m$CONFIGFILE\e[0m"
+			[ $loglevel -ge 0 ] && echo -e $"\e[94mInfo:\e[0m default depth model used, but Depth-Anything-V2-Giant detected!"
+			[ $loglevel -ge 0 ] && echo -e $"  Consider to update \e[92mDEPTH_MODEL_CKPT=depth_anything_v2_vitg.pth\e[0m in \e[36m$CONFIGFILE\e[0m"
 		else
-			echo -e $"\e[94mInfo:\e[0m default depth model used. To use Depth-Anything-V2-Giant install it manually."
-			echo -e $"  Then update DEPTH_MODEL_CKPT in \e[36m$CONFIGFILE\e[0m"
-			echo -e $"  Spoiler: \e[36mhttps://www.reddit.com/r/comfyui/comments/1lchvqw/depth_anything_v2_giant/\e[0m"
+			[ $loglevel -ge 0 ] && echo -e $"\e[94mInfo:\e[0m default depth model used. To use Depth-Anything-V2-Giant install it manually."
+			[ $loglevel -ge 0 ] && echo -e $"  Then update DEPTH_MODEL_CKPT in \e[36m$CONFIGFILE\e[0m"
+			[ $loglevel -ge 0 ] && echo -e $"  Spoiler: \e[36mhttps://www.reddit.com/r/comfyui/comments/1lchvqw/depth_anything_v2_giant/\e[0m"
 		fi
 	fi
 fi
 
 ### EXIT IF CHECK FAILED ###
 if [[ ! -z $CONFIGERROR ]]; then
-	echo "Hint: You can use Control + Click on any links that appear."
+	[ $loglevel -ge 0 ] && echo "Hint: You can use Control + Click on any links that appear."
 	exit
 fi
 
 ### CHECK FOR OPTIONAL NODE PACKAGES ###
 if [ ! -d custom_nodes/comfyui-florence2 ]; then
-	echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-Florence2 could not be found. Use Custom Nodes Manager to install v1.0.5."
+	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-Florence2 could not be found. Use Custom Nodes Manager to install v1.0.5."
 fi
 if [ ! -d custom_nodes/ComfyUI-MMAudio ] ; then
-	echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found at $COMFYUIPATH/custom_nodes/ComfyUI-MMAudio"
-	echo -e $"It must be installed manually from \e[36mhttps://github.com/hkchengrex/MMAudio\e[0m"
+	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found at $COMFYUIPATH/custom_nodes/ComfyUI-MMAudio"
+	[ $loglevel -ge 0 ] && echo -e $"It must be installed manually from \e[36mhttps://github.com/hkchengrex/MMAudio\e[0m"
 fi
 if [ ! -d custom_nodes/was-node-suite-comfyui ] ; then
-	echo -e $"\e[93mWarning:\e[0m Custom nodes was-node-suite could not be found at $COMFYUIPATH/custom_nodes/was-node-suite-comfyui"
-	echo -e $"It must be installed manually from \e[36mhttps://github.com/WASasquatch/was-node-suite-comfyui\e[0m"
+	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes was-node-suite could not be found at $COMFYUIPATH/custom_nodes/was-node-suite-comfyui"
+	[ $loglevel -ge 0 ] && echo -e $"It must be installed manually from \e[36mhttps://github.com/WASasquatch/was-node-suite-comfyui\e[0m"
 fi
 
 
@@ -168,18 +174,18 @@ else
 
 	
 	echo ""
-	echo -e $"\e[97m\e[1mStereoscopic Pipeline Processing started. $VERSION\e[0m"
-	echo -e $"\e[2m"
-	echo "Waiting for your files to be placed in folders:"
-	echo " - To create a VR video:  input/vr/dubbing" 
-	echo " - To create a VR slides: input/vr/slides" 
-	echo "The results will be saved to output/vr/fullsbs" 
-	echo -e $"For other processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
-	echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
-	echo "" 
+	[ $loglevel -ge 0 ] && echo -e $"\e[97m\e[1mStereoscopic Pipeline Processing started. $VERSION\e[0m"
+	[ $loglevel -ge 0 ] && echo -e $"\e[2m"
+	[ $loglevel -ge 0 ] && echo "Waiting for your files to be placed in folders:"
+	[ $loglevel -ge 0 ] && echo " - To create a VR video:  input/vr/dubbing" 
+	[ $loglevel -ge 0 ] && echo " - To create a VR slides: input/vr/slides" 
+	[ $loglevel -ge 0 ] && echo "The results will be saved to output/vr/fullsbs" 
+	[ $loglevel -ge 0 ] && echo -e $"For other processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
+	[ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
+	[ $loglevel -ge 0 ] && echo "" 
 	
 	./custom_nodes/comfyui_stereoscopic/api/status.sh
-	echo " "
+	[ $loglevel -ge 0 ] && echo " "
 	
 	while true;
 	do
@@ -207,7 +213,7 @@ else
 			SERVERERROR="x"
 		else
 			if [[ ! -z $SERVERERROR ]]; then
-				echo ""
+				[ $loglevel -ge 0 ] && echo ""
 				SERVERERROR=
 			fi
 			
@@ -224,18 +230,19 @@ else
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
 			COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
 			if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] || [[ $COUNTSBSSLIDES -gt 1 ]] ; then
-				echo "Found $COUNT files in incoming folders:"
-				echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop, $COUNTSBSSLIDES for slideshow >> $COUNTSBSSLIDES to concat, $DUBSFXCOUNT to dub"
+				[ $loglevel -ge 0 ] && echo "Found $COUNT files in incoming folders:"
+				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop, $COUNTSBSSLIDES for slideshow >> $COUNTSBSSLIDES to concat, $DUBSFXCOUNT to dub"
 				sleep 1
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
-				echo "****************************************************"
+				[ $loglevel -ge 0 ] && echo "****************************************************"
 				./custom_nodes/comfyui_stereoscopic/api/status.sh				
-				echo " "
+				[ $loglevel -ge 0 ] && echo " "
 			else
 				BLINK=`shuf -n1 -e "..." "   "`
-				echo -ne $"\e[2mWaiting for new files$BLINK\e[0m     \r"
+				[ $loglevel -ge 0 ] && echo -ne $"\e[2mWaiting for new files$BLINK\e[0m     \r"
 				sleep 1
 			fi
 		fi
 	done #KILL ME
 fi
+[ $loglevel -ge 0 ] && set +x
