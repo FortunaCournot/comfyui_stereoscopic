@@ -20,6 +20,9 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
-echo -e $"\e[4m+++ Summary of completed files per folder +++\e[0m"
+echo -e $"\e[4m+++ Summary of Disk Usage +++\e[0m"
+du -s -BG *put/vr
+echo " "
+echo -e $"\e[4m+++ Summary of Completed Files per Folder +++\e[0m"
 du --inodes -d 0 -S output/vr/*       | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
 #du --inodes -d 0 -S output/vr/*/final | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
