@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_singleloop.sh
+# batch_concat.sh
 #
 # Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio.
 #
@@ -10,8 +10,7 @@
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
-# relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_starloop.sh 
+
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
@@ -39,48 +38,48 @@ else
 		echo "config_version=1">>"$CONFIGFILE"
 	fi
 
-	mkdir -p output/vr/starloop/intermediate
-	mkdir -p input/vr/starloop/done
+	mkdir -p output/vr/concat/intermediate
+	mkdir -p input/vr/concat/done
 	
-	IMGFILES=`find input/vr/starloop -maxdepth 1 -type f -name '*.mp4'`
-	COUNT=`find input/vr/starloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	IMGFILES=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4'`
+	COUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 	
-		echo "" >output/vr/starloop/intermediate/mylist.txt
-		for nextinputfile in input/vr/starloop/*.mp4 ; do
+		echo "" >output/vr/concat/intermediate/mylist.txt
+		for nextinputfile in input/vr/concat/*.mp4 ; do
 			INDEX+=1
 			newfn=part_$INDEX.mp4
-			cp "$nextinputfile" output/vr/starloop/intermediate/$newfn 
+			cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
 			
-			if [ -e "output/vr/starloop/intermediate/$newfn" ]
+			if [ -e "output/vr/concat/intermediate/$newfn" ]
 			then
-				echo "file $newfn" >>output/vr/starloop/intermediate/mylist.txt
+				echo "file $newfn" >>output/vr/concat/intermediate/mylist.txt
 			else
-				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/starloop/intermediate/$newfn"
+				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/concat/intermediate/$newfn"
 				exit
 			fi						
 		done
 		
 		NOW=$( date '+%F_%H%M' )	
-		TARGET=output/vr/starloop/starloop-$NOW"_SBS_LR".mp4		# assume it is SBS
+		TARGET=output/vr/concat/concat-$NOW"_SBS_LR".mp4		# assume it is SBS
 		
-		cd output/vr/starloop/intermediate
+		cd output/vr/concat/intermediate
 		echo -ne "Concat ($COUNT)...                             \r"
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
 		if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit ; fi
 		
 		
 		cd ../../../..
-		mv -f output/vr/starloop/intermediate/result.mp4 "$TARGET"
-		mv input/vr/starloop/*.mp4 input/vr/starloop/done
+		mv -f output/vr/concat/intermediate/result.mp4 "$TARGET"
+		mv input/vr/concat/*.mp4 input/vr/concat/done
 		
 		if [ -e "$TARGET" ]; then
-			rm -f output/vr/starloop/intermediate/*
+			rm -f output/vr/concat/intermediate/*
 		else
 			echo -e $"\e[91mError:\e[0m Failed to create target file $TARGET"
 		fi
-		echo "All done.                             "
+		echo -e $"\e[92mdone.\e[0m                            "
 	
 	fi
 	echo "Batch ($COUNT) done.                             "

@@ -145,17 +145,19 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 
-	
-	# STAR LOOP
-	# In:  input/vr/starloop_in
-	# Out: output/vr/starloop
-	echo "**************************"
-	echo "******* STAR LOOP ********"
-	echo "**************************"
-    #TODO CONCAT ./custom_nodes/comfyui_stereoscopic/api/batch_starloop.sh
+	CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	if [ $CONCATCOUNT -ge 1 ]; then
+		# CONCAT
+		# In:  input/vr/concat_in
+		# Out: output/vr/concat
+		echo "**************************"
+		echo "******** CONCAT **********"
+		echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh
+	fi
 
-	DUBCOUNT=`find input/vr/dubbing -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	### SKIP IF DEPENDENCY CHECK FAILED ###
+	DUBCOUNT=`find input/vr/dubbing -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNT -gt 0 ]; then
 		# DUBBING: Video -> Video with SFX
 		# In:  input/vr/dubbing
