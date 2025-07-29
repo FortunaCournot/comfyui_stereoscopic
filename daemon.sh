@@ -13,6 +13,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	touch "$CONFIGFILE"
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
 	echo "config_version=1">>"$CONFIGFILE"
+	echo "loglevel=0">>"$CONFIGFILE"			# -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x). not implemented yet.
 	echo "# --- comfyui server config ---">>"$CONFIGFILE"
 	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
 	echo "COMFYUIPORT=8188">>"$CONFIGFILE"

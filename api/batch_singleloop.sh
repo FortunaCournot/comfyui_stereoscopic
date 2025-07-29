@@ -10,7 +10,7 @@
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_starloop.sh 
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_singleloop.sh 
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
@@ -43,12 +43,12 @@ fi
 	
 	IMGFILES=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4'`
 	COUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
-	INDEX=0
+	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 	
 		for nextinputfile in input/vr/singleloop/*.mp4 ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT" >input/vr/starloop/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/singleloop/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -61,10 +61,12 @@ fi
 				TARGETPREFIX=${newfn##*/}
 				TARGETPREFIX=${TARGETPREFIX%.mp4}
 				TARGETPREFIX=${TARGETPREFIX//"_dub"/}
-				/bin/bash $SCRIPTPATH `realpath "output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"` `realpath "$newfn"`
-				if [ -e output/vr/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" ]
+				INTERMEDIATEFILE=`realpath "output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"`
+				/bin/bash $SCRIPTPATH  $INTERMEDIATEFILE `realpath "$newfn"`
+				
+				if [ -e $INTERMEDIATEFILE ]
 				then
-					mv output/vr/singleloop/intermediate/$TARGETPREFIX"_loop.mp4" output/vr/singleloop/$TARGETPREFIX"_loop.mp4"
+					mv $INTERMEDIATEFILE output/vr/singleloop/$TARGETPREFIX"_loop.mp4"
 					mv $newfn input/vr/singleloop/done
 				else
 					echo -e $"\e[91mError:\e[0m creating loop failed. Missing file: output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"
@@ -77,6 +79,6 @@ fi
 			
 		done
 	fi
-	rm -f input/vr/starloop/BATCHPROGRESS.TXT
+	rm -f input/vr/singleloop/BATCHPROGRESS.TXT
 	echo "Batch done.                             "
 fi

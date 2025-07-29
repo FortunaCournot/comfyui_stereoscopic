@@ -126,8 +126,8 @@ else
 	rm "$TARGETPREFIX"
 
 	CONFIGPATH=user/default/comfyui_stereoscopic
-	POSITIVEPATH="$CONFIGPATH/dubbing_positive.txt"
-	NEGATIVEPATH="$CONFIGPATH/dubbing_negative.txt"
+	POSITIVEPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
+	NEGATIVEPATH="$CONFIGPATH/dubbing_sfx_negative.txt"
 	if [ ! -e "$POSITIVEPATH" ]
 	then
 		mkdir -p $CONFIGPATH
@@ -136,7 +136,7 @@ else
 	if [ ! -e "$NEGATIVEPATH" ]
 	then
 		mkdir -p $CONFIGPATH
-		echo "music, voice, crying." >$NEGATIVEPATH
+		echo "music, voice, crying, squeaking." >$NEGATIVEPATH
 	fi
 	POSITIVEPATH=`realpath "$POSITIVEPATH"`
 	NEGATIVEPATH=`realpath "$NEGATIVEPATH"`
@@ -189,7 +189,7 @@ else
 
 		SEGCOUNT=`find $SEGDIR -maxdepth 1 -type f -name 'segment*.ts' | wc -l`
 
-		i=0
+		declare -i i=0
 		pindex=0
 		dindex=1
 		concatopt=""

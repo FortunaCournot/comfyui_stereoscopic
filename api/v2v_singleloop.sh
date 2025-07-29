@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_starloop.sh
+# v2v_singleloop.sh
 #
 # Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio. All input video parameter must be absolute path.
 #
@@ -14,8 +14,9 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 if test $# -lt 2
 then
     echo "Usage: $0 output input..."
-    echo "E.g.: $0  output/vr/starloop/test_SBS_LR.mp4 video1.mp4 video2.mp4 video3.mp4"
+    echo "E.g.: $0  output/vr/singleloop/test_SBS_LR.mp4 video1.mp4 video2.mp4 video3.mp4"
 else
+	
 	cd $COMFYUIPATH
 
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
@@ -37,21 +38,21 @@ else
 	shift
 	
 	PROGRESS=" "
-	if [ -e input/vr/starloop/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/singleloop/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/vr/starloop/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/singleloop/BATCHPROGRESS.TXT`" "
 	fi
 	
-	mkdir -p output/vr/starloop/intermediate
-	rm -f output/vr/starloop/intermediate/* 2>/dev/null
+	mkdir -p output/vr/singleloop/intermediate
+	rm -f output/vr/singleloop/intermediate/* 2>/dev/null
 	
 	declare -i i=0
-	echo "" >output/vr/starloop/intermediate/mylist.txt
+	echo "" >output/vr/singleloop/intermediate/mylist.txt
 	for FORWARD in "$@"
 	do
 		if [ ! -e "$FORWARD" ]; then echo -e $"\e[91mError:\e[0m failed to load $FORWARD" && exit ; fi
 		FPATH=`realpath "$FORWARD"`
-		cd output/vr/starloop/intermediate
+		cd output/vr/singleloop/intermediate
 		i+=1
 		echo -ne "$PROGRESS""Reversing #$i: ...                \r"
 		LOOPSEGMENT="part_$i.mp4"
@@ -61,7 +62,7 @@ else
 		cd ../../../..
 	done
 
-	cd output/vr/starloop/intermediate
+	cd output/vr/singleloop/intermediate
 	echo -ne "$PROGRESS""Concat...                             \r"
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
 	if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit ; fi
@@ -70,13 +71,12 @@ else
 	#nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i result.mp4 -c:v copy -c:a aac -shortest result_sil.mp4  
 	#if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result_sil.mp4" && exit ; fi
 	cd ../../../..
-	mv -f output/vr/starloop/intermediate/result.mp4 "$TARGET"
-
+	mv -f output/vr/singleloop/intermediate/result.mp4 "$TARGET"
 	
-	if [ -e "$TARGET" ]; then
-		rm -f output/vr/starloop/intermediate/*
-	else
+	if [ ! -e "$TARGET" ]; then
 		echo -e "$PROGRESS"$"\e[91mError:\e[0m Failed to create target file $TARGET"
 	fi
-	echo "$PROGRESS""All done.                             "
+	
+	TARGETPREFIX=${TARGET##*/}
+	echo -e "$PROGRESS"$"\e[92mdone:\e[0m $TARGETPREFIX                      "
 fi
