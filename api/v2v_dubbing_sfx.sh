@@ -105,6 +105,7 @@ else
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/vr/dubbing/sfx/intermediate/${TARGETPREFIX%.mp4}
+	mkdir -p output/vr/dubbing/sfx
 	FINALTARGETFOLDER=`realpath "output/vr/dubbing/sfx"`
 	
 	FADEOUTSTART=$((SEGMENTTIME-1))
