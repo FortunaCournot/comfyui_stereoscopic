@@ -145,7 +145,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 
-	CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*_SBS_LR*.mp4' | wc -l`
 	if [ $CONCATCOUNT -ge 1 ]; then
 		# CONCAT
 		# In:  input/vr/concat_in

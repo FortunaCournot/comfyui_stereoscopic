@@ -52,7 +52,7 @@ else
 	IMGFILES=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
 	COUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
-	INTERMEDIATEFOLDER=output/slides/intermediate
+	INTERMEDIATEFOLDER=output/vr/slides/intermediate
 	TARGETFOLDER=output/vr/slides
 	mkdir -p "$INTERMEDIATEFOLDER"
 	mkdir -p input/vr/slides/done
