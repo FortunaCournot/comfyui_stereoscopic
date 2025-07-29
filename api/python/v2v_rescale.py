@@ -75,22 +75,13 @@ prompt_text = """
         1
       ],
       "b": [
-        "88",
+        "183",
         0
       ]
     },
     "class_type": "MathExpression|pysssss",
     "_meta": {
       "title": "Batch Count"
-    }
-  },
-  "88": {
-    "inputs": {
-      "Number": "24"
-    },
-    "class_type": "Int",
-    "_meta": {
-      "title": "Frames per batch"
     }
   },
   "90": {
@@ -115,7 +106,7 @@ prompt_text = """
         0
       ],
       "b": [
-        "88",
+        "183",
         0
       ]
     },
@@ -292,7 +283,7 @@ prompt_text = """
   },
   "182": {
     "inputs": {
-      "scale_by": 0.5,
+      "scale_by": 0.25000000000000006,
       "images": [
         "69",
         0
@@ -301,6 +292,15 @@ prompt_text = """
     "class_type": "easy imageScaleDownBy",
     "_meta": {
       "title": "Image Scale Down By"
+    }
+  },
+  "183": {
+    "inputs": {
+      "value": 60
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Max Frames per batch"
     }
   }
 }

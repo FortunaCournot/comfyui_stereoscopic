@@ -75,22 +75,13 @@ prompt_text = """
         1
       ],
       "b": [
-        "88",
+        "169",
         0
       ]
     },
     "class_type": "MathExpression|pysssss",
     "_meta": {
       "title": "Batch Count"
-    }
-  },
-  "88": {
-    "inputs": {
-      "Number": "60"
-    },
-    "class_type": "Int",
-    "_meta": {
-      "title": "Frames per batch"
     }
   },
   "90": {
@@ -115,7 +106,7 @@ prompt_text = """
         0
       ],
       "b": [
-        "88",
+        "169",
         0
       ]
     },
@@ -308,7 +299,16 @@ prompt_text = """
     },
     "class_type": "MathExpression|pysssss",
     "_meta": {
-      "title": "Math Expression 🐍"
+      "title": "fps"
+    }
+  },
+  "169": {
+    "inputs": {
+      "value": 60
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Max Frames per batch"
     }
   }
 }
