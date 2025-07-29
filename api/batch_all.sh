@@ -168,10 +168,11 @@ elif [ -d "custom_nodes" ]; then
 		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
 	fi
 
-	# dubbing -> scaling
-	#GLOBIGNORE="*_x?*.mp4"
-	#mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
-	#unset GLOBIGNORE		
+	#dubbing -> scaling
+	GLOBIGNORE="*_x?*.mp4"
+	mv -fv output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
+	unset GLOBIGNORE		
+	
 
 else
 	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"

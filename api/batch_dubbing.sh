@@ -89,7 +89,7 @@ else
 				echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 			done
 			runtime=$((end-startjob))
-			echo "done. duration: $runtime""s.                      "
+			echo -e $"\e[92mdone.\e[0m duration: $runtime""s                        "
 			rm queuecheck.json
 				
 		done
