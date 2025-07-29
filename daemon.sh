@@ -134,6 +134,20 @@ if [[ ! -z $CONFIGERROR ]]; then
 	exit
 fi
 
+### CHECK FOR OPTIONAL NODE PACKAGES ###
+if [ ! -d custom_nodes/comfyui-florence2 ]; then
+	echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-Florence2 could not be found. Use Custom Nodes Manager to install v1.0.5."
+fi
+if [ ! -d custom_nodes/ComfyUI-MMAudio ] ; then
+	echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found at $COMFYUIPATH/custom_nodes/ComfyUI-MMAudio"
+	echo -e $"It must be installed manually from \e[36mhttps://github.com/hkchengrex/MMAudio\e[0m"
+fi
+if [ ! -d custom_nodes/was-node-suite-comfyui ] ; then
+	echo -e $"\e[93mWarning:\e[0m Custom nodes was-node-suite could not be found at $COMFYUIPATH/custom_nodes/was-node-suite-comfyui"
+	echo -e $"It must be installed manually from \e[36mhttps://github.com/WASasquatch/was-node-suite-comfyui\e[0m"
+fi
+
+
 
 if test $# -ne 0
 then

@@ -43,81 +43,106 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	fi
 elif [ -d "custom_nodes" ]; then
 
+	### CHECK FOR OPTIONAL NODE PACKAGES ###
+	DUBBING_DEP_ERROR=
+	if [ ! -d custom_nodes/comfyui-florence2 ]; then
+		echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-Florence2 could not be found. Use Custom Nodes Manager to install v1.0.5."
+		DUBBING_DEP_ERROR="x"
+	fi
+	if [ ! -d custom_nodes/ComfyUI-MMAudio ] ; then
+		echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found at $COMFYUIPATH/custom_nodes/ComfyUI-MMAudio"
+		echo -e $"It must be installed manually from \e[36mhttps://github.com/hkchengrex/MMAudio\e[0m"
+		DUBBING_DEP_ERROR="x"
+	fi
+	if [ ! -d custom_nodes/was-node-suite-comfyui ] ; then
+		echo -e $"\e[93mWarning:\e[0m Custom nodes was-node-suite could not be found at $COMFYUIPATH/custom_nodes/was-node-suite-comfyui"
+		echo -e $"It must be installed manually from \e[36mhttps://github.com/WASasquatch/was-node-suite-comfyui\e[0m"
+		DUBBING_DEP_ERROR="x"
+	fi
+	
 	# LOCAL: prepare move output to next stage input (This should happen in daemon, too)
 	mkdir -p input/vr/scaling input/vr/fullsbs
 
 	# workaround for recovery problem.
 	./custom_nodes/comfyui_stereoscopic/api/clear.sh
-
-	# PREPARE 4K SLIDES
-	# In:  input/vr/slides
-	# Out: output/slides
-	echo "**************************"
-	echo "***** PREPARE SLIDES *****"
-	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh
-
-	# slides -> fullsbs
-	GLOBIGNORE="*_SBS_LR*.*"
-	mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
-	unset GLOBIGNORE		
 	
-	# DUBBING: Video -> Video with SFX
-	# In:  input/vr/dubbing
-	# Out: output/vr/dubbing
-	echo "**************************"
-	echo "******** DUBBING *********"
-	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
 
-	# dubbing -> scaling
-	GLOBIGNORE="*_x?*.mp4"
-	mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
-	unset GLOBIGNORE		
-	
-	# UPSCALING: Video -> Video. Limited to 60s and 4K.
-	# In:  input/vr/scaling
-	# Out: output/vr/scaling
-	echo "**************************"
-	echo "******** SCALING *********"
-	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
-    ./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override
+	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
+		# UPSCALING: Video -> Video. Limited to 60s and 4K.
+		# In:  input/vr/scaling
+		# Out: output/vr/scaling
+		echo "**************************"
+		echo "******** SCALING *********"
+		echo "**************************"
+		if [ $SCALECOUNT -ge 1 ]; then
+			./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
+		fi
+		if [ $OVERRIDECOUNT -ge 1 ]; then
+			./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override
+		fi
+	fi
 
 	# scaling -> fullsbs
 	GLOBIGNORE="*_SBS_LR*.mp4"
 	mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
 	unset GLOBIGNORE		
+
+
+	SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	if [ $SLIDECOUNT -ge 2 ]; then
+		# PREPARE 4K SLIDES
+		# In:  input/vr/slides
+		# Out: output/slides
+		echo "**************************"
+		echo "***** PREPARE SLIDES *****"
+		echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh
+	fi
 	
-	# SBS CONVERTER: Video -> Video, Image -> Image
-	# In:  input/vr/fullsbs
-	# Out: output/sbs
-	echo "**************************"
-	echo "*****  SBSCONVERTING *****"
-	echo "**************************"
-	SBS_DEPTH_SCALE=$(awk -F "=" '/SBS_DEPTH_SCALE/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_SCALE=${SBS_DEPTH_SCALE:-"1.25"}
-	SBS_DEPTH_OFFSET=$(awk -F "=" '/SBS_DEPTH_OFFSET/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_OFFSET=${SBS_DEPTH_OFFSET:-"0.0"}
-	./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh $SBS_DEPTH_SCALE $SBS_DEPTH_OFFSET
+	# slides -> fullsbs
+	GLOBIGNORE="*_SBS_LR*.*"
+	mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
+	unset GLOBIGNORE		
+	
+	
+	SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	if [ $SBSCOUNT -ge 1 ]; then
+		# SBS CONVERTER: Video -> Video, Image -> Image
+		# In:  input/vr/fullsbs
+		# Out: output/sbs
+		echo "**************************"
+		echo "*****  SBSCONVERTING *****"
+		echo "**************************"
+		SBS_DEPTH_SCALE=$(awk -F "=" '/SBS_DEPTH_SCALE/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_SCALE=${SBS_DEPTH_SCALE:-"1.25"}
+		SBS_DEPTH_OFFSET=$(awk -F "=" '/SBS_DEPTH_OFFSET/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_OFFSET=${SBS_DEPTH_OFFSET:-"0.0"}
+		./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh $SBS_DEPTH_SCALE $SBS_DEPTH_OFFSET
+	fi
 
+
+	SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	if [ $SINGLELOOPCOUNT -ge 1 ]; then
+		# SINGLE LOOP
+		# In:  input/vr/singleloop_in
+		# Out: output/vr/singleloop
+		echo "**************************"
+		echo "****** SINGLE LOOP *******"
+		echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_singleloop.sh
+	fi
 
 	
-	# MAKE SLIDESHOW
-	# In:  input/vr/slideshow
-	# Out: output/vr/slideshow
-	echo "**************************"
-	echo "***** MAKE SLIDESHOW *****"
-	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_make_slideshow.sh
-
-
-	
-	# SINGLE LOOP
-	# In:  input/vr/singleloop_in
-	# Out: output/vr/singleloop
-	echo "**************************"
-	echo "****** SINGLE LOOP *******"
-	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_singleloop.sh
+	SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
+	if [ $SLIDESBSCOUNT -ge 2 ]; then
+		# MAKE SLIDESHOW
+		# In:  input/vr/slideshow
+		# Out: output/vr/slideshow
+		echo "**************************"
+		echo "***** MAKE SLIDESHOW *****"
+		echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_make_slideshow.sh
+	fi
 
 
 	
@@ -127,8 +152,24 @@ elif [ -d "custom_nodes" ]; then
 	echo "**************************"
 	echo "******* STAR LOOP ********"
 	echo "**************************"
-    ./custom_nodes/comfyui_stereoscopic/api/batch_starloop.sh
+    #TODO CONCAT ./custom_nodes/comfyui_stereoscopic/api/batch_starloop.sh
 
+	DUBCOUNT=`find input/vr/dubbing -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	### SKIP IF DEPENDENCY CHECK FAILED ###
+	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNT -gt 0 ]; then
+		# DUBBING: Video -> Video with SFX
+		# In:  input/vr/dubbing
+		# Out: output/vr/dubbing
+		echo "**************************"
+		echo "******** DUBBING *********"
+		echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
+	fi
+
+	# dubbing -> scaling
+	#GLOBIGNORE="*_x?*.mp4"
+	#mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
+	#unset GLOBIGNORE		
 
 else
 	  echo "Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
