@@ -29,8 +29,7 @@ then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 input [upscalefactor]"
     echo "E.g.: $0 SmallIconicTown.png 2"
-elif [ -e "$COMFYUIPATH/models/upscale_models/RealESRGAN_x4plus.pth" ]
-then
+else
 	cd $COMFYUIPATH
 
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
@@ -156,7 +155,7 @@ then
 		sleep 1
 		if [ -e "output/vr/scaling/tmpscaleresult_00001_.png" ]
 		then
-			mv -f output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX"".png"
+			mv -f output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.png"
 		else	
 			echo " "
 			echo -e $"\e[91mError:\e[0m Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "
@@ -164,12 +163,8 @@ then
 
 	else
 		echo "Skipping upscaling of image $INPUT. Moving to $FINALTARGETFOLDER"
-		cp -f $INPUT "$FINALTARGETFOLDER"
-	fi
-else
-	if [ ! -e "$COMFYUIPATH/models/upscale_models/RealESRGAN_x4plus.pth" ]
-	then
-		echo -e $"\e[93mWarning:\e[0mUpscale model not installed. use the Manager to install 4x_foolhardy_Remacri to $COMFYUIPATH/models/upscale_models/RealESRGAN_x4plus.pth"
+		EXTENSION="${INPUT##*.}"
+		cp -f $INPUT "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.$EXTENSION"
 	fi
 fi
 

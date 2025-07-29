@@ -1,5 +1,5 @@
 #!/bin/sh
-# Executes the whole SBS workbench pipeline
+# upscale downscale images and pad to 4K
 # Copyright (c) 2025 Fortuna Cournot. MIT License.
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
@@ -53,7 +53,7 @@ else
 	COUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
 	INTERMEDIATEFOLDER=output/slides/intermediate
-	TARGETFOLDER=output/slides
+	TARGETFOLDER=output/vr/slides
 	mkdir -p "$INTERMEDIATEFOLDER"
 	mkdir -p input/vr/slides/done
 	rm -rf "$INTERMEDIATEFOLDER"/*  >/dev/null 2>&1
@@ -78,19 +78,21 @@ else
 			
 			if [ -e "$newfn" ]; then
 			
-				/bin/bash $SCRIPTPATH "$newfn" $overwide_active 
+				/bin/bash $SCRIPTPATH "$newfn"
 				
 				TARGETPREFIX=${newfn##*/}
-				if [ -e "output/vr/scaling/$TARGETPREFIX" ]; then
+				TARGETPREFIX=${TARGETPREFIX%.*}
+				if [ -e "output/vr/scaling/$TARGETPREFIX""_4K.png" ]; then
 					SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX`
-					TARGETPREFIX=${TARGETPREFIX%.*}
 				else
-					TARGETPREFIX=${TARGETPREFIX%.*}
-					SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX*.png`
+					SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX*_4K.*`
 				fi
 				
-				if [ -e "$SCRIPTRESULT" ]; then 
-				
+				if [ -e "$SCRIPTRESULT" ]; then
+					SCRIPTRESULT=${SCRIPTRESULT##*/}
+					mv -fv "output/vr/scaling/$SCRIPTRESULT" "output/vr/slides"
+					SCRIPTRESULT="output/vr/slides/$SCRIPTRESULT"
+					
 					SCALINGINTERMEDIATE=
 					RESULT=
 					if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $newfn` -gt  `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $newfn`

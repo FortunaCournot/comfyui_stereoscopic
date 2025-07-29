@@ -64,10 +64,11 @@ elif [ -d "custom_nodes" ]; then
 	echo "******** DUBBING *********"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
-	# move to next stage
-	#mkdir -p output/vr/dubbing/final
-	#mv -f output/vr/dubbing/*SBS_LR*.mp4 output/vr/dubbing/final  >/dev/null 2>&1
-	#mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
+
+	# dubbing -> scaling
+	GLOBIGNORE="*_x?*.mp4"
+	mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
+	unset GLOBIGNORE		
 	
 	# UPSCALING: Video -> Video. Limited to 60s and 4K.
 	# In:  input/vr/scaling
@@ -77,10 +78,11 @@ elif [ -d "custom_nodes" ]; then
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
     ./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override
-	# move to next stage
-	# prepare input of previous stage for cleanup
-	#mkdir -p output/vr/dubbing/intermediate/dubbing_in
-	# PRIMARY INPUT NOT MOVED BY DEFAULT # mv -f input/vr/dubbing/done/*.* output/vr/dubbing/intermediate/dubbing_in  >/dev/null 2>&1
+
+	# scaling -> fullsbs
+	GLOBIGNORE="*_SBS_LR*.mp4"
+	mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
+	unset GLOBIGNORE		
 	
 	# SBS CONVERTER: Video -> Video, Image -> Image
 	# In:  input/vr/fullsbs

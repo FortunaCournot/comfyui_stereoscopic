@@ -173,7 +173,7 @@ else
 		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 		export COMFYUIHOST COMFYUIPORT
 
-		# move output to next stage input
+		# GLOBAL: move output to next stage input (This must happen in batch_all per stage, too)
 		mkdir -p input/vr/scaling input/vr/fullsbs
 		# dubbing -> scaling
 		GLOBIGNORE="*_x?*.mp4"
