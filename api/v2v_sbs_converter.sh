@@ -251,7 +251,7 @@ else
 		echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 	done
 	runtime=$((end-startjob))
-	echo "done. duration: $runtime""s.                      "
+	echo "done. duration: $runtime""s.                         "
 	rm queuecheck.json
 	echo "Calling $SBSDIR/concat.sh"
 	$SBSDIR/concat.sh

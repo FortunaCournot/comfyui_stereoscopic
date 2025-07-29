@@ -280,7 +280,7 @@ else
 			echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))
-		echo "done. duration: $runtime""s.                      "
+		echo "done. duration: $runtime""s.                             "
 		rm queuecheck.json
 		echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
