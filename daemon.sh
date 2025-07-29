@@ -91,10 +91,6 @@ if [ ! -d custom_nodes/comfyui-custom-scripts ]; then
 	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-custom-scripts could not be found. Use Custom Nodes Manager to install v1.2.5."
 	CONFIGERROR="x"
 fi
-if [ ! -d custom_nodes/ComfyLiterals ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes ComfyLiterals could not be found. Use Custom Nodes Manager to install (nightly)."
-	CONFIGERROR="x"
-fi
 if [ ! -d custom_nodes/comfy-mtb ]; then
 	echo -e $"\e[91mError:\e[0m Custom nodes comfy-mtb could not be found. Use Custom Nodes Manager to install v0.5.4."
 	CONFIGERROR="x"
