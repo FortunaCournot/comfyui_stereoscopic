@@ -60,14 +60,14 @@ else
 		FILTEROPT=
 		CURRENTOFFSET=0
 		
+		sleep 5 # extra time for transfer multiple files.
+		
 		for nextinputfile in $IMGFILES ; do
 			INDEX=$(( INDEX + 1 ))
 			INDEXM1=$(( INDEX - 1 ))
 			INDEXM2=$(( INDEX - 2 ))
 			INTERMEDPREFIX=${nextinputfile##*/}
 			echo "$INDEX/$COUNT" >input/vr/slideshow/BATCHPROGRESS.TXT
-			
-			
 			
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
@@ -113,8 +113,8 @@ else
 				exit
 			fi			
 		done
-		ESTIMATED_SLIDE_COUNT=$(( FPSRATE * INDEX * DISPLAYLENGTH ))
-		echo "Images processed. Generating Slideshow ($ESTIMATED_SLIDE_COUNT frames) ...                         "
+		ESTIMATED_SLIDE_COUNT=$(( FPSRATE * INDEX * (DISPLAYLENGTH - 1) ))
+		echo "Images processed. Generating Slideshow (~$ESTIMATED_SLIDE_COUNT frames) ...                         "
 			
 		NOW=$( date '+%F_%H%M' )	
 		
@@ -126,7 +126,7 @@ else
 		
 		#set +x
 		
-		TARGET=output/vr/slideshow/slideshow-$NOW"_SBS_LR".mp4
+		TARGET=output/vr/slideshow/"$TARGETPREFIX-slideshow-$NOW_SBS_LR.mp4"
 		mv -f $INTERMEDIATEFOLDER/output.mp4 "$TARGET"
 		rm input/vr/slideshow/BATCHPROGRESS.TXT
 		mkdir -p input/vr/slideshow/done
@@ -139,7 +139,7 @@ else
 		
 	else
 		# Not enought image files (png|jpg|jpeg) found in input/vr/slideshow. At least 2.
-		echo -e $"\e[91Error:\e[0m No images (2+) for slideshow in input/vr/slideshow"
+		echo "Info: No images (2+) for slideshow in input/vr/slideshow"
 	fi	
 	
 

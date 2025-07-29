@@ -70,7 +70,7 @@ else
 		PROGRESS=`cat input/vr/fullsbs/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
-	echo "========== $PROGRESS""convert "`echo $INPUT | grep -oP "$regex"`" =========="
+	echo "========== $PROGRESS""convert sbs "`echo $INPUT | grep -oP "$regex"`" =========="
 
 	uuid=$(openssl rand -hex 16)
 
