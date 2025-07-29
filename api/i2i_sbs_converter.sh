@@ -161,9 +161,9 @@ else
 			else
 				rm "$INPUT"
 			fi
-			echo -e $"\e[92done\e[0m in $secs""s.                      "
+			echo -e $"\e[92mdone\e[0m in $secs""s.                      "
 		else
-			echo -e $"\e[91Error:\e[0m Input file not found: $INPUT"
+			echo -e $"\e[91mError:\e[0m Input file not found: $INPUT"
 		fi
 	fi
 fi

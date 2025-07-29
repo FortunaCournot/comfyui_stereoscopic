@@ -121,7 +121,7 @@ else
 
 		"$FFMPEGPATHPREFIX"ffmpeg -v error -hide_banner -stats -loglevel repeat+level+error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4 
 
-		echo -e $"\e[92done\e[0m                    "
+		echo -e $"\e[92mdone\e[0m                    "
 		
 		#set +x
 		
