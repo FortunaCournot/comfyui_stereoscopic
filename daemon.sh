@@ -175,6 +175,9 @@ else
 
 		# GLOBAL: move output to next stage input (This must happen in batch_all per stage, too)
 		mkdir -p input/vr/scaling input/vr/fullsbs
+		# slides -> fullsbs
+		GLOBIGNORE="*_SBS_LR*.*"
+		mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 		# dubbing -> scaling
 		GLOBIGNORE="*_x?*.mp4"
 		mv -f output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1

@@ -43,6 +43,9 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	fi
 elif [ -d "custom_nodes" ]; then
 
+	# LOCAL: prepare move output to next stage input (This should happen in daemon, too)
+	mkdir -p input/vr/scaling input/vr/fullsbs
+
 	# workaround for recovery problem.
 	./custom_nodes/comfyui_stereoscopic/api/clear.sh
 
@@ -53,9 +56,11 @@ elif [ -d "custom_nodes" ]; then
 	echo "***** PREPARE SLIDES *****"
 	echo "**************************"
     ./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh
-	# move to next stage
-	#mkdir -p input/vr/slideshow
-	#mv -f output/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
+
+	# slides -> fullsbs
+	GLOBIGNORE="*_SBS_LR*.*"
+	mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
+	unset GLOBIGNORE		
 	
 	# DUBBING: Video -> Video with SFX
 	# In:  input/vr/dubbing
