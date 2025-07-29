@@ -82,7 +82,7 @@ else
 		PROGRESS=`cat input/vr/scaling/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
-	echo "========== $PROGRESS""rescale "`echo $INPUT | grep -oP "$regex"`" =========="
+	echo "========== $PROGRESS""scaling "`echo $INPUT | grep -oP "$regex"`" =========="
 	
 	TARGETPREFIX=${INPUT##*/}
 	EXTENSION="${TARGETPREFIX##*.}"

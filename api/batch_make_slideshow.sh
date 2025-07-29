@@ -113,7 +113,8 @@ else
 				exit
 			fi			
 		done
-		echo "Images processed. Generating Slideshow ...                         "
+		ESTIMATED_SLIDE_COUNT=$(( FPSRATE * INDEX * DISPLAYLENGTH ))
+		echo "Images processed. Generating Slideshow ($ESTIMATED_SLIDE_COUNT frames) ...                         "
 			
 		NOW=$( date '+%F_%H%M' )	
 		
