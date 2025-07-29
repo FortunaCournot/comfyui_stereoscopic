@@ -121,7 +121,7 @@ else
 
 		"$FFMPEGPATHPREFIX"ffmpeg -v error -hide_banner -stats -loglevel repeat+level+error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4 
 
-		echo "done."
+		echo -e $"\e[92done\e[0m                    "
 		
 		#set +x
 		
@@ -138,7 +138,7 @@ else
 		
 	else
 		# Not enought image files (png|jpg|jpeg) found in input/vr/slideshow. At least 2.
-		echo "No images (2+) for slideshow in input/vr/slideshow"
+		echo -e $"\e[91Error:\e[0m No images (2+) for slideshow in input/vr/slideshow"
 	fi	
 	
 
