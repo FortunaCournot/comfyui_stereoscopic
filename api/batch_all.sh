@@ -157,20 +157,20 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
-	DUBCOUNT=`find input/vr/dubbing -maxdepth 1 -type f -name '*.mp4' | wc -l`
-	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNT -gt 0 ]; then
+	DUBCOUNTSFX=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
 		# DUBBING: Video -> Video with SFX
-		# In:  input/vr/dubbing
-		# Out: output/vr/dubbing
+		# In:  input/vr/dubbing/sfx
+		# Out: output/vr/dubbing/sfx
 		echo "**************************"
-		echo "******** DUBBING *********"
+		echo "****** DUBBING SFX *******"
 		echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh
 	fi
 
 	#dubbing -> scaling
 	GLOBIGNORE="*_x?*.mp4"
-	mv -fv output/vr/dubbing/*.mp4 input/vr/scaling  >/dev/null 2>&1
+	mv -fv output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
 	unset GLOBIGNORE		
 	
 

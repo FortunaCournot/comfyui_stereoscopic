@@ -1,5 +1,5 @@
 #!/bin/sh
-# Upscales videos in batch from all base videos placed in ComfyUI/input/vr/dubbing (input)
+# Upscales videos in batch from all base videos placed in ComfyUI/input/vr/dubbing/sfx (input)
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
@@ -8,7 +8,7 @@
 # Default: Executed in ComfyUI folder
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_dubbing.sh 
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_dubbing_sfx.sh 
 
 cd $COMFYUIPATH
 
@@ -43,12 +43,12 @@ elif test $# -ne 0 ; then
     echo "E.g.: $0 "
 else
 	
-	COUNT=`find input/vr/dubbing -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		for nextinputfile in input/vr/dubbing/*.mp4 ; do
+		for nextinputfile in input/vr/dubbing/sfx/*.mp4 ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT" >input/vr/dubbing/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -94,7 +94,7 @@ else
 				
 		done
 	fi
-	rm -f input/vr/dubbing/BATCHPROGRESS.TXT
+	rm -f input/vr/dubbing/sfx/BATCHPROGRESS.TXT
 	echo "Batch done."
 
 fi

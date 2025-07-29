@@ -2,7 +2,7 @@
 #
 # v2v_dubbing.sh
 #
-# dubbes a base video (input) by mmaudio and places result under ComfyUI/output/vr/dubbing folder.
+# dubbes a base video (input) by mmaudio and places result under ComfyUI/output/vr/dubbing/sfx folder.
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
@@ -95,17 +95,17 @@ else
 	shift
 
 	PROGRESS=" "
-	if [ -e input/vr/dubbing/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/dubbing/sfx/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/vr/dubbing/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/dubbing/sfx/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""dubbing "`echo $INPUT | grep -oP "$regex"`" =========="
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/vr/dubbing/intermediate/${TARGETPREFIX%.mp4}
-	FINALTARGETFOLDER=`realpath "output/vr/dubbing"`
+	TARGETPREFIX=output/vr/dubbing/sfx/intermediate/${TARGETPREFIX%.mp4}
+	FINALTARGETFOLDER=`realpath "output/vr/dubbing/sfx"`
 	
 	FADEOUTSTART=$((SEGMENTTIME-1))
 	
@@ -251,8 +251,8 @@ else
 			echo ""
 			echo -e $"\e[93mWarning:\e[0mno flac files. Just copying source..."
 			cp -fv $INPUT $FINALTARGETFOLDER
-			mkdir -p ./input/vr/dubbing/done
-			mv -fv $INPUT ./input/vr/dubbing/done
+			mkdir -p ./input/vr/dubbing/sfx/done
+			mv -fv $INPUT ./input/vr/dubbing/sfx/done
 			rm -rf "$TARGETPREFIX"".tmpseg" "$TARGETPREFIX"".tmpdubbing"
 			exit
 		fi
@@ -304,8 +304,8 @@ else
 		mv -vf "$TARGETPREFIX""_dub.mp4" "$FINALTARGETFOLDER"
 		
 		rm -rf "$TARGETPREFIX"".tmpseg" "$TARGETPREFIX"".tmpdubbing"
-		mkdir -p ./input/vr/dubbing/done
-		mv -fv $INPUT ./input/vr/dubbing/done
+		mkdir -p ./input/vr/dubbing/sfx/done
+		mv -fv $INPUT ./input/vr/dubbing/sfx/done
 	fi
 
 	echo "Dubbing done."
