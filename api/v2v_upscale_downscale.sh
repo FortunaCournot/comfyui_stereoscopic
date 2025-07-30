@@ -257,7 +257,7 @@ else
 		echo "    exit -1" >>"$UPSCALEDIR/concat.sh"
 		echo "fi" >>"$UPSCALEDIR/concat.sh"
 		
-		[ $loglevel -ge 1 ] && echo "Waiting for queue to finish..."
+		[ $loglevel -ge -1 ] && echo "Waiting for queue to finish..."
 		sleep 4  # Give some extra time to start...
 		lastcount=""
 		start=`date +%s`
@@ -279,12 +279,12 @@ else
 			fi
 			lastcount="$queuecount"
 			
-			[ $loglevel -ge 1 ] && echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
+			[ $loglevel -ge 0 ] && echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))
-		[ $loglevel -ge 1 ] && echo "done. duration: $runtime""s.                             "
+		[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 		rm queuecheck.json
-		[ $loglevel -ge 1 ] && echo "Calling $UPSCALEDIR/concat.sh"
+		[ $loglevel -ge 0 ] && echo "Calling $UPSCALEDIR/concat.sh"
 		$UPSCALEDIR/concat.sh
 		mkdir -p input/vr/scaling/done
 		mv -fv "$INPUT" input/vr/scaling/done
