@@ -187,7 +187,7 @@ prompt_text = """
   },
   "192": {
     "inputs": {
-      "expression": "min(a,8)*25",
+      "expression": "min(a,64)*25",
       "a": [
         "191",
         0

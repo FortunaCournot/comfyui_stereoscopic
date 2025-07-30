@@ -13,12 +13,15 @@ if [ ! -e $CONFIGFILE ] ; then
 	touch "$CONFIGFILE"
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
 	echo "config_version=1">>"$CONFIGFILE"
-	echo "# not fully implemented yet.  -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x). ">>"$CONFIGFILE"			
+	echo "# not fully implemented yet.  -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x), keep intermediate. ">>"$CONFIGFILE"			
 	echo "loglevel=0">>"$CONFIGFILE"			
+	echo "# Set PIPELINE_AUTOFORWARD to 0 to disable it">>"$CONFIGFILE"
+	echo "PIPELINE_AUTOFORWARD=1">>"$CONFIGFILE"			
 	echo "# --- comfyui server config ---">>"$CONFIGFILE"
 	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
 	echo "COMFYUIPORT=8188">>"$CONFIGFILE"
 	echo "# --- video config ---">>"$CONFIGFILE"
+	echo "# If not in systempath set ffmpeg path without trailing /">>"$CONFIGFILE"
 	echo "FFMPEGPATHPREFIX=">>"$CONFIGFILE"
 	echo "MAXFPS=30">>"$CONFIGFILE"
 	echo "VIDEO_FORMAT=video/h264-mp4">>"$CONFIGFILE"
@@ -44,6 +47,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
 	# TODO:
 	echo "SPLITSEGMENTTIME=1">>"$CONFIGFILE"
+	echo "MAXDUBBINGSEGMENTTIME=64">>"$CONFIGFILE"
 
 
 	if ! command -v ffmpeg >/dev/null 2>&1
@@ -61,6 +65,7 @@ loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel
 
 [ $loglevel -ge 0 ] && echo -e $"\e[1musing config file $CONFIGFILE\e[0m"
 config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
 FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx4=${UPSCALEMODELx4:-"RealESRGAN_x4plus.pth"}
 UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"RealESRGAN_x4plus.pth"}
@@ -161,6 +166,19 @@ if [ ! -d custom_nodes/was-node-suite-comfyui ] ; then
 fi
 
 
+POSITIVESFXPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
+NEGATIVESFXPATH="$CONFIGPATH/dubbing_sfx_negative.txt"
+if [ ! -e "$POSITIVESFXPATH" ]
+then
+	mkdir -p $CONFIGPATH
+	echo "" >$POSITIVESFXPATH
+fi
+if [ ! -e "$NEGATIVEPSFXATH" ]
+then
+	mkdir -p $CONFIGPATH
+	echo "music, voice, crying, squeaking." >$NEGATIVESFXPATH
+fi
+
 
 if test $# -ne 0
 then
@@ -204,13 +222,13 @@ else
 		mkdir -p input/vr/scaling input/vr/fullsbs
 		# scaling -> fullsbs
 		GLOBIGNORE="*_SBS_LR*.*"
-		mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
 		# slides -> fullsbs
 		GLOBIGNORE="*_SBS_LR*.*"
-		mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 		# dubbing -> scaling
 		GLOBIGNORE="*_x?*.mp4"
-		mv -f output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -f output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
 		unset GLOBIGNORE		
 
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`

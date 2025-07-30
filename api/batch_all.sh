@@ -17,6 +17,7 @@ if [ -e $CONFIGFILE ] ; then
 	loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 	[ $loglevel -ge 2 ] && set -x
     config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
 	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 	export COMFYUIHOST COMFYUIPORT
@@ -88,7 +89,7 @@ elif [ -d "custom_nodes" ]; then
 
 	# scaling -> fullsbs
 	GLOBIGNORE="*_SBS_LR*.mp4"
-	mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
+	[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
 	unset GLOBIGNORE		
 
 
@@ -105,7 +106,7 @@ elif [ -d "custom_nodes" ]; then
 	
 	# slides -> fullsbs
 	GLOBIGNORE="*_SBS_LR*.*"
-	mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
+	[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 	unset GLOBIGNORE		
 	
 	
@@ -172,7 +173,7 @@ elif [ -d "custom_nodes" ]; then
 
 	#dubbing -> scaling
 	GLOBIGNORE="*_x?*.mp4"
-	mv -fv output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
+	[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -fv output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
 	unset GLOBIGNORE		
 	
 

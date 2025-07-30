@@ -56,6 +56,10 @@ else
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
+
+			start=`date +%s`
+			end=`date +%s`
+			startiteration=$start
 			
 			/bin/bash $SCRIPTPATH "$newfn"
 			
@@ -68,9 +72,6 @@ else
 			echo "Waiting for queue to finish..."
 			sleep 3  # Give some extra time to start...
 			lastcount=""
-			start=`date +%s`
-			end=`date +%s`
-			startjob=$start
 			itertimemsg=""
 			until [ "$queuecount" = "0" ]
 			do
@@ -90,7 +91,8 @@ else
 					
 				echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 			done
-			runtime=$((end-startjob))
+			end=`date +%s`
+			runtime=$((end-startiteration))
 			echo -e $"\e[92mdone.\e[0m duration: $runtime""s                        "
 			rm queuecheck.json
 				
