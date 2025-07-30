@@ -13,7 +13,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	touch "$CONFIGFILE"
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
 	echo "config_version=1">>"$CONFIGFILE"
-	echo "loglevel=0">>"$CONFIGFILE"			# -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x). not implemented yet.
+	echo "# not fully implemented yet.  -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x). ">>"$CONFIGFILE"			
+	echo "loglevel=0">>"$CONFIGFILE"			
 	echo "# --- comfyui server config ---">>"$CONFIGFILE"
 	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
 	echo "COMFYUIPORT=8188">>"$CONFIGFILE"
@@ -33,7 +34,12 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- sbs converter config ---">>"$CONFIGFILE"
 	echo "SBS_DEPTH_SCALE=1.25">>"$CONFIGFILE"
 	echo "SBS_DEPTH_OFFSET=0.0">>"$CONFIGFILE"
-	echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitl.pth">>"$CONFIGFILE"
+	if [ -e custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant ] ; then
+		echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitg.pth">>"$CONFIGFILE"
+	else
+		echo "# depth_anything_v2_vitg.pth installed ?">>"$CONFIGFILE"
+		echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitl.pth">>"$CONFIGFILE"
+	fi
 	echo "# --- dubbing config ---">>"$CONFIGFILE"
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
 	# TODO:
