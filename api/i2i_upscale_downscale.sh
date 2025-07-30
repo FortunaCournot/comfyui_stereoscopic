@@ -24,10 +24,10 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/i2i_upscale_downscale.py
 
 
-if test $# -ne 1 -a $# -ne 2
+if test $# -ne 2 -a $# -ne 3
 then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 input [upscalefactor]"
+    echo "Usage: $0 input override_active [upscalefactor]"
     echo "E.g.: $0 SmallIconicTown.png 2"
 else
 	cd $COMFYUIPATH
@@ -36,6 +36,8 @@ else
 
 	export CONFIGFILE
 	if [ -e $CONFIGFILE ] ; then
+		loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+		[ $loglevel -ge 2 ] && set -x
 		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
@@ -56,6 +58,8 @@ else
 
 	DOWNSCALE=1.0
 	INPUT="$1"
+	shift
+	override_active=$1
 	shift
 	
 	UPSCALEFACTOR=0
@@ -93,22 +97,36 @@ else
 	SCALEBLENDFACTOR=$(awk -F "=" '/SCALEBLENDFACTOR/ {print $2}' $CONFIGFILE) ; SCALEBLENDFACTOR=${SCALEBLENDFACTOR:-"0.7"}
 	SCALESIGMARESOLUTION=$(awk -F "=" '/SCALESIGMARESOLUTION/ {print $2}' $CONFIGFILE) ; SCALESIGMARESOLUTION=${SCALESIGMARESOLUTION:-"1920.0"}
 
+	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
+	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
+	PIXEL=$(( $RESW * $RESH ))
+
+	LIMIT4X=518400
+	LIMIT2X=2073600
+	if [ $override_active -gt 0 ]; then
+		[ $loglevel -ge 1 ] && echo "override active"
+		LIMIT4X=1036800
+		LIMIT2X=4147200
+	fi
+
 	if [ "$UPSCALEFACTOR" -eq 0 ]
 	then
-		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 1920 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  1080
-		then 
-			if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -le 960 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -le  540
-			then 
+		if [ $PIXEL -lt $LIMIT2X ]; then
+			if [ $PIXEL -lt $LIMIT4X ]; then
 				TARGETPREFIX="$TARGETPREFIX""_x4"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=1.0
 				UPSCALEFACTOR=4
+				[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=0.5
 				UPSCALEFACTOR=2
+				[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 			fi
+		else
+			[ $loglevel -ge 1 ] && echo "$PIXEL > $LIMIT2X"
 		fi
 	fi
 	
@@ -120,7 +138,7 @@ else
 	
 		echo -ne "Prompting ..."
 		rm -f output/vr/scaling/tmpscaleresult*.png
-		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" upscale/tmpscaleresult $UPSCALEMODEL $DOWNSCALE $SCALEBLENDFACTOR $SCALESIGMARESOLUTION
+		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" vr/scaling/tmpscaleresult $UPSCALEMODEL $DOWNSCALE $SCALEBLENDFACTOR $SCALESIGMARESOLUTION
 		
 		echo -ne "Waiting for queue to finish..."
 		sleep 2  # Give some extra time to start...
@@ -155,16 +173,21 @@ else
 		sleep 1
 		if [ -e "output/vr/scaling/tmpscaleresult_00001_.png" ]
 		then
-			mv -f output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.png"
+			mv -fv output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.png"
+			mkdir -p input/vr/scaling/done
+			mv -fv $INPUT input/vr/scaling/done
 		else	
 			echo " "
 			echo -e $"\e[91mError:\e[0m Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "
+			mkdir -p input/vr/scaling/error
+			mv -fv $INPUT input/vr/scaling/error
+			exit
 		fi
 
 	else
-		echo "Skipping upscaling of image $INPUT. Moving to $FINALTARGETFOLDER"
+		echo "Skipping upscaling of image $INPUT."
 		EXTENSION="${INPUT##*.}"
-		cp -f $INPUT "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.$EXTENSION"
+		mv -fv $INPUT "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.$EXTENSION"
 	fi
 fi
 

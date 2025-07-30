@@ -25,7 +25,7 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
-overwide_active=0
+override_active=0
 
 # Length of each Image to display in seconds (INTEGER)
 DISPLAYLENGTH=6
@@ -78,15 +78,16 @@ else
 			
 			if [ -e "$newfn" ]; then
 			
-				/bin/bash $SCRIPTPATH "$newfn"
+				/bin/bash $SCRIPTPATH "$newfn" $override_active 
 				
 				TARGETPREFIX=${newfn##*/}
 				TARGETPREFIX=${TARGETPREFIX%.*}
-				if [ -e "output/vr/scaling/$TARGETPREFIX""_4K.png" ]; then
-					SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX`
-				else
-					SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX*_4K.*`
-				fi
+				SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX*.*`
+				#if [ -e "output/vr/scaling/$TARGETPREFIX""_4K.png" ]; then
+				#	
+				#else
+				#	SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX*_4K.*`
+				#fi
 				
 				if [ -e "$SCRIPTRESULT" ]; then
 					SCRIPTRESULT=${SCRIPTRESULT##*/}
@@ -95,7 +96,7 @@ else
 					
 					SCALINGINTERMEDIATE=
 					RESULT=
-					if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $newfn` -gt  `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $newfn`
+					if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SCRIPTRESULT` -gt  `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SCRIPTRESULT`
 					then
 						echo "scaling against 4K-H"
 						SCALINGINTERMEDIATE=tmpscalingH.png

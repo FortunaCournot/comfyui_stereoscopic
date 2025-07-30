@@ -9,6 +9,7 @@
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.sh 
+SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.sh 
 
 cd $COMFYUIPATH
 
@@ -44,11 +45,11 @@ else
 		OVERRIDESUBPATH="$1"
 		shift
 		
-		mv -fv "input/vr/scaling""$OVERRIDESUBPATH"/*.mp4 input/vr/scaling
+		mv -fv "input/vr/scaling""$OVERRIDESUBPATH"/*.* input/vr/scaling
 	fi
 	
 	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' | wc -l`
-	[ $loglevel -ge 1 ] && echo "Count: $COUNT"
+	[ $loglevel -ge 1 ] && echo "Video Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in input/vr/scaling/*.mp4 ; do
@@ -91,6 +92,49 @@ else
 		done
 	fi
 	rm -f input/vr/scaling/BATCHPROGRESS.TXT
+	
+	IMGFILES=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
+	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	declare -i INDEX=0
+	[ $loglevel -ge 1 ] && echo "Image Count: $COUNT"
+	if [[ $COUNT -gt 0 ]] ; then
+		for nextinputfile in $IMGFILES ; do
+			INDEX+=1
+			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
+			newfn=${nextinputfile//[^[:alnum:.]]/}
+			newfn=${newfn// /_}
+			newfn=${newfn//\(/_}
+			newfn=${newfn//\)/_}
+			mv "$nextinputfile" $newfn 
+			
+			if [[ "$newfn" == *_x?* ]]; then
+				echo "Skipping $newfn (already scaled)"
+				mkdir -p output/vr/scaling
+				mv -fv $newfn output/vr/scaling
+			elif [ -e "$newfn" ]
+			then
+				duration=-1
+				override_active=1
+				if [ -z "$OVERRIDESUBPATH" ]; then
+					override_active=0
+				fi
+
+				/bin/bash $SCRIPTPATH2 "$newfn" $override_active 
+				
+				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+				if [ "$status" = "closed" ]; then
+					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+					exit
+				fi
+
+			else
+				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
+			fi			
+			
+		done
+	fi
+	rm -f input/vr/scaling/BATCHPROGRESS.TXT
+	
 	[ $loglevel -ge 1 ] && echo "Batch done."
 
 fi

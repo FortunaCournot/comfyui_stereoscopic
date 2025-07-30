@@ -84,8 +84,6 @@ else
 			fi
 		done
 		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
-	else
-		echo "No .mp4 files found in input/vr/fullsbs"
 	fi	
 	
 	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
@@ -102,7 +100,7 @@ else
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
 			
-			if [[ "$newfn" == *"_SBS_LR"* ]]; then
+			if [[ "$newfn" == *_SBS_LR* ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs
 				mv -fv $newfn output/vr/fullsbs
@@ -122,8 +120,6 @@ else
 		done
 		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
 				
-	else
-		echo "No image files (png|jpg|jpeg) found in input/vr/fullsbs"
 	fi	
 	echo "Batch done."
 fi
