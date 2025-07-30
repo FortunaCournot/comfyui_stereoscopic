@@ -9,7 +9,7 @@ cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ ! -e $CONFIGFILE ] ; then
-
+	mkdir -p ./user/default/comfyui_stereoscopic
 	touch "$CONFIGFILE"
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
 	echo "config_version=1">>"$CONFIGFILE"
@@ -84,10 +84,6 @@ then
 fi
 
 ### CHECK MODELS ###
-if [ ! -d custom_nodes/ComfyUI-Manager ] && [ ! -d custom_nodes/ComfyUI-Manager-main ]; then
-	echo -e $"\e[91mError:\e[0m ComfyUI-Manager could not be found. Install from \e[36mhttps://github.com/Comfy-Org/ComfyUI-Manager\e[0m"
-	CONFIGERROR="x"
-fi
 
 if [ ! -d custom_nodes/comfyui_controlnet_aux ]; then
 	echo -e $"\e[91mError:\e[0m Custom nodes comfyui_controlnet_aux could not be found. Use Custom Nodes Manager to install v1.1.0."
@@ -165,7 +161,7 @@ if [ ! -d custom_nodes/was-node-suite-comfyui ] ; then
 	[ $loglevel -ge 0 ] && echo -e $"It must be installed manually from \e[36mhttps://github.com/WASasquatch/was-node-suite-comfyui\e[0m"
 fi
 
-
+CONFIGPATH=user/default/comfyui_stereoscopic
 POSITIVESFXPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
 NEGATIVESFXPATH="$CONFIGPATH/dubbing_sfx_negative.txt"
 if [ ! -e "$POSITIVESFXPATH" ]
