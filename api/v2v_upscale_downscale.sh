@@ -91,7 +91,7 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.*}
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	
 	UPSCALEMODEL="RealESRGAN_x4plus.pth"

@@ -83,7 +83,7 @@ else
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/vr/fullsbs/intermediate/${TARGETPREFIX%.mp4}
+	TARGETPREFIX=output/vr/fullsbs/intermediate/${TARGETPREFIX%.*}
 	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
 	FINALTARGETFOLDER=`realpath "output/vr/fullsbs"`
 	mkdir -p "$TARGETPREFIX""-$uuid"".tmpseg"
