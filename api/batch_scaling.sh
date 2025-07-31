@@ -51,11 +51,12 @@ else
 		mv -fv "input/vr/scaling""$OVERRIDESUBPATH"/*.* input/vr/scaling
 	fi
 	
-	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	[ $loglevel -ge 1 ] && echo "Video Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		for nextinputfile in input/vr/scaling/*.mp4 ; do
+		VIDEOFILES=input/vr/scaling/*.mp4 input/vr/scaling/*.webm
+		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}

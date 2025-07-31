@@ -80,7 +80,6 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert sbs "`echo $INPUT | grep -oP "$regex"`" =========="
 
-	pwd
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
@@ -103,21 +102,31 @@ else
 	rm "$TARGETPREFIX"
 
 	SPLITINPUT="$INPUT"
+	EXTENSION="${INPUT##*.}"
+	if [[ "$EXTENSION" == "webm" ]] || [[ "$EXTENSION" == "WEBM" ]] ; then
+		echo "handling unsupported image format"
+		NEWTARGET="${SPLITINPUT%.*}"".mp4"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SPLITINPUT" "$NEWTARGET"
+		SPLITINPUT=$NEWTARGET
+		mv $SPLITINPUT $SEGDIR
+		SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`		
+	fi
+
 	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
 		
 		# Prepare to restrict resolution to 4K, and skip low res
-		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
+		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT` -lt 128 -o `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT` -lt  128
 		then
-			echo "Skipping low resolution video: $INPUT"
-		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  2160
+			echo "Skipping low resolution video: $SPLITINPUT"
+		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT` -gt 3840 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT` -gt  2160
 		then 
 			echo "H-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
 			mv $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
-		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 2160 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  3840
+		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT` -gt 2160 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT` -gt  3840
 		then 
 			echo "V-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"

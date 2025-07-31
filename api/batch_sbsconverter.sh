@@ -54,11 +54,11 @@ else
 	for f in input/vr/fullsbs/*\)*; do mv "$f" "${f//\)/_}"; done 2>/dev/null
 	for f in input/vr/fullsbs/*\'*; do mv "$f" "${f//\'/_}"; done 2>/dev/null
 
-	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
-	MP4FILES=input/vr/fullsbs/*.mp4
 	if [[ $COUNT -gt 0 ]] ; then
-		for nextinputfile in $MP4FILES ; do
+		VIDEOFILES=input/vr/fullsbs/*.mp4 input/vr/fullsbs/*.webm
+		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
@@ -68,19 +68,19 @@ else
 			mv "$nextinputfile" $newfn 
 			
 			TARGETPREFIX=${newfn##*/}
-			if [[ "$TARGETPREFIX" = "*_SBS_LR.mp4" ]]; then
+			if [[ "$TARGETPREFIX" = "*_SBS_LR.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
 				mv -fv $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K.mp4" ]]; then
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
 				mv -fv $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB.mp4" ]]; then
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
 				mv -fv $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB.mp4" ]]; then
+			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
 				mv -fv $newfn output/vr/fullsbs/final

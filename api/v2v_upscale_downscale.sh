@@ -160,6 +160,16 @@ else
 		rm "$TARGETPREFIX"
 	
 		SPLITINPUT="$INPUT"
+		EXTENSION="${INPUT##*.}"
+		if [[ "$EXTENSION" == "webm" ]] || [[ "$EXTENSION" == "WEBM" ]] ; then
+			echo "handling unsupported image format"
+			NEWTARGET="${SPLITINPUT%.*}"".mp4"
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SPLITINPUT" "$NEWTARGET"
+			SPLITINPUT=$NEWTARGET
+			mv $SPLITINPUT $SEGDIR
+			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`		
+		fi		
+		
 		if [ ! -e "$UPSCALEDIR/concat.sh" ]
 		then
 			# Prepare to restrict fps
