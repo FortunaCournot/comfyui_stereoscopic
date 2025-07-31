@@ -89,6 +89,10 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS""scaling "`echo $INPUT | grep -oP "$regex"`" =========="
 	
+	uuid=$(openssl rand -hex 16)
+	INTERMEDIATE_INPUT_FOLDER=input/vr/scaling/intermediate/$uuid
+	mkdir -p $INTERMEDIATE_INPUT_FOLDER
+	ORIGINALINPUT="$INPUT"
 	TARGETPREFIX=${INPUT##*/}
 	EXTENSION="${TARGETPREFIX##*.}"
 	INPUT=`realpath "$INPUT"`
@@ -131,6 +135,14 @@ else
 		fi
 	fi
 	
+	if [[ "$EXTENSION" == "webm" ]] || [[ "$EXTENSION" == "WEBM" ]] ; then
+		echo "handling unsupported image format"
+		SCALINGINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmpscalingEXT.png
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" "$SCALINGINTERMEDIATE"
+		INPUT="$SCALINGINTERMEDIATE"
+		INPUT=`realpath "$INPUT"`
+	fi
+	
 	if [ "$UPSCALEFACTOR" -gt 0 ]
 	then
 
@@ -140,7 +152,7 @@ else
 		echo -ne "Prompting ..."
 		rm -f output/vr/scaling/tmpscaleresult*.png
 		echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" vr/scaling/tmpscaleresult $UPSCALEMODEL $DOWNSCALE $SCALEBLENDFACTOR $SCALESIGMARESOLUTION ; echo -ne $"\e[0m"
-		
+			
 		echo -ne "Waiting for queue to finish..."
 		sleep 2  # Give some extra time to start...
 		lastcount=""
@@ -176,19 +188,20 @@ else
 		then
 			mv -fv output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.png"
 			mkdir -p input/vr/scaling/done
-			mv -fv $INPUT input/vr/scaling/done
+			mv -fv $ORIGINALINPUT input/vr/scaling/done
 		else	
 			echo " "
 			echo -e $"\e[91mError:\e[0m Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "
 			mkdir -p input/vr/scaling/error
-			mv -fv $INPUT input/vr/scaling/error
+			mv -fv $ORIGINALINPUT input/vr/scaling/error
 			exit
 		fi
 
 	else
 		echo "Skipping upscaling of image $INPUT."
-		EXTENSION="${INPUT##*.}"
-		mv -fv $INPUT "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.$EXTENSION"
+		mv -fv $ORIGINALINPUT "$FINALTARGETFOLDER"/"$TARGETPREFIX""_x1.$EXTENSION"
 	fi
+	
+	rm  -rf $INTERMEDIATE_INPUT_FOLDER
 fi
 

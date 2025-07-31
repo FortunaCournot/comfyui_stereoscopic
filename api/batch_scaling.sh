@@ -96,8 +96,8 @@ else
 	fi
 	rm -f input/vr/scaling/BATCHPROGRESS.TXT
 	
-	IMGFILES=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	IMGFILES=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM'`
+	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 	declare -i INDEX=0
 	[ $loglevel -ge 1 ] && echo "Image Count: $COUNT"
 	if [[ $COUNT -gt 0 ]] ; then

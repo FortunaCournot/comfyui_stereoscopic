@@ -91,8 +91,8 @@ else
 		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
 	fi	
 	
-	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM'`
+	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then

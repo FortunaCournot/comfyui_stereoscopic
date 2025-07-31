@@ -90,6 +90,13 @@ else
 	cp -fv $INPUT $SCALINGINTERMEDIATE
 	INPUT="$SCALINGINTERMEDIATE"
 
+	if [[ "$EXTENSION" == "webm" ]] || [[ "$EXTENSION" == "WEBM" ]] ; then
+		echo "handling unsupported image format"
+		SCALINGINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmpscalingEXT.png
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$INPUT" "$SCALINGINTERMEDIATE"
+		INPUT="$SCALINGINTERMEDIATE"
+	fi
+	
 	if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
 	then
 		echo -e $"\e[91mError:\e[0m Skipping low resolution image: $INPUT"
