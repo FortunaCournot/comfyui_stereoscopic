@@ -22,7 +22,7 @@ except ImportError as e:
             return {"required": {"error": ("STRING", {"default": "Error loading ImageSBSConverter"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
-        CATEGORY = "image"
+        CATEGORY = "VR we are!"
         def error(self, error):
             return (f"ERROR: {error}",)
 
@@ -39,7 +39,7 @@ except ImportError as e:
             return {"required": {"error": ("STRING", {"default": "Error loading GetResolutionForDepth"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
-        CATEGORY = "image"
+        CATEGORY = "VR we are!"
         def error(self, error):
             return (f"ERROR: {error}",)
 
