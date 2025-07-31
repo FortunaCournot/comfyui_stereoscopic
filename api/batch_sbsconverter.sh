@@ -41,6 +41,8 @@ elif test $# -ne 2; then
     echo "Usage: $0 depth_scale depth_offset"
     echo "E.g.: $0 1.0 0.0"
 else
+	mkdir -p output/vr/fullsbs
+
 	depth_scale="$1"
 	shift
 	depth_offset="$1"
@@ -94,7 +96,7 @@ else
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
-			if [ ! -e nextinputfile ] ; then
+			if [ ! -e $nextinputfile ] ; then
 				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."
 				exit
 			fi

@@ -41,6 +41,8 @@ elif test $# -ne 0 -a $# -ne 1; then
     echo "Usage: $0 [OVERRIDESUBPATH]"
     echo "E.g.: $0 /override"
 else
+	mkdir -p output/vr/scaling
+
 	if test $# -eq 1; then
 		OVERRIDESUBPATH="$1"
 		shift
@@ -109,7 +111,6 @@ else
 			
 			if [[ "$newfn" == *_x?* ]]; then
 				echo "Skipping $newfn (already scaled)"
-				mkdir -p output/vr/scaling
 				mv -fv $newfn output/vr/scaling
 			elif [ -e "$newfn" ]
 			then
