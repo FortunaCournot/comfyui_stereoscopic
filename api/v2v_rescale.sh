@@ -20,6 +20,7 @@
 # - Wait until comfyui is done, then call created script manually.
 
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
+if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=

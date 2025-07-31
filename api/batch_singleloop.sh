@@ -7,6 +7,7 @@
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
+if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 # relative to COMFYUIPATH:

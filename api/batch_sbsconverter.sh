@@ -6,6 +6,7 @@
 
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
+if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh 

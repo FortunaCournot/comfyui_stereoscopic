@@ -19,6 +19,7 @@
 # - Waits until comfyui is done, then call created script.
 
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
+if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # API relative to COMFYUIPATH, or absolute path:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_dubbing.py
@@ -67,8 +68,6 @@ else
 		touch "$CONFIGFILE"
 		echo "config_version=1">>"$CONFIGFILE"
 	fi
-
-	COMFYUIPATH=`pwd`
 
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
