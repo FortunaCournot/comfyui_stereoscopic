@@ -9,46 +9,88 @@ COMFYUIPATH=`realpath $(dirname "$0")/../..`
 cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+if [ -e $CONFIGFILE ] ; then
+	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	if [ $config_version -ne 2 ]; then
+		mv -f $CONFIGFILE $CONFIGFILE-$config_version.bak
+	fi
+fi
+
 if [ ! -e $CONFIGFILE ] ; then
 	mkdir -p ./user/default/comfyui_stereoscopic
 	touch "$CONFIGFILE"
+	
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
-	echo "config_version=1">>"$CONFIGFILE"
-	echo "# not fully implemented yet.  -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x), keep intermediate. ">>"$CONFIGFILE"			
+	echo "config_version=2">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
+	echo "# Loglevel is not fully implemented overall yet.  -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x), keep intermediate. ">>"$CONFIGFILE"			
 	echo "loglevel=0">>"$CONFIGFILE"			
+	echo "">>"$CONFIGFILE"
+	
 	echo "# Set PIPELINE_AUTOFORWARD to 0 to disable it">>"$CONFIGFILE"
-	echo "PIPELINE_AUTOFORWARD=1">>"$CONFIGFILE"			
+	echo "PIPELINE_AUTOFORWARD=1">>"$CONFIGFILE"
+	
 	echo "# --- comfyui server config ---">>"$CONFIGFILE"
 	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
 	echo "COMFYUIPORT=8188">>"$CONFIGFILE"
-	echo "# --- video config ---">>"$CONFIGFILE"
-	echo "# If not in systempath set ffmpeg path without trailing /">>"$CONFIGFILE"
-	echo "FFMPEGPATHPREFIX=">>"$CONFIGFILE"
-	echo "MAXFPS=30">>"$CONFIGFILE"
-	echo "VIDEO_FORMAT=video/h264-mp4">>"$CONFIGFILE"
-	echo "VIDEO_PIXFMT=yuv420p">>"$CONFIGFILE"
-	echo "VIDEO_CRF=17">>"$CONFIGFILE"
-	echo "# --- scaling config ---">>"$CONFIGFILE"
-	echo "UPSCALEMODELx4=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
-	echo "RESCALEx4=1.0">>"$CONFIGFILE"
-	echo "UPSCALEMODELx2=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
-	echo "RESCALEx2=0.5">>"$CONFIGFILE"
-	echo "SCALEBLENDFACTOR=0.7">>"$CONFIGFILE"
-	echo "SCALESIGMARESOLUTION=1920.0">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+
 	echo "# --- sbs converter config ---">>"$CONFIGFILE"
+	echo "# Depth-Effect Strengthness. Normalized, Values over 1 make it stronger, lower than 1 weaker.">>"$CONFIGFILE"
 	echo "SBS_DEPTH_SCALE=1.25">>"$CONFIGFILE"
+	echo "# Depth Placement. Normalized. Values over 0 make it appear closer, lower than 0 farer away. Absolute values higher than depth scale make it appear extremer.">>"$CONFIGFILE"
 	echo "SBS_DEPTH_OFFSET=0.0">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
+	echo "# Used depth model by comfyui_controlnet_aux">>"$CONFIGFILE"
 	if [ -e custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant ] ; then
 		echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitg.pth">>"$CONFIGFILE"
 	else
 		echo "# depth_anything_v2_vitg.pth installed ?">>"$CONFIGFILE"
 		echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitl.pth">>"$CONFIGFILE"
 	fi
+	echo "">>"$CONFIGFILE"
+	
+	echo "# --- video config ---">>"$CONFIGFILE"
+	echo "# If not in systempath set ffmpeg path without trailing /">>"$CONFIGFILE"
+	echo "FFMPEGPATHPREFIX=">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
+	echo "# Limits the framerate of video processing, has influence on memory consumption.">>"$CONFIGFILE"
+	echo "MAXFPS=30">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
+	echo "# --- Video Output configuration. Not used everywhere yet. ---">>"$CONFIGFILE"
+	echo "VIDEO_FORMAT=video/h264-mp4">>"$CONFIGFILE"
+	echo "VIDEO_PIXFMT=yuv420p">>"$CONFIGFILE"
+	echo "VIDEO_CRF=17">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
+	echo "# --- scaling config ---">>"$CONFIGFILE"
+	echo "# x4 configuration">>"$CONFIGFILE"
+	echo "UPSCALEMODELx4=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
+	echo "RESCALEx4=1.0">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
+	echo "# x2 configuration. x4 models need rescaling">>"$CONFIGFILE"
+	echo "UPSCALEMODELx2=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
+	echo "RESCALEx2=0.5">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
+	echo "# percentage of Scaled AI image used against original input. Setting it to 1.0 will not use original input.">>"$CONFIGFILE"
+	echo "SCALEBLENDFACTOR=0.7">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
+	echo "# Internal normalizing resolution for bluring.">>"$CONFIGFILE"
+	echo "SCALESIGMARESOLUTION=1920.0">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+	
 	echo "# --- dubbing config ---">>"$CONFIGFILE"
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
-	# TODO:
 	echo "SPLITSEGMENTTIME=1">>"$CONFIGFILE"
 	echo "MAXDUBBINGSEGMENTTIME=64">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
 
 
 	if ! command -v ffmpeg >/dev/null 2>&1
@@ -153,13 +195,11 @@ fi
 if [ ! -d custom_nodes/comfyui-florence2 ]; then
 	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-Florence2 could not be found. Use Custom Nodes Manager to install v1.0.5."
 fi
-if [ ! -d custom_nodes/ComfyUI-MMAudio ] ; then
-	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found at $COMFYUIPATH/custom_nodes/ComfyUI-MMAudio"
-	[ $loglevel -ge 0 ] && echo -e $"It must be installed manually from \e[36mhttps://github.com/hkchengrex/MMAudio\e[0m"
+if [ ! -d custom_nodes/comfyui-mmaudio ] ; then
+	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found. Use Custom Nodes Manager to install v1.0.2."
 fi
-if [ ! -d custom_nodes/was-node-suite-comfyui ] ; then
-	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes was-node-suite could not be found at $COMFYUIPATH/custom_nodes/was-node-suite-comfyui"
-	[ $loglevel -ge 0 ] && echo -e $"It must be installed manually from \e[36mhttps://github.com/WASasquatch/was-node-suite-comfyui\e[0m"
+if [ ! -d custom_nodes/was-ns ] ; then
+	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes WAS Node Suite (Revised) could not be found. Use Custom Nodes Manager to install v3.0.0."
 fi
 
 CONFIGPATH=user/default/comfyui_stereoscopic
