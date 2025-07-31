@@ -222,13 +222,13 @@ else
 		mkdir -p input/vr/scaling input/vr/fullsbs
 		# scaling -> fullsbs
 		GLOBIGNORE="*_SBS_LR*.*"
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs  >/dev/null 2>&1
 		# slides -> fullsbs
 		GLOBIGNORE="*_SBS_LR*.*"
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 		# dubbing -> scaling
 		GLOBIGNORE="*_x?*.mp4"
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] mv -f output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
 		unset GLOBIGNORE		
 
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
