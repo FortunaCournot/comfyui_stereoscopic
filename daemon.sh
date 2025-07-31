@@ -208,12 +208,15 @@ else
 	./custom_nodes/comfyui_stereoscopic/api/status.sh
 	[ $loglevel -ge 0 ] && echo " "
 	
+	INITIALRUN=TRUE
 	while true;
 	do
 		# happens every iteration since daemon is responsibe to initially create config and detect comfyui changes
 		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 		export COMFYUIHOST COMFYUIPORT
+
+		[ $loglevel -ge 0 ] && [[ ! -z "$INITIALRUN" ]] && echo "Using ComfyUI on $COMFYUIHOST port $COMFYUIPORT" && INITIALRUN=
 
 		# GLOBAL: move output to next stage input (This must happen in batch_all per stage, too)
 		mkdir -p input/vr/scaling input/vr/fullsbs
@@ -237,6 +240,7 @@ else
 				[ $loglevel -ge 0 ] && echo ""
 				SERVERERROR=
 			fi
+
 			
 			SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
@@ -256,6 +260,8 @@ else
 				sleep 1
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
 				[ $loglevel -ge 0 ] && echo "****************************************************"
+				[ $loglevel -ge 0 ] && echo "Using ComfyUI on $COMFYUIHOST port $COMFYUIPORT"
+				
 				./custom_nodes/comfyui_stereoscopic/api/status.sh				
 				[ $loglevel -ge 0 ] && echo " "
 			else
