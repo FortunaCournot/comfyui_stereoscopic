@@ -59,7 +59,7 @@ prompt_text = """
         0
       ]
     },
-    "class_type": "ImageSBSConverter",
+    "class_type": "ImageVRConverter",
     "_meta": {
       "title": "Convert to Side-by-Side"
     }
@@ -71,7 +71,7 @@ prompt_text = """
         0
       ]
     },
-    "class_type": "GetResolutionForDepth",
+    "class_type": "GetResolutionForVR",
     "_meta": {
       "title": "Get Resolution"
     }

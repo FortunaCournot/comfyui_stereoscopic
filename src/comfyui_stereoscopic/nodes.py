@@ -10,36 +10,36 @@ if current_dir not in sys.path:
 # Import our implementations
 
 try:
-    from converter import ImageSBSConverter
-    print("Successfully imported ImageSBSConverter")
+    from converter import ImageVRConverter
+    print("[comfyui_stereoscopic] Successfully imported ImageVRConverter")
 except ImportError as e:
-    print(f"Error importing ImageSBSConverter: {e}")
+    print(f"[comfyui_stereoscopic] Error importing ImageVRConverter: {e}")
 
     # Create a placeholder class
-    class ImageSBSConverter:
+    class ImageVRConverter:
         @classmethod
         def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading ImageSBSConverter"})}}
+            return {"required": {"error": ("STRING", {"default": "Error loading ImageVRConverter"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
-        CATEGORY = "VR we are!"
+        CATEGORY = "Stereoscopic (VR we are!)"
         def error(self, error):
             return (f"ERROR: {error}",)
 
 try:
-    from tools import GetResolutionForDepth
-    print("Successfully imported ImageSBSConverter")
+    from tools import GetResolutionForVR
+    print("[comfyui_stereoscopic] Successfully imported GetResolutionForVR")
 except ImportError as e:
-    print(f"Error importing GetResolutionForDepth: {e}")
+    print(f"[comfyui_stereoscopic] Error importing GetResolutionForVR: {e}")
 
     # Create a placeholder class
-    class GetResolutionForDepth:
+    class GetResolutionForVR:
         @classmethod
         def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading GetResolutionForDepth"})}}
+            return {"required": {"error": ("STRING", {"default": "Error loading GetResolutionForVR"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
-        CATEGORY = "VR we are!"
+        CATEGORY = "Stereoscopic (VR we are!)"
         def error(self, error):
             return (f"ERROR: {error}",)
 
@@ -48,13 +48,13 @@ except ImportError as e:
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 NODE_CLASS_MAPPINGS = {
-    "ImageSBSConverter" : ImageSBSConverter,
-    "GetResolutionForDepth" : GetResolutionForDepth
+    "ImageVRConverter" : ImageVRConverter,
+    "GetResolutionForVR" : GetResolutionForVR
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "ImageSBSConverter": "Convert to Side-by-Side",
-    "GetResolutionForDepth": "Get Resolution"
+    "ImageVRConverter": "Convert to Side-by-Side",
+    "GetResolutionForVR": "Get Resolution"
 }
 

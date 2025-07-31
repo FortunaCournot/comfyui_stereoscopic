@@ -146,7 +146,7 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
     return sbs_result
 
 
-class ImageSBSConverter:
+class ImageVRConverter:
     #def __init__(self):
     #    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #    self.depth_model = None

@@ -2,7 +2,7 @@ import torch
 
 
 
-class GetResolutionForDepth:
+class GetResolutionForVR:
     @classmethod
     def INPUT_TYPES(cls):
         return {
