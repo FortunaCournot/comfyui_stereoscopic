@@ -50,17 +50,11 @@ elif [ -d "custom_nodes" ]; then
 	### CHECK FOR OPTIONAL NODE PACKAGES ###
 	DUBBING_DEP_ERROR=
 	if [ ! -d custom_nodes/comfyui-florence2 ]; then
-		echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-Florence2 could not be found. Use Custom Nodes Manager to install v1.0.5."
+		echo -e $"\e[91mError:\e[0m Custom nodes ComfyUI-Florence2 could not be found."
 		DUBBING_DEP_ERROR="x"
 	fi
-	if [ ! -d custom_nodes/ComfyUI-MMAudio ] ; then
-		echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found at $COMFYUIPATH/custom_nodes/ComfyUI-MMAudio"
-		echo -e $"It must be installed manually from \e[36mhttps://github.com/hkchengrex/MMAudio\e[0m"
-		DUBBING_DEP_ERROR="x"
-	fi
-	if [ ! -d custom_nodes/was-node-suite-comfyui ] ; then
-		echo -e $"\e[93mWarning:\e[0m Custom nodes was-node-suite could not be found at $COMFYUIPATH/custom_nodes/was-node-suite-comfyui"
-		echo -e $"It must be installed manually from \e[36mhttps://github.com/WASasquatch/was-node-suite-comfyui\e[0m"
+	if [ ! -d custom_nodes/comfyui-mmaudio ] ; then
+		echo -e $"\e[91mError:\e[0m Custom nodes ComfyUI-MMAudio could not be found."
 		DUBBING_DEP_ERROR="x"
 	fi
 	
@@ -170,12 +164,15 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "****** DUBBING SFX *******"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh
+	elif [ $DUBCOUNTSFX -gt 0 ]; then
+		mkdir -p input/vr/dubbing/sfx/error
+		mv -fv input/vr/dubbing/sfx/*.mp4 input/vr/dubbing/sfx/error
 	fi
 
 	#dubbing -> scaling
-	GLOBIGNORE="*_x?*.mp4"
-	[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -fv output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
-	unset GLOBIGNORE		
+	#GLOBIGNORE="*_x?*.mp4"
+	#[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -fv output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
+	#unset GLOBIGNORE		
 	
 
 else

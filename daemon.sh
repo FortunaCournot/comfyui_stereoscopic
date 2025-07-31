@@ -198,9 +198,7 @@ fi
 if [ ! -d custom_nodes/comfyui-mmaudio ] ; then
 	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found. Use Custom Nodes Manager to install v1.0.2."
 fi
-if [ ! -d custom_nodes/was-ns ] ; then
-	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes WAS Node Suite (Revised) could not be found. Use Custom Nodes Manager to install v3.0.0."
-fi
+
 
 CONFIGPATH=user/default/comfyui_stereoscopic
 POSITIVESFXPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
@@ -267,8 +265,9 @@ else
 		GLOBIGNORE="*_SBS_LR*.*"
 		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 		# dubbing -> scaling
-		GLOBIGNORE="*_x?*.mp4"
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
+		#GLOBIGNORE="*_x?*.mp4"
+		#[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
+		
 		unset GLOBIGNORE		
 
 		# FAILSAFE
