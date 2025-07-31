@@ -159,18 +159,22 @@ else
 			TARGETPREFIX=${TARGETPREFIX##*/}
 			FINALTARGET="output/vr/fullsbs/""$TARGETPREFIX"".png"
 			echo "Moving to $FINALTARGET"
+			sync
 			sleep 1 # Device or resource busy
 			if [ -e "$INTERMEDIATE" ]; then
-				mv -fv "$INTERMEDIATE" "$FINALTARGET"
-				if [ -e "$FINALTARGET" ]; then
-					if [ -e "$INPUT" ]; then
-						mkdir -p input/vr/fullsbs/done
-						mv -fv "$ORIGINALINPUT" input/vr/fullsbs/done
-					else
-						echo -e $"\e[93mWarning:\e[0m Input file to cleanup not found: $INPUT"
+				while [ -e "$INTERMEDIATE" ]; do
+					sleep 1
+					mv -fv "$INTERMEDIATE" "$FINALTARGET"
+					if [ -e "$FINALTARGET" ]; then
+						if [ -e "$INPUT" ]; then
+							mkdir -p input/vr/fullsbs/done
+							mv -fv "$ORIGINALINPUT" input/vr/fullsbs/done
+						else
+							echo -e $"\e[93mWarning:\e[0m Input file to cleanup not found: $INPUT"
+						fi
+						echo -e $"\e[92mdone\e[0m in $secs""s.                      "
 					fi
-					echo -e $"\e[92mdone\e[0m in $secs""s.                      "
-				fi
+				done
 			else
 				echo -e $"\e[91mError:\e[0m Result file not found: $INTERMEDIATE"
 				mkdir -p input/vr/fullsbs/error
