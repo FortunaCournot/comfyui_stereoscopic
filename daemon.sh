@@ -231,6 +231,9 @@ else
 		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
 		unset GLOBIGNORE		
 
+		# FAILSAFE
+		mv -f input/vr/fullsbs/*_SBS_LR*.* output/vr/fullsbs  >/dev/null 2>&1
+		
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ]; then
 			echo -ne $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT\r"
