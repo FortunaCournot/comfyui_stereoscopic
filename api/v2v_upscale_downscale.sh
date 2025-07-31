@@ -214,7 +214,7 @@ else
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 					exit
 				fi
-				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION" "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
+				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION" "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF" ; echo -ne $"\e[0m"
 			fi
 		done
 		[ $loglevel -ge 1 ] && echo "Jobs running...   "

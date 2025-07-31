@@ -226,7 +226,7 @@ else
 					
 					echo $NOLINE "Prompting $p/$PARALLELITY: segment $dindex/$SEGCOUNT$itertimemsg           \r"
 					
-					"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR"/$p/dubsegment $AUDIOSEGMENTLENGTH "$POSITIVEPATH" "$NEGATIVEPATH" "$FLORENCE2MODEL"
+					echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR"/$p/dubsegment $AUDIOSEGMENTLENGTH "$POSITIVEPATH" "$NEGATIVEPATH" "$FLORENCE2MODEL" ; echo -ne $"\e[0m"
 					
 					queuecount=
 					until [ "$queuecount" = "0" ]

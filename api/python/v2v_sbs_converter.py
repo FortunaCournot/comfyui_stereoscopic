@@ -2,7 +2,7 @@
 
 import json
 import sys
-from urllib import request
+import requests
 import os
 
 #This is the ComfyUI api prompt format.
@@ -315,18 +315,10 @@ prompt_text = """
 """
 
 def queue_prompt(prompt):
-    p = {"prompt": prompt}
+    response = requests.post("http://"+os.environ["COMFYUIHOST"]+":"+os.environ["COMFYUIPORT"]+"/prompt", json={"prompt": prompt})
+    if response.status_code != 200:
+        print(response.status_code, response.text)
 
-    # If the workflow contains API nodes, you can add a Comfy API key to the `extra_data`` field of the payload.
-    # p["extra_data"] = {
-    #     "api_key_comfy_org": "comfyui-87d01e28d*******************************************************"  # replace with real key
-    # }
-    # See: https://docs.comfy.org/tutorials/api-nodes/overview
-    # Generate a key here: https://platform.comfy.org/login
-
-    data = json.dumps(p).encode('utf-8')
-    req =  request.Request("http://"+os.environ["COMFYUIHOST"]+":"+os.environ["COMFYUIPORT"]+"/prompt", data=data)
-    request.urlopen(req)
 
 if len(sys.argv) != 8 + 1:
    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset InputVideoPath OutputPathPrefix videoformat videopixfmt videocrf")

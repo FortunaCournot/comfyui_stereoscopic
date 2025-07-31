@@ -126,7 +126,7 @@ else
 		then
 			echo "Generating to $TARGETPREFIX ..."
 			
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX"
+			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX" ; echo -ne $"\e[0m"
 			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
 			rm -f $TARGETPREFIX*.png
 			mkdir -p input/vr/fullsbs/done

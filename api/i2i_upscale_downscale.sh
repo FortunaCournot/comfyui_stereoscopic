@@ -138,7 +138,7 @@ else
 	
 		echo -ne "Prompting ..."
 		rm -f output/vr/scaling/tmpscaleresult*.png
-		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" vr/scaling/tmpscaleresult $UPSCALEMODEL $DOWNSCALE $SCALEBLENDFACTOR $SCALESIGMARESOLUTION
+		echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$INPUT" vr/scaling/tmpscaleresult $UPSCALEMODEL $DOWNSCALE $SCALEBLENDFACTOR $SCALESIGMARESOLUTION ; echo -ne $"\e[0m"
 		
 		echo -ne "Waiting for queue to finish..."
 		sleep 2  # Give some extra time to start...
