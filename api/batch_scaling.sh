@@ -55,7 +55,7 @@ else
 	[ $loglevel -ge 1 ] && echo "Video Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		VIDEOFILES=input/vr/scaling/*.mp4 input/vr/scaling/*.webm
+		VIDEOFILES=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT

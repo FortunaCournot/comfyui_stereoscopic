@@ -57,7 +57,7 @@ else
 	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		VIDEOFILES=input/vr/fullsbs/*.mp4 input/vr/fullsbs/*.webm
+		VIDEOFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
@@ -91,8 +91,8 @@ else
 		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
 	fi	
 	
-	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM'`
-	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
+	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
+	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
