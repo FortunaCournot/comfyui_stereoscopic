@@ -65,7 +65,7 @@ prompt_text = """
         0
       ],
       "negative_prompt": [
-        "195",
+        "202",
         0
       ],
       "mask_away_clip": false,
@@ -187,7 +187,7 @@ prompt_text = """
   },
   "192": {
     "inputs": {
-      "expression": "min(a,64)*25",
+      "expression": "min(a,128)*25",
       "a": [
         "191",
         0
@@ -205,7 +205,7 @@ prompt_text = """
         2
       ],
       "string_b": [
-        "194",
+        "201",
         0
       ],
       "delimiter": " "
@@ -213,26 +213,6 @@ prompt_text = """
     "class_type": "StringConcatenate",
     "_meta": {
       "title": "Concatenate"
-    }
-  },
-  "194": {
-    "inputs": {
-      "file_path": "",
-      "dictionary_name": "[filename]"
-    },
-    "class_type": "Load Text File",
-    "_meta": {
-      "title": "Input - Load Text File - Positive"
-    }
-  },
-  "195": {
-    "inputs": {
-      "file_path": "",
-      "dictionary_name": "[filename]"
-    },
-    "class_type": "Load Text File",
-    "_meta": {
-      "title": "Input - Load Text File - Negative"
     }
   },
   "198": {
@@ -245,6 +225,24 @@ prompt_text = """
     "class_type": "DownloadAndLoadFlorence2Model",
     "_meta": {
       "title": "DownloadAndLoadFlorence2Model"
+    }
+  },
+  "201": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Prompt Added"
+    }
+  },
+  "202": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Negative Prompt"
     }
   }
 }
@@ -259,11 +257,18 @@ def queue_prompt(prompt):
 
 if len(sys.argv) == 1 + 6:
     prompt = json.loads(prompt_text)
+    
+    with open(sys.argv[4], "r") as file:
+        positive = file.read().replace("\n", " ")
+
+    with open(sys.argv[5], "r") as file:
+        negative = file.read().replace("\n", " ")
+
     prompt["178"]["inputs"]["video"] = sys.argv[1]
     prompt["174"]["inputs"]["filename_prefix"] = sys.argv[2] 
     prompt["191"]["inputs"]["value"] = int(sys.argv[3])
-    prompt["194"]["inputs"]["file_path"] = sys.argv[4]
-    prompt["195"]["inputs"]["file_path"] = sys.argv[5]
+    prompt["201"]["inputs"]["value"] = positive
+    prompt["202"]["inputs"]["value"] = negative
     prompt["198"]["inputs"]["model"] = sys.argv[6]
     
     queue_prompt(prompt)
