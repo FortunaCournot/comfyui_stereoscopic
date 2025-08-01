@@ -227,7 +227,6 @@ else
 		exit
 	fi
 
-	
 	echo ""
 	[ $loglevel -ge 0 ] && echo -e $"\e[97m\e[1mStereoscopic Pipeline Processing started. $VERSION\e[0m"
 	[ $loglevel -ge 0 ] && echo -e $"\e[2m"
