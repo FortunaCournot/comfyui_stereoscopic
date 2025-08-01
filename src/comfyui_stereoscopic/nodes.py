@@ -22,7 +22,7 @@ except ImportError as e:
             return {"required": {"error": ("STRING", {"default": "Error loading ImageVRConverter"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
-        CATEGORY = "Stereoscopic (VR we are!)"
+        CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
 
@@ -39,7 +39,7 @@ except ImportError as e:
             return {"required": {"error": ("STRING", {"default": "Error loading GetResolutionForVR"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
-        CATEGORY = "Stereoscopic (VR we are!)"
+        CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
 
