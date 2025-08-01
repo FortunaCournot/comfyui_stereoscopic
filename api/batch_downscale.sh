@@ -1,17 +1,15 @@
 #!/bin/sh
 #
-# v2v_singleloop.sh
+# batch_downscale.sh
 #
-# Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio.
+# downscale a video (input).
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
-# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_singleloop.sh 
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
@@ -41,17 +39,25 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
-	mkdir -p output/vr/singleloop/intermediate
-	mkdir -p input/vr/singleloop/done
+	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+
+	TARGETSIZE="4K"
+
+	mkdir -p output/vr/downscale/$TARGETSIZE
+	mkdir -p output/vr/downscale/$TARGETSIZE/intermediate
+	mkdir -p input/vr/downscale/$TARGETSIZE/done
 	
-	IMGFILES=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4'`
-	COUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=`find input/vr/downscale/$TARGETSIZE -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 	
-		for nextinputfile in input/vr/singleloop/*.mp4 ; do
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "****** DOWNSCALING *******"
+		[ $loglevel -ge 1 ] && echo "**************************"
+	
+		for nextinputfile in input/vr/downscale/$TARGETSIZE/*.mp4 ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT" >input/vr/singleloop/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -59,22 +65,39 @@ fi
 			newfn=$newfn
 			mv "$nextinputfile" $newfn 
 			
+			regex="[^/]*$"
+			echo "$INDEX/$COUNT: downscale "`echo $newfn | grep -oP "$regex"`
+			
 			if [ -e "$newfn" ]
 			then
+				WIDTH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $newfn`
+				HEIGHT=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $newfn`
+				
+				TARGETDIM=3840
+				
+				if [ $WIDTH -ge $HEIGHT ] ; then
+					TARGETSCALEOPT=scale=$TARGETDIM:-2
+				else
+					TARGETSCALEOPT=scale=-2:$TARGETDIM
+				fi
+				
 				TARGETPREFIX=${newfn##*/}
 				TARGETPREFIX=${TARGETPREFIX%.mp4}
-				TARGETPREFIX=${TARGETPREFIX//"_dub"/}
-				INTERMEDIATEFILE=`realpath "output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"`
-				/bin/bash $SCRIPTPATH  $INTERMEDIATEFILE `realpath "$newfn"`
+				INTERMEDIATEFILE=`realpath "output/vr/downscale/4k/intermediate/downscaled.mp4"`
+				
+				#nice "$FFMPEGPATHPREFIX"
+				set -x
+				ffmpeg -hide_banner -loglevel error -y -i "$newfn" -filter:v $TARGETSCALEOPT -c:a copy "$INTERMEDIATEFILE"
+				set +x
 				
 				if [ -e $INTERMEDIATEFILE ]
 				then
-					mv -- $INTERMEDIATEFILE output/vr/singleloop/$TARGETPREFIX"_loop.mp4"
-					mv -- $newfn input/vr/singleloop/done
+					mv -f -- "$INTERMEDIATEFILE" "output/vr/downscale/$TARGETSIZE/$TARGETPREFIX""_$TARGETSIZE.mp4"
+					mv -fv -- $newfn input/vr/downscale/$TARGETSIZE/done
 				else
 					echo -e $"\e[91mError:\e[0m creating loop failed. Missing file: output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"
-					mkdir -p input/vr/singleloop/error
-					mv -- $newfn input/vr/singleloop/error
+					mkdir -p input/vr/downscale/$TARGETSIZE/error
+					mv -- $newfn input/vr/downscale/$TARGETSIZE/error
 				fi
 			else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
@@ -82,6 +105,5 @@ fi
 			
 		done
 	fi
-	rm -f input/vr/singleloop/BATCHPROGRESS.TXT
 	echo "Batch done.                             "
 fi

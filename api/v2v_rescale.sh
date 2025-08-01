@@ -131,7 +131,7 @@ then
 	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
 	echo "fi" >>"$UPSCALEDIR/concat.sh"
 	echo "mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
-	echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
+	echo "mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
 	echo "cd .." >>"$UPSCALEDIR/concat.sh"
 	echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
 	echo "echo done." >>"$UPSCALEDIR/concat.sh"

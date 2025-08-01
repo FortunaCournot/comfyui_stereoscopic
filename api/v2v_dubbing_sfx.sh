@@ -289,7 +289,7 @@ else
 	echo "Prompting done, dubbing...                               "
 	
 	if [ -e "$DUBBINGDIR/merged.flac" ]; then
-		mv $DUBBINGDIR/merged.flac "$TARGETPREFIX"".flac"
+		mv -- $DUBBINGDIR/merged.flac "$TARGETPREFIX"".flac"
 		
 		TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
 		AUDIOMAPOPT="-map 0:a:0"

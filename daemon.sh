@@ -92,9 +92,10 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "MAXDUBBINGSEGMENTTIME=64">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
-	mkdir input/vr/dubbing
+	mkdir -p input/vr/dubbing input/vr/downscale
 	echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >>input/vr/dubbing/README.TXT
-	
+	cp input/vr/dubbing/README.TXT input/vr/downscale/README.TXT
+
 	if ! command -v ffmpeg >/dev/null 2>&1
 	then
 		echo -e $"\e[91mError:\e[0m ffmpeg could not be found in systempath."
@@ -217,7 +218,7 @@ then
 	echo "Usage: $0 "
 	echo "E.g.: $0 "
 else
-	mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat
+	mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K
 	SERVERERROR=
 	
 	if [ -e custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then
@@ -314,6 +315,12 @@ else
 				sleep 1
 			fi
 		fi
+		
+		DOWNSCALECOUNT=`find input/vr/downscale/4K -maxdepth 1 -type f -name '*.mp4' | wc -l`
+		if [[ $DOWNSCALECOUNT -gt 0 ]]; then
+			./custom_nodes/comfyui_stereoscopic/api/batch_downscale.sh
+		fi
+		
 	done #KILL ME
 fi
 [ $loglevel -ge 0 ] && set +x

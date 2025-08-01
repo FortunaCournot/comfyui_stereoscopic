@@ -166,7 +166,7 @@ else
 			NEWTARGET="${SPLITINPUT%.*}"".mp4"
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SPLITINPUT" "$NEWTARGET"
 			SPLITINPUT=$NEWTARGET
-			mv $SPLITINPUT $SEGDIR
+			mv -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`		
 		fi		
 		
@@ -259,7 +259,7 @@ else
 		echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$UPSCALEDIR/concat.sh"
 		echo "then" >>"$UPSCALEDIR/concat.sh"
 		echo "mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
-		echo "mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
+		echo "mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
 		echo "cd .." >>"$UPSCALEDIR/concat.sh"
 		echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
 		echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$UPSCALEDIR/concat.sh"

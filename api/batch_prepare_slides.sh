@@ -128,7 +128,7 @@ else
 					RESULT="$SCALINGINTERMEDIATE"
 					
 					if [ -e "$RESULT" ]; then
-						mv $RESULT $TARGETFOLDER/$TARGETPREFIX".png"
+						mv -- $RESULT $TARGETFOLDER/$TARGETPREFIX".png"
 						rm "$SCRIPTRESULT"
 						mv -f "$newfn" input/vr/slides/done
 						echo -e $"\e[92mdone.\e[0m"

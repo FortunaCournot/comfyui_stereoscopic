@@ -108,7 +108,7 @@ else
 		NEWTARGET="${SPLITINPUT%.*}"".mp4"
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SPLITINPUT" "$NEWTARGET"
 		SPLITINPUT=$NEWTARGET
-		mv $SPLITINPUT $SEGDIR
+		mv -- $SPLITINPUT $SEGDIR
 		SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`		
 	fi
 
@@ -124,14 +124,14 @@ else
 			echo "H-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
-			mv $SPLITINPUT $SEGDIR
+			mv -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
 		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT` -gt 2160 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT` -gt  3840
 		then 
 			echo "V-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
-			mv $SPLITINPUT $SEGDIR
+			mv -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
 		fi
 
@@ -225,7 +225,7 @@ else
 	echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$SBSDIR/concat.sh"
 	echo "then" >>"$SBSDIR/concat.sh"
 	echo "    mkdir -p $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
-	echo "    mv $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
+	echo "    mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
 	echo "    cd .." >>"$SBSDIR/concat.sh"
 	echo "    rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
 	echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$SBSDIR/concat.sh"
