@@ -24,6 +24,7 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
+
 echo -e $"\e[4m+++ Summary of Disk Usage +++\e[0m"
 du -s -BG *put/vr
 echo " "

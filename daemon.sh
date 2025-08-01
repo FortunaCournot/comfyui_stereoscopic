@@ -92,7 +92,9 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "MAXDUBBINGSEGMENTTIME=64">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
-
+	mkdir input/vr/dubbing
+	echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >>input/vr/dubbing/README.TXT
+	
 	if ! command -v ffmpeg >/dev/null 2>&1
 	then
 		echo -e $"\e[91mError:\e[0m ffmpeg could not be found in systempath."
@@ -194,11 +196,14 @@ fi
 ### CHECK FOR OPTIONAL NODE PACKAGES ###
 if [ ! -d custom_nodes/comfyui-florence2 ]; then
 	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-Florence2 could not be found. Use Custom Nodes Manager to install v1.0.5."
+	CONFIGERROR="x"
 fi
 if [ ! -d custom_nodes/comfyui-mmaudio ] ; then
 	[ $loglevel -ge 0 ] && echo -e $"\e[93mWarning:\e[0m Custom nodes ComfyUI-MMAudio could not be found. Use Custom Nodes Manager to install v1.0.2."
+	CONFIGERROR="x"
 fi
 
+columns=$(tput cols)
 
 CONFIGPATH=user/default/comfyui_stereoscopic
 POSITIVESFXPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
@@ -236,11 +241,9 @@ else
 	[ $loglevel -ge 0 ] && echo -e $"\e[97m\e[1mStereoscopic Pipeline Processing started. $VERSION\e[0m"
 	[ $loglevel -ge 0 ] && echo -e $"\e[2m"
 	[ $loglevel -ge 0 ] && echo "Waiting for your files to be placed in folders:"
-	[ $loglevel -ge 0 ] && echo " - To create a VR video:  input/vr/dubbing" 
-	[ $loglevel -ge 0 ] && echo " - To create a VR slides: input/vr/slides" 
-	[ $loglevel -ge 0 ] && echo "The results will be saved to output/vr/fullsbs" 
-	[ $loglevel -ge 0 ] && echo -e $"For other processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
+	[ $loglevel -ge 0 ] && echo -e $"For processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
 	[ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
+	[ $columns -lt 100 ] &&	CONFIGERROR="x"  && echo -e $"\e[93mWarning:\e[0m Shell windows has less than 100 columns. Got to options - Window and increate it."
 	[ $loglevel -ge 0 ] && echo "" 
 	
 	./custom_nodes/comfyui_stereoscopic/api/status.sh
