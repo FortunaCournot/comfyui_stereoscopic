@@ -84,7 +84,7 @@ elif [ -d "custom_nodes" ]; then
 
 	# scaling -> fullsbs
 	GLOBIGNORE="*_SBS_LR*.mp4"
-	[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG output/vr/scaling/*.webm output/vr/scaling/*.WEBM input/vr/fullsbs  >/dev/null 2>&1
+	[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG output/vr/scaling/*.webm output/vr/scaling/*.WEBM input/vr/fullsbs  >/dev/null 2>&1
 	unset GLOBIGNORE		
 
 
@@ -101,7 +101,7 @@ elif [ -d "custom_nodes" ]; then
 	
 	# slides -> fullsbs
 	GLOBIGNORE="*_SBS_LR*.*"
-	[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
+	[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 	unset GLOBIGNORE		
 	
 	
@@ -171,7 +171,7 @@ elif [ -d "custom_nodes" ]; then
 
 	#dubbing -> scaling
 	#GLOBIGNORE="*_x?*.mp4"
-	#[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -fv output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
+	#[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -fv -- output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
 	#unset GLOBIGNORE		
 	
 
