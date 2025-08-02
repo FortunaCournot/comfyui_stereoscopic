@@ -1,7 +1,7 @@
 # VR we are! (comfyui_stereoscopic nodes and scripts)
 ComfyUI Custom Nodes to create stereoscopic images and movies.
 
-Project Homepage with documentation and download is on Civitai: [I2I V2V Side-By-Side Converter Workflow comfyui_stereoscopic](https://civitai.com/models/1757677)
+Project Homepage with documentation and download is on Civitai: [![VR we are!](https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/advertising/VR-we-are-title.png)](https://civitai.com/models/1757677)
 
 ## Summary
 
@@ -22,4 +22,4 @@ For more details, please follow the documentation link above.
 
 ## Contact
 
-Discord: [Activation Link]([./docs/img/I2I-SBS-Workflow-Snapshot.png](https://discord.gg/ZegT6Cc8FG))
+Discord: [Activation Link](https://discord.gg/ZegT6Cc8FG)
