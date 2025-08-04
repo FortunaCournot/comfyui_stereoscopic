@@ -66,7 +66,7 @@ prompt_text = """
     },
     "class_type": "easy float",
     "_meta": {
-      "title": "Downscale"
+      "title": "Downscale factor"
     }
   },
   "187": {
@@ -136,26 +136,6 @@ prompt_text = """
       "title": "Normalize Sigma"
     }
   },
-  "191": {
-    "inputs": {
-      "sigmaX": [
-        "190",
-        1
-      ],
-      "sigmaY": [
-        "190",
-        1
-      ],
-      "image": [
-        "189",
-        0
-      ]
-    },
-    "class_type": "Blur (mtb)",
-    "_meta": {
-      "title": "Blur (mtb)"
-    }
-  },
   "192": {
     "inputs": {
       "scale_by": [
@@ -163,7 +143,7 @@ prompt_text = """
         0
       ],
       "images": [
-        "191",
+        "202",
         0
       ]
     },
@@ -187,7 +167,7 @@ prompt_text = """
   "194": {
     "inputs": {
       "blend_factor": [
-        "195",
+        "213",
         0
       ],
       "blend_mode": "normal",
@@ -205,22 +185,42 @@ prompt_text = """
       "title": "Image Blend"
     }
   },
-  "195": {
-    "inputs": {
-      "value": 0.7000000000000001
-    },
-    "class_type": "PrimitiveFloat",
-    "_meta": {
-      "title": "BlendFactor"
-    }
-  },
   "196": {
     "inputs": {
       "value": 1920
     },
     "class_type": "PrimitiveFloat",
     "_meta": {
-      "title": "SigmaResolution"
+      "title": "SigmaResolution (Normalizing constant)"
+    }
+  },
+  "202": {
+    "inputs": {
+      "blur_radius": [
+        "190",
+        0
+      ],
+      "sigma": [
+        "190",
+        1
+      ],
+      "image": [
+        "189",
+        0
+      ]
+    },
+    "class_type": "ImageBlur",
+    "_meta": {
+      "title": "Image Blur"
+    }
+  },
+  "213": {
+    "inputs": {
+      "Number": ".85"
+    },
+    "class_type": "Float",
+    "_meta": {
+      "title": "BlendFactor (AI weight)"
     }
   }
 }
@@ -239,7 +239,7 @@ if len(sys.argv) == 6 + 1:
     prompt["185"]["inputs"]["filename_prefix"] = sys.argv[2] 
     prompt["168"]["inputs"]["model_name"] = sys.argv[3]
     prompt["186"]["inputs"]["value"] = float(sys.argv[4])
-    prompt["195"]["inputs"]["value"] = float(sys.argv[5])
+    prompt["213"]["inputs"]["Number"] = float(sys.argv[5])
     prompt["196"]["inputs"]["value"] = float(sys.argv[6])
     
     queue_prompt(prompt)

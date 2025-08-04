@@ -79,7 +79,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "">>"$CONFIGFILE"
 	
 	echo "# percentage of Scaled AI image used against original input. Setting it to 1.0 will not use original input.">>"$CONFIGFILE"
-	echo "SCALEBLENDFACTOR=0.7">>"$CONFIGFILE"
+	echo "SCALEBLENDFACTOR=0.9">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# Internal normalizing resolution for bluring.">>"$CONFIGFILE"
