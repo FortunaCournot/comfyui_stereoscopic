@@ -91,6 +91,7 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
+	TARGETPREFIX_CALL=vr/scaling/intermediate/${TARGETPREFIX%.*}
 	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.*}
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	
@@ -118,12 +119,14 @@ else
 		if [ $PIXEL -lt $LIMIT2X ]; then
 			if [ $PIXEL -lt $LIMIT4X ]; then
 				TARGETPREFIX="$TARGETPREFIX""_x4"
+				TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x4"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 				UPSCALEFACTOR=4
 				[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
+				TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x2"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx2/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"0.5"}
 				UPSCALEFACTOR=2
@@ -135,6 +138,7 @@ else
 	else
 		[ $loglevel -ge 1 ] && echo "Forced Upscale $UPSCALEFACTOR"
 		TARGETPREFIX="$TARGETPREFIX""_x$UPSCALEFACTOR"
+		TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x$UPSCALEFACTOR"
 		UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 		DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 	fi
@@ -145,6 +149,7 @@ else
 		uuid=$(openssl rand -hex 16)
 		mkdir -p "$TARGETPREFIX"".tmpupscale"
 		SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
+		UPSCALEDIR_CALL="$TARGETPREFIX_CALL"".tmpupscale"
 		UPSCALEDIR=`realpath "$TARGETPREFIX"".tmpupscale"`
 		mkdir -p "$SEGDIR"
 		mkdir -p "$UPSCALEDIR"
@@ -225,7 +230,8 @@ else
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 					exit
 				fi
-				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION" "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF" ; echo -ne $"\e[0m"
+				# "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
+				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR_CALL"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION"  ; echo -ne $"\e[0m"
 			fi
 		done
 		[ $loglevel -ge 1 ] && echo "Jobs running...   "

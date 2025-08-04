@@ -16,172 +16,6 @@ import os
 #this is the one for the default workflow
 prompt_text = """
 {
-  "69": {
-    "inputs": {
-      "video": [
-        "159",
-        0
-      ],
-      "force_rate": 0,
-      "custom_width": 0,
-      "custom_height": 0,
-      "frame_load_cap": 0,
-      "skip_first_frames": [
-        "92",
-        0
-      ],
-      "select_every_nth": 1,
-      "format": "None",
-      "meta_batch": [
-        "70",
-        0
-      ]
-    },
-    "class_type": "VHS_LoadVideoPath",
-    "_meta": {
-      "title": "Load Video"
-    }
-  },
-  "70": {
-    "inputs": {
-      "frames_per_batch": [
-        "91",
-        0
-      ],
-      "count": 139
-    },
-    "class_type": "VHS_BatchManager",
-    "_meta": {
-      "title": "Meta Batch Manager"
-    }
-  },
-  "73": {
-    "inputs": {
-      "video_info": [
-        "105",
-        3
-      ]
-    },
-    "class_type": "VHS_VideoInfo",
-    "_meta": {
-      "title": "Video Info"
-    }
-  },
-  "87": {
-    "inputs": {
-      "expression": "(a + b - 1) / b",
-      "a": [
-        "73",
-        1
-      ],
-      "b": [
-        "88",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Batch Count"
-    }
-  },
-  "88": {
-    "inputs": {
-      "Number": "60"
-    },
-    "class_type": "Int",
-    "_meta": {
-      "title": "Frames per batch"
-    }
-  },
-  "90": {
-    "inputs": {
-      "from_this": 1,
-      "to_that": [
-        "87",
-        0
-      ],
-      "jump": 1
-    },
-    "class_type": "Bjornulf_LoopInteger",
-    "_meta": {
-      "title": "Loop (Integer)"
-    }
-  },
-  "91": {
-    "inputs": {
-      "expression": "b",
-      "a": [
-        "90",
-        0
-      ],
-      "b": [
-        "88",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Loop Body Trigger Node"
-    }
-  },
-  "92": {
-    "inputs": {
-      "expression": "(a - 1) * b",
-      "a": [
-        "90",
-        0
-      ],
-      "b": [
-        "87",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Loop: Skip Offset"
-    }
-  },
-  "105": {
-    "inputs": {
-      "video": [
-        "159",
-        0
-      ],
-      "force_rate": 0,
-      "custom_width": 0,
-      "custom_height": 0,
-      "frame_load_cap": 0,
-      "skip_first_frames": 0,
-      "select_every_nth": 1,
-      "format": "None"
-    },
-    "class_type": "VHS_LoadVideoPath",
-    "_meta": {
-      "title": "Pre-Load Video (Path) for Info"
-    }
-  },
-  "135": {
-    "inputs": {
-      "expression": "a + 0.1",
-      "a": [
-        "73",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Float2Int"
-    }
-  },
-  "159": {
-    "inputs": {
-      "value": ""
-    },
-    "class_type": "PrimitiveString",
-    "_meta": {
-      "title": "InputVideoPath"
-    }
-  },
   "160": {
     "inputs": {
       "value": ""
@@ -189,51 +23,6 @@ prompt_text = """
     "class_type": "PrimitiveString",
     "_meta": {
       "title": "OutputPathPrefix"
-    }
-  },
-  "164": {
-    "inputs": {
-      "frame_rate": [
-        "166",
-        1
-      ],
-      "loop_count": 0,
-      "filename_prefix": [
-        "160",
-        0
-      ],
-      "format": "video/h264-mp4",
-      "pix_fmt": "yuv420p",
-      "crf": 19,
-      "save_metadata": true,
-      "trim_to_audio": false,
-      "pingpong": false,
-      "save_output": true,
-      "images": [
-        "191",
-        0
-      ],
-      "audio": [
-        "105",
-        2
-      ]
-    },
-    "class_type": "VHS_VideoCombine",
-    "_meta": {
-      "title": "Video Combine"
-    }
-  },
-  "166": {
-    "inputs": {
-      "expression": "a",
-      "a": [
-        "135",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Math Expression"
     }
   },
   "168": {
@@ -245,22 +34,6 @@ prompt_text = """
       "title": "Load Upscale Model"
     }
   },
-  "169": {
-    "inputs": {
-      "upscale_model": [
-        "168",
-        0
-      ],
-      "image": [
-        "69",
-        0
-      ]
-    },
-    "class_type": "ImageUpscaleWithModel",
-    "_meta": {
-      "title": "Upscale Image (using Model)"
-    }
-  },
   "174": {
     "inputs": {
       "value": 1
@@ -270,27 +43,97 @@ prompt_text = """
       "title": "Downscale"
     }
   },
-  "182": {
+  "190": {
     "inputs": {
-      "scale_by": [
-        "174",
-        0
+      "value": 1920
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "SigmaResolution (Normalizing constant)"
+    }
+  },
+  "195": {
+    "inputs": {
+      "file": "",
+      "video-preview": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Load Video"
+    }
+  },
+  "198": {
+    "inputs": {
+      "fps": [
+        "200",
+        2
       ],
       "images": [
-        "185",
+        "214",
+        0
+      ],
+      "audio": [
+        "200",
+        1
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "199": {
+    "inputs": {
+      "filename_prefix": [
+        "160",
+        0
+      ],
+      "format": "mp4",
+      "codec": "h264",
+      "video-preview": "",
+      "video": [
+        "198",
         0
       ]
     },
-    "class_type": "easy imageScaleDownBy",
+    "class_type": "SaveVideo",
     "_meta": {
-      "title": "Image Scale Down By"
+      "title": "Save Video"
     }
   },
-  "183": {
+  "200": {
+    "inputs": {
+      "video": [
+        "195",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Get Video Components"
+    }
+  },
+  "205": {
+    "inputs": {
+      "upscale_model": [
+        "168",
+        0
+      ],
+      "image": [
+        "200",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "Upscale Image (using Model)"
+    }
+  },
+  "206": {
     "inputs": {
       "expression": "a / b",
       "a": [
-        "184",
+        "207",
         3
       ],
       "b": [
@@ -303,10 +146,10 @@ prompt_text = """
       "title": "Normalize Sigma"
     }
   },
-  "184": {
+  "207": {
     "inputs": {
       "base_image": [
-        "169",
+        "205",
         0
       ]
     },
@@ -315,70 +158,32 @@ prompt_text = """
       "title": "Get Resolution"
     }
   },
-  "185": {
+  "211": {
     "inputs": {
-      "sigmaX": [
-        "183",
-        1
-      ],
-      "sigmaY": [
-        "183",
-        1
-      ],
-      "image": [
-        "169",
+      "base_image": [
+        "216",
         0
       ]
     },
-    "class_type": "Blur (mtb)",
+    "class_type": "GetResolutionForVR",
     "_meta": {
-      "title": "Blur (mtb)"
+      "title": "Get Resolution"
     }
   },
-  "190": {
-    "inputs": {
-      "value": 1920
-    },
-    "class_type": "PrimitiveFloat",
-    "_meta": {
-      "title": "SigmaResolution"
-    }
-  },
-  "191": {
-    "inputs": {
-      "blend_factor": [
-        "194",
-        0
-      ],
-      "blend_mode": "normal",
-      "image1": [
-        "192",
-        0
-      ],
-      "image2": [
-        "182",
-        0
-      ]
-    },
-    "class_type": "ImageBlend",
-    "_meta": {
-      "title": "Image Blend"
-    }
-  },
-  "192": {
+  "212": {
     "inputs": {
       "upscale_method": "nearest-exact",
       "width": [
-        "193",
+        "211",
         0
       ],
       "height": [
-        "193",
+        "211",
         1
       ],
       "crop": "disabled",
       "image": [
-        "69",
+        "200",
         0
       ]
     },
@@ -387,25 +192,58 @@ prompt_text = """
       "title": "Upscale Image"
     }
   },
-  "193": {
+  "214": {
     "inputs": {
-      "base_image": [
-        "182",
+      "blend_factor": 0.8500000000000002,
+      "blend_mode": "normal",
+      "image1": [
+        "212",
+        0
+      ],
+      "image2": [
+        "216",
         0
       ]
     },
-    "class_type": "GetResolutionForVR",
+    "class_type": "ImageBlend",
     "_meta": {
-      "title": "Get Resolution"
+      "title": "Image Blend"
     }
   },
-  "194": {
+  "216": {
     "inputs": {
-      "value": 0.7000000000000001
+      "scale_by": [
+        "174",
+        0
+      ],
+      "images": [
+        "220",
+        0
+      ]
     },
-    "class_type": "PrimitiveFloat",
+    "class_type": "easy imageScaleDownBy",
     "_meta": {
-      "title": "BlendFactor"
+      "title": "Image Scale Down By"
+    }
+  },
+  "220": {
+    "inputs": {
+      "sigmaX": [
+        "206",
+        1
+      ],
+      "sigmaY": [
+        "206",
+        1
+      ],
+      "image": [
+        "205",
+        0
+      ]
+    },
+    "class_type": "Blur (mtb)",
+    "_meta": {
+      "title": "Blur (mtb)"
     }
   }
 }
@@ -418,19 +256,20 @@ def queue_prompt(prompt):
 
 
 
-if len(sys.argv) == 9 + 1:
+if len(sys.argv) == 6 + 1:
     prompt = json.loads(prompt_text)
-    prompt["159"]["inputs"]["value"] = sys.argv[1]
-    prompt["160"]["inputs"]["value"] = sys.argv[2] 
+    prompt["195"]["inputs"]["file"] = sys.argv[1]
+    prompt["199"]["inputs"]["filename_prefix"] = sys.argv[2] 
     prompt["168"]["inputs"]["model_name"] = sys.argv[3]
     prompt["174"]["inputs"]["value"] = float(sys.argv[4])
-    prompt["194"]["inputs"]["value"] = float(sys.argv[5])
+    prompt["214"]["inputs"]["blend_factor"] = float(sys.argv[5])
     prompt["190"]["inputs"]["value"] = float(sys.argv[6])
-    prompt["164"]["inputs"]["format"] = sys.argv[7] 
-    prompt["164"]["inputs"]["pix_fmt"] = sys.argv[8] 
-    prompt["164"]["inputs"]["crf"] = sys.argv[9] 
+    #prompt["164"]["inputs"]["format"] = sys.argv[7] 
+    #prompt["164"]["inputs"]["pix_fmt"] = sys.argv[8] 
+    #prompt["164"]["inputs"]["crf"] = sys.argv[9] 
     
     queue_prompt(prompt)
 else:
-    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix upscalemodel scalefactor blendfactor sigmaresolution videoformat videopixfmt videocrf")
+    # videoformat videopixfmt videocrf
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix upscalemodel scalefactor blendfactor sigmaresolution ")
 
