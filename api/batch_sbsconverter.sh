@@ -49,18 +49,18 @@ else
 	depth_offset="$1"
 	shift
 
-	for file in input/vr/fullsbs/*' '*
-	do
-		if [ -e "${file// /_}" ]
-		then
-			echo -e $"\e[91mError:\e[0m skipping $file as the renamed version already exists"
-			mkdir -p input/vr/fullsbs/error
-			mv -- "$file" input/vr/fullsbs/error
-			continue
-		fi
-
-		mv -- "$file" "${file// /_}"
-	done
+	#for file in input/vr/fullsbs/*' '*
+	#do
+	#	if [ -e "${file// /_}" ]
+	#	then
+	#		echo -e $"\e[91mError:\e[0m skipping $file as the renamed version already exists"
+	#		mkdir -p input/vr/fullsbs/error
+	#		mv -- "$file" input/vr/fullsbs/error
+	#		continue
+	#	fi
+	#
+	#	mv -- "$file" "${file// /_}"
+	#done
 
 	for f in input/vr/fullsbs/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
 	for f in input/vr/fullsbs/*\(*; do mv -- "$f" "${f//\(/_}"; done 2>/dev/null
