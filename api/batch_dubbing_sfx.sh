@@ -46,10 +46,11 @@ elif test $# -ne 0 ; then
     echo "E.g.: $0 "
 else
 	
-	COUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		for nextinputfile in input/vr/dubbing/sfx/*.mp4 ; do
+		VIDFILES=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
+		for nextinputfile in $VIDFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:.]]/}
