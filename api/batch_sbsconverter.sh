@@ -62,10 +62,10 @@ else
 		mv -- "$file" "${file// /_}"
 	done
 
-	for f in input/vr/fullsbs/*\ *; do mv "$f" "${f// /_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\(*; do mv "$f" "${f//\(/_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\)*; do mv "$f" "${f//\)/_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\'*; do mv "$f" "${f//\'/_}"; done 2>/dev/null
+	for f in input/vr/fullsbs/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	for f in input/vr/fullsbs/*\(*; do mv -- "$f" "${f//\(/_}"; done 2>/dev/null
+	for f in input/vr/fullsbs/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
+	for f in input/vr/fullsbs/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
 
 	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
@@ -78,25 +78,25 @@ else
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
+			mv -- "$nextinputfile" $newfn 
 			
 			TARGETPREFIX=${newfn##*/}
 			if [[ "$TARGETPREFIX" = "*_SBS_LR.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
-				mv -fv $newfn output/vr/fullsbs/final
+				mv -fv -- $newfn output/vr/fullsbs/final
 			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
-				mv -fv $newfn output/vr/fullsbs/final
+				mv -fv -- $newfn output/vr/fullsbs/final
 			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
-				mv -fv $newfn output/vr/fullsbs/final
+				mv -fv -- $newfn output/vr/fullsbs/final
 			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
-				mv -fv $newfn output/vr/fullsbs/final
+				mv -fv -- $newfn output/vr/fullsbs/final
 			else
 				/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
 			fi
@@ -120,12 +120,12 @@ else
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
+			mv -- "$nextinputfile" $newfn 
 			
 			if [[ "$newfn" == *_SBS_LR* ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs
-				mv -fv $newfn output/vr/fullsbs
+				mv -fv -- $newfn output/vr/fullsbs
 			elif [ -e "$newfn" ]
 			then
 				/bin/bash $SCRIPTPATH2 $depth_scale $depth_offset "$newfn"

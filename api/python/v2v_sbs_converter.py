@@ -16,200 +16,32 @@ import os
 #this is the one for the default workflow
 prompt_text = """
 {
-  "69": {
+  "171": {
     "inputs": {
-      "video": [
-        "159",
-        0
-      ],
-      "force_rate": 0,
-      "custom_width": 0,
-      "custom_height": 0,
-      "frame_load_cap": 0,
-      "skip_first_frames": [
-        "92",
-        0
-      ],
-      "select_every_nth": 1,
-      "format": "None",
-      "meta_batch": [
-        "70",
-        0
-      ]
+      "file": "",
+      "video-preview": ""
     },
-    "class_type": "VHS_LoadVideoPath",
+    "class_type": "LoadVideo",
     "_meta": {
       "title": "Load Video"
     }
   },
-  "70": {
-    "inputs": {
-      "frames_per_batch": [
-        "91",
-        0
-      ],
-      "count": 138
-    },
-    "class_type": "VHS_BatchManager",
-    "_meta": {
-      "title": "Meta Batch Manager"
-    }
-  },
-  "73": {
-    "inputs": {
-      "video_info": [
-        "105",
-        3
-      ]
-    },
-    "class_type": "VHS_VideoInfo",
-    "_meta": {
-      "title": "Video Info"
-    }
-  },
-  "87": {
-    "inputs": {
-      "expression": "(a + b - 1) / b",
-      "a": [
-        "73",
-        1
-      ],
-      "b": [
-        "169",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Batch Count"
-    }
-  },
-  "90": {
-    "inputs": {
-      "from_this": 1,
-      "to_that": [
-        "87",
-        0
-      ],
-      "jump": 1
-    },
-    "class_type": "Bjornulf_LoopInteger",
-    "_meta": {
-      "title": "Loop (Integer)"
-    }
-  },
-  "91": {
-    "inputs": {
-      "expression": "b",
-      "a": [
-        "90",
-        0
-      ],
-      "b": [
-        "169",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Loop Body Trigger Node"
-    }
-  },
-  "92": {
-    "inputs": {
-      "expression": "(a - 1) * b",
-      "a": [
-        "90",
-        0
-      ],
-      "b": [
-        "87",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Loop: Skip Offset"
-    }
-  },
-  "105": {
+  "173": {
     "inputs": {
       "video": [
-        "159",
-        0
-      ],
-      "force_rate": 0,
-      "custom_width": 0,
-      "custom_height": 0,
-      "frame_load_cap": 0,
-      "skip_first_frames": 0,
-      "select_every_nth": 1,
-      "format": "None"
-    },
-    "class_type": "VHS_LoadVideoPath",
-    "_meta": {
-      "title": "Pre-Load Video (Path) for Info"
-    }
-  },
-  "115": {
-    "inputs": {
-      "images": [
-        "69",
+        "171",
         0
       ]
     },
-    "class_type": "easy imageListToImageBatch",
+    "class_type": "GetVideoComponents",
     "_meta": {
-      "title": "Image List To Image Batch"
+      "title": "Get Video Components"
     }
   },
-  "129": {
-    "inputs": {
-      "batched": [
-        "115",
-        0
-      ]
-    },
-    "class_type": "VHS_Unbatch",
-    "_meta": {
-      "title": "Unbatch"
-    }
-  },
-  "135": {
-    "inputs": {
-      "expression": "a + 0.1",
-      "a": [
-        "73",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "Float2Int"
-    }
-  },
-  "159": {
-    "inputs": {
-      "value": ""
-    },
-    "class_type": "PrimitiveString",
-    "_meta": {
-      "title": "InputVideoPath"
-    }
-  },
-  "160": {
-    "inputs": {
-      "value": ""
-    },
-    "class_type": "PrimitiveString",
-    "_meta": {
-      "title": "OutputPathPrefix"
-    }
-  },
-  "161": {
+  "174": {
     "inputs": {
       "base_image": [
-        "129",
+        "173",
         0
       ]
     },
@@ -218,15 +50,15 @@ prompt_text = """
       "title": "Get Resolution"
     }
   },
-  "162": {
+  "175": {
     "inputs": {
       "ckpt_name": "depth_anything_v2_vitl.pth",
       "resolution": [
-        "161",
+        "174",
         3
       ],
       "image": [
-        "129",
+        "173",
         0
       ]
     },
@@ -235,7 +67,7 @@ prompt_text = """
       "title": "Depth Anything V2 - Relative"
     }
   },
-  "163": {
+  "176": {
     "inputs": {
       "depth_scale": 1,
       "depth_offset": 0,
@@ -244,11 +76,11 @@ prompt_text = """
       "symetric": false,
       "processing": "Normal",
       "base_image": [
-        "129",
+        "173",
         0
       ],
       "depth_image": [
-        "162",
+        "175",
         0
       ]
     },
@@ -257,58 +89,40 @@ prompt_text = """
       "title": "Convert to Side-by-Side"
     }
   },
-  "164": {
+  "177": {
     "inputs": {
-      "frame_rate": [
-        "166",
-        1
-      ],
-      "loop_count": 0,
-      "filename_prefix": [
-        "160",
+      "filename_prefix": "",
+      "format": "mp4",
+      "codec": "h264",
+      "video-preview": "",
+      "video": [
+        "178",
         0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "178": {
+    "inputs": {
+      "fps": [
+        "173",
+        2
       ],
-      "format": "video/h264-mp4",
-      "pix_fmt": "yuv420p",
-      "crf": 17,
-      "save_metadata": true,
-      "trim_to_audio": false,
-      "pingpong": false,
-      "save_output": true,
       "images": [
-        "163",
+        "176",
         0
       ],
       "audio": [
-        "105",
-        2
+        "173",
+        1
       ]
     },
-    "class_type": "VHS_VideoCombine",
+    "class_type": "CreateVideo",
     "_meta": {
-      "title": "Video Combine"
-    }
-  },
-  "166": {
-    "inputs": {
-      "expression": "a",
-      "a": [
-        "135",
-        0
-      ]
-    },
-    "class_type": "MathExpression|pysssss",
-    "_meta": {
-      "title": "fps"
-    }
-  },
-  "169": {
-    "inputs": {
-      "value": 60
-    },
-    "class_type": "PrimitiveInt",
-    "_meta": {
-      "title": "Max Frames per batch"
+      "title": "Create Video"
     }
   }
 }
@@ -320,19 +134,19 @@ def queue_prompt(prompt):
         print(response.status_code, response.text)
 
 
-if len(sys.argv) != 8 + 1:
+if len(sys.argv) != 5 + 1:
    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset InputVideoPath OutputPathPrefix videoformat videopixfmt videocrf")
 else:
     prompt = json.loads(prompt_text)
-    prompt["162"]["inputs"]["ckpt_name"] = sys.argv[1]
-    prompt["163"]["inputs"]["depth_scale"] = float(sys.argv[2])
-    prompt["163"]["inputs"]["depth_offset"] = float(sys.argv[3])
-    prompt["163"]["inputs"]["blur_radius"] = int(45)
-    prompt["159"]["inputs"]["value"] = sys.argv[4]
-    prompt["160"]["inputs"]["value"] = sys.argv[5] 
-    prompt["164"]["inputs"]["format"] = sys.argv[6] 
-    prompt["164"]["inputs"]["pix_fmt"] = sys.argv[7] 
-    prompt["164"]["inputs"]["crf"] = sys.argv[8] 
+    prompt["175"]["inputs"]["ckpt_name"] = sys.argv[1]
+    prompt["176"]["inputs"]["depth_scale"] = float(sys.argv[2])
+    prompt["176"]["inputs"]["depth_offset"] = float(sys.argv[3])
+    prompt["176"]["inputs"]["blur_radius"] = int(45)
+    prompt["171"]["inputs"]["file"] = sys.argv[4]
+    prompt["177"]["inputs"]["filename_prefix"] = sys.argv[5] 
+    #prompt["164"]["inputs"]["format"] = sys.argv[6] 
+    #prompt["164"]["inputs"]["pix_fmt"] = sys.argv[7] 
+    #prompt["164"]["inputs"]["crf"] = sys.argv[8] 
     
     queue_prompt(prompt)
 

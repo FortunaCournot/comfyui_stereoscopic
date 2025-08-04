@@ -69,6 +69,9 @@ else
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
 
+	CWD=`pwd`
+	CWD=`realpath "$CWD"`
+	
 	# some advertising ;-)
 	SETMETADATA="-metadata description=\"Created with Side-By-Side Converter: https://civitai.com/models/1757677\" -movflags +use_metadata_tags -metadata depth_scale=\"$depth_scale\" -metadata depth_offset=\"$depth_offset\""
 
@@ -83,13 +86,14 @@ else
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/vr/fullsbs/intermediate/${TARGETPREFIX%.*}
-	TARGETPREFIX="$TARGETPREFIX""_SBS_LR"
+	TARGETPREFIX_CALL=vr/fullsbs/intermediate/${TARGETPREFIX%.*}"_SBS_LR"
+	TARGETPREFIX=output/vr/fullsbs/intermediate/${TARGETPREFIX%.*}"_SBS_LR"
 	FINALTARGETFOLDER=`realpath "output/vr/fullsbs"`
 	mkdir -p "$TARGETPREFIX""-$uuid"".tmpseg"
 	mkdir -p "$TARGETPREFIX"".tmpsbs"
 	SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
-	SBSDIR=`realpath "$TARGETPREFIX"".tmpsbs"`
+	SBSDIR="$TARGETPREFIX"".tmpsbs"
+	SBSDIR_CALL="$TARGETPREFIX_CALL"".tmpsbs"
 	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
 		touch "$TARGETPREFIX"".tmpsbs"/x
@@ -108,7 +112,7 @@ else
 		NEWTARGET="${SPLITINPUT%.*}"".mp4"
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SPLITINPUT" "$NEWTARGET"
 		SPLITINPUT=$NEWTARGET
-		mv -- $SPLITINPUT $SEGDIR
+		cp -- $SPLITINPUT $SEGDIR
 		SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`		
 	fi
 
@@ -124,14 +128,14 @@ else
 			echo "H-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
-			mv -- $SPLITINPUT $SEGDIR
+			cp -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
 		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT` -gt 2160 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT` -gt  3840
 		then 
 			echo "V-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
-			mv -- $SPLITINPUT $SEGDIR
+			cp -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
 		fi
 
@@ -193,7 +197,8 @@ else
 				echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 				exit
 			fi
-			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$f" "$SBSDIR"/sbssegment "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF" ; echo -ne $"\e[0m"
+			# "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
+			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$f" "$SBSDIR_CALL"/sbssegment  ; echo -ne $"\e[0m"
 		fi
 	done
 	echo "Jobs running...   "
@@ -208,19 +213,19 @@ else
 	echo "    rm \$list" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "for f in ./*.mp4 ; do" >>"$SBSDIR/concat.sh"
-	echo "	echo \"file \$f\" >> "$SBSDIR"/list.txt" >>"$SBSDIR/concat.sh"
+	echo "	echo \"file \$f\" >> $CWD/"$SBSDIR"/list.txt" >>"$SBSDIR/concat.sh"
 	echo "done" >>"$SBSDIR/concat.sh"
 	echo "$FFMPEGPATHPREFIX""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$SBSDIR/concat.sh"
 	echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$SBSDIR/concat.sh"
 	echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy -max_muxing_queue_size 9999 output.mp4" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 -max_muxing_queue_size 9999 output2.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	#echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "else" >>"$SBSDIR/concat.sh"
 	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
-	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output3.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
+	#echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
+	echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$SBSDIR/concat.sh"
 	echo "then" >>"$SBSDIR/concat.sh"
@@ -228,9 +233,13 @@ else
 	echo "    mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
 	echo "    cd .." >>"$SBSDIR/concat.sh"
 	echo "    rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
+	echo "    mkdir -p input/vr/fullsbs/done" >>"$SBSDIR/concat.sh"
+	echo "    mv -fv -- $INPUT $CWD/input/vr/fullsbs/done" >>"$SBSDIR/concat.sh"
 	echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$SBSDIR/concat.sh"
 	echo "else" >>"$SBSDIR/concat.sh"
 	echo "    echo -e \$\"\\e[91mError\\e[0m: Concat failed.\"" >>"$SBSDIR/concat.sh"
+	echo "    mkdir -p input/vr/fullsbs/error" >>"$SBSDIR/concat.sh"
+	echo "    mv -fv -- $INPUT $CWD/input/vr/fullsbs/error" >>"$SBSDIR/concat.sh"
 	echo "    exit -1" >>"$SBSDIR/concat.sh"
 	echo "fi" >>"$SBSDIR/concat.sh"
 	echo "Waiting for queue to finish..."
@@ -267,8 +276,6 @@ else
 	rm queuecheck.json
 	echo "Calling $SBSDIR/concat.sh"
 	$SBSDIR/concat.sh
-	mkdir -p input/vr/fullsbs/done
-	mv -fv "$INPUT" input/vr/fullsbs/done
 	
 fi
 

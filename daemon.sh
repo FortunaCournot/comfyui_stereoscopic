@@ -12,7 +12,7 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
 	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 	if [ $config_version -ne 2 ]; then
-		mv -f $CONFIGFILE $CONFIGFILE-$config_version.bak
+		mv -f -- $CONFIGFILE $CONFIGFILE-$config_version.bak
 	fi
 fi
 
@@ -264,18 +264,18 @@ else
 		mkdir -p input/vr/scaling input/vr/fullsbs
 		# scaling -> fullsbs
 		GLOBIGNORE="*_SBS_LR*.*"
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs output/vr/scaling/*.webm output/vr/scaling/*.WEBM input/vr/fullsbs  >/dev/null 2>&1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs output/vr/scaling/*.webm output/vr/scaling/*.WEBM input/vr/fullsbs  >/dev/null 2>&1
 		# slides -> fullsbs
 		GLOBIGNORE="*_SBS_LR*.*"
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 		# dubbing -> scaling
 		#GLOBIGNORE="*_x?*.mp4"
-		#[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
+		#[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
 		
 		unset GLOBIGNORE		
 
 		# FAILSAFE
-		mv -f input/vr/fullsbs/*_SBS_LR*.* output/vr/fullsbs  >/dev/null 2>&1
+		mv -f -- input/vr/fullsbs/*_SBS_LR*.* output/vr/fullsbs  >/dev/null 2>&1
 		
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ]; then
