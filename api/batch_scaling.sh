@@ -51,18 +51,18 @@ else
 		mv -fv "input/vr/scaling""$OVERRIDESUBPATH"/*.* input/vr/scaling
 	fi
 	
-	for file in input/vr/scaling/*' '*
-	do
-		if [ -e "${file// /_}" ]
-		then
-			echo -e $"\e[91mError:\e[0m skipping $file as the renamed version already exists"
-			mkdir -p input/vr/scaling/error
-			mv -- "$file" input/vr/scaling/error
-			continue
-		fi
-
-		mv -- "$file" "${file// /_}"
-	done
+	#for file in input/vr/scaling/*' '*
+	#do
+	#	if [ -e "${file// /_}" ]
+	#	then
+	#		echo -e $"\e[91mError:\e[0m skipping $file as the renamed version already exists"
+	#		mkdir -p input/vr/scaling/error
+	#		mv -- "$file" input/vr/scaling/error
+	#		continue
+	#	fi
+	#
+	#	mv -- "$file" "${file// /_}"
+	#done
 	
 	for f in input/vr/scaling/*\ *; do mv "$f" "${f// /_}"; done 2>/dev/null
 	for f in input/vr/scaling/*\(*; do mv "$f" "${f//\(/_}"; done 2>/dev/null
