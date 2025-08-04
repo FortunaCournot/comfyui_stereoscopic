@@ -36,7 +36,7 @@ prompt_text = """
   },
   "183": {
     "inputs": {
-      "image": "Apfeltest.JPG"
+      "image": "90789961-CC BY-NC-SA-Adel-AI.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -143,7 +143,7 @@ prompt_text = """
         0
       ],
       "images": [
-        "202",
+        "216",
         0
       ]
     },
@@ -166,10 +166,7 @@ prompt_text = """
   },
   "194": {
     "inputs": {
-      "blend_factor": [
-        "213",
-        0
-      ],
+      "blend_factor": 0.8500000000000002,
       "blend_mode": "normal",
       "image1": [
         "188",
@@ -194,13 +191,13 @@ prompt_text = """
       "title": "SigmaResolution (Normalizing constant)"
     }
   },
-  "202": {
+  "216": {
     "inputs": {
-      "blur_radius": [
+      "sigmaX": [
         "190",
-        0
+        1
       ],
-      "sigma": [
+      "sigmaY": [
         "190",
         1
       ],
@@ -209,18 +206,9 @@ prompt_text = """
         0
       ]
     },
-    "class_type": "ImageBlur",
+    "class_type": "Blur (mtb)",
     "_meta": {
-      "title": "Image Blur"
-    }
-  },
-  "213": {
-    "inputs": {
-      "Number": ".85"
-    },
-    "class_type": "Float",
-    "_meta": {
-      "title": "BlendFactor (AI weight)"
+      "title": "Blur (mtb)"
     }
   }
 }
@@ -239,7 +227,7 @@ if len(sys.argv) == 6 + 1:
     prompt["185"]["inputs"]["filename_prefix"] = sys.argv[2] 
     prompt["168"]["inputs"]["model_name"] = sys.argv[3]
     prompt["186"]["inputs"]["value"] = float(sys.argv[4])
-    prompt["213"]["inputs"]["Number"] = float(sys.argv[5])
+    prompt["194"]["inputs"]["blend_factor"] = float(sys.argv[5])
     prompt["196"]["inputs"]["value"] = float(sys.argv[6])
     
     queue_prompt(prompt)
