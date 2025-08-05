@@ -9,10 +9,13 @@ if current_dir not in sys.path:
 
 # Import our implementations
 
+LOAD_ERRORS = 0
+
 try:
     from converter import ImageVRConverter
     print("[comfyui_stereoscopic] Successfully imported ImageVRConverter")
 except ImportError as e:
+    LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing ImageVRConverter: {e}")
 
     # Create a placeholder class
@@ -30,6 +33,7 @@ try:
     from tools import GetResolutionForVR
     print("[comfyui_stereoscopic] Successfully imported GetResolutionForVR")
 except ImportError as e:
+    LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing GetResolutionForVR: {e}")
 
     # Create a placeholder class
@@ -42,7 +46,6 @@ except ImportError as e:
         CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
-
 
 
 # A dictionary that contains all nodes you want to export with their names
