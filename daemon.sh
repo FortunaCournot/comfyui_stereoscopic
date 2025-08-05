@@ -295,13 +295,13 @@ else
 			SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
-			CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*_SBS_LR*.mp4' | wc -l`
+			CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
 			COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + CONCATCOUNT ))
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
 			COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
 			if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] || [[ $COUNTSBSSLIDES -gt 1 ]] ; then
 				[ $loglevel -ge 0 ] && echo "Found $COUNT files in incoming folders:"
-				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop, $COUNTSBSSLIDES for slideshow >> $COUNTSBSSLIDES to concat, $DUBSFXCOUNT to dub"
+				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat, $DUBSFXCOUNT to dub"
 				sleep 1
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
 				[ $loglevel -ge 0 ] && echo "****************************************************"

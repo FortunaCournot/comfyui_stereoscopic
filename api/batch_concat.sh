@@ -44,13 +44,13 @@ else
 	mkdir -p output/vr/concat/intermediate
 	mkdir -p input/vr/concat/done
 	
-	IMGFILES=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4'`
 	COUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
+		IMGANDVIDFILES=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4'`
 	
 		echo "" >output/vr/concat/intermediate/mylist.txt
-		for nextinputfile in input/vr/concat/*.mp4 ; do
+		for nextinputfile in $IMGANDVIDFILES ; do
 			INDEX+=1
 			newfn=part_$INDEX.mp4
 			cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
@@ -84,6 +84,8 @@ else
 		fi
 		echo -e $"\e[92mdone.\e[0m                            "
 	
+	else
+			echo -e $"\e[91mError:\e[0m COUNT=$COUNT: $IMGANDVIDFILES"
 	fi
 	echo "Batch ($COUNT) done.                             "
 fi
