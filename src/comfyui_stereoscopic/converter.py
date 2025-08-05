@@ -170,7 +170,7 @@ class ImageVRConverter:
     RETURN_TYPES = ("IMAGE", )
     RETURN_NAMES = ("stereoscopic_image", )
     FUNCTION = "process"
-    CATEGORY = "image"
+    CATEGORY = "Stereoscopic"
     DESCRIPTION = "Create stereoscopic image with automatic shift from depth map. For VR headsets and 3D displays."
 
 

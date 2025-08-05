@@ -14,7 +14,7 @@ class GetResolutionForVR:
     RETURN_TYPES = ("INT", "INT", "INT", "INT",)
     RETURN_NAMES = ("width", "height", "count", "resolution",)
     FUNCTION = "execute"
-    CATEGORY = "image"
+    CATEGORY = "Stereoscopic"
     DESCRIPTION = "Get resolution for depth image from base image."
     
     def execute(self, base_image):
