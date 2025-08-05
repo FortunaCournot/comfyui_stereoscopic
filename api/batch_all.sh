@@ -64,21 +64,26 @@ elif [ -d "custom_nodes" ]; then
 	# workaround for recovery problem.
 	./custom_nodes/comfyui_stereoscopic/api/clear.sh
 	
-
 	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
-		# UPSCALING: Video -> Video. Limited to 60s and 4K.
-		# In:  input/vr/scaling
-		# Out: output/vr/scaling
-		[ $loglevel -ge 1 ] && echo "**************************"
-		[ $loglevel -ge 0 ] && echo "******** SCALING *********"
-		[ $loglevel -ge 1 ] && echo "**************************"
-		if [ $SCALECOUNT -ge 1 ]; then
-			./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
-		fi
-		if [ $OVERRIDECOUNT -ge 1 ]; then
-			./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override
+		MEMFREE=`awk '/MemFree/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
+		MEMTOTAL=`awk '/MemTotal/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
+		if [ $MEMFREE -ge 16 ] ; then
+			# UPSCALING: Video -> Video. Limited to 60s and 4K.
+			# In:  input/vr/scaling
+			# Out: output/vr/scaling
+			[ $loglevel -ge 1 ] && echo "**************************"
+			[ $loglevel -ge 0 ] && echo "******** SCALING *********"
+			[ $loglevel -ge 1 ] && echo "**************************"
+			if [ $SCALECOUNT -ge 1 ]; then
+				./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
+			fi
+			if [ $OVERRIDECOUNT -ge 1 ]; then
+				./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override
+			fi
+		else
+			echo -e $"\e[93mWarning:\e[0m Less then 16GB of free memory - Skipped scaling. Memory: $MEMFREE/$MEMTOTAL"
 		fi
 	fi
 
