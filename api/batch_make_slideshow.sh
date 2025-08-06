@@ -72,7 +72,8 @@ else
 			INTERMEDPREFIX=${nextinputfile##*/}
 			echo "$INDEX/$COUNT" >input/vr/slideshow/BATCHPROGRESS.TXT
 			
-			newfn=${nextinputfile//[^[:alnum:]]/_}
+			newfn=${nextinputfile##*/}
+			newfn=input/vr/slideshow/${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

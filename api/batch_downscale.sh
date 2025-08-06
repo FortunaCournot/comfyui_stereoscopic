@@ -58,7 +58,8 @@ fi
 	
 		for nextinputfile in input/vr/downscale/$TARGETSIZE/*.mp4 ; do
 			INDEX+=1
-			newfn=${nextinputfile//[^[:alnum:]]/_}
+			newfn=${nextinputfile##*/}
+			newfn=input/vr/downscale/${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

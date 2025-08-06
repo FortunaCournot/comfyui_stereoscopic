@@ -53,7 +53,8 @@ else
 		for nextinputfile in $VIDFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
-			newfn=${nextinputfile//[^[:alnum:]]/_}
+			newfn=${nextinputfile##*/}
+			newfn=input/vr/dubbing/sfx/${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

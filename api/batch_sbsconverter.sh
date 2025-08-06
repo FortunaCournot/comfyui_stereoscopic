@@ -74,7 +74,8 @@ else
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
-			newfn=${nextinputfile//[^[:alnum:]]/_}
+			newfn=${nextinputfile##*/}
+			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
@@ -116,7 +117,8 @@ else
 			fi
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
-			newfn=${nextinputfile//[^[:alnum:]]/_}
+			newfn=${nextinputfile##*/}
+			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

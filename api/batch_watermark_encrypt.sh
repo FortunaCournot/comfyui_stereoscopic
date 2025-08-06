@@ -9,7 +9,12 @@
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/i2i_watermark_encrypt.sh 
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/i2i_watermark_encrypt.py
+# Use Systempath for python by default, but set it explictly for comfyui portable.
+PYTHON_BIN_PATH=
+if [ -d "../python_embeded" ]; then
+  PYTHON_BIN_PATH=../python_embeded/
+fi
 
 
 cd $COMFYUIPATH
@@ -28,6 +33,10 @@ else
     touch "$CONFIGFILE"
     echo "config_version=1">>"$CONFIGFILE"
 fi
+
+# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
@@ -65,10 +74,20 @@ else
 
 	WATERMARK_SECRETKEY=$(awk -F "=" '/WATERMARK_SECRETKEY/ {print $2}' $CONFIGFILE) ; WATERMARK_SECRETKEY=${WATERMARK_SECRETKEY:-"-1"}
 	WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
-	WATERMARK_LABEL="${WATERMARK_LABEL//[^[:alnum:]]/_}"
+	WATERMARK_LABEL="${WATERMARK_LABEL//[^[:alnum:].]/_}"
 	WATERMARK_LABEL="${WATERMARK_LABEL:0:17}"
-	echo "WATERMARK_LABEL: $WATERMARK_LABEL"
-	exit
+	WATERMARK_STOREFOLDER=./user/default/comfyui_stereoscopic/watermark/$WATERMARK_SECRETKEY
+	mkdir -p $WATERMARK_STOREFOLDER
+	
+	if [ ! -e "$WATERMARK_STOREFOLDER/watermark.png" ]; then
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i ./user/default/comfyui_stereoscopic/watermark_background.png -filter_complex "[0:0]crop=1024:1024:0:0[img];color=c=0xffffff@0x00:s=1000x1000,format=rgba,drawtext=text='$WATERMARK_LABEL':fontcolor=white: fontsize=100:x=(w-text_w)/2:y=32[fg];[img][fg]overlay=0:0:format=rgb,format=rgba[out]" -map [out] -c:v png -frames:v 1 $WATERMARK_STOREFOLDER/watermark.png
+		if [ ! -e "$WATERMARK_STOREFOLDER/watermark.png" ]; then
+			echo -e $"\e[91mError:\e[0m Failed to create watermark"
+			exit
+		fi
+	fi
+	
+	mkdir -p output/vr/watermark/encrypt/intermediate
 	
 	COUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
@@ -77,7 +96,8 @@ else
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/watermark/encrypt/BATCHPROGRESS.TXT
-			newfn=${nextinputfile//[^[:alnum:]]/_}
+			newfn=${nextinputfile##*/}
+			newfn=input/vr/watermark/encrypt/${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
@@ -103,7 +123,8 @@ else
 			fi
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/watermark/encrypt/BATCHPROGRESS.TXT
-			newfn=${nextinputfile//[^[:alnum:]]/_}
+			newfn=${nextinputfile##*/}
+			newfn=input/vr/watermark/encrypt/${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
@@ -111,7 +132,12 @@ else
 			
 			if [ -e "$newfn" ]
 			then
-				# /bin/bash $SCRIPTPATH "$newfn"  WatermarkImagePath OutputPathPrefix secret
+				TARGETPREFIX=${newfn##*/}
+
+				set -x
+				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH  "$newfn" "$WATERMARK_STOREFOLDER/watermark.png" "./output/vr/watermark/encrypt/intermediate/$TARGETPREFIX" $WATERMARK_SECRETKEY ; echo -ne $"\e[0m"
+				set +x
+				exit
 				
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
