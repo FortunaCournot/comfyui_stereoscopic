@@ -51,7 +51,7 @@ fi
 		for nextinputfile in $VIDFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/singleloop/BATCHPROGRESS.TXT
-			newfn=${nextinputfile//[^[:alnum:.]]/}
+			newfn=${nextinputfile//[^[:alnum:]]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

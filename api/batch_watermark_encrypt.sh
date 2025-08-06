@@ -1,5 +1,5 @@
 #!/bin/sh
-# Creates SBS videos in batch from all base videos placed in ComfyUI/input/vr/fullsbs folder (input)
+# Creates SBS videos in batch from all base videos placed in ComfyUI/input/vr/watermark/encrypt folder (input)
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
@@ -9,8 +9,8 @@
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh 
-SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter.sh 
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/i2i_watermark_encrypt.sh 
+
 
 cd $COMFYUIPATH
 
@@ -37,43 +37,46 @@ if [ "$status" = "closed" ]; then
     echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
-elif test $# -ne 2; then
+elif test $# -ne 0; then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 depth_scale depth_offset"
-    echo "E.g.: $0 1.0 0.0"
+    echo "Usage: $0 "
+    echo "E.g.: $0 "
 else
-	mkdir -p output/vr/fullsbs
+	mkdir -p output/vr/watermark/encrypt
 
-	depth_scale="$1"
-	shift
-	depth_offset="$1"
-	shift
 
-	#for file in input/vr/fullsbs/*' '*
+	#for file in input/vr/watermark/encrypt/*' '*
 	#do
 	#	if [ -e "${file// /_}" ]
 	#	then
 	#		echo -e $"\e[91mError:\e[0m skipping $file as the renamed version already exists"
-	#		mkdir -p input/vr/fullsbs/error
-	#		mv -- "$file" input/vr/fullsbs/error
+	#		mkdir -p input/vr/watermark/encrypt/error
+	#		mv -- "$file" input/vr/watermark/encrypt/error
 	#		continue
 	#	fi
 	#
 	#	mv -- "$file" "${file// /_}"
 	#done
 
-	for f in input/vr/fullsbs/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\(*; do mv -- "$f" "${f//\(/_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
+	for f in input/vr/watermark/encrypt/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	for f in input/vr/watermark/encrypt/*\(*; do mv -- "$f" "${f//\(/_}"; done 2>/dev/null
+	for f in input/vr/watermark/encrypt/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
+	for f in input/vr/watermark/encrypt/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
 
-	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	WATERMARK_SECRETKEY=$(awk -F "=" '/WATERMARK_SECRETKEY/ {print $2}' $CONFIGFILE) ; WATERMARK_SECRETKEY=${WATERMARK_SECRETKEY:-"-1"}
+	WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
+	WATERMARK_LABEL="${WATERMARK_LABEL//[^[:alnum:]]/_}"
+	WATERMARK_LABEL="${WATERMARK_LABEL:0:17}"
+	echo "WATERMARK_LABEL: $WATERMARK_LABEL"
+	exit
+	
+	COUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		VIDEOFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
+		VIDEOFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT">input/vr/watermark/encrypt/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:]]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
@@ -81,31 +84,15 @@ else
 			mv -- "$nextinputfile" $newfn 
 			
 			TARGETPREFIX=${newfn##*/}
-			if [[ "$TARGETPREFIX" = "*_SBS_LR.*" ]]; then
-				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/vr/fullsbs/final
-				mv -fv -- $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K.*" ]]; then
-				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/vr/fullsbs/final
-				mv -fv -- $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB.*" ]]; then
-				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/vr/fullsbs/final
-				mv -fv -- $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB.*" ]]; then
-				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/vr/fullsbs/final
-				mv -fv -- $newfn output/vr/fullsbs/final
-			else
-				/bin/bash $SCRIPTPATH $depth_scale $depth_offset "$newfn"
-			fi
+			
+			# /bin/bash $SCRIPTPATH  "$newfn" WatermarkImagePath OutputPathPrefix secret
+			
 		done
-		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
+		rm  -f input/vr/watermark/encrypt/BATCHPROGRESS.TXT 
 	fi	
 	
-	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	IMGFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
+	COUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
@@ -115,20 +102,16 @@ else
 				exit
 			fi
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT">input/vr/watermark/encrypt/BATCHPROGRESS.TXT
 			newfn=${nextinputfile//[^[:alnum:]]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
 			mv -- "$nextinputfile" $newfn 
 			
-			if [[ "$newfn" == *_SBS_LR* ]]; then
-				echo "Skipping $newfn (already SBS)"
-				mkdir -p output/vr/fullsbs
-				mv -fv -- $newfn output/vr/fullsbs
-			elif [ -e "$newfn" ]
+			if [ -e "$newfn" ]
 			then
-				/bin/bash $SCRIPTPATH2 $depth_scale $depth_offset "$newfn"
+				# /bin/bash $SCRIPTPATH "$newfn"  WatermarkImagePath OutputPathPrefix secret
 				
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
@@ -140,7 +123,7 @@ else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			
 		done
-		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
+		rm  -f input/vr/watermark/encrypt/BATCHPROGRESS.TXT 
 				
 	fi	
 	echo "Batch done."

@@ -181,13 +181,13 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** ENCRYPTING ********"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		#./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_encrypt.sh
 	fi
 	if [ $WMDCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** DECRYPTING ********"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		#./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_decrypt.sh
 	fi
 
 

@@ -73,7 +73,7 @@ else
 			INDEXM2=$(( INDEX - 2 ))
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			
-			newfn=${nextinputfile//[^[:alnum:.]]/}
+			newfn=${nextinputfile//[^[:alnum:]]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
