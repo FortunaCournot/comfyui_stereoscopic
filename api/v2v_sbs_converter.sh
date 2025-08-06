@@ -120,22 +120,32 @@ else
 	then
 		WIDTH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT`
 		HEIGHT=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT`
+		PIXEL=$(( $WIDTH * $HEIGHT ))
+
+		RESLIMIT=3840
 		
+		duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $SPLITINPUT`
+		duration=${duration%.*}
+		if test $duration -ge 60 ; then
+			[ $loglevel -ge 1 ] && echo "long video detected."
+			RESLIMIT=1920
+		fi
+
 		# Prepare to restrict resolution, and skip low res
 		if test $WIDTH -lt 128 -o $HEIGHT -lt  128
 		then
 			echo "Skipping low resolution video: $SPLITINPUT"
-		elif test $WIDTH -gt 3840 
+		elif test $WIDTH -gt $RESLIMIT 
 		then 
-			echo "H-Resolution > 4K: Downscaling..."
-			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
+			echo "H-Resolution > $RESLIMIT: Downscaling..."
+			$(dirname "$0")/v2v_limiter.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
 			mv -f -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
-		elif test $HEIGHT -gt 3840
+		elif test $HEIGHT -gt $RESLIMIT
 		then 
-			echo "V-Resolution > 4K: Downscaling..."
-			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
+			echo "V-Resolution > $RESLIMIT: Downscaling..."
+			$(dirname "$0")/v2v_limiter.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
 			mv -f -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`

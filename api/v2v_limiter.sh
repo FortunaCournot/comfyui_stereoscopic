@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# v2v_limit4K.sh
+# v2v_limiter.sh
 #
-# Downscales a video (input) to 4K resolution (3840 width). the targetvideo is same path adding _4K to filename.
+# Downscales a video (input) to 4K resolution (3840 width) or below. the targetvideo is same path adding _4K to filename (even if smaller).
 #
 # Copyright (c) 2025 FortunaCournot. MIT License.
 
@@ -44,16 +44,25 @@ else
 	TARGETPREFIX=${TARGETPREFIX%.mp4}_4K
 	INPUT=`realpath "$INPUT"`
 	INPUTPATH=`dirname $INPUT`
-	if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt 3840
+	
+	RESLIMIT=3840
+	duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
+	duration=${duration%.*}
+	if test $duration -ge 60 ; then
+		[ $loglevel -ge 1 ] && echo "long video detected."
+		RESLIMIT=1920
+	fi
+	
+	if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt $RESLIMIT
 	then 
 		echo "H-Downscaling to $INPUTPATH/$TARGETPREFIX"".mp4"
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" -filter:v scale=3840:-2 -c:a copy "$INPUTPATH/$TARGETPREFIX"".mp4"
-	elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt 3840
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" -filter:v scale=$RESLIMIT:-2 -c:a copy "$INPUTPATH/$TARGETPREFIX"".mp4"
+	elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt $RESLIMIT
 	then 
 		echo "V-Downscaling to $INPUTPATH/$TARGETPREFIX"".mp4"
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" -filter:v scale=-2:3840 -c:a copy "$INPUTPATH/$TARGETPREFIX"".mp4"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" -filter:v scale=-2:$RESLIMIT -c:a copy "$INPUTPATH/$TARGETPREFIX"".mp4"
 	else
-		echo "Skipping downscaling of video $INPUT: not above 4K"
+		echo "Skipping downscaling of video $INPUT: not above $RESLIMIT"
 	fi
 fi
 

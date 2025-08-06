@@ -111,7 +111,13 @@ else
 	if [ $override_active -gt 0 ]; then
 		[ $loglevel -ge 1 ] && echo "override active"
 		LIMIT4X=1036800
-		LIMIT2X=4147200
+		duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
+		duration=${duration%.*}
+		if test $duration -lt 60 ; then
+			LIMIT2X=4147200
+		else
+			[ $loglevel -ge 1 ] && echo "long video detected."
+		fi
 	fi
 	
 	if [ "$UPSCALEFACTOR" -eq 0 ]
