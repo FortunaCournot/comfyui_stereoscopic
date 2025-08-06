@@ -11,7 +11,7 @@ class EncryptWatermark:
         return {
             "required": {
                 "secret": ("INT", {"default": 815}),
-                "base_image": ("IMAGE",),
+                "base_images": ("IMAGE",),
                 "watermark": ("IMAGE",),
             }
         }
@@ -22,36 +22,49 @@ class EncryptWatermark:
     CATEGORY = "Stereoscopic"
     DESCRIPTION = "Forensic encrypt image with watermark."
 
-    def execute(self, secret, base_image=None, watermark=None):
+    def execute(self, secret, base_images, watermark=None):
 
         alpha = -1
+
+        # Get batch size
+        B = base_image.shape[0]
+
+        # Process each image in the batch
+        encrypted_images = []
+
+        for b in range(B):
+
+            base_image_s = np.clip(255. * base_image[b].cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+            watermark_s = np.clip(255. * watermark.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+
+            height, width, _ = base_image_s.shape
+            watermark_height, watermark_width, _ = watermark_s.shape
+
+            img_f = np.fft.fft2(base_image_s)
+            
+            y_random_indices, x_random_indices = list(range(height)), list(range(width))
+            random.seed(secret)
+            random.shuffle(x_random_indices)
+            random.shuffle(y_random_indices)
+            random_wm = np.zeros((height, width, 3), dtype=np.uint8)
+
+            for y in range(watermark_height):
+                for x in range(watermark_width):
+                    random_wm[y_random_indices[y], x_random_indices[x]] = watermark_s[y, x]
+
+
+            result_f = img_f + alpha * random_wm
+
+            result = np.fft.ifft2(result_f)
+            result = np.real(result)
+            #result = result.astype(np.uint8)
         
-        base_image_s = np.clip(255. * base_image.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
-        watermark_s = np.clip(255. * watermark.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+            encrypted_images.append( torch.from_numpy(np.array(result).astype(np.float32) / 255.0).unsqueeze(0) )
+            
+        # Stack the results to create batched tensors
+        images_batch = torch.stack(encrypted_images)
 
-        height, width, _ = base_image_s.shape
-        watermark_height, watermark_width, _ = watermark_s.shape
-
-        img_f = np.fft.fft2(base_image_s)
-        
-        y_random_indices, x_random_indices = list(range(height)), list(range(width))
-        random.seed(secret)
-        random.shuffle(x_random_indices)
-        random.shuffle(y_random_indices)
-        random_wm = np.zeros((height, width, 3), dtype=np.uint8)
-
-        for y in range(watermark_height):
-            for x in range(watermark_width):
-                random_wm[y_random_indices[y], x_random_indices[x]] = watermark_s[y, x]
-
-
-        result_f = img_f + alpha * random_wm
-
-        result = np.fft.ifft2(result_f)
-        result = np.real(result)
-        #result = result.astype(np.uint8)
-        
-        return (torch.from_numpy(np.array(result).astype(np.float32) / 255.0).unsqueeze(0), )
+        return (images_batch, )
 
 
 class DecryptWatermark:
@@ -96,6 +109,5 @@ class DecryptWatermark:
         for y in range(height):
             for x in range(width):
                 result[y, x] = watermark[y_random_indices[y], x_random_indices[x]]
-
 
         return (torch.from_numpy(np.array(result).astype(np.float32) / 255.0).unsqueeze(0), )
