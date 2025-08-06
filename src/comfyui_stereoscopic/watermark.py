@@ -1,9 +1,18 @@
 import torch
 import numpy as np
 import random
-import cv2
+#import cv2
+from PIL import Image
 
 # Method from https://github.com/kairess/forensic-watermark/blob/master/forensic-watermark.ipynb
+
+def pil2tensor(image: Image.Image) -> torch.Tensor:
+    np_image = np.array(image).astype(np.float32) / 255.0
+    if np_image.ndim == 2:  # Grayscale
+        return torch.from_numpy(np_image).unsqueeze(0)  # (1, H, W)
+    else:  # RGB or RGBA
+        return torch.from_numpy(np_image).unsqueeze(0)  # (1, H, W, C)
+
 
 class EncryptWatermark:
     @classmethod
@@ -22,19 +31,19 @@ class EncryptWatermark:
     CATEGORY = "Stereoscopic"
     DESCRIPTION = "Forensic encrypt image with watermark."
 
-    def execute(self, secret, base_images, watermark=None):
+    def execute(self, secret, base_images : torch.Tensor, watermark=None):
 
         alpha = -1
 
         # Get batch size
-        B = base_image.shape[0]
-
+        B = base_images.shape[0]
+        
         # Process each image in the batch
         encrypted_images = []
 
         for b in range(B):
 
-            base_image_s = np.clip(255. * base_image[b].cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
+            base_image_s = np.clip(255. * base_images[b].cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
             watermark_s = np.clip(255. * watermark.cpu().numpy().squeeze(), 0, 255).astype(np.uint8)
 
             height, width, _ = base_image_s.shape
@@ -59,12 +68,17 @@ class EncryptWatermark:
             result = np.real(result)
             #result = result.astype(np.uint8)
         
-            encrypted_images.append( torch.from_numpy(np.array(result).astype(np.float32) / 255.0).unsqueeze(0) )
+            #result_i = torch.from_numpy(np.array(result).astype(np.float32) / 255.0).unsqueeze(0)
+            result_i = torch.from_numpy(np.array(result).astype(np.float32) / 255.0).unsqueeze(0)
             
-        # Stack the results to create batched tensors
-        images_batch = torch.stack(encrypted_images)
+            encrypted_images.append( result_i )
 
-        return (images_batch, )
+
+        return encrypted_images
+
+        
+        # return torch.cat(encrypted_images, dim=0)
+
 
 
 class DecryptWatermark:

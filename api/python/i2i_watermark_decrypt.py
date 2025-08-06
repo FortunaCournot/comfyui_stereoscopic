@@ -27,7 +27,7 @@ prompt_text = """
   },
   "18": {
     "inputs": {
-      "image": "sample_memories.PNG"
+      "image": "ComfyUI_00014_.png"
     },
     "class_type": "LoadImage",
     "_meta": {

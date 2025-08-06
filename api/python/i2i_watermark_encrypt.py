@@ -16,26 +16,6 @@ import os
 #this is the one for the default workflow
 prompt_text = """
 {
-  "13": {
-    "inputs": {
-      "secret": [
-        "32",
-        0
-      ],
-      "base_image": [
-        "17",
-        0
-      ],
-      "watermark": [
-        "22",
-        0
-      ]
-    },
-    "class_type": "EncryptWatermark",
-    "_meta": {
-      "title": "Encrypt Watermark"
-    }
-  },
   "17": {
     "inputs": {
       "image": "VR-we-are-closing-credits.png"
@@ -47,7 +27,7 @@ prompt_text = """
   },
   "18": {
     "inputs": {
-      "image": "sample_memories.PNG"
+      "image": "output.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -101,13 +81,33 @@ prompt_text = """
     "inputs": {
       "filename_prefix": "ComfyUI",
       "images": [
-        "13",
+        "35",
         0
       ]
     },
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
+    }
+  },
+  "35": {
+    "inputs": {
+      "secret": [
+        "32",
+        0
+      ],
+      "base_images": [
+        "17",
+        0
+      ],
+      "watermark": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "EncryptWatermark",
+    "_meta": {
+      "title": "Encrypt Watermark"
     }
   }
 }
