@@ -174,6 +174,23 @@ elif [ -d "custom_nodes" ]; then
 		mv -fv input/vr/dubbing/sfx/*.mp4 input/vr/dubbing/sfx/error
 	fi
 
+	### SKIP IF CONFIG CHECK FAILED ###
+	WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	if [ $WMECOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "****** ENCRYPTING ********"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		#./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh
+	fi
+	if [ $WMDCOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "****** DECRYPTING ********"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		#./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh
+	fi
+
+
 	#dubbing -> scaling
 	#GLOBIGNORE="*_x?*.mp4"
 	#[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -fv -- output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1

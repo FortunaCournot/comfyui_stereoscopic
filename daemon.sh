@@ -11,7 +11,7 @@ cd $COMFYUIPATH
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
 	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	if [ $config_version -ne 2 ]; then
+	if [ $config_version -lt 2 ]; then
 		mv -f -- $CONFIGFILE $CONFIGFILE-$config_version.bak
 	fi
 fi
@@ -120,6 +120,18 @@ DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEP
 
 CONFIGERROR=
 
+# Upgrade config
+if [ $config_version -le 2 ] ; then
+	echo "# --- watermark key ---">>"$CONFIGFILE"
+	NEWSECRETKEY=`shuf -i 1-2000000000 -n 1`
+	echo "WATERMARK_SECRETKEY=$NEWSECRETKEY">>"$CONFIGFILE"
+	echo "# --- watermark label, e.g. author name (max. 17 characters, alphanumeric) ---">>"$CONFIGFILE"
+	echo "# stop here --------------------v">>"$CONFIGFILE"
+	echo "WATERMARK_LABEL=">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+
+	sed -i "/^config_version=/s/=.*/=3/" $CONFIGFILE
+fi
 
 
 ### CHECK TOOLS ###
@@ -298,12 +310,22 @@ else
 			CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
 			WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-			COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + CONCATCOUNT ))
+			
+			if [ $WMECOUNT -gt 0 ] ; then
+				WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
+				if [[ -z $WATERMARK_LABEL ]] ; then
+					echo -e $"\e[91mError:\e[0m You must configure WATERMARK_LABEL in $CONFIGFILE to encrypt. exiting."
+					exit
+				fi
+			fi
+			
+			
+			COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT ))
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
 			COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
 			if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] || [[ $COUNTSBSSLIDES -gt 1 ]] ; then
 				[ $loglevel -ge 0 ] && echo "Found $COUNT files in incoming folders:"
-				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat, $DUBSFXCOUNT to dub"
+				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat" && echo "$DUBSFXCOUNT to dub, $WMECOUNT to encrypt, $WMDCOUNT to decrypt"
 				sleep 1
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh
 				[ $loglevel -ge 0 ] && echo "****************************************************"
@@ -322,7 +344,7 @@ else
 		if [[ $DOWNSCALECOUNT -gt 0 ]]; then
 			./custom_nodes/comfyui_stereoscopic/api/batch_downscale.sh
 		fi
-		
+
 	done #KILL ME
 fi
 [ $loglevel -ge 0 ] && set +x
