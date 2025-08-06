@@ -79,6 +79,10 @@ else
 	WATERMARK_STOREFOLDER=./user/default/comfyui_stereoscopic/watermark/$WATERMARK_SECRETKEY
 	mkdir -p $WATERMARK_STOREFOLDER
 	
+	uuid=$(openssl rand -hex 16)
+	INTERMEDIATEFOLDER=input/vr/watermark/encrypt/intermediate/$uuid
+	mkdir -p $INTERMEDIATEFOLDER
+	
 	if [ ! -e "$WATERMARK_STOREFOLDER/watermark.png" ]; then
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i ./user/default/comfyui_stereoscopic/watermark_background.png -filter_complex "[0:0]crop=1024:1024:0:0[img];color=c=0xffffff@0x00:s=1000x1000,format=rgba,drawtext=text='$WATERMARK_LABEL':fontcolor=white: fontsize=100:x=(w-text_w)/2:y=32[fg];[img][fg]overlay=0:0:format=rgb,format=rgba[out]" -map [out] -c:v png -frames:v 1 $WATERMARK_STOREFOLDER/watermark.png
 		if [ ! -e "$WATERMARK_STOREFOLDER/watermark.png" ]; then
@@ -97,10 +101,11 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/watermark/encrypt/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/watermark/encrypt/${newfn//[^[:alnum:].]/_}
+			newfn=${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
+			newfn=$INTERMEDIATEFOLDER/$newfn
 			mv -- "$nextinputfile" $newfn 
 			
 			TARGETPREFIX=${newfn##*/}
@@ -110,7 +115,7 @@ else
 		done
 		rm  -f input/vr/watermark/encrypt/BATCHPROGRESS.TXT 
 	fi	
-	
+
 	IMGFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
 	COUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	INDEX=0
@@ -124,27 +129,51 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/watermark/encrypt/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/watermark/encrypt/${newfn//[^[:alnum:].]/_}
+			newfn=${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
+			STORENAME=$newfn
+			newfn=$INTERMEDIATEFOLDER/$newfn
 			mv -- "$nextinputfile" $newfn 
 			
-			if [ -e "$newfn" ]
-			then
+			if [ -e "$newfn" ]; then
 				TARGETPREFIX=${newfn##*/}
-
-				set -x
-				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH  "$newfn" "$WATERMARK_STOREFOLDER/watermark.png" "./output/vr/watermark/encrypt/intermediate/$TARGETPREFIX" $WATERMARK_SECRETKEY ; echo -ne $"\e[0m"
-				set +x
-				exit
+				TARGETPREFIX=${TARGETPREFIX%.*}
+				
+				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH  `realpath "$newfn"` `realpath "$WATERMARK_STOREFOLDER/watermark.png"` "vr/watermark/encrypt/intermediate/$TARGETPREFIX" $WATERMARK_SECRETKEY ; echo -ne $"\e[0m"
 				
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+					mkdir input/vr/watermark/encrypt/error
+					mv "$newfn" input/vr/watermark/encrypt/error
+					rm -rf $INTERMEDIATEFOLDER
 					exit
 				fi
 				
+				until [ "$queuecount" = "0" ]
+				do
+					sleep 1
+					curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+					queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+				done				
+				
+				if [ -e "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" ]; then
+					if [ -e "$WATERMARK_STOREFOLDER/$STORENAME" ]; then
+						echo -e "$INDEX/$COUNT: "$"\e[91mFailed: Source file already in storage!\e[0m ""$WATERMARK_STOREFOLDER/$STORENAME""                      "
+						mkdir input/vr/watermark/encrypt/error
+						mv "$newfn" input/vr/watermark/encrypt/error
+					else
+						mv -vf "$newfn" "$WATERMARK_STOREFOLDER/$STORENAME"
+						mv -vf "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" "output/vr/watermark/encrypt/$TARGETPREFIX""_marked.png"
+						echo -e "$INDEX/$COUNT: "$"\e[92mdone:\e[0m $TARGETPREFIX. Original stored in $WATERMARK_STOREFOLDER                     "
+					fi
+				else
+					echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch result at:\e[0m ""output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png""                      "
+					mkdir input/vr/watermark/encrypt/error
+					mv "$newfn" input/vr/watermark/encrypt/error
+				fi
 			else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			
@@ -152,5 +181,6 @@ else
 		rm  -f input/vr/watermark/encrypt/BATCHPROGRESS.TXT 
 				
 	fi	
+	rm -rf $INTERMEDIATEFOLDER
 	echo "Batch done."
 fi
