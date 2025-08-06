@@ -118,24 +118,26 @@ else
 
 	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
+		WIDTH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT`
+		HEIGHT=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT`
 		
-		# Prepare to restrict resolution to 4K, and skip low res
-		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT` -lt 128 -o `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT` -lt  128
+		# Prepare to restrict resolution, and skip low res
+		if test $WIDTH -lt 128 -o $HEIGHT -lt  128
 		then
 			echo "Skipping low resolution video: $SPLITINPUT"
-		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT` -gt 3840 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT` -gt  2160
+		elif test $WIDTH -gt 3840 
 		then 
 			echo "H-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
-			cp -- $SPLITINPUT $SEGDIR
+			mv -f -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
-		elif test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT` -gt 2160 -a `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT` -gt  3840
+		elif test $HEIGHT -gt 3840
 		then 
 			echo "V-Resolution > 4K: Downscaling..."
 			$(dirname "$0")/v2v_limit4K.sh "$SPLITINPUT"
 			SPLITINPUT="${SPLITINPUT%.mp4}_4K"".mp4"
-			cp -- $SPLITINPUT $SEGDIR
+			mv -f -- $SPLITINPUT $SEGDIR
 			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`
 		fi
 
