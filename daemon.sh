@@ -122,7 +122,7 @@ CONFIGERROR=
 
 # Upgrade config
 if [ $config_version -le 2 ] ; then
-	echo "# --- watermark key ---">>"$CONFIGFILE"
+	echo "# --- watermark key . if you change watermark background (in user/default/comfyui_stereoscopic) you must change this key. ---">>"$CONFIGFILE"
 	NEWSECRETKEY=`shuf -i 1-2000000000 -n 1`
 	echo "WATERMARK_SECRETKEY=$NEWSECRETKEY">>"$CONFIGFILE"
 	echo "# --- watermark label, e.g. author name (max. 17 characters, alphanumeric) ---">>"$CONFIGFILE"
@@ -130,7 +130,11 @@ if [ $config_version -le 2 ] ; then
 	echo "WATERMARK_LABEL=">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
+	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
+	
 	sed -i "/^config_version=/s/=.*/=3/" $CONFIGFILE
+	
+	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 fi
 
 
