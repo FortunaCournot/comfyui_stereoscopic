@@ -109,7 +109,7 @@ if LOAD_ERRORS == 0:
         f.write( __version__ )
         f.close()
         print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[92mOK.\033[0m')
-    else:   # Already tested
+    else:   # Already prepared tests
         print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[92mOK.\033[0m')
 
 else:
