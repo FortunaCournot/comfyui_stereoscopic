@@ -88,6 +88,8 @@ else
 	fi
 	regex="[^/]*$"
 	echo "========== $PROGRESS""scaling "`echo $INPUT | grep -oP "$regex"`" =========="
+
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 	
 	uuid=$(openssl rand -hex 16)
 	INTERMEDIATE_INPUT_FOLDER=input/vr/scaling/intermediate/$uuid
@@ -192,11 +194,22 @@ else
 		sleep 1
 		if [ -e "output/vr/scaling/tmpscaleresult_00001_.png" ]
 		then
+			#if [ -e "$EXIFTOOLBINARY" ] ; then
+			#	"$EXIFTOOLBINARY" -b -Workflow "$ORIGINALINPUT" > output/vr/scaling/workflow.json
+			#	"$EXIFTOOLBINARY" -b -Prompt "$ORIGINALINPUT" > output/vr/scaling/prompt.json
+			#	"$EXIFTOOLBINARY" -all= -tagsfromfile "$ORIGINALINPUT" -all:all "output/vr/scaling/tmpscaleresult_00001_.png"
+			#	"$EXIFTOOLBINARY"  "-Workflow<=output/vr/scaling/workflow.json" "output/vr/scaling/tmpscaleresult_00001_.png"
+			#	echo "Metadata transfered"
+			#fi
+			#ls -l output/vr/scaling
 			mv -fv output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.png"
+			#exit
 			mkdir -p input/vr/scaling/done
 			mv -fv $ORIGINALINPUT input/vr/scaling/done
 			echo -e $"\e[92mdone\e[0m in $runtime""s. "
-		else	
+		else
+			#echo "ERROR"
+			#exit
 			echo " "
 			echo -e $"\e[91mError:\e[0m Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "
 			mkdir -p input/vr/scaling/error

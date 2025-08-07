@@ -219,6 +219,10 @@ if [ ! -e "$EXIFTOOLBINARY" ]; then
 	echo -e $"\e[94mInfo:\e[0m Tagging not available, Exif tool missing. Set path at \e[92mEXIFTOOLBINARY\e[0m in"
 	echo -e $"\e[94m     \e[0m \e[36m$CONFIGFILE\e[0m"
 	echo -e $"\e[94m     \e[0m You may download Exiftool by visiting \e[36mhttps://exiftool.org\e[0m"
+elif [[ "$EXIFTOOLBINARY" =~ "(-k)" ]]; then
+	echo -e $"\e[91mError:\e[0m Exif tool binary must be renamed. Strip '(-k)' from name and update path at \e[92mEXIFTOOLBINARY\e[0m in"
+	echo -e $"\e[91m      \e[0m \e[36m$CONFIGFILE\e[0m"
+	exit
 fi
 
 # CHECK FOR VERSION UPDATE
