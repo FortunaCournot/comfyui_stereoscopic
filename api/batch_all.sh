@@ -124,7 +124,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 
-	SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm' | wc -l`
 	if [ $SINGLELOOPCOUNT -ge 1 ]; then
 		# SINGLE LOOP
 		# In:  input/vr/singleloop_in
