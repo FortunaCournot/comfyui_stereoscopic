@@ -8,6 +8,11 @@ COMFYUIPATH=`realpath $(dirname "$0")/../..`
 
 cd $COMFYUIPATH
 
+if [ ! -e "custom_nodes/comfyui_stereoscopic/.test" ] ; then
+	echo -e $"\e[91mError:\e[0m Please start ComfyUI and complete installation."
+	exit
+fi
+
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
 	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
@@ -201,6 +206,15 @@ else
 			[ $loglevel -ge 0 ] && echo -e $"  Then update DEPTH_MODEL_CKPT in \e[36m$CONFIGFILE\e[0m"
 			[ $loglevel -ge 0 ] && echo -e $"  Spoiler: \e[36mhttps://www.reddit.com/r/comfyui/comments/1lchvqw/depth_anything_v2_giant/\e[0m"
 		fi
+	fi
+fi
+
+# CHECK FOR VERSION UPDATE
+if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
+	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh
+	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
+		echo -e $"\e[91mError:\e[0m Tests failed."
+		exit
 	fi
 fi
 

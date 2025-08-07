@@ -1,23 +1,11 @@
 """Top-level package for comfyui_stereoscopic."""
-
 import os
 import folder_paths
-
-
-__all__ = [
-    "NODE_CLASS_MAPPINGS",
-    "NODE_DISPLAY_NAME_MAPPINGS",    
-]
 
 __author__ = """Fortuna Cournot"""
 __email__ = "fortunacournot@gmail.com"
 __version__ = "2.0.5"
 
-print(f'\033[35m[comfyui-stereoscopic] v{__version__}\033[0m Loading...')
-
-from .src.comfyui_stereoscopic.nodes import LOAD_ERRORS
-
-comfy_path = folder_paths.base_path
 
 def mkdirs():
     comfy_input_path = os.path.join(comfy_path, "input")
@@ -83,33 +71,46 @@ def mkdirs():
         os.mkdir(substage_path)
 
 
+
+
+print(f'\033[35m[comfyui-stereoscopic] v{__version__}\033[0m Loading...')
+
+__all__ = [
+    "NODE_CLASS_MAPPINGS",
+    "NODE_DISPLAY_NAME_MAPPINGS",    
+]
+
+from .src.comfyui_stereoscopic.nodes import LOAD_ERRORS
+
+comfy_path = folder_paths.base_path
+comfy_customnode_path = os.path.join(comfy_path, "custom_nodes")
+module_path = os.path.join(comfy_customnode_path, "comfyui_stereoscopic")
+if not os.path.exists(module_path):
+    print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[91mFailed to locate module path ({module_path})\033[0m')
+    LOAD_ERRORS += 1
+
 from .src.comfyui_stereoscopic.nodes import NODE_CLASS_MAPPINGS
 from .src.comfyui_stereoscopic.nodes import NODE_DISPLAY_NAME_MAPPINGS
 
 if LOAD_ERRORS == 0:
 
-    comfy_customnode_path = os.path.join(comfy_path, "custom_nodes")
-    module_path = os.path.join(comfy_customnode_path, "comfyui_stereoscopic")
-    if not os.path.exists(module_path):
-        print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[91mFailed to locate module path ({module_path})\033[0m')
-    else:
-        module_test_path = os.path.join(module_path, ".test")
-        if not os.path.exists(module_test_path):
-            os.mkdir(module_test_path)
-        version_test_path = os.path.join(module_test_path, __version__ )
-        if not os.path.exists(version_test_path):
-            print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[93mVersion update detected.\033[0m')
-            mkdirs()
-            shell_installtest_path = os.path.join(module_test_path, ".install" )
-            if os.path.exists(shell_installtest_path):
-                os.remove(shell_installtest_path)
-            f = open(shell_installtest_path, 'w')
-            f.write( __version__ )
-            f.close()
-            os.mkdir(version_test_path)
-            print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[92mOK.\033[0m')
-        else:   # Already tested
-            print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[92mOK.\033[0m')
+    module_test_path = os.path.join(module_path, ".test")
+    if not os.path.exists(module_test_path):
+        os.mkdir(module_test_path)
+    version_test_path = os.path.join(module_test_path, __version__ )
+    if not os.path.exists(version_test_path):
+        print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[93mVersion update detected.\033[0m')
+        mkdirs()
+        shell_installtest_path = os.path.join(module_test_path, ".install" )
+        os.mkdir(version_test_path)
+        if os.path.exists(shell_installtest_path):
+            os.remove(shell_installtest_path)
+        f = open(shell_installtest_path, 'w')
+        f.write( __version__ )
+        f.close()
+        print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[92mOK.\033[0m')
+    else:   # Already tested
+        print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[92mOK.\033[0m')
 
 else:
 
