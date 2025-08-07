@@ -10,11 +10,12 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 cd $COMFYUIPATH
 
 # NON PUBLIC YET
-rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
-exit
+#rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
+#exit
 # NON PUBLIC YET
 
-rm -f -- input/vr/scaling/test-image.png input/vr/scaling/done/test_image.png output/vr/scaling/done/test_image_x4_4K.png 2>/dev/null
+rm -f -- input/vr/scaling/test_image.png input/vr/scaling/done/test_image.png input/vr/scaling/error/test_image.png output/vr/scaling/test_image_x4_4K.png 2>/dev/null
+rm -f -- input/vr/scaling/test_video.mp4 input/vr/scaling/done/test_video.mp4 input/vr/scaling/error/test_video.mp4 output/vr/scaling/test_video_x4.mp4 2>/dev/null
 
 
 SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
@@ -41,14 +42,21 @@ INTERNAL_VERSION=`cat custom_nodes/comfyui_stereoscopic/.test/.install`
 echo "Testing for $INTERNAL_VERSION ..."
 
 echo "#######  1. Scaling  ######"
-cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test-image.png ./input/vr/scaling/
+cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_image.png ./input/vr/scaling/
+cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_video.mp4 ./input/vr/scaling/
 ./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
-if [ -e input/vr/scaling/test_image.png ] || [ ! -e input/vr/scaling/done/test_image.png ] || [ ! -e output/vr/scaling/done/test_image_x4_4K.png ] ; then
-	echo -e $"\e[91mError:\e[0m File validation failed."
+if [ -e input/vr/scaling/test_video.mp4 ] || [ ! -e input/vr/scaling/done/test_video.mp4 ] || [ ! -e output/vr/scaling/test_video_x4.mp4 ] ; then
+	echo -e $"\e[91mTest video scale failed.\e[0m"
+	rm -f -- input/vr/scaling/test_video.mp4 input/vr/scaling/done/test_video.mp4 input/vr/scaling/error/test_video.mp4 output/vr/scaling/test_video_x4.mp4 2>/dev/null
 	exit
 fi
-rm -f -- input/vr/scaling/done/test_image.png output/vr/scaling/done/test_image_x4_4K.png
+if [ -e input/vr/scaling/test_image.png ] || [ ! -e input/vr/scaling/done/test_image.png ] || [ ! -e output/vr/scaling/test_image_x4_4K.png ] ; then
+	echo -e $"\e[91mTest image scale failed.\e[0m"
+	rm -f -- input/vr/scaling/test_image.png input/vr/scaling/done/test_image.png input/vr/scaling/error/test_image.png output/vr/scaling/test_image_x4_4K.png 2>/dev/null
+	exit
+fi
+mv -f -- output/vr/scaling/test_image_x4_4K.png output/vr/scaling/test_video_x4.mp4 custom_nodes/comfyui_stereoscopic/.test/$INTERNAL_VERSION  2>/dev/null
+rm -f -- input/vr/scaling/test_image.png input/vr/scaling/done/test_image.png output/vr/scaling/test_image_x4_4K.png 2>/dev/null
+rm -f -- input/vr/scaling/test_video.mp4 input/vr/scaling/done/test_video.mp4 output/vr/scaling/test_video_x4.mp4 2>/dev/null
 
-
-
-#rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
+rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
