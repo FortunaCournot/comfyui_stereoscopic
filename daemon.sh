@@ -136,12 +136,19 @@ if [ $config_version -le 2 ] ; then
 	echo "WATERMARK_LABEL=">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
+	echo "# --- Path of the exiftool binary. If present exiftool is used for metadata management. ---">>"$CONFIGFILE"
+	echo "EXIFTOOLBINARY=">>"$CONFIGFILE"	
+	echo "">>"$CONFIGFILE"
+	
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 	
 	sed -i "/^config_version=/s/=.*/=3/" $CONFIGFILE
 	
 	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 fi
+
+[ $loglevel -ge 0 ] && echo -e $"For processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
+[ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
 
 
 ### CHECK TOOLS ###
@@ -159,10 +166,6 @@ if [ ! -d custom_nodes/comfyui_controlnet_aux ]; then
 fi
 if [ ! -d custom_nodes/comfyui-videohelpersuite ]; then
 	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-videohelpersuite could not be found. Use Custom Nodes Manager to install v1.6.1."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/bjornulf_custom_nodes ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes bjornulf_custom_nodes could not be found. Use Custom Nodes Manager to install v1.1.8."
 	CONFIGERROR="x"
 fi
 if [ ! -d custom_nodes/comfyui-easy-use ]; then
@@ -208,6 +211,14 @@ else
 			[ $loglevel -ge 0 ] && echo -e $"  Spoiler: \e[36mhttps://www.reddit.com/r/comfyui/comments/1lchvqw/depth_anything_v2_giant/\e[0m"
 		fi
 	fi
+fi
+
+# CHECK TOOLS
+EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+if [ ! -e "$EXIFTOOLBINARY" ]; then
+	echo -e $"\e[94mInfo:\e[0m Tagging not available, Exif tool missing. Set path at \e[92mEXIFTOOLBINARY\e[0m in"
+	echo -e $"\e[94m     \e[0m \e[36m$CONFIGFILE\e[0m"
+	echo -e $"\e[94m     \e[0m You may download Exiftool by visiting \e[36mhttps://exiftool.org\e[0m"
 fi
 
 # CHECK FOR VERSION UPDATE
@@ -263,8 +274,6 @@ else
 	[ $loglevel -ge 0 ] && echo -e $"\e[97m\e[1mStereoscopic Pipeline Processing started. $VERSION\e[0m"
 	[ $loglevel -ge 0 ] && echo -e $"\e[2m"
 	[ $loglevel -ge 0 ] && echo "Waiting for your files to be placed in folders:"
-	[ $loglevel -ge 0 ] && echo -e $"For processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
-	[ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
 
 	### CHECK FOR OPTIONAL NODE PACKAGES AND OTHER PROBLEMS ###
 	if [ ! -d custom_nodes/comfyui-florence2 ]; then
@@ -317,7 +326,6 @@ else
 				[ $loglevel -ge 0 ] && echo ""
 				SERVERERROR=
 			fi
-
 			
 			SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 			SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
@@ -337,7 +345,6 @@ else
 					exit
 				fi
 			fi
-			
 			
 			COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT ))
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
