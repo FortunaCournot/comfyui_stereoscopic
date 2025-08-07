@@ -112,3 +112,7 @@ yarn-error.log*
 node.zip
 .vscode/
 .claude/
+
+# Test / Installation
+.test/
+
