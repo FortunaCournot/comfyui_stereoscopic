@@ -186,7 +186,7 @@ else
 			#echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 		done
 		runtime=$((end-startjob))
-		echo "done."
+		echo "                                                       "
 		rm queuecheck.json
 
 		sleep 1
@@ -195,6 +195,7 @@ else
 			mv -fv output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.png"
 			mkdir -p input/vr/scaling/done
 			mv -fv $ORIGINALINPUT input/vr/scaling/done
+			echo -e $"\e[92mdone\e[0m in $runtime""s. "
 		else	
 			echo " "
 			echo -e $"\e[91mError:\e[0m Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "

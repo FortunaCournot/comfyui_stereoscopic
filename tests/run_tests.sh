@@ -9,11 +9,8 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
-# NON PUBLIC YET
-#rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
-#exit
-# NON PUBLIC YET
-
+rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png input/vr/fullsbs/error/test_image.png output/vr/fullsbs/test_image_SBS_LR.png 2>/dev/null
+rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 input/vr/fullsbs/error/test_video.mp4 output/vr/fullsbs/test_video_SBS_LR.mp4 2>/dev/null
 rm -f -- input/vr/scaling/test_image.png input/vr/scaling/done/test_image.png input/vr/scaling/error/test_image.png output/vr/scaling/test_image_x4_4K.png 2>/dev/null
 rm -f -- input/vr/scaling/test_video.mp4 input/vr/scaling/done/test_video.mp4 input/vr/scaling/error/test_video.mp4 output/vr/scaling/test_video_x4.mp4 2>/dev/null
 
@@ -39,11 +36,34 @@ fi
 
 
 INTERNAL_VERSION=`cat custom_nodes/comfyui_stereoscopic/.test/.install`
-echo "Testing for $INTERNAL_VERSION ..."
+TESTCOUNT=2
+echo -e $"\e[96m******* RUNNING TESTS FOR $INTERNAL_VERSION ... *******\e[0m"
+echo ""
 
-echo "#######  1. Scaling  ######"
-cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_image.png ./input/vr/scaling/
-cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_video.mp4 ./input/vr/scaling/
+
+echo -e $"####### \e[96mTest 1/$TESTCOUNT: SBS converter\e[0m ######"
+cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_image.png ./input/vr/fullsbs
+cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_video.mp4 ./input/vr/fullsbs
+./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.0 0.0
+if [ -e input/vr/fullsbs/test_video.mp4 ] || [ ! -e input/vr/fullsbs/done/test_video.mp4 ] || [ ! -e output/vr/fullsbs/test_video_SBS_LR.mp4 ] ; then
+	echo -e $"\e[91mTest video sbs converter failed.\e[0m"
+	rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 input/vr/fullsbs/error/test_video.mp4 output/vr/fullsbs/test_video_x4.mp4 2>/dev/null
+	exit
+fi
+if [ -e input/vr/fullsbs/test_image.png ] || [ ! -e input/vr/fullsbs/done/test_image.png ] || [ ! -e output/vr/fullsbs/test_image_SBS_LR.png ] ; then
+	echo -e $"\e[91mTest image sbs converter failed.\e[0m"
+	rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png input/vr/fullsbs/error/test_image.png output/vr/fullsbs/test_image_x4_4K.png 2>/dev/null
+	exit
+fi
+mv -f -- output/vr/fullsbs/test_image_SBS_LR.png output/vr/fullsbs/test_video_SBS_LR.mp4 custom_nodes/comfyui_stereoscopic/.test/$INTERNAL_VERSION  2>/dev/null
+rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png output/vr/fullsbs/test_image_SBS_LR.png 2>/dev/null
+rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 output/vr/fullsbs/test_video_SBS_LR.mp4 2>/dev/null
+echo -e $"####### \e[92mTEST STEP SUCCEEDED\e[0m ######"
+echo " "
+
+echo -e $"####### \e[96mTest 2/$TESTCOUNT: Scaling\e[0m ######"
+cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_image.png ./input/vr/scaling
+cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_video.mp4 ./input/vr/scaling
 ./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
 if [ -e input/vr/scaling/test_video.mp4 ] || [ ! -e input/vr/scaling/done/test_video.mp4 ] || [ ! -e output/vr/scaling/test_video_x4.mp4 ] ; then
 	echo -e $"\e[91mTest video scale failed.\e[0m"
@@ -58,5 +78,8 @@ fi
 mv -f -- output/vr/scaling/test_image_x4_4K.png output/vr/scaling/test_video_x4.mp4 custom_nodes/comfyui_stereoscopic/.test/$INTERNAL_VERSION  2>/dev/null
 rm -f -- input/vr/scaling/test_image.png input/vr/scaling/done/test_image.png output/vr/scaling/test_image_x4_4K.png 2>/dev/null
 rm -f -- input/vr/scaling/test_video.mp4 input/vr/scaling/done/test_video.mp4 output/vr/scaling/test_video_x4.mp4 2>/dev/null
+echo -e $"####### \e[92mTEST STEP SUCCEEDED\e[0m ######"
+echo " "
 
+echo -e $"\e[92m####### ALL TESTS SUCCEEDED ######\e[0m"
 rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
