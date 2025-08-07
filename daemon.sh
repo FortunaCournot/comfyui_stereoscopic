@@ -98,8 +98,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "">>"$CONFIGFILE"
 
 	mkdir -p input/vr/dubbing input/vr/downscale
-	echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >>input/vr/dubbing/README.TXT
-	cp input/vr/dubbing/README.TXT input/vr/downscale/README.TXT
+	echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >>input/vr/dubbing/DO_NOT_PLACE_HERE.TXT
+	cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/downscale/DO_NOT_PLACE_HERE.TXT
 
 	if ! command -v ffmpeg >/dev/null 2>&1
 	then
