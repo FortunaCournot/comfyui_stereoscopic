@@ -62,7 +62,7 @@ elif [ -d "custom_nodes" ]; then
 	mkdir -p input/vr/scaling input/vr/fullsbs
 
 	# workaround for recovery problem.
-	./custom_nodes/comfyui_stereoscopic/api/clear.sh
+	#./custom_nodes/comfyui_stereoscopic/api/clear.sh
 	
 	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
