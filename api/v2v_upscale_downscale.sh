@@ -15,7 +15,7 @@
 
 # - It will split the input video into segements,
 # - It queues upscale conversion workflows via api,
-# - Creates a shell script for concating resulting sbs segments
+# - Creates a shell script for concating resulting upscale segments
 # - Wait until comfyui is done, then call created script manually.
 
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
@@ -91,8 +91,9 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX_CALL=vr/scaling/intermediate/${TARGETPREFIX%.*}
-	TARGETPREFIX=output/vr/scaling/intermediate/${TARGETPREFIX%.*}
+	TARGETPREFIX_UPSCALE=${TARGETPREFIX%.*}
+	TARGETPREFIX_CALL=vr/scaling/intermediate/$TARGETPREFIX_UPSCALE
+	TARGETPREFIX=output/vr/scaling/intermediate/$TARGETPREFIX_UPSCALE
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	
 	UPSCALEMODEL="RealESRGAN_x4plus.pth"
@@ -126,6 +127,7 @@ else
 			if [ $PIXEL -lt $LIMIT4X ]; then
 				TARGETPREFIX="$TARGETPREFIX""_x4"
 				TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x4"
+				TARGETPREFIX_UPSCALE="$TARGETPREFIX_UPSCALE""_x4"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 				UPSCALEFACTOR=4
@@ -133,6 +135,7 @@ else
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
 				TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x2"
+				TARGETPREFIX_UPSCALE="$TARGETPREFIX_UPSCALE""_x2"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 				DOWNSCALE=$(awk -F "=" '/RESCALEx2/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"0.5"}
 				UPSCALEFACTOR=2
@@ -145,41 +148,62 @@ else
 		[ $loglevel -ge 1 ] && echo "Forced Upscale $UPSCALEFACTOR"
 		TARGETPREFIX="$TARGETPREFIX""_x$UPSCALEFACTOR"
 		TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x$UPSCALEFACTOR"
+		TARGETPREFIX_UPSCALE="$TARGETPREFIX_UPSCALE""_x$UPSCALEFACTOR"
 		UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
 		DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 	fi
 
-	
-	if [ "$UPSCALEFACTOR" -gt 0 ]
-	then
-		uuid=$(openssl rand -hex 16)
-		mkdir -p "$TARGETPREFIX"".tmpupscale"
-		SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
-		UPSCALEDIR_CALL="$TARGETPREFIX_CALL"".tmpupscale"
-		UPSCALEDIR=`realpath "$TARGETPREFIX"".tmpupscale"`
-		mkdir -p "$SEGDIR"
-		mkdir -p "$UPSCALEDIR"
-		if [ ! -e "$UPSCALEDIR/concat.sh" ]
-		then
-			touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
-			touch "$TARGETPREFIX"".tmpupscale"/x
-			rm "$TARGETPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpupscale"/*
+
+	# RECOVERY : CHECK FOR OLD FILES AND EXTRACT UUID
+	RECOVERY=
+	OLDINTERMEDIATEFOLDERCOUNT=`find output/vr/scaling/intermediate -type d -name "$TARGETPREFIX_UPSCALE-"* | wc -l`
+	if [ $OLDINTERMEDIATEFOLDERCOUNT -eq 1 ]; then
+		SEGDIR=`find output/vr/scaling/intermediate -type d -name "$TARGETPREFIX_UPSCALE-"*`
+		olduuid=${SEGDIR##*-}
+		olduuid=${olduuid%.tmpseg}
+		if [ -e output/vr/scaling/intermediate/$TARGETPREFIX_UPSCALE"-"$olduuid".tmpseg" ] && [ -e output/vr/scaling/intermediate/$TARGETPREFIX_UPSCALE".tmpupscale/concat.sh" ] ; then
+			uuid=$olduuid
+			SEGDIR=`realpath "$SEGDIR"`
+			UPSCALEDIR="$TARGETPREFIX"".tmpupscale"
+			UPSCALEDIR_CALL="$TARGETPREFIX_CALL"".tmpupscale"
+			TARGETPREFIX=`realpath "$TARGETPREFIX"`
+			SPLITINPUT="$INPUT"
+			EXTENSION="${INPUT##*.}"
+			RECOVERY=X
 		fi
-		touch $TARGETPREFIX
-		TARGETPREFIX=`realpath "$TARGETPREFIX"`
-		[ $loglevel -ge 1 ] && echo "prepare splitting $TARGETPREFIX"
-		rm "$TARGETPREFIX"
+	fi
 	
-		SPLITINPUT="$INPUT"
-		EXTENSION="${INPUT##*.}"
-		if [[ "$EXTENSION" == "webm" ]] || [[ "$EXTENSION" == "WEBM" ]] ; then
-			echo "handling unsupported image format"
-			NEWTARGET="${SPLITINPUT%.*}"".mp4"
-			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SPLITINPUT" "$NEWTARGET"
-			SPLITINPUT=$NEWTARGET
-			mv -- $SPLITINPUT $SEGDIR
-			SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`		
-		fi		
+	if [ "$UPSCALEFACTOR" -gt 0 ] ; then
+		if [ -z "$RECOVERY" ] ; then
+			uuid=$(openssl rand -hex 16)
+			mkdir -p "$TARGETPREFIX"".tmpupscale"
+			SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
+			UPSCALEDIR_CALL="$TARGETPREFIX_CALL"".tmpupscale"
+			UPSCALEDIR=`realpath "$TARGETPREFIX"".tmpupscale"`
+			mkdir -p "$SEGDIR"
+			mkdir -p "$UPSCALEDIR"
+			if [ ! -e "$UPSCALEDIR/concat.sh" ]
+			then
+				touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
+				touch "$TARGETPREFIX"".tmpupscale"/x
+				rm "$TARGETPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpupscale"/*
+			fi
+			touch $TARGETPREFIX
+			TARGETPREFIX=`realpath "$TARGETPREFIX"`
+			[ $loglevel -ge 1 ] && echo "prepare splitting $TARGETPREFIX"
+			rm "$TARGETPREFIX"
+		
+			SPLITINPUT="$INPUT"
+			EXTENSION="${INPUT##*.}"
+			if [[ "$EXTENSION" == "webm" ]] || [[ "$EXTENSION" == "WEBM" ]] ; then
+				echo "handling unsupported image format"
+				NEWTARGET="${SPLITINPUT%.*}"".mp4"
+				nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SPLITINPUT" "$NEWTARGET"
+				SPLITINPUT=$NEWTARGET
+				mv -- $SPLITINPUT $SEGDIR
+				SPLITINPUT="$SEGDIR/"`basename $SPLITINPUT`		
+			fi
+		fi
 		
 		if [ ! -e "$UPSCALEDIR/concat.sh" ]
 		then
@@ -215,16 +239,16 @@ else
 		fi
 		if [ ! -e "$UPSCALEDIR/concat.sh" ]
 		then
-			[ $loglevel -ge 1 ] && echo "Splitting into segments"
+			[ $loglevel -ge 0 ] && echo "Splitting into segments"
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 17 -map 0:v:0 $AUDIOMAPOPT -segment_time 1 -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 "$SEGDIR/segment%05d.mp4"
 		fi
-		[ $loglevel -ge 1 ] && echo "Prompting [$UPSCALEFACTOR"x"]..."
+		[ $loglevel -ge 0 ] && echo "Prompting [$UPSCALEFACTOR"x"]..."
 		for f in "$SEGDIR"/segment*.mp4 ; do
 			f2=${f%.mp4}
 			f2=${f2#$SEGDIR/segment}
-			[ $loglevel -ge 1 ] && echo -ne "$f2...       \r"
-			if [ ! -e "$UPSCALEDIR/sbssegment_$f2.mp4" ]
+			if [ ! -e "$UPSCALEDIR/sbssegment_"$f2"_.mp4" ]
 			then
+				[ $loglevel -ge 0 ] && echo -ne "- $f2...       \r"
 				if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 					# create audio
 					mv "$f" "${f%.mp4}_na.mp4"
@@ -238,49 +262,54 @@ else
 				fi
 				# "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
 				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR_CALL"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION"  ; echo -ne $"\e[0m"
+			else
+				[ $loglevel -ge 0 ] && echo -ne "+ $f2...       \r"
 			fi
 		done
-		[ $loglevel -ge 1 ] && echo "Jobs running...   "
+		[ $loglevel -ge 0 ] && echo "Jobs running...   "
+		
+		if [ ! -e "$UPSCALEDIR/concat.sh" ]
+		then
+			echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
+			echo "cd \"\$(dirname \"\$0\")\"" >>"$UPSCALEDIR/concat.sh"
+			echo "rm -rf \"$SEGDIR\"" >>"$UPSCALEDIR/concat.sh"
+			echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$UPSCALEDIR/concat.sh"
+			echo "then" >>"$UPSCALEDIR/concat.sh"
+			echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$UPSCALEDIR/concat.sh"
+			echo "    rm \$list" >>"$UPSCALEDIR/concat.sh"
+			echo "fi" >>"$UPSCALEDIR/concat.sh"
+			echo "for f in ./*.mp4 ; do" >>"$UPSCALEDIR/concat.sh"
+			echo "	echo \"file \$f\" >> "$UPSCALEDIR"/list.txt" >>"$UPSCALEDIR/concat.sh"
+			echo "done" >>"$UPSCALEDIR/concat.sh"
+			echo "$FFMPEGPATHPREFIX""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$UPSCALEDIR/concat.sh"
+			echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$UPSCALEDIR/concat.sh"
+			echo "files=(*.mp4)"  >>"$UPSCALEDIR/concat.sh"
+			echo "nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i \${files[0]} -vf \"thumbnail\" -frames:v 1 thumbnail.png" >>"$UPSCALEDIR/concat.sh"
+			echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$UPSCALEDIR/concat.sh"
+			echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$UPSCALEDIR/concat.sh"
+			echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$UPSCALEDIR/concat.sh"
+			echo "    echo audio remapped." >>"$UPSCALEDIR/concat.sh"
+			echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
+			echo "else" >>"$UPSCALEDIR/concat.sh"
+			echo "    echo no audio to remap." >>"$UPSCALEDIR/concat.sh"
+			echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
+			echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
+			echo "fi" >>"$UPSCALEDIR/concat.sh"
+			echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$UPSCALEDIR/concat.sh"
+			echo "then" >>"$UPSCALEDIR/concat.sh"
+			echo "mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
+			echo "mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
+			echo "cd .." >>"$UPSCALEDIR/concat.sh"
+			echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
+			echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$UPSCALEDIR/concat.sh"
+			echo "else" >>"$UPSCALEDIR/concat.sh"
+			echo "    echo -e \$\"\\e[91mError\\e[0m: Concat failed.\"" >>"$UPSCALEDIR/concat.sh"
+			echo "    exit -1" >>"$UPSCALEDIR/concat.sh"
+			echo "fi" >>"$UPSCALEDIR/concat.sh"
+		fi
 		
 		
-		echo "#!/bin/sh" >"$UPSCALEDIR/concat.sh"
-		echo "cd \"\$(dirname \"\$0\")\"" >>"$UPSCALEDIR/concat.sh"
-		echo "rm -rf \"$SEGDIR\"" >>"$UPSCALEDIR/concat.sh"
-		echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$UPSCALEDIR/concat.sh"
-		echo "then" >>"$UPSCALEDIR/concat.sh"
-		echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$UPSCALEDIR/concat.sh"
-		echo "    rm \$list" >>"$UPSCALEDIR/concat.sh"
-		echo "fi" >>"$UPSCALEDIR/concat.sh"
-		echo "for f in ./*.mp4 ; do" >>"$UPSCALEDIR/concat.sh"
-		echo "	echo \"file \$f\" >> "$UPSCALEDIR"/list.txt" >>"$UPSCALEDIR/concat.sh"
-		echo "done" >>"$UPSCALEDIR/concat.sh"
-		echo "$FFMPEGPATHPREFIX""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$UPSCALEDIR/concat.sh"
-		echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$UPSCALEDIR/concat.sh"
-		echo "files=(*.mp4)"  >>"$UPSCALEDIR/concat.sh"
-		echo "nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i \${files[0]} -vf \"thumbnail\" -frames:v 1 thumbnail.png" >>"$UPSCALEDIR/concat.sh"
-		echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 output2.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    echo audio remapped." >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "else" >>"$UPSCALEDIR/concat.sh"
-		echo "    echo no audio to remap." >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i thumbnail.png -map 1 -map 0 -c copy -disposition:0 attached_pic $TARGETPREFIX"".mp4" >>"$UPSCALEDIR/concat.sh"
-		echo "fi" >>"$UPSCALEDIR/concat.sh"
-		echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$UPSCALEDIR/concat.sh"
-		echo "then" >>"$UPSCALEDIR/concat.sh"
-		echo "mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
-		echo "mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
-		echo "cd .." >>"$UPSCALEDIR/concat.sh"
-		echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
-		echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$UPSCALEDIR/concat.sh"
-		echo "else" >>"$UPSCALEDIR/concat.sh"
-		echo "    echo -e \$\"\\e[91mError\\e[0m: Concat failed.\"" >>"$UPSCALEDIR/concat.sh"
-		echo "    exit -1" >>"$UPSCALEDIR/concat.sh"
-		echo "fi" >>"$UPSCALEDIR/concat.sh"
-		
-		[ $loglevel -ge -1 ] && echo "Waiting for queue to finish..."
+		[ $loglevel -ge -0 ] && echo "Waiting for queue to finish..."
 		sleep 4  # Give some extra time to start...
 		lastcount=""
 		start=`date +%s`

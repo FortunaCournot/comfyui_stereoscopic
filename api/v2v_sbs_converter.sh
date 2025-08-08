@@ -223,7 +223,7 @@ else
 		f2=${f2#$SEGDIR/segment}
 		if [ ! -e "$SBSDIR/sbssegment_"$f2"_.mp4" ]
 		then
-			echo -ne "- $f2...       \r"
+			[ $loglevel -ge 0 ] && echo -ne "- $f2...       \r"
 			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 				# create audio
 				mv "$f" "${f%.mp4}_na.mp4"
@@ -238,11 +238,11 @@ else
 			# "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
 			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$f" "$SBSDIR_CALL"/sbssegment  ; echo -ne $"\e[0m"
 		else
-			echo -ne "+ $f2...       \r"
+			[ $loglevel -ge 0 ] && echo -ne "+ $f2...       \r"
 		fi
 	done
 
-	echo "Jobs running...   "
+	[ $loglevel -ge 0 ] && echo "Jobs running...   "
 	
 	if [ ! -e "$SBSDIR/concat.sh" ]
 	then
