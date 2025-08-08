@@ -62,7 +62,7 @@ fi
 			if [ -e "$newfn" ]
 			then
 				TARGETPREFIX=${newfn##*/}
-				TARGETPREFIX=${TARGETPREFIX%.mp4}
+				TARGETPREFIX=${TARGETPREFIX%.*}
 				TARGETPREFIX=${TARGETPREFIX//"_dub"/}
 				INTERMEDIATEFILE=`realpath "output/vr/singleloop/intermediate/$TARGETPREFIX""_loop.mp4"`
 				/bin/bash $SCRIPTPATH  $INTERMEDIATEFILE `realpath "$newfn"`
