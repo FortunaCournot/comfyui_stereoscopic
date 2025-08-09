@@ -128,7 +128,8 @@ CONFIGERROR=
 
 # Upgrade config
 if [ $config_version -le 2 ] ; then
-	echo "# --- watermark key . if you change watermark background (in user/default/comfyui_stereoscopic) you must change this key. ---">>"$CONFIGFILE"
+	echo "# --- watermark config ---">>"$CONFIGFILE"
+	echo "# watermark key . if you change watermark background (in user/default/comfyui_stereoscopic) you must change this key.">>"$CONFIGFILE"
 	NEWSECRETKEY=`shuf -i 1-2000000000 -n 1`
 	echo "WATERMARK_SECRETKEY=$NEWSECRETKEY">>"$CONFIGFILE"
 	echo "# --- watermark label, e.g. author name (max. 17 characters, alphanumeric) ---">>"$CONFIGFILE"
@@ -136,8 +137,11 @@ if [ $config_version -le 2 ] ; then
 	echo "WATERMARK_LABEL=">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
-	echo "# --- Path of the exiftool binary. If present exiftool is used for metadata management. ---">>"$CONFIGFILE"
-	echo "EXIFTOOLBINARY=">>"$CONFIGFILE"	
+	echo "# --- metadata config ---">>"$CONFIGFILE"
+	echo "# Path of the exiftool binary. If present exiftool is used for metadata management.">>"$CONFIGFILE"
+	echo "EXIFTOOLBINARY="`which exiftool.exe 2>/dev/null` >>"$CONFIGFILE"
+	echo "# metadata keys where generated descriptions are stored in.">>"$CONFIGFILE"
+	echo "DESCRIPTION_GENERATION_CSKEYLIST=XPComment,iptc:Caption-Abstract">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
