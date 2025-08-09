@@ -136,23 +136,61 @@ prompt_text = """
       "title": "DownloadAndLoadFlorence2Model"
     }
   },
-  "204": {
+  "205": {
     "inputs": {
-      "path": "./ComfyUI/output/i2t/",
-      "filename_prefix": "output",
-      "filename_delimiter": "_",
-      "filename_number_padding": 4,
-      "file_extension": ".txt",
-      "encoding": "utf-8",
-      "filename_suffix": "",
+      "text_input": "",
+      "task": "ocr",
+      "fill_mask": false,
+      "keep_model_loaded": false,
+      "max_new_tokens": 4096,
+      "num_beams": 3,
+      "do_sample": false,
+      "output_mask_select": "",
+      "seed": 730341091025363,
+      "image": [
+        "182",
+        0
+      ],
+      "florence2_model": [
+        "198",
+        0
+      ]
+    },
+    "class_type": "Florence2Run",
+    "_meta": {
+      "title": "Florence2Run"
+    }
+  },
+  "206": {
+    "inputs": {
+      "root_dir": "output",
+      "file": "vr/caption/temp_ocr.txt",
+      "append": "overwrite",
+      "insert": true,
+      "text": [
+        "205",
+        2
+      ]
+    },
+    "class_type": "SaveText|pysssss",
+    "_meta": {
+      "title": "Save Caption"
+    }
+  },
+  "207": {
+    "inputs": {
+      "root_dir": "output",
+      "file": "vr/caption/temp_caption.txt",
+      "append": "overwrite",
+      "insert": true,
       "text": [
         "172",
         2
       ]
     },
-    "class_type": "Save Text File",
+    "class_type": "SaveText|pysssss",
     "_meta": {
-      "title": "Save Text File"
+      "title": "Save Caption"
     }
   }
 }
@@ -165,12 +203,11 @@ def queue_prompt(prompt):
 
 
 
-if len(sys.argv) == 1 + 3:
+if len(sys.argv) == 2 + 1:
     prompt = json.loads(prompt_text)
     
     prompt["178"]["inputs"]["video"] = sys.argv[1]  # path relative to input folder
-    prompt["204"]["inputs"]["path"] = sys.argv[2]   # cwd is parent of ComfyUI folder. path must start with ./ComfyUI/output/vr/...
-    prompt["172"]["inputs"]["task"] = sys.argv[3]
+    prompt["172"]["inputs"]["task"] = sys.argv[2]
     
     prompt["191"]["inputs"]["value"] = 8
     prompt["198"]["inputs"]["model"] = "microsoft/Florence-2-base"
@@ -178,5 +215,5 @@ if len(sys.argv) == 1 + 3:
     
     queue_prompt(prompt)
 else:
-    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath OutputPathPrefix florencerun_task")
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath florencerun_task")
 
