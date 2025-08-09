@@ -57,6 +57,8 @@ else
 
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+	
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 
 	depth_scale="$1"
 	shift
@@ -133,6 +135,8 @@ else
 		if [ -e "$INPUT" ]
 		then
 			echo "Generating to $TARGETPREFIX ..."
+
+			# rm -f -- "$TARGETPREFIX"*.png 2>/dev/null
 			
 			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$INPUT" "$TARGETPREFIX" ; echo -ne $"\e[0m"
 			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
@@ -171,6 +175,7 @@ else
 			if [ -e "$INTERMEDIATE" ]; then
 				while [ -e "$INTERMEDIATE" ]; do
 					sleep 1
+					[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$ORIGINALINPUT" -all:all -overwrite_original "$INTERMEDIATE" && echo "tags copied."
 					mv -fv "$INTERMEDIATE" "$FINALTARGET"
 					if [ -e "$FINALTARGET" ]; then
 						if [ -e "$INPUT" ]; then
@@ -184,6 +189,7 @@ else
 				done
 			else
 				echo -e $"\e[91mError:\e[0m Result file not found: $INTERMEDIATE"
+				ls -l "$TARGETPREFIX"*
 				mkdir -p input/vr/fullsbs/error
 				mv -fv "$ORIGINALINPUT" input/vr/fullsbs/error
 			fi

@@ -51,6 +51,8 @@ else
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
 	if [ -d "../python_embeded" ]; then
@@ -89,8 +91,6 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS""scaling "`echo $INPUT | grep -oP "$regex"`" =========="
 
-	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
-	
 	uuid=$(openssl rand -hex 16)
 	INTERMEDIATE_INPUT_FOLDER=input/vr/scaling/intermediate/$uuid
 	mkdir -p $INTERMEDIATE_INPUT_FOLDER
@@ -194,14 +194,7 @@ else
 		sleep 1
 		if [ -e "output/vr/scaling/tmpscaleresult_00001_.png" ]
 		then
-			#if [ -e "$EXIFTOOLBINARY" ] ; then
-			#	"$EXIFTOOLBINARY" -b -Workflow "$ORIGINALINPUT" > output/vr/scaling/workflow.json
-			#	"$EXIFTOOLBINARY" -b -Prompt "$ORIGINALINPUT" > output/vr/scaling/prompt.json
-			#	"$EXIFTOOLBINARY" -all= -tagsfromfile "$ORIGINALINPUT" -all:all "output/vr/scaling/tmpscaleresult_00001_.png"
-			#	"$EXIFTOOLBINARY"  "-Workflow<=output/vr/scaling/workflow.json" "output/vr/scaling/tmpscaleresult_00001_.png"
-			#	echo "Metadata transfered"
-			#fi
-			#ls -l output/vr/scaling
+			[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$ORIGINALINPUT" -all:all -overwrite_original output/vr/scaling/tmpscaleresult_00001_.png && echo "tags copied."
 			mv -fv output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.png"
 			#exit
 			mkdir -p input/vr/scaling/done

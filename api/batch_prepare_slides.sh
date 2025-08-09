@@ -1,5 +1,5 @@
 #!/bin/sh
-# upscale downscale images and pad to 4K
+# upscale downscale images and pad to 4K, using scaling stage.
 # Copyright (c) 2025 Fortuna Cournot. MIT License.
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
@@ -28,6 +28,11 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
+# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+
+EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+
 override_active=0
 
 # Length of each Image to display in seconds (INTEGER)
@@ -55,10 +60,11 @@ else
 	IMGFILES=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM'`
 	COUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 	INDEX=0
-	INTERMEDIATEFOLDER=output/vr/slides/intermediate
 	TARGETFOLDER=output/vr/slides
+	INTERMEDIATEFOLDER="$TARGETFOLDER"/intermediate
 	mkdir -p "$INTERMEDIATEFOLDER"
 	mkdir -p input/vr/slides/done
+	echo "Please look in input/vr/scaling/done" >input/vr/slides/done/README.TXT
 	rm -rf "$INTERMEDIATEFOLDER"/*  >/dev/null 2>&1
 	
 	if [[ $COUNT -gt 0 ]] ; then
@@ -71,7 +77,7 @@ else
 			INDEX=$(( INDEX + 1 ))
 			INDEXM1=$(( INDEX - 1 ))
 			INDEXM2=$(( INDEX - 2 ))
-			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/slides/BATCHPROGRESS.TXT
 			
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/slides/${newfn//[^[:alnum:].]/_}
@@ -82,19 +88,16 @@ else
 			
 			if [ -e "$newfn" ]; then
 			
+				# use scaling stage
 				/bin/bash $SCRIPTPATH "$newfn" $override_active 
 				
 				TARGETPREFIX=${newfn##*/}
 				TARGETPREFIX=${TARGETPREFIX%.*}
 				SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX*.*`
-				#if [ -e "output/vr/scaling/$TARGETPREFIX""_4K.png" ]; then
-				#	
-				#else
-				#	SCRIPTRESULT=`ls output/vr/scaling/$TARGETPREFIX*_4K.*`
-				#fi
 				
 				if [ -e "$SCRIPTRESULT" ]; then
 					SCRIPTRESULT=${SCRIPTRESULT##*/}
+					# forward to slides stage
 					mv -fv "output/vr/scaling/$SCRIPTRESULT" "output/vr/slides"
 					SCRIPTRESULT="output/vr/slides/$SCRIPTRESULT"
 					
@@ -103,35 +106,40 @@ else
 					if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SCRIPTRESULT` -gt  `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SCRIPTRESULT`
 					then
 						echo "scaling against 4K-H"
-						SCALINGINTERMEDIATE=tmpscalingH.png
+						SCALINGINTERMEDIATE=$INTERMEDIATEFOLDER/tmpscalingH.png
 						nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SCRIPTRESULT" -vf scale=3840:-1 "$SCALINGINTERMEDIATE"
+						[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$SCRIPTRESULT" -all:all "$SCALINGINTERMEDIATE" && echo "tags copied."
 						RESULT="$SCALINGINTERMEDIATE"
 					else
 						echo "scaling against 4K-V"
-						SCALINGINTERMEDIATE=tmpscalingV.png
+						SCALINGINTERMEDIATE=$INTERMEDIATEFOLDER/tmpscalingV.png
 						nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$SCRIPTRESULT" -vf scale=-1:3840 "$SCALINGINTERMEDIATE"
+						[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$SCRIPTRESULT" -all:all "$SCALINGINTERMEDIATE" && echo "tags copied."
 						RESULT="$SCALINGINTERMEDIATE"
 					fi
 					# ... this is possible in one step, but i am to lazy...
 					if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $RESULT` -gt  2160
 					then
 						echo "scaling against 4K-D"
-						SCALINGINTERMEDIATE=tmpscalingD.png
+						SCALINGINTERMEDIATE=$INTERMEDIATEFOLDER/tmpscalingD.png
 						nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$RESULT" -vf scale=-1:2160 "$SCALINGINTERMEDIATE"
+						[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$SCRIPTRESULT" -all:all "$SCALINGINTERMEDIATE" && echo "tags copied."
 						RESULT="$SCALINGINTERMEDIATE"
 					fi
 					
 					# Padding: ... this is maybe possible as well in one step, but i am to lazy...
 					echo "padding"
-					SCALINGINTERMEDIATE=tmppadding.png
+					SCALINGINTERMEDIATE=$INTERMEDIATEFOLDER/tmppadding.png
 					nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$RESULT" -vf "scale=w=3840:h=2160:force_original_aspect_ratio=1,pad=3840:2160:(ow-iw)/2:(oh-ih)/2" "$SCALINGINTERMEDIATE"
+					[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$RESULT" -all:all "$SCALINGINTERMEDIATE" && echo "tags copied."
 					rm -f "$RESULT"
 					RESULT="$SCALINGINTERMEDIATE"
 					
 					if [ -e "$RESULT" ]; then
 						mv -- $RESULT $TARGETFOLDER/$TARGETPREFIX".png"
 						rm "$SCRIPTRESULT"
-						mv -f "$newfn" input/vr/slides/done
+						# should be already stored in input/vr/scaling/done
+						[ -e "$newfn" ] && mv -f "$newfn" input/vr/slides/done
 						echo -e $"\e[92mdone.\e[0m"
 					else
 						echo -e $"\e[91mError:\e[0m Missing result: $RESULT"
@@ -148,7 +156,7 @@ else
 		echo "========== Slides processed.  ==========                             "
 			
 		
-		rm input/vr/scaling/BATCHPROGRESS.TXT
+		rm input/vr/slides/BATCHPROGRESS.TXT
 		
 	else
 		# Not enought image files (png|jpg|jpeg) found in input/vr/slides. At least 2.
