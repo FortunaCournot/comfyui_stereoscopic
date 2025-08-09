@@ -142,7 +142,7 @@ if [ $config_version -le 2 ] ; then
 	echo "EXIFTOOLBINARY="`which exiftool.exe 2>/dev/null` >>"$CONFIGFILE"
 	echo "# metadata keys where generated descriptions are stored in.">>"$CONFIGFILE"
 	echo "DESCRIPTION_GENERATION_CSKEYLIST=XPComment,iptc:Caption-Abstract">>"$CONFIGFILE"
-	echo "# metadata keys where generated descriptions are stored in.">>"$CONFIGFILE"
+	echo "# task of Florence2Run node:">>"$CONFIGFILE"
 	echo "DESCRIPTION_FLORENCE_TASK=more_detailed_caption">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
