@@ -4,7 +4,7 @@ import folder_paths
 
 __author__ = """Fortuna Cournot"""
 __email__ = "fortunacournot@gmail.com"
-__version__ = "2.0.6"
+__version__ = "2.0.7"
 
 
 def mkdirs():
@@ -28,7 +28,7 @@ def mkdirs():
         print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[91mFailed to create ({module_output_path})\033[0m')
         LOAD_ERRORS += 1
 
-    stage_list = ['concat','downscale','dubbing','fullsbs','scaling','singleloop','slides','slideshow','tasks','watermark']
+    stage_list = ['concat','downscale','dubbing','fullsbs','scaling','singleloop','slides','slideshow','tasks','watermark','caption']
 
     for stage in stage_list:
         stage_input_path = os.path.join(module_input_path, stage)

@@ -268,7 +268,7 @@ then
 	echo "Usage: $0 "
 	echo "E.g.: $0 "
 else
-	mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K
+	mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K input/vr/caption
 	SERVERERROR=
 	
 	if [ -e custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then
