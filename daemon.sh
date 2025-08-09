@@ -140,10 +140,12 @@ if [ $config_version -le 2 ] ; then
 	echo "# --- metadata config ---">>"$CONFIGFILE"
 	echo "# Path of the exiftool binary. If present exiftool is used for metadata management.">>"$CONFIGFILE"
 	echo "EXIFTOOLBINARY="`which exiftool.exe 2>/dev/null` >>"$CONFIGFILE"
-	echo "# metadata keys where generated descriptions are stored in.">>"$CONFIGFILE"
+	echo "# metadata keys where generated descriptions are stored in:">>"$CONFIGFILE"
 	echo "DESCRIPTION_GENERATION_CSKEYLIST=XPComment,iptc:Caption-Abstract">>"$CONFIGFILE"
 	echo "# task of Florence2Run node:">>"$CONFIGFILE"
 	echo "DESCRIPTION_FLORENCE_TASK=more_detailed_caption">>"$CONFIGFILE"
+	echo "# metadata keys where generated ocr result is stored in:">>"$CONFIGFILE"
+	echo "OCR_GENERATION_CSKEYLIST=Keywords,iptc:Keywords">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
