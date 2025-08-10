@@ -4,7 +4,7 @@ import folder_paths
 
 __author__ = """Fortuna Cournot"""
 __email__ = "fortunacournot@gmail.com"
-__version__ = "2.0.7"
+__version__ = "2.0.8"
 
 
 def mkdirs():

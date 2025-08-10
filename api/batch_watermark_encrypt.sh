@@ -93,7 +93,7 @@ else
 	
 	mkdir -p output/vr/watermark/encrypt/intermediate
 	
-	COUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	COUNT=0 #`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`

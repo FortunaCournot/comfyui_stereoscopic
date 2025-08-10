@@ -164,7 +164,7 @@ prompt_text = """
   "206": {
     "inputs": {
       "root_dir": "output",
-      "file": "vr/caption/temp_ocr.txt",
+      "file": "vr/caption/intermediate/temp_ocr.txt",
       "append": "overwrite",
       "insert": true,
       "text": [
@@ -180,7 +180,7 @@ prompt_text = """
   "207": {
     "inputs": {
       "root_dir": "output",
-      "file": "vr/caption/temp_caption.txt",
+      "file": "vr/caption/intermediate/temp_caption.txt",
       "append": "overwrite",
       "insert": true,
       "text": [
@@ -203,11 +203,13 @@ def queue_prompt(prompt):
 
 
 
-if len(sys.argv) == 2 + 1:
+if len(sys.argv) == 3 + 1:
     prompt = json.loads(prompt_text)
     
     prompt["178"]["inputs"]["video"] = sys.argv[1]  # path relative to input folder
-    prompt["172"]["inputs"]["task"] = sys.argv[2]
+    #prompt["207"]["inputs"]["file"] = sys.argv[2] + '/temp_caption.txt'
+    #prompt["206"]["inputs"]["file"] = sys.argv[2] + '/temp_ocr.txt'
+    prompt["172"]["inputs"]["task"] = sys.argv[3]
     
     prompt["191"]["inputs"]["value"] = 8
     prompt["198"]["inputs"]["model"] = "microsoft/Florence-2-base"
@@ -215,5 +217,5 @@ if len(sys.argv) == 2 + 1:
     
     queue_prompt(prompt)
 else:
-    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputVideoPath florencerun_task")
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputImagePath TextOutputFolderPath florencerun_task")
 

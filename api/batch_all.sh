@@ -175,8 +175,8 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	### SKIP IF CONFIG CHECK FAILED ###
-	WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-	WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	if [ $WMECOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** ENCRYPTING ********"
@@ -190,11 +190,15 @@ elif [ -d "custom_nodes" ]; then
 		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_decrypt.sh
 	fi
 
+	### SKIP IF CONFIG CHECK FAILED ###
+	CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	if [ $CAPCOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh
+	fi
 
-	#dubbing -> scaling
-	#GLOBIGNORE="*_x?*.mp4"
-	#[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -fv -- output/vr/dubbing/sfx/*.mp4 input/vr/scaling  >/dev/null 2>&1
-	#unset GLOBIGNORE		
 	
 
 else
