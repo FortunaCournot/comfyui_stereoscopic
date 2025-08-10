@@ -105,7 +105,7 @@ else
 	
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
-	if [ `RESW | wc -l` -ne 1 ] || [ `RESH | wc -l` -ne 1 ] ; then
+	if [ `echo $RESW | wc -l` -ne 1 ] || [ `echo $RESH | wc -l` -ne 1 ] ; then
 		echo -e $"\e[91mError:\e[0m Can't process video. please resample ${INPUT##*/} from input/vr/scaling/error"
 		mkdir -p input/vr/scaling/error
 		mv -f --  $INPUT input/vr/scaling/error
