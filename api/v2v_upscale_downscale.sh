@@ -111,7 +111,7 @@ else
 		mv -f --  $INPUT input/vr/scaling/error
 		exit
 	fi
-	PIXEL=$(( $RESW * $RESH )) || 
+	PIXEL=$(( $RESW * $RESH ))
 	
 	LIMIT4X=518400
 	LIMIT2X=2073600
