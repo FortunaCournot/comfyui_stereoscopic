@@ -11,6 +11,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2t_caption.py
 SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/python/i2t_caption.py
+SCRIPTPATH3=./custom_nodes/comfyui_stereoscopic/api/python/translate.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
@@ -69,6 +70,7 @@ else
 	# task of Florence2Run node. One of : more_detailed_caption, detailed_caption, caption 
 	DESCRIPTION_FLORENCE_TASK=$(awk -F "=" '/DESCRIPTION_FLORENCE_TASK/ {print $2}' $CONFIGFILE) ; DESCRIPTION_FLORENCE_TASK=${DESCRIPTION_FLORENCE_TASK:-"more_detailed_caption"}
 	OCR_GENERATION_CSKEYLIST=$(awk -F "=" '/OCR_GENERATION_CSKEYLIST/ {print $2}' $CONFIGFILE) ; OCR_GENERATION_CSKEYLIST=${OCR_GENERATION_CSKEYLIST:-"Keywords,iptc:Keywords"}
+	DESCRIPTION_LOCALE=$(awk -F "=" '/DESCRIPTION_LOCALE/ {print $2}' $CONFIGFILE) ; DESCRIPTION_LOCALE=${DESCRIPTION_LOCALE:-""}
 	
 	uuid=$(openssl rand -hex 16)
 	INTERMEDIATEFOLDER_CALL=vr/caption/intermediate/$uuid			# context: output/
@@ -168,6 +170,7 @@ else
 				TARGETPREFIX=${newfn##*/}
 				TARGETPREFIX=${TARGETPREFIX%.*}
 				
+				echo "$INDEX/$COUNT"": "${newfn##*/}
 				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH2  `realpath "$newfn"` $INTERMEDIATEFOLDER_CALL $DESCRIPTION_FLORENCE_TASK ; echo -ne $"\e[0m"
 				
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
@@ -190,6 +193,11 @@ else
 					CAPVAL=`cat output/vr/caption/intermediate/temp_caption.txt`
 					OCRVAL=`cat output/vr/caption/intermediate/temp_ocr.txt | tr " \t\n" ";"`
 					rm "output/vr/caption/intermediate/temp_caption.txt" "output/vr/caption/intermediate/temp_ocr.txt"
+					
+					if [ ! -z "$DESCRIPTION_LOCALE" ] ; then
+						echo "translating to $DESCRIPTION_LOCALE ..."
+						CAPVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 $DESCRIPTION_LOCALE $CAPVAL`
+					fi
 					
 					for captionkey in $(echo $DESCRIPTION_GENERATION_CSKEYLIST | sed "s/,/ /g")
 					do

@@ -6,7 +6,7 @@ description = "Nodes to create stereoscopic images and movies."
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.12"
-dependencies = [ "torch", "opencv-python>=4.7.0.72", "numpy", "pillow" ]
+dependencies = [ "torch", "opencv-python>=4.7.0.72", "numpy", "pillow", "googletrans" ]
 
 [project.urls]
 Repository = "https://github.com/FortunaCournot/comfyui_stereoscopic"
