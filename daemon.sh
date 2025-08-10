@@ -77,6 +77,14 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# x4 configuration">>"$CONFIGFILE"
 	echo "UPSCALEMODELx4=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
 	echo "RESCALEx4=1.0">>"$CONFIGFILE"
+	echo "# x4 scaling upper limit pixels">>"$CONFIGFILE"
+	echo "LIMIT4X=518400">>"$CONFIGFILE"
+	echo "# x2 scaling upper limit pixels">>"$CONFIGFILE"
+	echo "LIMIT2X=2073600">>"$CONFIGFILE"
+	echo "# x4 scaling upper limit pixels for substage override">>"$CONFIGFILE"
+	echo "LIMIT4X_OVERRIDE=1036800">>"$CONFIGFILE"
+	echo "# x2 scaling upper limit pixels for substage override when 60s+ duration">>"$CONFIGFILE"
+	echo "LIMIT2X_OVERRIDE_LONG=4147200">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# x2 configuration. x4 models need rescaling">>"$CONFIGFILE"
@@ -150,7 +158,7 @@ if [ $config_version -le 2 ] ; then
 	echo "# Target language locale of the description. Set empty to deactivate translation (keep english):">>"$CONFIGFILE"
 	echo "DESCRIPTION_LOCALE="`locale -u`>>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
-	
+
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 	
 	sed -i "/^config_version=/s/=.*/=3/" $CONFIGFILE
