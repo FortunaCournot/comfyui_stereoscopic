@@ -26,6 +26,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	touch "$CONFIGFILE"
 	
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
+	echo "# Warning: Simple syntax. inline comments are not supported.">>"$CONFIGFILE"
 	echo "config_version=2">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
@@ -126,7 +127,7 @@ DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEP
 
 CONFIGERROR=
 
-# Upgrade config
+# Upgrade config to version 3
 if [ $config_version -le 2 ] ; then
 	echo "# --- watermark config ---">>"$CONFIGFILE"
 	echo "# watermark key . if you change watermark background (in user/default/comfyui_stereoscopic) you must change this key.">>"$CONFIGFILE"

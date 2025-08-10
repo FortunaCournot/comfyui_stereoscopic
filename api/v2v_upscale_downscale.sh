@@ -76,7 +76,7 @@ else
 			TARGETPREFIX="$TARGETPREFIX""_x2"
 			DOWNSCALE=0.5
 		else
-			 echo -e $"\e[91mError:\e[0m Allowed upscalefactor values: 2 or 4"
+			echo -e $"\e[91mError:\e[0m Allowed upscalefactor values: 2 or 4"
 			exit
 		fi
 	fi
@@ -105,7 +105,13 @@ else
 	
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
-	PIXEL=$(( $RESW * $RESH ))
+	if [ `RESW | wc -l` -ne 1 ] || [ `RESH | wc -l` -ne 1 ] ; then
+		echo -e $"\e[91mError:\e[0m Can't process video. please reencode ${INPUT##*/} from input/vr/scaling/error"
+		mkdir -p input/vr/scaling/error
+		mv -f --  $INPUT input/vr/scaling/error
+		exit
+	fi
+	PIXEL=$(( $RESW * $RESH )) || 
 	
 	LIMIT4X=518400
 	LIMIT2X=2073600
