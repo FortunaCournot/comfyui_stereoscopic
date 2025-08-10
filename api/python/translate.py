@@ -6,11 +6,12 @@ from googletrans import Translator
 
 async def translate_text(dest, text):
     async with Translator() as translator:
-        result = await translator.translate(text, src='en', dest=dest)
-        
-        sys.stdout.reconfigure(encoding='utf-8')
-        
-        print(result.text)
+        try:
+            result = await translator.translate(text, src='en', dest=dest)
+            sys.stdout.reconfigure(encoding='utf-8')
+            print(result.text)
+        except:
+            print(text)
 
 if len(sys.argv) == 2 + 1:
     asyncio.run(translate_text(sys.argv[1], sys.argv[2]))
