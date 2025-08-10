@@ -286,18 +286,21 @@ else
 	fi
 
 	### WAIT FOR OLD QUEUE TO FINISH ###
-	queuecount=
 	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-	until [ "$queuecount" = "0" ]
-	do
-		sleep 1
-		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
-		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-		[ $loglevel -ge 0 ] && echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
-	done
-	[ $loglevel -ge 0 ] && echo "                                                             "
-	queuecount=
+	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+	if [ ! "$status" = "closed" ]; then
+		queuecount=
+		until [ "$queuecount" = "0" ]
+		do
+			sleep 1
+			curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+			[ $loglevel -ge 0 ] && echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
+		done
+		[ $loglevel -ge 0 ] && echo "                                                             "
+		queuecount=
+	fi
 
 
 	### GET READY ... ###
