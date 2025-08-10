@@ -196,7 +196,9 @@ else
 					
 					if [ ! -z "$DESCRIPTION_LOCALE" ] ; then
 						echo "translating to $DESCRIPTION_LOCALE ..."
-						CAPVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 $DESCRIPTION_LOCALE $CAPVAL`
+						echo "en: $CAPVAL"
+						CAPVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$CAPVAL"`
+						echo "de: $CAPVAL"
 					fi
 					
 					for captionkey in $(echo $DESCRIPTION_GENERATION_CSKEYLIST | sed "s/,/ /g")
