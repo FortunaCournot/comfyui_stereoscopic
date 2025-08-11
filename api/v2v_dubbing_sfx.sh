@@ -311,6 +311,7 @@ else
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.mp3 -map 0:v:0 -c:v libx264  -map 1:a:0 -c:a aac -shortest -fflags +shortest $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create dubbed.mp4 (NA)" && exit ; fi
 		fi
+		[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$INPUT" -all:all -overwrite_original $DUBBINGDIR/dubbed.mp4 && echo "tags copied."
 		mv -f $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
 		mv -vf "$TARGETPREFIX""_dub.mp4" "$FINALTARGETFOLDER"
 		
