@@ -176,6 +176,7 @@ else
 				while [ -e "$INTERMEDIATE" ]; do
 					sleep 1
 					[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$ORIGINALINPUT" -all:all -overwrite_original "$INTERMEDIATE" && echo "tags copied."
+					[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m '-iptc:credit<\$iptc:credit''. VR we are - https://civitai.com/models/1757677 .' -overwrite_original "$INTERMEDIATE" 
 					mv -fv "$INTERMEDIATE" "$FINALTARGET"
 					if [ -e "$FINALTARGET" ]; then
 						if [ -e "$INPUT" ]; then

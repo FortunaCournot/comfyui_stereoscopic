@@ -48,6 +48,8 @@ else
 		echo "config_version=1">>"$CONFIGFILE"
 	fi
 
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
@@ -303,10 +305,11 @@ else
 			echo "fi" >>"$UPSCALEDIR/concat.sh"
 			echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$UPSCALEDIR/concat.sh"
 			echo "then" >>"$UPSCALEDIR/concat.sh"
-			echo "mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
-			echo "mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
-			echo "cd .." >>"$UPSCALEDIR/concat.sh"
-			echo "rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
+			echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -all= -tagsfromfile \"$INPUT\" -all:all -overwrite_original $TARGETPREFIX"".mp4 && echo \"tags copied.\"" >>"$SBSDIR/concat.sh"
+			echo "    mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
+			echo "    mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
+			echo "    cd .." >>"$UPSCALEDIR/concat.sh"
+			echo "    rm -rf \"$TARGETPREFIX\"\".tmpupscale\"" >>"$UPSCALEDIR/concat.sh"
 			echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$UPSCALEDIR/concat.sh"
 			echo "else" >>"$UPSCALEDIR/concat.sh"
 			echo "    echo -e \$\"\\e[91mError\\e[0m: Concat failed.\"" >>"$UPSCALEDIR/concat.sh"

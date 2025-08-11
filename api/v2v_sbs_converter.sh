@@ -54,6 +54,8 @@ else
 		echo "config_version=1">>"$CONFIGFILE"
 	fi
 
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+	
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
@@ -272,11 +274,13 @@ else
 		echo "fi" >>"$SBSDIR/concat.sh"
 		echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$SBSDIR/concat.sh"
 		echo "then" >>"$SBSDIR/concat.sh"
+		echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -all= -tagsfromfile \"$INPUT\" -all:all -overwrite_original $TARGETPREFIX"".mp4 && echo \"tags copied.\"" >>"$SBSDIR/concat.sh"
+		echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -m '-creditLine<\\\$creditLine''. VR we are - https://civitai.com/models/1757677 .' -overwrite_original $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
 		echo "    mkdir -p $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
 		echo "    mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
 		echo "    cd .." >>"$SBSDIR/concat.sh"
 		echo "    rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
-		echo "    mkdir -p input/vr/fullsbs/done" >>"$SBSDIR/concat.sh"
+		echo "    mkdir -p $CWD/input/vr/fullsbs/done" >>"$SBSDIR/concat.sh"
 		echo "    mv -fv -- $INPUT $CWD/input/vr/fullsbs/done" >>"$SBSDIR/concat.sh"
 		echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$SBSDIR/concat.sh"
 		echo "else" >>"$SBSDIR/concat.sh"

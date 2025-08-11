@@ -142,7 +142,6 @@ else
 				
 				"$EXIFTOOLBINARY" -L -TITLE="$TITLEVAL" -overwrite_original "$newfn"
 				"$EXIFTOOLBINARY" -L -Comment="$CAPLONGVAL" -overwrite_original "$newfn"
-				"$EXIFTOOLBINARY" -m '-creditLine<\$creditLine'' VR we are - https://civitai.com/models/1757677 ' -overwrite_original "$newfn"
 				
 				mv "$newfn" output/vr/caption
 				mkdir -p input/vr/caption/done
@@ -247,8 +246,6 @@ else
 						"$EXIFTOOLBINARY" -$ocrkey="$OCRVAL" -overwrite_original "$newfn"
 					done
 
-					"$EXIFTOOLBINARY" -m '-iptc:credit<\$iptc:credit'' VR we are - https://civitai.com/models/1757677 ' -overwrite_original "$newfn"
-					
 					mv "$newfn" output/vr/caption
 					mkdir -p input/vr/caption/done
 					mv -- "$nextinputfile" input/vr/caption/done
