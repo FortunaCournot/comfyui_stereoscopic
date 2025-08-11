@@ -125,13 +125,25 @@ else
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 			done				
 
-			if [ -e "output/vr/caption/temp_caption_short.txt" ] && [ -e "output/vr/caption/temp_caption_long.txt" ] && [ -e "output/vr/caption/temp_ocr.txt" ] ; then
-				TITLEVAL=`cat output/vr/caption/temp_caption_short.txt`
-				CAPLONGVAL=`cat output/vr/caption/temp_caption_long.txt`
-				OCRVAL=`cat output/vr/caption/temp_ocr.txt | tr " \t\n" ";"`
-				rm "output/vr/caption/temp_caption_short.txt" "output/vr/caption/temp_caption_long.txt" "output/vr/caption/temp_ocr.txt"
+			if [ ! -e "output/vr/caption/intermediate/temp_caption_short.txt" ] ; then
+				cp -v "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_caption_short.txt"
+				echo -e $"\e[93mWarning:\e[0m short caption missing - using long caption."
+			fi
+			if [ ! -e "output/vr/caption/intermediate/temp_caption_long.txt" ] ; then
+				cp -v "output/vr/caption/intermediate/temp_caption_short.txt" "output/vr/caption/intermediate/temp_caption_long.txt"
+				echo -e $"\e[93mWarning:\e[0m long caption missing - using short caption."
+			fi
+			if [ ! -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; then
+				echo "" >output/vr/caption/intermediate/temp_ocr.txt
+				echo -e $"\e[93mWarning:\e[0m ocr missing - ignored."
+			fi
+			if [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; then
+				TITLEVAL=`cat output/vr/caption/intermediate/temp_caption_short.txt`
+				CAPLONGVAL=`cat output/vr/caption/intermediate/temp_caption_long.txt`
+				OCRVAL=`cat output/vr/caption/intermediate/temp_ocr.txt | tr " \t\n" ";"`
+				rm "output/vr/caption/intermediate/temp_caption_short.txt" "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_ocr.txt"
 
-				if [ ! -z "$DESCRIPTION_LOCALE" ] ; then
+				if [ ! -z "$DESCRIPTION_LOCALE" ] && [[ ! "$DESCRIPTION_LOCALE" == "en"* ]] ; then
 					echo "translating to $DESCRIPTION_LOCALE ..."
 					#echo "TITLEVAL en: $TITLEVAL"
 					#echo "CAPLONGVAL en: $CAPLONGVAL"
@@ -151,7 +163,8 @@ else
 				echo -e "$INDEX/$COUNT: "$"\e[92mdone.\e[0m "
 				
 			else
-				echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch result at:\e[0m ""output/vr/caption : temp_caption_short.txt , temp_caption_long.txt, temp_ocr.txt""                      "
+				echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch video result at:\e[0m ""output/vr/caption/intermediate : temp_caption_short.txt , temp_caption_long.txt, temp_ocr.txt""                      "
+				ls -la output/vr/caption/intermediate
 				mkdir -p input/vr/caption/error
 				mv -fv -- "$nextinputfile" input/vr/caption/error
 			fi
@@ -208,7 +221,7 @@ else
 
 
 				WAIT=0
-				until [ -e "output/vr/caption/temp_caption_short.txt" ] && [ -e "output/vr/caption/temp_caption_long.txt" ] && [ -e "output/vr/caption/temp_ocr.txt" ] ; do
+				until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; do
 					WAIT+=1
 					sleep 1
 					if [ $WAIT -ge 30 ] ; then
@@ -217,13 +230,25 @@ else
 					fi
 				done
 				
-				if [ -e "output/vr/caption/temp_caption_short.txt" ] && [ -e "output/vr/caption/temp_caption_long.txt" ] && [ -e "output/vr/caption/temp_ocr.txt" ] ; then
-					TITLEVAL=`cat output/vr/caption/temp_caption_short.txt`
-					CAPLONGVAL=`cat output/vr/caption/temp_caption_long.txt`
-					OCRVAL=`cat output/vr/caption/temp_ocr.txt | tr " \t\n" ";"`
-					rm "output/vr/caption/temp_caption_short.txt" "output/vr/caption/temp_caption_long.txt" "output/vr/caption/temp_ocr.txt"
+				if [ ! -e "output/vr/caption/intermediate/temp_caption_short.txt" ] ; then
+					cp -v "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_caption_short.txt"
+					echo -e $"\e[93mWarning:\e[0m short caption missing - using long caption."
+				fi
+				if [ ! -e "output/vr/caption/intermediate/temp_caption_long.txt" ] ; then
+					cp -v "output/vr/caption/intermediate/temp_caption_short.txt" "output/vr/caption/intermediate/temp_caption_long.txt"
+					echo -e $"\e[93mWarning:\e[0m long caption missing - using short caption."
+				fi
+				if [ ! -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; then
+					echo "" >output/vr/caption/intermediate/temp_ocr.txt
+					echo -e $"\e[93mWarning:\e[0m ocr missing - ignored."
+				fi
+				if [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; then
+					TITLEVAL=`cat output/vr/caption/intermediate/temp_caption_short.txt`
+					CAPLONGVAL=`cat output/vr/caption/intermediate/temp_caption_long.txt`
+					OCRVAL=`cat output/vr/caption/intermediate/temp_ocr.txt | tr " \t\n" ";"`
+					rm "output/vr/caption/intermediate/temp_caption_short.txt" "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_ocr.txt"
 					
-					if [ ! -z "$DESCRIPTION_LOCALE" ] ; then
+					if [ ! -z "$DESCRIPTION_LOCALE" ] &&  [[ ! "$DESCRIPTION_LOCALE" == "en"* ]] ; then
 						echo "translating to $DESCRIPTION_LOCALE ..."
 						#echo "TITLEVAL en: $TITLEVAL"
 						#echo "CAPLONGVAL en: $CAPLONGVAL"
@@ -260,7 +285,8 @@ else
 					echo -e "$INDEX/$COUNT: "$"\e[92mdone.\e[0m "
 					
 				else
-					echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch result at:\e[0m ""output/vr/caption : temp_caption_short.txt , temp_caption_long.txt, temp_ocr.txt""                      "
+					echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch image result at:\e[0m ""output/vr/caption/intermediate : temp_caption_short.txt , temp_caption_long.txt, temp_ocr.txt""                      "
+					ls -la output/vr/caption/intermediate
 					mkdir -p input/vr/caption/error
 					mv -fv -- "$nextinputfile" input/vr/caption/error
 				fi

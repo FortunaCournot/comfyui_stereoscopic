@@ -21,7 +21,7 @@ prompt_text = """
       "text_input": "",
       "task": "more_detailed_caption",
       "fill_mask": false,
-      "keep_model_loaded": false,
+      "keep_model_loaded": true,
       "max_new_tokens": 4096,
       "num_beams": 3,
       "do_sample": false,
@@ -67,7 +67,7 @@ prompt_text = """
       "text_input": "",
       "task": "ocr",
       "fill_mask": false,
-      "keep_model_loaded": false,
+      "keep_model_loaded": true,
       "max_new_tokens": 512,
       "num_beams": 3,
       "do_sample": false,
@@ -90,7 +90,7 @@ prompt_text = """
   "20": {
     "inputs": {
       "root_dir": "output",
-      "file": "vr/caption/temp_caption_long.txt",
+      "file": "vr/caption/intermediate/temp_caption_long.txt",
       "append": "overwrite",
       "insert": true,
       "text": [
@@ -106,7 +106,7 @@ prompt_text = """
   "21": {
     "inputs": {
       "root_dir": "output",
-      "file": "vr/caption/temp_ocr.txt",
+      "file": "vr/caption/intermediate/temp_ocr.txt",
       "append": "overwrite",
       "insert": true,
       "text": [
@@ -124,8 +124,8 @@ prompt_text = """
       "text_input": "",
       "task": "caption",
       "fill_mask": false,
-      "keep_model_loaded": false,
-      "max_new_tokens": 1024,
+      "keep_model_loaded": true,
+      "max_new_tokens": 2048,
       "num_beams": 3,
       "do_sample": false,
       "output_mask_select": "",
@@ -147,7 +147,7 @@ prompt_text = """
   "23": {
     "inputs": {
       "root_dir": "output",
-      "file": "vr/caption/temp_caption_short.txt",
+      "file": "vr/caption/intermediate/temp_caption_short.txt",
       "append": "overwrite",
       "insert": true,
       "text": [
