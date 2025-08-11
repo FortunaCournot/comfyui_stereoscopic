@@ -1,8 +1,8 @@
 
 [project]
 name = "comfyui_stereoscopic"
-version = "2.0.0"
-description = "Nodes to create stereoscopic images and movies."
+version = "2.1.0"
+description = "VR we are! Tool, nodes and workflows to create stereoscopic images and movies."
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.12"
@@ -13,6 +13,6 @@ Repository = "https://github.com/FortunaCournot/comfyui_stereoscopic"
 
 [tool.comfy]
 PublisherId = "fortunacournot"
-DisplayName = "Stereoscopic"
+DisplayName = "VR we are"
 Icon = "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/icon/VR2.png"
 
