@@ -9,10 +9,11 @@
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2t_caption.py
 SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/python/i2t_caption.py
 SCRIPTPATH3=./custom_nodes/comfyui_stereoscopic/api/python/translate.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
+
+
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
   PYTHON_BIN_PATH=../python_embeded/
@@ -42,6 +43,9 @@ if [ ! -e "$EXIFTOOLBINARY" ]; then
 	echo -e $"\e[91m      \e[0m $CONFIGFILE"
 	exit
 fi
+
+# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
@@ -80,7 +84,7 @@ else
 	mkdir -p $INTERMEDIATEFOLDER
 	mkdir -p output/vr/caption/intermediate
 	
-	COUNT=0 # `find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	COUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
@@ -94,10 +98,15 @@ else
 			newfn=${newfn//\)/_}
 			newfn=$INTERMEDIATEFOLDER/$newfn
 			cp -- "$nextinputfile" $newfn 
+			frame=$INTERMEDIATEFOLDER/frame.png
 			
 			TARGETPREFIX=${newfn##*/}
+
+			echo "$INDEX/$COUNT"": "${newfn##*/}
 			
-			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH  `realpath "$newfn"` $DESCRIPTION_FLORENCE_TASK ; echo -ne $"\e[0m"
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$newfn"  -vf "select=eq(n\,1)" -vframes 1 "$frame"
+			
+			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH2  `realpath "$frame"` $DESCRIPTION_FLORENCE_TASK ; echo -ne $"\e[0m"
 			
 			status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 			if [ "$status" = "closed" ]; then
@@ -123,32 +132,17 @@ else
 
 				if [ ! -z "$DESCRIPTION_LOCALE" ] ; then
 					echo "translating to $DESCRIPTION_LOCALE ..."
-					echo "TITLEVAL en: $TITLEVAL"
-					echo "CAPLONGVAL en: $CAPLONGVAL"
-					set -x
+					#echo "TITLEVAL en: $TITLEVAL"
+					#echo "CAPLONGVAL en: $CAPLONGVAL"
 					TITLEVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$TITLEVAL"`
 					CAPLONGVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$CAPLONGVAL"`
-					set +x
-					echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
-					echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
+					#echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
+					#echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
 				fi
 				
-				for titlekey in $(echo $TITLE_GENERATION_CSKEYLIST | sed "s/,/ /g")
-				do
-					"$EXIFTOOLBINARY" -L -$titlekey="$TITLEVAL" -overwrite_original "$newfn"
-				done
-
-				for captionkey in $(echo $DESCRIPTION_GENERATION_CSKEYLIST | sed "s/,/ /g")
-				do
-					"$EXIFTOOLBINARY" -L -$captionkey="$CAPLONGVAL" -overwrite_original "$newfn"
-				done
-
-				for ocrkey in $(echo $OCR_GENERATION_CSKEYLIST | sed "s/,/ /g")
-				do
-					"$EXIFTOOLBINARY" -$ocrkey="$OCRVAL" -overwrite_original "$newfn"
-				done
-
-				"$EXIFTOOLBINARY" -m '-iptc:credit<\$iptc:credit'' VR we are - https://civitai.com/models/1757677 ' -overwrite_original "$newfn"
+				"$EXIFTOOLBINARY" -L -TITLE="$TITLEVAL" -overwrite_original "$newfn"
+				"$EXIFTOOLBINARY" -L -Comment="$CAPLONGVAL" -overwrite_original "$newfn"
+				"$EXIFTOOLBINARY" -m '-creditLine<\$creditLine'' VR we are - https://civitai.com/models/1757677 ' -overwrite_original "$newfn"
 				
 				mv "$newfn" output/vr/caption
 				mkdir -p input/vr/caption/done
@@ -230,14 +224,12 @@ else
 					
 					if [ ! -z "$DESCRIPTION_LOCALE" ] ; then
 						echo "translating to $DESCRIPTION_LOCALE ..."
-						echo "TITLEVAL en: $TITLEVAL"
-						echo "CAPLONGVAL en: $CAPLONGVAL"
-						set -x
+						#echo "TITLEVAL en: $TITLEVAL"
+						#echo "CAPLONGVAL en: $CAPLONGVAL"
 						TITLEVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$TITLEVAL"`
 						CAPLONGVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$CAPLONGVAL"`
-						set +x
-						echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
-						echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
+						#echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
+						#echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
 					fi
 					
 					for titlekey in $(echo $TITLE_GENERATION_CSKEYLIST | sed "s/,/ /g")
