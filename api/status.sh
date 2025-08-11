@@ -38,7 +38,10 @@ ERRFOLDERCOUNT=`cat .tmperrcount`
 rm .tmperrcount
 if [[ "$ERRFOLDERCOUNT" -gt 0 ]] ; then
 	echo " "
-	echo -e $"\e[91m\e[4m+++ Summary of Folders with Errors +++\e[0m\e[91m"
-	find input/vr -type d -name error -o -name stopped  | { while read path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
-	echo -e $"\e[0m"
+	echo -e $"\e[31m\e[4m+++ Summary of Folders with Errors +++\e[0m"
+	echo -ne "\e[91m"
+	find input/vr -type d -name error  | { while read path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
+	echo -ne $"\e[0m\e[93m"
+	find input/vr -type d -name stopped | { while read path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
+	echo -ne $"\e[0m"
 fi
