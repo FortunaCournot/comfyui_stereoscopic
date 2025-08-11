@@ -145,12 +145,12 @@ else
 
 				if [ ! -z "$DESCRIPTION_LOCALE" ] && [[ ! "$DESCRIPTION_LOCALE" == "en"* ]] ; then
 					echo "translating to $DESCRIPTION_LOCALE ..."
-					#echo "TITLEVAL en: $TITLEVAL"
-					#echo "CAPLONGVAL en: $CAPLONGVAL"
+					[ $loglevel -ge 1 ] && echo "TITLEVAL en: $TITLEVAL"
+					[ $loglevel -ge 1 ] && echo "CAPLONGVAL en: $CAPLONGVAL"
 					TITLEVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$TITLEVAL"`
 					CAPLONGVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$CAPLONGVAL"`
-					#echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
-					#echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
+					[ $loglevel -ge 1 ] && echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
+					[ $loglevel -ge 1 ] && echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
 				fi
 				
 				"$EXIFTOOLBINARY" -Keys:all= -overwrite_original "$newfn"
@@ -250,12 +250,12 @@ else
 					
 					if [ ! -z "$DESCRIPTION_LOCALE" ] &&  [[ ! "$DESCRIPTION_LOCALE" == "en"* ]] ; then
 						echo "translating to $DESCRIPTION_LOCALE ..."
-						#echo "TITLEVAL en: $TITLEVAL"
-						#echo "CAPLONGVAL en: $CAPLONGVAL"
+						[ $loglevel -ge 1 ] && echo "TITLEVAL en: $TITLEVAL"
+						[ $loglevel -ge 1 ] && echo "CAPLONGVAL en: $CAPLONGVAL"
 						TITLEVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$TITLEVAL"`
 						CAPLONGVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$CAPLONGVAL"`
-						#echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
-						#echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
+						[ $loglevel -ge 1 ] && echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
+						[ $loglevel -ge 1 ] && echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
 					fi
 					
 					#"$EXIFTOOLBINARY" "-""$EXIF_PURGE_OPT""=" -overwrite_original "$newfn"
