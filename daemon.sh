@@ -120,8 +120,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "EXIFTOOLBINARY="`which exiftool.exe 2>/dev/null` >>"$CONFIGFILE"
 	echo "# metadata keys where generated title are stored in: e.g. XMP:Title,EXIF:ImageDescription,IPTC:Caption-Abstract,XMP:Description,EXIF:XPTitle">>"$CONFIGFILE"
 	echo "TITLE_GENERATION_CSKEYLIST=XMP:Title">>"$CONFIGFILE"
-	echo "# task of Florence2Run node: e.g. comment,XPComment,XPSubject">>"$CONFIGFILE"
-	echo "DESCRIPTION_GENERATION_CSKEYLIST=comment,XPComment">>"$CONFIGFILE"
+	echo "# image metadata keys where generated title is stored in, e.g. comment,XMP-exif:UserComment">>"$CONFIGFILE"
+	echo "DESCRIPTION_GENERATION_CSKEYLIST=comment,XMP-exif:UserComment">>"$CONFIGFILE"
 	echo "# task of Florence2Run node: detailed_caption or more_detailed_caption">>"$CONFIGFILE"
 	echo "DESCRIPTION_FLORENCE_TASK=more_detailed_caption">>"$CONFIGFILE"
 	echo "# metadata keys where generated ocr result is stored in:">>"$CONFIGFILE"
@@ -130,7 +130,10 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "OCR_GENERATION_KEYSEP=,">>"$CONFIGFILE"	
 	echo "# Target language locale of the description. Set empty to deactivate translation (keep english):">>"$CONFIGFILE"
 	echo "DESCRIPTION_LOCALE="`locale -u`>>"$CONFIGFILE"
+	echo "# Caption Stage image strip off key list, e.g.: Prompt,Workflow,UserComment">>"$CONFIGFILE"
+	echo "EXIF_PURGE_CSKEYLIST=Prompt,Workflow,UserComment" >>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
+ 
 
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 

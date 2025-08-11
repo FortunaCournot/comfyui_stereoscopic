@@ -77,6 +77,7 @@ else
 	# task of Florence2Run node. One of : more_detailed_caption, detailed_caption, caption 
 	DESCRIPTION_FLORENCE_TASK=$(awk -F "=" '/DESCRIPTION_FLORENCE_TASK/ {print $2}' $CONFIGFILE) ; DESCRIPTION_FLORENCE_TASK=${DESCRIPTION_FLORENCE_TASK:-"more_detailed_caption"}
 	DESCRIPTION_LOCALE=$(awk -F "=" '/DESCRIPTION_LOCALE/ {print $2}' $CONFIGFILE) ; DESCRIPTION_LOCALE=${DESCRIPTION_LOCALE:-""}
+	EXIF_PURGE_CSKEYLIST=$(awk -F "=" '/EXIF_PURGE_CSKEYLIST/ {print $2}' $CONFIGFILE) ; EXIF_PURGE_CSKEYLIST=${EXIF_PURGE_CSKEYLIST:-""}
 
 	uuid=$(openssl rand -hex 16)
 	INTERMEDIATEFOLDER_CALL=vr/caption/intermediate/$uuid			# context: output/
@@ -140,8 +141,9 @@ else
 					#echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
 				fi
 				
-				"$EXIFTOOLBINARY" -L -TITLE="$TITLEVAL" -overwrite_original "$newfn"
-				"$EXIFTOOLBINARY" -L -Comment="$CAPLONGVAL" -overwrite_original "$newfn"
+				"$EXIFTOOLBINARY" -Keys:all= -overwrite_original "$newfn"
+				"$EXIFTOOLBINARY" -L -ItemList:Title= -ItemList:Title="$TITLEVAL" -overwrite_original "$newfn"
+				"$EXIFTOOLBINARY" -L -ItemList:Comment= -ItemList:Comment="$CAPLONGVAL" -overwrite_original "$newfn"
 				
 				mv "$newfn" output/vr/caption
 				mkdir -p input/vr/caption/done
@@ -230,6 +232,12 @@ else
 						#echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
 						#echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
 					fi
+					
+					#"$EXIFTOOLBINARY" "-""$EXIF_PURGE_OPT""=" -overwrite_original "$newfn"
+					for purgekey in $(echo $EXIF_PURGE_CSKEYLIST | sed "s/,/ /g")
+					do
+						"$EXIFTOOLBINARY"  -$purgekey="" -overwrite_original "$newfn"
+					done
 					
 					for titlekey in $(echo $TITLE_GENERATION_CSKEYLIST | sed "s/,/ /g")
 					do
