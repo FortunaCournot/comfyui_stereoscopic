@@ -26,7 +26,7 @@ prompt_text = """
       "num_beams": 3,
       "do_sample": false,
       "output_mask_select": "",
-      "seed": 525008875703068,
+      "seed": 441010814110607,
       "image": [
         "12",
         0
@@ -55,7 +55,7 @@ prompt_text = """
   },
   "12": {
     "inputs": {
-      "image": "CGFI-Database-v1.png"
+      "image": "91200655.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -68,11 +68,11 @@ prompt_text = """
       "task": "ocr",
       "fill_mask": false,
       "keep_model_loaded": false,
-      "max_new_tokens": 4096,
+      "max_new_tokens": 512,
       "num_beams": 3,
       "do_sample": false,
       "output_mask_select": "",
-      "seed": 1002948302254343,
+      "seed": 851977108039789,
       "image": [
         "12",
         0
@@ -90,7 +90,7 @@ prompt_text = """
   "20": {
     "inputs": {
       "root_dir": "output",
-      "file": "vr/caption/intermediate/temp_caption.txt",
+      "file": "vr/caption/temp_caption_long.txt",
       "append": "overwrite",
       "insert": true,
       "text": [
@@ -106,11 +106,52 @@ prompt_text = """
   "21": {
     "inputs": {
       "root_dir": "output",
-      "file": "vr/caption/intermediate/temp_ocr.txt",
+      "file": "vr/caption/temp_ocr.txt",
       "append": "overwrite",
       "insert": true,
       "text": [
         "15",
+        2
+      ]
+    },
+    "class_type": "SaveText|pysssss",
+    "_meta": {
+      "title": "Save Caption"
+    }
+  },
+  "22": {
+    "inputs": {
+      "text_input": "",
+      "task": "caption",
+      "fill_mask": false,
+      "keep_model_loaded": false,
+      "max_new_tokens": 1024,
+      "num_beams": 3,
+      "do_sample": false,
+      "output_mask_select": "",
+      "seed": 757524996186607,
+      "image": [
+        "12",
+        0
+      ],
+      "florence2_model": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "Florence2Run",
+    "_meta": {
+      "title": "Florence2Run"
+    }
+  },
+  "23": {
+    "inputs": {
+      "root_dir": "output",
+      "file": "vr/caption/temp_caption_short.txt",
+      "append": "overwrite",
+      "insert": true,
+      "text": [
+        "22",
         2
       ]
     },
@@ -129,17 +170,15 @@ def queue_prompt(prompt):
 
 
 
-if len(sys.argv) == 3 + 1:
+if len(sys.argv) == 2 + 1:
     prompt = json.loads(prompt_text)
     prompt["12"]["inputs"]["image"] = sys.argv[1]   # cwd  is input. path must start with vr/...
-    #prompt["20"]["inputs"]["file"] = sys.argv[2] + '/temp_caption.txt'
-    #prompt["21"]["inputs"]["file"] = sys.argv[2] + '/temp_ocr.txt'
-    prompt["2"]["inputs"]["task"] = sys.argv[3]
+    prompt["2"]["inputs"]["task"] = sys.argv[2]
 
     prompt["8"]["inputs"]["model"] = "microsoft/Florence-2-base"
     prompt["8"]["inputs"]["precision"] = "fp16"
     
     queue_prompt(prompt)
 else:
-    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputImagePath TextOutputFolderPath florence2run_task")
+    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " InputImagePath florence2run_task")
 

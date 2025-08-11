@@ -66,12 +66,14 @@ else
 	for f in input/vr/caption/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
 	for f in input/vr/caption/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
 
+	TITLE_GENERATION_CSKEYLIST=$(awk -F "=" '/TITLE_GENERATION_CSKEYLIST/ {print $2}' $CONFIGFILE) ; TITLE_GENERATION_CSKEYLIST=${TITLE_GENERATION_CSKEYLIST:-"XMP:Title"}
 	DESCRIPTION_GENERATION_CSKEYLIST=$(awk -F "=" '/DESCRIPTION_GENERATION_CSKEYLIST/ {print $2}' $CONFIGFILE) ; DESCRIPTION_GENERATION_CSKEYLIST=${DESCRIPTION_GENERATION_CSKEYLIST:-"XPComment,iptc:Caption-Abstract"}
+	OCR_GENERATION_CSKEYLIST=$(awk -F "=" '/OCR_GENERATION_CSKEYLIST/ {print $2}' $CONFIGFILE) ; OCR_GENERATION_CSKEYLIST=${OCR_GENERATION_CSKEYLIST:-"Keywords,iptc:Keywords"}
+	OCR_GENERATION_KEYSEP=$(awk -F "=" '/OCR_GENERATION_KEYSEP/ {print $2}' $CONFIGFILE) ; OCR_GENERATION_KEYSEP=${OCR_GENERATION_KEYSEP:-","}
 	# task of Florence2Run node. One of : more_detailed_caption, detailed_caption, caption 
 	DESCRIPTION_FLORENCE_TASK=$(awk -F "=" '/DESCRIPTION_FLORENCE_TASK/ {print $2}' $CONFIGFILE) ; DESCRIPTION_FLORENCE_TASK=${DESCRIPTION_FLORENCE_TASK:-"more_detailed_caption"}
-	OCR_GENERATION_CSKEYLIST=$(awk -F "=" '/OCR_GENERATION_CSKEYLIST/ {print $2}' $CONFIGFILE) ; OCR_GENERATION_CSKEYLIST=${OCR_GENERATION_CSKEYLIST:-"Keywords,iptc:Keywords"}
 	DESCRIPTION_LOCALE=$(awk -F "=" '/DESCRIPTION_LOCALE/ {print $2}' $CONFIGFILE) ; DESCRIPTION_LOCALE=${DESCRIPTION_LOCALE:-""}
-	
+
 	uuid=$(openssl rand -hex 16)
 	INTERMEDIATEFOLDER_CALL=vr/caption/intermediate/$uuid			# context: output/
 	INTERMEDIATEFOLDER=input/$INTERMEDIATEFOLDER_CALL
@@ -95,7 +97,7 @@ else
 			
 			TARGETPREFIX=${newfn##*/}
 			
-			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH  `realpath "$newfn"` $INTERMEDIATEFOLDER_CALL $DESCRIPTION_FLORENCE_TASK ; echo -ne $"\e[0m"
+			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH  `realpath "$newfn"` $DESCRIPTION_FLORENCE_TASK ; echo -ne $"\e[0m"
 			
 			status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 			if [ "$status" = "closed" ]; then
@@ -113,22 +115,40 @@ else
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 			done				
 
-			if [ -e "output/vr/caption/intermediate/temp_caption.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; then
-				CAPVAL=`cat output/vr/caption/intermediate/temp_caption.txt`
-				OCRVAL=`cat output/vr/caption/intermediate/temp_ocr.txt | tr " \t\n" ";"`
-				rm "output/vr/caption/intermediate/temp_caption.txt" "output/vr/caption/intermediate/temp_ocr.txt"
+			if [ -e "output/vr/caption/temp_caption_short.txt" ] && [ -e "output/vr/caption/temp_caption_long.txt" ] && [ -e "output/vr/caption/temp_ocr.txt" ] ; then
+				TITLEVAL=`cat output/vr/caption/temp_caption_short.txt`
+				CAPLONGVAL=`cat output/vr/caption/temp_caption_long.txt`
+				OCRVAL=`cat output/vr/caption/temp_ocr.txt | tr " \t\n" ";"`
+				rm "output/vr/caption/temp_caption_short.txt" "output/vr/caption/temp_caption_long.txt" "output/vr/caption/temp_ocr.txt"
+
+				if [ ! -z "$DESCRIPTION_LOCALE" ] ; then
+					echo "translating to $DESCRIPTION_LOCALE ..."
+					echo "TITLEVAL en: $TITLEVAL"
+					echo "CAPLONGVAL en: $CAPLONGVAL"
+					set -x
+					TITLEVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$TITLEVAL"`
+					CAPLONGVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$CAPLONGVAL"`
+					set +x
+					echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
+					echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
+				fi
 				
-				set -x
+				for titlekey in $(echo $TITLE_GENERATION_CSKEYLIST | sed "s/,/ /g")
+				do
+					"$EXIFTOOLBINARY" -L -$titlekey="$TITLEVAL" -overwrite_original "$newfn"
+				done
+
 				for captionkey in $(echo $DESCRIPTION_GENERATION_CSKEYLIST | sed "s/,/ /g")
 				do
-					"$EXIFTOOLBINARY" -$captionkey="$CAPVAL" -overwrite_original "$newfn"
+					"$EXIFTOOLBINARY" -L -$captionkey="$CAPLONGVAL" -overwrite_original "$newfn"
 				done
 
 				for ocrkey in $(echo $OCR_GENERATION_CSKEYLIST | sed "s/,/ /g")
 				do
 					"$EXIFTOOLBINARY" -$ocrkey="$OCRVAL" -overwrite_original "$newfn"
 				done
-				set +x
+
+				"$EXIFTOOLBINARY" -m '-iptc:credit<\$iptc:credit'' VR we are - https://civitai.com/models/1757677 ' -overwrite_original "$newfn"
 				
 				mv "$newfn" output/vr/caption
 				mkdir -p input/vr/caption/done
@@ -136,7 +156,7 @@ else
 				echo -e "$INDEX/$COUNT: "$"\e[92mdone.\e[0m "
 				
 			else
-				echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch result at:\e[0m ""output/vr/caption/intermediate/temp_caption.txt , temp_ocr.txt""                      "
+				echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch result at:\e[0m ""output/vr/caption : temp_caption_short.txt , temp_caption_long.txt, temp_ocr.txt""                      "
 				mkdir -p input/vr/caption/error
 				mv -fv -- "$nextinputfile" input/vr/caption/error
 			fi
@@ -171,7 +191,7 @@ else
 				TARGETPREFIX=${TARGETPREFIX%.*}
 				
 				echo "$INDEX/$COUNT"": "${newfn##*/}
-				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH2  `realpath "$newfn"` $INTERMEDIATEFOLDER_CALL $DESCRIPTION_FLORENCE_TASK ; echo -ne $"\e[0m"
+				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH2  `realpath "$newfn"` $DESCRIPTION_FLORENCE_TASK ; echo -ne $"\e[0m"
 				
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
@@ -189,19 +209,45 @@ else
 					queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 				done				
 				
-				if [ -e "output/vr/caption/intermediate/temp_caption.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; then
-					CAPVAL=`cat output/vr/caption/intermediate/temp_caption.txt`
-					OCRVAL=`cat output/vr/caption/intermediate/temp_ocr.txt | tr " \t\n" ";"`
-					rm "output/vr/caption/intermediate/temp_caption.txt" "output/vr/caption/intermediate/temp_ocr.txt"
+				sync ; sleep 1
+
+
+				WAIT=0
+				until [ -e "output/vr/caption/temp_caption_short.txt" ] && [ -e "output/vr/caption/temp_caption_long.txt" ] && [ -e "output/vr/caption/temp_ocr.txt" ] ; do
+					WAIT+=1
+					sleep 1
+					if [ $WAIT -ge 30 ] ; then
+						echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
+						exit
+					fi
+				done
+				
+				if [ -e "output/vr/caption/temp_caption_short.txt" ] && [ -e "output/vr/caption/temp_caption_long.txt" ] && [ -e "output/vr/caption/temp_ocr.txt" ] ; then
+					TITLEVAL=`cat output/vr/caption/temp_caption_short.txt`
+					CAPLONGVAL=`cat output/vr/caption/temp_caption_long.txt`
+					OCRVAL=`cat output/vr/caption/temp_ocr.txt | tr " \t\n" ";"`
+					rm "output/vr/caption/temp_caption_short.txt" "output/vr/caption/temp_caption_long.txt" "output/vr/caption/temp_ocr.txt"
 					
 					if [ ! -z "$DESCRIPTION_LOCALE" ] ; then
 						echo "translating to $DESCRIPTION_LOCALE ..."
-						CAPVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$CAPVAL"`
+						echo "TITLEVAL en: $TITLEVAL"
+						echo "CAPLONGVAL en: $CAPLONGVAL"
+						set -x
+						TITLEVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$TITLEVAL"`
+						CAPLONGVAL=`"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH3 "$DESCRIPTION_LOCALE" "$CAPLONGVAL"`
+						set +x
+						echo "TITLEVAL $DESCRIPTION_LOCALE: $TITLEVAL"
+						echo "CAPLONGVAL $DESCRIPTION_LOCALE: $CAPLONGVAL"
 					fi
 					
+					for titlekey in $(echo $TITLE_GENERATION_CSKEYLIST | sed "s/,/ /g")
+					do
+						"$EXIFTOOLBINARY"  -L -$titlekey="$TITLEVAL" -overwrite_original "$newfn"
+					done
+
 					for captionkey in $(echo $DESCRIPTION_GENERATION_CSKEYLIST | sed "s/,/ /g")
 					do
-						"$EXIFTOOLBINARY" -L -$captionkey="$CAPVAL" -overwrite_original "$newfn"
+						"$EXIFTOOLBINARY"  -L -$captionkey="$CAPLONGVAL" -overwrite_original "$newfn"
 					done
 
 					for ocrkey in $(echo $OCR_GENERATION_CSKEYLIST | sed "s/,/ /g")
@@ -209,16 +255,19 @@ else
 						"$EXIFTOOLBINARY" -$ocrkey="$OCRVAL" -overwrite_original "$newfn"
 					done
 
+					"$EXIFTOOLBINARY" -m '-iptc:credit<\$iptc:credit'' VR we are - https://civitai.com/models/1757677 ' -overwrite_original "$newfn"
+					
 					mv "$newfn" output/vr/caption
 					mkdir -p input/vr/caption/done
 					mv -- "$nextinputfile" input/vr/caption/done
 					echo -e "$INDEX/$COUNT: "$"\e[92mdone.\e[0m "
 					
 				else
-					echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch result at:\e[0m ""output/vr/caption/intermediate/temp_caption.txt , temp_ocr.txt""                      "
+					echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch result at:\e[0m ""output/vr/caption : temp_caption_short.txt , temp_caption_long.txt, temp_ocr.txt""                      "
 					mkdir -p input/vr/caption/error
 					mv -fv -- "$nextinputfile" input/vr/caption/error
 				fi
+				
 			else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			

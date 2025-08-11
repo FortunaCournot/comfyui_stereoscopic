@@ -16,7 +16,7 @@ fi
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
 	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	if [ $config_version -lt 2 ]; then
+	if [ $config_version -lt 4 ]; then
 		mv -f -- $CONFIGFILE $CONFIGFILE-$config_version.bak
 	fi
 fi
@@ -27,7 +27,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
 	echo "# Warning: Simple syntax. inline comments are not supported.">>"$CONFIGFILE"
-	echo "config_version=2">>"$CONFIGFILE"
+	echo "config_version=4">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# Loglevel is not fully implemented overall yet.  -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x), keep intermediate. ">>"$CONFIGFILE"			
@@ -106,6 +106,34 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "MAXDUBBINGSEGMENTTIME=64">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
+	echo "# --- watermark config ---">>"$CONFIGFILE"
+	echo "# watermark key . if you change watermark background (in user/default/comfyui_stereoscopic) you must change this key.">>"$CONFIGFILE"
+	NEWSECRETKEY=`shuf -i 1-2000000000 -n 1`
+	echo "WATERMARK_SECRETKEY=$NEWSECRETKEY">>"$CONFIGFILE"
+	echo "# --- watermark label, e.g. author name (max. 17 characters, alphanumeric) ---">>"$CONFIGFILE"
+	echo "# stop here --------------------v">>"$CONFIGFILE"
+	echo "WATERMARK_LABEL=">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+
+	echo "# --- metadata config ---">>"$CONFIGFILE"
+	echo "# Path of the exiftool binary. If present exiftool is used for metadata management.">>"$CONFIGFILE"
+	echo "EXIFTOOLBINARY="`which exiftool.exe 2>/dev/null` >>"$CONFIGFILE"
+	echo "# metadata keys where generated title are stored in: e.g. XMP:Title,EXIF:ImageDescription,IPTC:Caption-Abstract,XMP:Description,EXIF:XPTitle">>"$CONFIGFILE"
+	echo "TITLE_GENERATION_CSKEYLIST=XMP:Title">>"$CONFIGFILE"
+	echo "# task of Florence2Run node: e.g. comment,XPComment,XPSubject">>"$CONFIGFILE"
+	echo "DESCRIPTION_GENERATION_CSKEYLIST=comment,XPComment">>"$CONFIGFILE"
+	echo "# task of Florence2Run node: detailed_caption or more_detailed_caption">>"$CONFIGFILE"
+	echo "DESCRIPTION_FLORENCE_TASK=more_detailed_caption">>"$CONFIGFILE"
+	echo "# metadata keys where generated ocr result is stored in:">>"$CONFIGFILE"
+	echo "OCR_GENERATION_CSKEYLIST=iptc:Keywords">>"$CONFIGFILE"
+	echo "# metadata key seperator:">>"$CONFIGFILE"
+	echo "OCR_GENERATION_KEYSEP=,">>"$CONFIGFILE"	
+	echo "# Target language locale of the description. Set empty to deactivate translation (keep english):">>"$CONFIGFILE"
+	echo "DESCRIPTION_LOCALE="`locale -u`>>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+
+	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
+
 	mkdir -p input/vr/dubbing input/vr/downscale
 	echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >>input/vr/dubbing/DO_NOT_PLACE_HERE.TXT
 	cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/downscale/DO_NOT_PLACE_HERE.TXT
@@ -135,36 +163,13 @@ DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEP
 
 CONFIGERROR=
 
-# Upgrade config to version 3
-if [ $config_version -le 2 ] ; then
-	echo "# --- watermark config ---">>"$CONFIGFILE"
-	echo "# watermark key . if you change watermark background (in user/default/comfyui_stereoscopic) you must change this key.">>"$CONFIGFILE"
-	NEWSECRETKEY=`shuf -i 1-2000000000 -n 1`
-	echo "WATERMARK_SECRETKEY=$NEWSECRETKEY">>"$CONFIGFILE"
-	echo "# --- watermark label, e.g. author name (max. 17 characters, alphanumeric) ---">>"$CONFIGFILE"
-	echo "# stop here --------------------v">>"$CONFIGFILE"
-	echo "WATERMARK_LABEL=">>"$CONFIGFILE"
-	echo "">>"$CONFIGFILE"
-
-	echo "# --- metadata config ---">>"$CONFIGFILE"
-	echo "# Path of the exiftool binary. If present exiftool is used for metadata management.">>"$CONFIGFILE"
-	echo "EXIFTOOLBINARY="`which exiftool.exe 2>/dev/null` >>"$CONFIGFILE"
-	echo "# metadata keys where generated descriptions are stored in:">>"$CONFIGFILE"
-	echo "DESCRIPTION_GENERATION_CSKEYLIST=XPComment,iptc:Caption-Abstract">>"$CONFIGFILE"
-	echo "# task of Florence2Run node:">>"$CONFIGFILE"
-	echo "DESCRIPTION_FLORENCE_TASK=more_detailed_caption">>"$CONFIGFILE"
-	echo "# metadata keys where generated ocr result is stored in:">>"$CONFIGFILE"
-	echo "OCR_GENERATION_CSKEYLIST=Keywords,iptc:Keywords">>"$CONFIGFILE"
-	echo "# Target language locale of the description. Set empty to deactivate translation (keep english):">>"$CONFIGFILE"
-	echo "DESCRIPTION_LOCALE="`locale -u`>>"$CONFIGFILE"
-	echo "">>"$CONFIGFILE"
-
-	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
-	
-	sed -i "/^config_version=/s/=.*/=3/" $CONFIGFILE
-	
-	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-fi
+# Delta Upgrade config to version 5
+#if [ $config_version -le 5 ] ; then
+#	
+#	sed -i "/^config_version=/s/=.*/=5/" $CONFIGFILE
+#	
+#	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+#fi
 
 [ $loglevel -ge 0 ] && echo -e $"For processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
 [ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
