@@ -37,6 +37,7 @@ fi
 # set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
+EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
@@ -92,6 +93,7 @@ else
 	fi
 	
 	mkdir -p output/vr/watermark/encrypt/intermediate
+	rm -rf output/vr/watermark/encrypt/intermediate/* 2>/dev/null
 	
 	COUNT=0 #`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
@@ -165,6 +167,7 @@ else
 						mkdir input/vr/watermark/encrypt/error
 						mv "$newfn" input/vr/watermark/encrypt/error
 					else
+						[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$newfn" -all:all -overwrite_original "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" && echo "tags copied."
 						mv -vf "$newfn" "$WATERMARK_STOREFOLDER/$STORENAME"
 						mv -vf "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" "output/vr/watermark/encrypt/$TARGETPREFIX""_marked.png"
 						echo -e "$INDEX/$COUNT: "$"\e[92mdone:\e[0m $TARGETPREFIX. Original stored in $WATERMARK_STOREFOLDER                     "
