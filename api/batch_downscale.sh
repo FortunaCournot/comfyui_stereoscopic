@@ -42,6 +42,8 @@ fi
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+
 	TARGETSIZE="4K"
 
 	mkdir -p output/vr/downscale/$TARGETSIZE
@@ -93,6 +95,7 @@ fi
 				
 				if [ -e $INTERMEDIATEFILE ]
 				then
+					[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$newfn" -all:all -overwrite_original $INTERMEDIATEFILE && echo "tags copied."
 					mv -f -- "$INTERMEDIATEFILE" "output/vr/downscale/$TARGETSIZE/$TARGETPREFIX""_$TARGETSIZE.mp4"
 					mv -fv -- $newfn input/vr/downscale/$TARGETSIZE/done
 				else
