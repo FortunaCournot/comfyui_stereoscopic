@@ -305,7 +305,7 @@ else
 			echo "fi" >>"$UPSCALEDIR/concat.sh"
 			echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$UPSCALEDIR/concat.sh"
 			echo "then" >>"$UPSCALEDIR/concat.sh"
-			echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -all= -tagsfromfile \"$INPUT\" -all:all -overwrite_original $TARGETPREFIX"".mp4 && echo \"tags copied.\"" >>"$SBSDIR/concat.sh"
+			echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -all= -tagsfromfile \"$INPUT\" -all:all -overwrite_original $TARGETPREFIX"".mp4 && echo \"tags copied.\"" >>"$UPSCALEDIR/concat.sh"
 			echo "    mkdir -p $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
 			echo "    mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$UPSCALEDIR/concat.sh"
 			echo "    cd .." >>"$UPSCALEDIR/concat.sh"
