@@ -1,12 +1,12 @@
 
 [project]
 name = "comfyui_stereoscopic"
-version = "2.1.1"
+version = "2.1.2"
 description = "VR we are! Tool, nodes and workflows to create stereoscopic images and movies."
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.12"
-dependencies = [ "torch", "opencv-python>=4.7.0.72", "numpy", "pillow", "googletrans" ]
+dependencies = [ "torch", "opencv-python>=4.7.0.72", "numpy", "pillow" ]
 
 [project.urls]
 Repository = "https://github.com/FortunaCournot/comfyui_stereoscopic"
