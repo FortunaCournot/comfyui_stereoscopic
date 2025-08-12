@@ -4,6 +4,8 @@ import json
 import sys
 import requests
 import os
+import random
+
 
 #This is the ComfyUI api prompt format.
 
@@ -270,6 +272,11 @@ if len(sys.argv) == 1 + 6:
     prompt["201"]["inputs"]["value"] = positive
     prompt["202"]["inputs"]["value"] = negative
     prompt["198"]["inputs"]["model"] = sys.argv[6]
+    
+    random_seed = random.randint(0,2147483647)
+    prompt["171"]["inputs"]["seed"] = random_seed
+    prompt["172"]["inputs"]["seed"] = random_seed
+
     
     queue_prompt(prompt)
 else:
