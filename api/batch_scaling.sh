@@ -11,6 +11,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.sh 
 SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.sh 
+SCRIPTPATH_TVAI=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale_tvai.sh 
 
 cd $COMFYUIPATH
 
@@ -50,6 +51,8 @@ else
 		
 		mv -fv "input/vr/scaling""$OVERRIDESUBPATH"/*.* input/vr/scaling
 	fi
+	
+	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 	
 	#for file in input/vr/scaling/*' '*
 	#do
@@ -100,12 +103,16 @@ else
 					mv -fv "$newfn" input/vr/scaling/stopped
 					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
 				else
-					/bin/bash $SCRIPTPATH "$newfn" $override_active 
+					if [ ! -e "$TVAI_BIN_DIR" ] ; then
+						/bin/bash $SCRIPTPATH "$newfn" $override_active 
 					
-					status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-					if [ "$status" = "closed" ]; then
-						echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-						exit
+						status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+						if [ "$status" = "closed" ]; then
+							echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+							exit
+						fi
+					else
+						/bin/bash $SCRIPTPATH_TVAI "$newfn" $override_active 
 					fi
 				fi
 			else

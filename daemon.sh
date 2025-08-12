@@ -194,7 +194,8 @@ if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
 	fi
 	
 	echo "# TVAI Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR">>"$CONFIGFILE"
-	echo "TVAI_FILTER_STRING=tvai_up=model=prob-4:scale=4:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
+	echo "TVAI_FILTER_STRING_UP4X=tvai_up=model=prob-4:scale=4:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
+	echo "TVAI_FILTER_STRING_UP2X=tvai_up=model=prob-4:scale=2:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
 
 
 	echo "">>"$CONFIGFILE"

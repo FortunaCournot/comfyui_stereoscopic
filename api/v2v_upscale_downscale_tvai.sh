@@ -17,11 +17,11 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 SCRIPTPATH=
 
 
-if test $# -ne 1 
+if test $# -ne 1 -a $# -ne 2
 then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 input [upscalefactor]"
-    echo "E.g.: $0 SmallIconicTown.mp4 override_active [upscalefactor]"
+    echo "Usage: $0 input"
+    echo "E.g.: $0 SmallIconicTown.mp4 override_active"
 else
 	cd $COMFYUIPATH
 
@@ -51,31 +51,37 @@ else
 	  PYTHON_BIN_PATH=../python_embeded/
 	fi
 
+	DOWNSCALE=1.0
+	INPUT="$1"
+	shift
+	override_active=$1
+	
+
 	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 	TVAI_MODEL_DATA_DIR=$(awk -F "=" '/TVAI_MODEL_DATA_DIR/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DATA_DIR=${TVAI_MODEL_DATA_DIR:-""}
 	TVAI_MODEL_DIR=$(awk -F "=" '/TVAI_MODEL_DIR/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DIR=${TVAI_MODEL_DIR:-""}
-	TVAI_FILTER_STRING=`grep TVAI_FILTER_STRING $CONFIGFILE | cut -d'=' -f2-`
-	TVAI_FILTER_STRING=${TVAI_FILTER_STRING:-""}
-	TVAI_MODEL=${TVAI_FILTER_STRING#*"model="}
-	TVAI_MODEL=${TVAI_MODEL%%:*}
+	TVAI_FILTER_STRING_UP4X=`grep TVAI_FILTER_STRING_UP4X= $CONFIGFILE | cut -d'=' -f2-`
+	TVAI_FILTER_STRING_UP4X=${TVAI_FILTER_STRING_UP4X:-""}
+	TVAI_MODEL4X=${TVAI_FILTER_STRING_UP4X#*"model="}
+	TVAI_MODEL4X=${TVAI_MODEL4X%%:*}
+	TVAI_FILTER_STRING_UP2X=`grep TVAI_FILTER_STRING_UP2X= $CONFIGFILE | cut -d'=' -f2-`
+	TVAI_FILTER_STRING_UP2X=${TVAI_FILTER_STRING_UP2X:-""}
+	TVAI_MODEL2X=${TVAI_FILTER_STRING_UP2X#*"model="}
+	TVAI_MODEL2X=${TVAI_MODEL2X%%:*}
 
-	if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DATA_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL".json" ] ; then
+	if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DATA_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] ; then
 		export TVAI_MODEL_DATA_DIR TVAI_MODEL_DIR
 	else
 		echo -e $"\e[91mError:\e[0m TVAI settings wrong. Please configure at $CONFIGFILE"":"
 		[ ! -e "$TVAI_BIN_DIR" ] && echo -e $"\e[91mError:\e[0m TVAI_BIN_DIR=$TVAI_BIN_DIR"
 		[ ! -e "$TVAI_MODEL_DATA_DIR" ] && echo -e $"\e[91mError:\e[0m TVAI_MODEL_DATA_DIR=$TVAI_MODEL_DATA_DIR"
 		[ ! -e "$TVAI_MODEL_DIR" ] && echo -e $"\e[91mError:\e[0m TVAI_MODEL_DIR=$TVAI_MODEL_DIR"
-		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING=$TVAI_FILTER_STRING"
-		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL".json not found in $TVAI_MODEL_DATA_DIR"
+		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING_UP2X=$TVAI_FILTER_STRING_UP2X"
+		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json not found in $TVAI_MODEL_DATA_DIR"
+		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING_UP4X=$TVAI_FILTER_STRING_UP4X"
+		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json not found in $TVAI_MODEL_DATA_DIR"
 		exit
 	fi
-	
-	#DOWNSCALE=1.0
-	INPUT="$1"
-	shift
-	
-	#UPSCALEFACTOR=0
 	
 	PROGRESS=" "
 	if [ -e input/vr/scaling/BATCHPROGRESS.TXT ]
@@ -102,15 +108,46 @@ else
 		mv -f --  $INPUT input/vr/scaling/error
 		exit
 	fi
+	PIXEL=$(( $RESW * $RESH ))
 	
-	# -preset high 
-	#"$TVAI_BIN_DIR"/ffmpeg.exe -v 0 -encoders | findstr "nvenc"
-	# -profile main
-	# -preset medium -b_ref_mode 0 -crf 19 
-	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v wmv2  -g 30 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING" "$TARGETPREFIX""_tvai.wmv"
-	"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""_tvai.wmv" -c:v libx265 -crf 19 -g 30 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
-	rm -f "$TARGETPREFIX""_tvai.wmv"
+	LIMIT4X=$(awk -F "=" '/LIMIT4X_NORMAL/ {print $2}' $CONFIGFILE) ; LIMIT4X=${LIMIT4X:-"518400"}
+	LIMIT2X=$(awk -F "=" '/LIMIT2X_NORMAL/ {print $2}' $CONFIGFILE) ; LIMIT2X=${LIMIT2X:-"2073600"}
+	if [ $override_active -gt 0 ]; then
+		[ $loglevel -ge 0 ] && echo "override active"
+		LIMIT4X=$(awk -F "=" '/LIMIT4X_OVERRIDE/ {print $2}' $CONFIGFILE) ; LIMIT4X_OVERRIDE=${LIMIT4X_OVERRIDE:-"1036800"}
+		duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
+		duration=${duration%.*}
+		if test $duration -ge 60 ; then
+			LIMIT2X=$(awk -F "=" '/LIMIT2X_OVERRIDE_LONG/ {print $2}' $CONFIGFILE) ; LIMIT2X_OVERRIDE_LONG=${LIMIT2X_OVERRIDE_LONG:-"4147200"}
+			[ $loglevel -ge 0 ] && echo "long video detected."
+		fi
+	fi
+
+
+	if [ $PIXEL -lt $LIMIT2X ]; then
+		if [ $PIXEL -lt $LIMIT4X ]; then
+			TARGETPREFIX="$TARGETPREFIX""$TVAI_MODEL4X""_x4"
+			UPSCALEFACTOR=4
+			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP4X"
+			[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
+		else
+			TARGETPREFIX="$TARGETPREFIX""$TVAI_MODEL2X""$TVAI_MODEL2X""_x2"
+			UPSCALEFACTOR=2
+			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP2X"
+			[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
+		fi
+	else
+		[ $loglevel -ge 1 ] && echo "$PIXEL > $LIMIT2X"
+	fi
+	
+	
+	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING" "$TARGETPREFIX""_tvai.mkv"
+	"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""_tvai.mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
+	rm -f "$TARGETPREFIX""_tvai.mkv"
 	mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
+	mkdir -p input/vr/scaling/done
+	mv -f -- "$INPUT" input/vr/scaling/done
 	[ $loglevel -ge 0 ] && echo "done."
+
 fi
 
