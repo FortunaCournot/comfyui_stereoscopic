@@ -87,7 +87,9 @@ else
 	# fp16, sdpa. The model will automatic downloaded by Florence2 into ComfyUI/models/LLM.
 	FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
 
-	MAXDUBBINGSEGMENTTIME=$(awk -F "=" '/MAXDUBBINGSEGMENTTIME/ {print $2}' $CONFIGFILE) ; MAXDUBBINGSEGMENTTIME=${MAXDUBBINGSEGMENTTIME:-"-64"}
+	DUBBINGSEGMENTTING_THRESHOLD=$(awk -F "=" '/DUBBINGSEGMENTTING_THRESHOLD/ {print $2}' $CONFIGFILE) ; DUBBINGSEGMENTTING_THRESHOLD=${DUBBINGSEGMENTTING_THRESHOLD:-"20"}
+	DUBBINGSEGMENTTIME=$(awk -F "=" '/DUBBINGSEGMENTTIME/ {print $2}' $CONFIGFILE) ; DUBBINGSEGMENTTIME=${DUBBINGSEGMENTTIME:-"6"}
+
 
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 	if [ "$status" = "closed" ]; then
@@ -107,15 +109,14 @@ else
 	duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
 	duration=${duration%.*}
 
-	if [ $duration -lt $MAXDUBBINGSEGMENTTIME ]; then
+	if [ $duration -le $DUBBINGSEGMENTTING_THRESHOLD ]; then
 		SEGMENTTIME=$(( $duration + 1 ))
 		PARALLELITY=1
-		AUDIOSEGMENTLENGTH=$((SEGMENTTIME * PARALLELITY))
 	else
-		SEGMENTTIME=$MAXAUDIOSEGMENTLENGTH
+		SEGMENTTIME=$DUBBINGSEGMENTTIME
 		PARALLELITY=1
-		AUDIOSEGMENTLENGTH=$((SEGMENTTIME * PARALLELITY))
 	fi
+	AUDIOSEGMENTLENGTH=$((SEGMENTTIME * PARALLELITY))
 
 	if [ "$AUDIOSEGMENTLENGTH" -gt $MAXAUDIOSEGMENTLENGTH ]		# limitation to 8 maybe outdated now, but needs to be changed in python workflow as well (hardcoded).
 	then
