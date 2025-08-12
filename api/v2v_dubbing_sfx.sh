@@ -325,8 +325,11 @@ else
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create dubbed.mp4 (NA)" && exit ; fi
 		fi
 		[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$INPUT" -all:all -overwrite_original $DUBBINGDIR/dubbed.mp4 && echo "tags copied."
-		mv -f $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
-		mv -vf "$TARGETPREFIX""_dub.mp4" "$FINALTARGETFOLDER"
+		TARGETFILEBASE=${TARGETPREFIX##*/}
+		declare -i n=0    # Starting suffix number
+		while [ -e output/vr/dubbing/sfx/"$TARGETFILEBASE""_dub"$(printf %03d "$((10#$n))" )".mp4" ]; do n=$((n+1)); done
+		mv -f -- $DUBBINGDIR/dubbed.mp4 output/vr/dubbing/sfx/intermediate/"$TARGETFILEBASE""_dub"$(printf %03d "$((10#$n))" )".mp4"
+		mv -vf -- output/vr/dubbing/sfx/intermediate/"$TARGETFILEBASE""_dub"$(printf %03d "$((10#$n))" )".mp4" "$FINALTARGETFOLDER"
 		
 		rm -rf $SEGDIR $DUBBINGDIR
 		mkdir -p ./input/vr/dubbing/sfx/done
