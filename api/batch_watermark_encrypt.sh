@@ -77,7 +77,7 @@ else
 	WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
 	WATERMARK_LABEL="${WATERMARK_LABEL//[^[:alnum:].]/_}"
 	WATERMARK_LABEL="${WATERMARK_LABEL:0:17}"
-	WATERMARK_STOREFOLDER=./user/default/comfyui_stereoscopic/watermark/$WATERMARK_SECRETKEY
+	WATERMARK_STOREFOLDER=`realpath ./user/default/comfyui_stereoscopic/watermark/$WATERMARK_SECRETKEY`
 	mkdir -p $WATERMARK_STOREFOLDER
 	
 	uuid=$(openssl rand -hex 16)
@@ -101,7 +101,10 @@ else
 		VIDEOFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/vr/watermark/encrypt/BATCHPROGRESS.TXT
+
+			regex="[^/]*$"
+			echo "========== $INDEX/$COUNT"" encode "`echo $nextinputfile | grep -oP "$regex"`" =========="
+
 			newfn=${nextinputfile##*/}
 			newfn=${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
@@ -115,7 +118,6 @@ else
 			# /bin/bash $SCRIPTPATH  "$newfn" WatermarkImagePath OutputPathPrefix secret
 			
 		done
-		rm  -f input/vr/watermark/encrypt/BATCHPROGRESS.TXT 
 	fi	
 
 	IMGFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
@@ -129,15 +131,28 @@ else
 				exit
 			fi
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/vr/watermark/encrypt/BATCHPROGRESS.TXT
+
+			regex="[^/]*$"
+			echo "========== $INDEX/$COUNT"" encode "`echo $nextinputfile | grep -oP "$regex"`" =========="
+
 			newfn=${nextinputfile##*/}
 			newfn=${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
-			STORENAME=$newfn
-			newfn=$INTERMEDIATEFOLDER/$newfn
-			mv -- "$nextinputfile" $newfn 
+			newfn=${newfn##*/}
+			EXTENSION="${newfn##*.}"
+			if [[ "$EXTENSION" == "png"  ]] ; then
+				STORENAME=$newfn
+				newfn=$INTERMEDIATEFOLDER/$STORENAME
+				mv -- "$nextinputfile" $newfn 
+			else
+				STORENAME=${newfn%.*}".png"
+				newfn=$INTERMEDIATEFOLDER/$STORENAME
+				nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$nextinputfile" $newfn
+				mkdir -p input/vr/watermark/encrypt/done
+				mv -f -- "$nextinputfile" input/vr/watermark/encrypt/done
+			fi
 			
 			if [ -e "$newfn" ]; then
 				TARGETPREFIX=${newfn##*/}
@@ -169,7 +184,7 @@ else
 					else
 						[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$newfn" -all:all -overwrite_original "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" && echo "tags copied."
 						mv -vf "$newfn" "$WATERMARK_STOREFOLDER/$STORENAME"
-						mv -vf "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" "output/vr/watermark/encrypt/$TARGETPREFIX""_marked.png"
+						mv -vf "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" "output/vr/watermark/encrypt/$TARGETPREFIX"".png"
 						echo -e "$INDEX/$COUNT: "$"\e[92mdone:\e[0m $TARGETPREFIX. Original stored in $WATERMARK_STOREFOLDER                     "
 					fi
 				else
@@ -181,7 +196,6 @@ else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			
 		done
-		rm  -f input/vr/watermark/encrypt/BATCHPROGRESS.TXT 
 				
 	fi	
 	rm -rf $INTERMEDIATEFOLDER

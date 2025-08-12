@@ -33,7 +33,7 @@ class EncryptWatermark:
 
     def execute(self, secret, base_images : torch.Tensor, watermark=None):
 
-        alpha = -1
+        alpha = -1.0
 
         # Get batch size
         B = base_images.shape[0]

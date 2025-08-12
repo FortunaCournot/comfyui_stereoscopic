@@ -33,9 +33,9 @@ FREESPACE=${FREESPACE%G}
 MINSPACE=10
 status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 if [ ! -d ./custom_nodes/ComfyUI-MMAudio ]; then
-    echo -e $"\e[93mWarning:\e[0mCustom nodes ComfyUI-MMAudio not present. Skipping."
+    echo -e $"\e[91mError:\e[0mCustom nodes ComfyUI-MMAudio not present. Skipping."
 elif [ ! -d ./models/mmaudio ]; then
-    echo -e $"\e[93mWarning:\e[0mModels for ComfyUI-MMAudio not present. Skipping."
+    echo -e $"\e[91mError:\e[0mModels for ComfyUI-MMAudio not present. Skipping."
 elif [ "$status" = "closed" ]; then
     echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then

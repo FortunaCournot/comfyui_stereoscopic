@@ -127,7 +127,10 @@ else
 				exit
 			fi
 			INDEX+=1
-			echo "$INDEX/$COUNT">input/vr/watermark/decrypt/BATCHPROGRESS.TXT
+			
+			regex="[^/]*$"
+			echo "========== $INDEX/$COUNT"" decode "`echo $nextinputfile | grep -oP "$regex"`" =========="
+
 			newfn=${nextinputfile##*/}
 			newfn=${newfn//[^[:alnum:].]/_}
 			newfn=${newfn// /_}
@@ -180,7 +183,6 @@ else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			
 		done
-		rm  -f input/vr/watermark/decrypt/BATCHPROGRESS.TXT 
 				
 	fi	
 	rm -rf $INTERMEDIATEFOLDER

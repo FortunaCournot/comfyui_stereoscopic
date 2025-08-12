@@ -87,6 +87,7 @@ else
 	
 	COUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
+	declare -i WAIT=0
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
@@ -124,6 +125,18 @@ else
 				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 			done				
+
+			WAIT=0
+			until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; do
+				WAIT+=1
+				echo -ne "$WAIT\r"
+				sleep 1
+				if [[ $WAIT -ge 30 ]] ; then
+					echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
+					exit
+				fi
+			done
+			echo "prompt complete."
 
 			if [ ! -e "output/vr/caption/intermediate/temp_caption_short.txt" ] ; then
 				cp -v "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_caption_short.txt"
@@ -223,12 +236,14 @@ else
 				WAIT=0
 				until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; do
 					WAIT+=1
+					echo -ne "$WAIT\r"
 					sleep 1
 					if [ $WAIT -ge 30 ] ; then
 						echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
 						exit
 					fi
 				done
+				echo "prompt complete."
 				
 				if [ ! -e "output/vr/caption/intermediate/temp_caption_short.txt" ] ; then
 					cp -v "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_caption_short.txt"

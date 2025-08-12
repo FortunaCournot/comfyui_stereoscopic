@@ -41,14 +41,24 @@ then
     echo "E.g.: $0 SmallIconicTown.mp4"
 elif [ ! -d "$COMFYUIPATH/custom_nodes/ComfyUI-MMAudio" ]
 then
-		echo -e $"\e[91mError:\e[0m ComfyUI-MMAudio custom nodes not installed from https://github.com/kijai/ComfyUI-MMAudio. This needs manual setup, read the manual please. "
-elif [ ! -e "$COMFYUIPATH/models/mmaudio/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" ]
-then
-		echo -e $"\e[91mError:\e[0m mmaudio models not installed. This needs manual setup, read the manual on https://github.com/kijai/ComfyUI-MMAudio please."
+	echo -e $"\e[91mError:\e[0m ComfyUI-MMAudio custom nodes not installed from https://github.com/kijai/ComfyUI-MMAudio. This needs manual setup, read the manual please. "
 elif [ ! -d "$COMFYUIPATH/custom_nodes/comfyui-florence2" ]
 then
-		echo -e $"\e[91mError:\e[0m comfyui-florence2 custom nodes not installed. Please install through ComfyUI Manager."
+	echo -e $"\e[91mError:\e[0m comfyui-florence2 custom nodes not installed. Please install through ComfyUI Manager."
+elif [ ! -e "$COMFYUIPATH/models/mmaudio/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" ]
+then
+	echo -e $"\e[91mError:\e[0m mmaudio models not yet installed. Follow guide at https://github.com/kijai/ComfyUI-MMAudio?tab=readme-ov-file#installation"
+elif [ ! -e "$COMFYUIPATH/models/mmaudio/mmaudio_vae_44k_fp16.safetensors" ]
+then
+	echo -e $"\e[91mError:\e[0m mmaudio models not yet installed. Follow guide at https://github.com/kijai/ComfyUI-MMAudio?tab=readme-ov-file#installation"
+elif [ ! -e "$COMFYUIPATH/models/mmaudio/mmaudio_large_44k_v2_fp16.safetensors" ]
+then
+	echo -e $"\e[91mError:\e[0m mmaudio models not yet installed. Follow guide at https://github.com/kijai/ComfyUI-MMAudio?tab=readme-ov-file#installation"
+elif [ ! -e "$COMFYUIPATH/models/mmaudio/mmaudio_synchformer_fp16.safetensors" ]
+then
+	echo -e $"\e[91mError:\e[0m mmaudio models not yet installed. Follow guide at https://github.com/kijai/ComfyUI-MMAudio?tab=readme-ov-file#installation"
 else
+	
 	cd $COMFYUIPATH
 
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
@@ -261,12 +271,13 @@ else
 		if [[ $COUNT -eq 0 ]] ; then
 			PARALLELITY=$p
 			cd "$COMFYUIPATH"
-			#echo ""
+			echo ""
+			echo -e $"\e[93mWarning:\e[0m@$p/$PARALLELITY: No flac files!"
 			#echo -e $"\e[93mWarning:\e[0m@$p/$PARALLELITY: No flac files. Skipped dubbing."
 			#cp -fv $INPUT $FINALTARGETFOLDER
 			#mkdir -p ./input/vr/dubbing/sfx/done
 			#mv -fv $INPUT ./input/vr/dubbing/sfx/done
-			#exit
+			exit
 		else
 			for f in *.flac; do echo "file '$f'" >> list.txt; done
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
@@ -275,19 +286,21 @@ else
 			
 			if [ $p -eq 1 ]; then
 				if [ ! -e "$DUBBINGDIR/output1.flac" ]; then echo -e $"\e[91mError:\e[0m failed to create output$p.flac" && exit ; fi
-				cp $DUBBINGDIR/output1.flac $DUBBINGDIR/merged.flac
+				cp -v -- $DUBBINGDIR/output1.flac $DUBBINGDIR/merged.flac
 			else
 				# Combining two audio files and introducing an offset with FFMPEG
 				# https://superuser.com/questions/1719361/combining-two-audio-files-and-introducing-an-offset-with-ffmpeg
 				nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/output$p.flac -i $DUBBINGDIR/merged.flac -filter_complex "aevalsrc=0:d=$(((p-1)*SEGMENTTIME))[s1];[s1][1:a]concat=n=2:v=0:a=1[ac2];[0:a]apad[ac1];[ac1][ac2]amerge=2[a]" -map "[a]" $DUBBINGDIR/merged-temp.flac
 				if [ -e "$DUBBINGDIR/merged-temp.flac" ]; then
-					mv -f $DUBBINGDIR/merged-temp.flac $DUBBINGDIR/merged.flac
+					mv -fv -- $DUBBINGDIR/merged-temp.flac $DUBBINGDIR/merged.flac
 				else
-					echo -e $"\e[93mWarning:\e[0mfailed to create merged-temp.flac($p). This occurs for short video input (2 seconds)."
+					echo -e $"\e[93mWarning:\e[0m failed to create merged-temp.flac($p). This occurs for short video input (2 seconds)."
 				fi
 			fi
 		fi
 	done
+	
+	cd "$COMFYUIPATH"
 	echo "Prompting done, dubbing...                               "
 	
 	if [ -e "$DUBBINGDIR/merged.flac" ]; then
@@ -315,9 +328,14 @@ else
 		mv -f $DUBBINGDIR/dubbed.mp4 "$TARGETPREFIX""_dub.mp4"
 		mv -vf "$TARGETPREFIX""_dub.mp4" "$FINALTARGETFOLDER"
 		
-		#rm -rf $SEGDIR $DUBBINGDIR
+		rm -rf $SEGDIR $DUBBINGDIR
 		mkdir -p ./input/vr/dubbing/sfx/done
 		mv -fv $INPUT ./input/vr/dubbing/sfx/done
+	else
+		echo -e $"\e[91mError:\e[0m failed to create merged-temp.flac(final)."
+		mkdir -p ./input/vr/dubbing/sfx/error
+		mv -fv $INPUT ./input/vr/dubbing/sfx/error
+		exit
 	fi
 
 	echo "Dubbing done."
