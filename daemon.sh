@@ -167,12 +167,44 @@ DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEP
 CONFIGERROR=
 
 # Delta Upgrade config to version 5
-#if [ $config_version -le 5 ] ; then
-#	
-#	sed -i "/^config_version=/s/=.*/=5/" $CONFIGFILE
-#	
-#	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-#fi
+NEXTUPGRADESTEPVERSION=5
+if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
+	echo "Upgrading config.ini from v$config_version to v$NEXTUPGRADESTEPVERSION"
+
+	echo "# --- TVAI config ---">>"$CONFIGFILE"
+
+	# Check windows default path for default
+	echo "# Path of the Topaz Video AI (v6 + v7) software. If present Video AI software is used for the video scaling stage.">>"$CONFIGFILE"
+	if [ -e  '/c/Program Files/Topaz Labs LLC/Topaz Video AI/ffmpeg.exe' ] ; then
+		echo "TVAI_BIN_DIR=/c/Program Files/Topaz Labs LLC/Topaz Video AI" >>"$CONFIGFILE"
+	else
+		echo "TVAI_BIN_DIR=" >>"$CONFIGFILE"
+	fi
+
+	echo "# Path to the Topaz Video AI models. Refer to manual">>"$CONFIGFILE"
+	if [ -e  '$TVAI_MODEL_DATA_DIR' ] && [ -e  '$TVAI_MODEL_DIR' ] ; then
+		echo "TVAI_MODEL_DATA_DIR=$TVAI_MODEL_DATA_DIR" >>"$CONFIGFILE"
+		echo "TVAI_MODEL_DIR=$TVAI_MODEL_DIR" >>"$CONFIGFILE"
+	elif [ -e  '/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models' ] ; then
+		echo "TVAI_MODEL_DATA_DIR=/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models" >>"$CONFIGFILE"
+		echo "TVAI_MODEL_DIR=/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models" >>"$CONFIGFILE"
+	else
+		echo "TVAI_MODEL_DATA_DIR=" >>"$CONFIGFILE"
+		echo "TVAI_MODEL_DIR=" >>"$CONFIGFILE"
+	fi
+	
+	echo "# TVAI Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR">>"$CONFIGFILE"
+	echo "TVAI_FILTER_STRING=tvai_up=model=prob-4:scale=4:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
+
+
+	echo "">>"$CONFIGFILE"
+
+	sed -i "/^config_version=/s/=.*/="$NEXTUPGRADESTEPVERSION"/" $CONFIGFILE
+	echo "">>"$CONFIGFILE"
+	
+	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	echo "Upgraded config.ini to v$config_version"
+fi
 
 [ $loglevel -ge 0 ] && echo -e $"For processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
 [ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
@@ -252,7 +284,7 @@ elif [[ "$EXIFTOOLBINARY" =~ "(-k)" ]]; then
 	exit
 fi
 
-# CHECK FOR VERSION UPDATE
+# CHECK FOR VERSION UPDATE AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh
 	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
