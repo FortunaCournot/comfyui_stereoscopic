@@ -103,7 +103,6 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- dubbing config ---">>"$CONFIGFILE"
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
 	echo "SPLITSEGMENTTIME=1">>"$CONFIGFILE"
-	echo "MAXDUBBINGSEGMENTTIME=64">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
 	echo "# --- watermark config ---">>"$CONFIGFILE"
@@ -196,8 +195,13 @@ if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
 	echo "# TVAI Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR">>"$CONFIGFILE"
 	echo "TVAI_FILTER_STRING_UP4X=tvai_up=model=prob-4:scale=4:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
 	echo "TVAI_FILTER_STRING_UP2X=tvai_up=model=prob-4:scale=2:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
+	echo "">>"$CONFIGFILE"
 
-
+	echo "# --- dubbing config update ---">>"$CONFIGFILE"
+	echo "# Videos below this threshold will be dubbed unsegmented.">>"$CONFIGFILE"
+	echo "DUBBINGSEGMENTTING_THRESHOLD=20">>"$CONFIGFILE"
+	echo "# Duration, should be same as slide duration (including transition)">>"$CONFIGFILE"
+	echo "DUBBINGSEGMENTTIME=6">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
 	sed -i "/^config_version=/s/=.*/="$NEXTUPGRADESTEPVERSION"/" $CONFIGFILE
