@@ -305,22 +305,20 @@ else
 	echo "Prompting done, dubbing...                               "
 	
 	if [ -e "$DUBBINGDIR/merged.flac" ]; then
-		mv -- $DUBBINGDIR/merged.flac "$TARGETPREFIX"".flac"
-		
 		TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
 		AUDIOMAPOPT="-map 0:a:0"
 		if [[ $TESTAUDIO =~ "[STREAM]" ]]; then
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -q:a 0 -map a $DUBBINGDIR/source.mp3
 			if [ ! -e "$DUBBINGDIR/source.mp3" ]; then echo -e $"\e[91mError:\e[0m failed to create source.mp3" && exit ; fi
 			#https://stackoverflow.com/questions/35509147/ffmpeg-amix-filter-volume-issue-with-inputs-of-different-duration
-			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/source.mp3 -i "$TARGETPREFIX"".flac" -filter_complex "[0]adelay=0|0,volume=$DUBSTRENGTH_ORIGINAL[a];[1]adelay=0|0,volume=$DUBSTRENGTH_AI[b];[a][b]amix=inputs=2:duration=longest:dropout_transition=0" $DUBBINGDIR/sourcemerge.flac
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i $DUBBINGDIR/source.mp3 -i "$DUBBINGDIR"".flac" -filter_complex "[0]adelay=0|0,volume=$DUBSTRENGTH_ORIGINAL[a];[1]adelay=0|0,volume=$DUBSTRENGTH_AI[b];[a][b]amix=inputs=2:duration=longest:dropout_transition=0" $DUBBINGDIR/sourcemerge.flac
 			if [ ! -e "$DUBBINGDIR/sourcemerge.flac" ]; then echo -e $"\e[91mError:\e[0m failed to create sourcemerge.flac" && exit ; fi
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i $DUBBINGDIR/sourcemerge.flac -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.mp3
 			if [ ! -e "$DUBBINGDIR/padded.mp3" ]; then echo -e $"\e[91mError:\e[0m failed to create padded.mp3" && exit ; fi
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.mp3 -map 0:v:0 -c:v libx264  -map 1:a:0 -c:a aac -shortest -fflags +shortest $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create dubbed.mp4 (A)" && exit ; fi
 		else
-			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "$TARGETPREFIX"".flac" -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.mp3
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "$DUBBINGDIR"".flac" -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.mp3
 			if [ ! -e "$DUBBINGDIR/padded.mp3" ]; then echo -e $"\e[91mError:\e[0m failed to create padded.mp3" && exit ; fi
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -i $DUBBINGDIR/padded.mp3 -map 0:v:0 -c:v libx264  -map 1:a:0 -c:a aac -shortest -fflags +shortest $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create dubbed.mp4 (NA)" && exit ; fi
@@ -330,9 +328,8 @@ else
 		declare -i n=0    # Starting suffix number
 		while [ -e output/vr/dubbing/sfx/"$TARGETFILEBASE""_dub"$(printf %03d "$((10#$n))" )".mp4" ]; do n=$((n+1)); done
 		mv -f -- $DUBBINGDIR/dubbed.mp4 output/vr/dubbing/sfx/intermediate/"$TARGETFILEBASE""_dub"$(printf %03d "$((10#$n))" )".mp4"
-		mv -vf -- output/vr/dubbing/sfx/intermediate/"$TARGETFILEBASE""_dub"$(printf %03d "$((10#$n))" )".mp4" "$FINALTARGETFOLDER"
-		
-		rm -rf $SEGDIR $DUBBINGDIR
+		mv -vf -- output/vr/dubbing/sfx/intermediate/"$TARGETFILEBASE""_dub"$(printf %03d "$((10#$n))" )".mp4" "$FINALTARGETFOLDER"		
+		rm -rf "$SEGDIR" "$DUBBINGDIR"
 		mkdir -p ./input/vr/dubbing/sfx/done
 		mv -fv $INPUT ./input/vr/dubbing/sfx/done
 	else

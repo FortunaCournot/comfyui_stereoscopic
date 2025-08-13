@@ -126,12 +126,12 @@ else
 
 	if [ $PIXEL -lt $LIMIT2X ]; then
 		if [ $PIXEL -lt $LIMIT4X ]; then
-			TARGETPREFIX="$TARGETPREFIX""$TVAI_MODEL4X""_x4"
+			TARGETPREFIX="$TARGETPREFIX""_x4"
 			UPSCALEFACTOR=4
 			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP4X"
 			[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 		else
-			TARGETPREFIX="$TARGETPREFIX""$TVAI_MODEL2X""$TVAI_MODEL2X""_x2"
+			TARGETPREFIX="$TARGETPREFIX""_x2"
 			UPSCALEFACTOR=2
 			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP2X"
 			[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
@@ -141,9 +141,9 @@ else
 	fi
 	
 	
-	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING" "$TARGETPREFIX""_tvai.mkv"
-	"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""_tvai.mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
-	rm -f "$TARGETPREFIX""_tvai.mkv"
+	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING" "$TARGETPREFIX"".mkv"
+	"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
+	rm -f "$TARGETPREFIX"".mkv"
 	mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
 	mkdir -p input/vr/scaling/done
 	mv -f -- "$INPUT" input/vr/scaling/done
