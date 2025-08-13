@@ -127,7 +127,7 @@ else
 			done				
 
 			WAIT=0
-			until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; do
+			until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] || [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ]  ; do
 				WAIT+=1
 				echo -ne "$WAIT\r"
 				sleep 1
@@ -136,6 +136,7 @@ else
 					exit
 				fi
 			done
+			sleep 1
 			echo "prompt complete."
 
 			if [ ! -e "output/vr/caption/intermediate/temp_caption_short.txt" ] ; then
@@ -150,11 +151,12 @@ else
 				echo "" >output/vr/caption/intermediate/temp_ocr.txt
 				echo -e $"\e[93mWarning:\e[0m ocr missing - ignored."
 			fi
-			if [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; then
+			if [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] ; then
 				TITLEVAL=`cat output/vr/caption/intermediate/temp_caption_short.txt`
 				CAPLONGVAL=`cat output/vr/caption/intermediate/temp_caption_long.txt`
+				OCRVAL=
 				OCRVAL=`cat output/vr/caption/intermediate/temp_ocr.txt | tr " \t\n" ";"`
-				rm "output/vr/caption/intermediate/temp_caption_short.txt" "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_ocr.txt"
+				rm -f -- "output/vr/caption/intermediate/temp_caption_short.txt" "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_ocr.txt"  2>/dev/null
 
 				if [ ! -z "$DESCRIPTION_LOCALE" ] && [[ ! "$DESCRIPTION_LOCALE" == "en"* ]] ; then
 					echo "translating to $DESCRIPTION_LOCALE ..."
@@ -234,7 +236,7 @@ else
 
 
 				WAIT=0
-				until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; do
+				until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] || [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ]  ; do
 					WAIT+=1
 					echo -ne "$WAIT\r"
 					sleep 1
@@ -243,6 +245,7 @@ else
 						exit
 					fi
 				done
+				sleep 1
 				echo "prompt complete."
 				
 				if [ ! -e "output/vr/caption/intermediate/temp_caption_short.txt" ] ; then
@@ -257,11 +260,12 @@ else
 					echo "" >output/vr/caption/intermediate/temp_ocr.txt
 					echo -e $"\e[93mWarning:\e[0m ocr missing - ignored."
 				fi
-				if [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] && [ -e "output/vr/caption/intermediate/temp_ocr.txt" ] ; then
+				if [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] && [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ] ; then
 					TITLEVAL=`cat output/vr/caption/intermediate/temp_caption_short.txt`
 					CAPLONGVAL=`cat output/vr/caption/intermediate/temp_caption_long.txt`
+					OCRVAL=
 					OCRVAL=`cat output/vr/caption/intermediate/temp_ocr.txt | tr " \t\n" ";"`
-					rm "output/vr/caption/intermediate/temp_caption_short.txt" "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_ocr.txt"
+					rm -f -- "output/vr/caption/intermediate/temp_caption_short.txt" "output/vr/caption/intermediate/temp_caption_long.txt" "output/vr/caption/intermediate/temp_ocr.txt" 2>/dev/null
 					
 					if [ ! -z "$DESCRIPTION_LOCALE" ] &&  [[ ! "$DESCRIPTION_LOCALE" == "en"* ]] ; then
 						echo "translating to $DESCRIPTION_LOCALE ..."

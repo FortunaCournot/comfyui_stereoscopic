@@ -137,17 +137,24 @@ else
 			[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 		fi
 	else
-		[ $loglevel -ge 1 ] && echo "$PIXEL > $LIMIT2X"
+		[ $loglevel -ge 0 ] && echo "Large video ($PIXEL > $LIMIT2X): Forwardung input to output folder"
+		mv -vf -- "$INPUT" $FINALTARGETFOLDER
+		exit
 	fi
 	
 	
 	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING" "$TARGETPREFIX"".mkv"
-	"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
-	rm -f "$TARGETPREFIX"".mkv"
-	mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
-	mkdir -p input/vr/scaling/done
-	mv -f -- "$INPUT" input/vr/scaling/done
-	[ $loglevel -ge 0 ] && echo "done."
-
+	if [ -e "$TVAI_FILTER_STRING" "$TARGETPREFIX"".mkv" ] ; then
+		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
+		rm -f "$TARGETPREFIX"".mkv"
+		mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
+		mkdir -p input/vr/scaling/done
+		mv -f -- "$INPUT" input/vr/scaling/done
+		[ $loglevel -ge 0 ] && echo "done."
+	else
+		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING in $CONFIGFILE"
+		mkdir -p input/vr/scaling/error
+		mv -fv -- "$INPUT" input/vr/scaling/error
+	fi
 fi
 
