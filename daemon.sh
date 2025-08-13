@@ -412,7 +412,8 @@ else
 			SERVERERROR="x"
 		else
 			if [[ ! -z $SERVERERROR ]]; then
-				[ $loglevel -ge 0 ] && echo ""
+				echo ""
+				echo -e $"\e[92mComfyUI is serving again.\e[0m"
 				SERVERERROR=
 			fi
 			
