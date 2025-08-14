@@ -64,7 +64,7 @@ else
 			end=`date +%s`
 			startiteration=$start
 			
-			/bin/bash $SCRIPTPATH "$newfn"
+			/bin/bash $SCRIPTPATH "$newfn" || exit 1
 			
 			status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 			if [ "$status" = "closed" ]; then

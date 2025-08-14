@@ -280,7 +280,10 @@ else
 			#mv -fv $INPUT ./input/vr/dubbing/sfx/done
 			exit 1
 		else
-			for f in *.flac; do echo "file '$f'" >> list.txt; done
+			for f in *.flac; do
+				"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i $f -af "afade=d=0.05,areverse,afade=d=0.05,areverse" "faded"$f
+				echo "file 'faded$f'" >> list.txt
+			done
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
 			if [ ! -e "../output$p.flac" ]; then echo -e $"\e[93mWarning:\e[0mfailed to create output$p.flac" ; fi
 			cd "$COMFYUIPATH"
