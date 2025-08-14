@@ -149,7 +149,7 @@ else
 		mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
 		mkdir -p input/vr/scaling/done
 		mv -f -- "$INPUT" input/vr/scaling/done
-		[ $loglevel -ge 0 ] && echo "done."
+		echo -e $"\e[92mdone\e[0m"
 	else
 		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING in $CONFIGFILE"
 		mkdir -p input/vr/scaling/error
