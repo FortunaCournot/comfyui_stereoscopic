@@ -139,7 +139,7 @@ else
 	else
 		[ $loglevel -ge 0 ] && echo "Large video ($PIXEL > $LIMIT2X): Forwardung input to output folder"
 		mv -vf -- "$INPUT" $FINALTARGETFOLDER
-		exit 1
+		exit 0
 	fi
 	
 	
