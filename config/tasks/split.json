@@ -1,0 +1,5 @@
+{
+  "tool": "ffmpeg",
+  "options": "-c copy -map 0 -segment_time 00:01:00 -f segment -reset_timestamps 1",
+  "sequenceformat": "%05d"
+}
