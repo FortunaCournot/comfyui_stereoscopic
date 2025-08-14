@@ -41,7 +41,7 @@ EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOO
 if [ ! -e "$EXIFTOOLBINARY" ]; then
 	echo -e $"\e[91mError:\e[0m Exiftool not found or properly configured. Set EXIFTOOLBINAR in"
 	echo -e $"\e[91m      \e[0m $CONFIGFILE"
-	exit
+	exit 1
 fi
 
 # set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
@@ -116,7 +116,7 @@ else
 				mkdir input/vr/caption/error
 				mv -- "$newfn" input/vr/caption/error
 				rm -rf $INTERMEDIATEFOLDER
-				exit
+				exit 0
 			fi
 			
 			until [ "$queuecount" = "0" ]
@@ -133,7 +133,7 @@ else
 				sleep 1
 				if [[ $WAIT -ge 30 ]] ; then
 					echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
-					exit
+					exit 1
 				fi
 			done
 			sleep 1
@@ -196,7 +196,7 @@ else
 		for nextinputfile in $IMGFILES ; do
 			if [ ! -e $nextinputfile ] ; then
 				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."
-				exit
+				exit 1
 			fi
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/caption/BATCHPROGRESS.TXT
@@ -222,7 +222,7 @@ else
 					mkdir input/vr/caption/error
 					mv -- "$newfn" input/vr/caption/error
 					rm -rf $INTERMEDIATEFOLDER
-					exit
+					exit 0
 				fi
 				
 				until [ "$queuecount" = "0" ]
@@ -242,7 +242,7 @@ else
 					sleep 1
 					if [ $WAIT -ge 30 ] ; then
 						echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
-						exit
+						exit 1
 					fi
 				done
 				sleep 1

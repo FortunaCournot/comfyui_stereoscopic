@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_rescale.sh
+# v2v_rescale.sh || exit 1
 #
 # Scales a base video (input) down by factor 4 and than up by Real-ESRGAN-x4plus and places result under ComfyUI/output/vr/scaling folder.
 # The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
@@ -164,7 +164,7 @@ then
 	echo "done. duration: $runtime""s.                      "
 	rm queuecheck.json
 	echo "Calling $UPSCALEDIR/concat.sh"
-	$UPSCALEDIR/concat.sh
+	$UPSCALEDIR/concat.sh || exit 1
 	mkdir -p input/vr/scaling/done
 	mv -fv "$INPUT" input/vr/scaling/done
 fi

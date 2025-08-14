@@ -69,7 +69,7 @@ else
 			status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 			if [ "$status" = "closed" ]; then
 				echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-				exit
+				exit 1
 			fi
 			
 			echo "Waiting for queue to finish..."

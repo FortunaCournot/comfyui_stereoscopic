@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_sbs_converter.sh
+# v2v_sbs_converter.sh || exit 1
 #
 # Creates SBS video from a base video (input) and places result under ComfyUI/output/sbs folder.
 #
@@ -216,7 +216,7 @@ else
 		# -max_muxing_queue_size 9999 
 		if [ ! -e "$SEGDIR/segment00001.mp4" ]; then
 			echo -e $"\e[91mError:\e[0m No segments!"
-			exit
+			exit 1
 		fi
 	fi
 	echo "Prompting ..."
@@ -235,7 +235,7 @@ else
 			status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 			if [ "$status" = "closed" ]; then
 				echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-				exit
+				exit 1
 			fi
 			# "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
 			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset "$f" "$SBSDIR_CALL"/sbssegment  ; echo -ne $"\e[0m"
@@ -306,7 +306,7 @@ else
 		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 		if [[ -z "$queuecount" ]]; then
 			echo -ne $"\e[91mError:\e[0m Lost connection to ComfyUI. STOPPED PROCESSING.                     "
-			exit
+			exit 1
 		fi
 		if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
 		then
@@ -325,7 +325,7 @@ else
 	echo "done. duration: $runtime""s.                         "
 	rm queuecheck.json
 	echo "Calling $SBSDIR/concat.sh"
-	$SBSDIR/concat.sh
+	$SBSDIR/concat.sh || exit 1
 	
 fi
 

@@ -87,7 +87,7 @@ else
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i ./user/default/comfyui_stereoscopic/watermark_background.png -filter_complex "[0:0]crop=1024:1024:0:0[img];color=c=0xffffff@0x00:s=1000x1000,format=rgba,drawtext=text='$WATERMARK_LABEL':fontcolor=white: fontsize=100:x=(w-text_w)/2:y=32[fg];[img][fg]overlay=0:0:format=rgb,format=rgba[out]" -map [out] -c:v png -frames:v 1 $WATERMARK_STOREFOLDER/watermark.png
 		if [ ! -e "$WATERMARK_STOREFOLDER/watermark.png" ]; then
 			echo -e $"\e[91mError:\e[0m Failed to create watermark"
-			exit
+			exit 1
 		fi
 	fi
 	
@@ -124,7 +124,7 @@ else
 		for nextinputfile in $IMGFILES ; do
 			if [ ! -e $nextinputfile ] ; then
 				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."
-				exit
+				exit 1
 			fi
 			INDEX+=1
 			
@@ -142,7 +142,7 @@ else
 				echo -e "$INDEX/$COUNT: "$"\e[91mFailed: Source file not found in storage. Expected location: \e[0m ""$WATERMARK_STOREFOLDER/$STORENAME""                      "
 				mkdir input/vr/watermark/decrypt/error
 				mv "$nextinputfile" input/vr/watermark/decrypt/error
-				exit
+				exit 0
 			fi
 			
 			newfn=$INTERMEDIATEFOLDER/$newfn
@@ -161,7 +161,7 @@ else
 					mkdir input/vr/watermark/decrypt/error
 					mv "$newfn" input/vr/watermark/decrypt/error
 					rm -rf $INTERMEDIATEFOLDER
-					exit
+					exit 0
 				fi
 				
 				until [ "$queuecount" = "0" ]

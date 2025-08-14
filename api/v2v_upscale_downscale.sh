@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_upscale_downscale.sh
+# v2v_upscale_downscale.sh || exit 1
 #
 # Upscales a base video (input) by 4x_foolhardy_Remacri , then downscales it and places result under ComfyUI/output/vr/scaling folder.
 #
@@ -79,7 +79,7 @@ else
 			DOWNSCALE=0.5
 		else
 			echo -e $"\e[91mError:\e[0m Allowed upscalefactor values: 2 or 4"
-			exit
+			exit 1
 		fi
 	fi
 	
@@ -111,7 +111,7 @@ else
 		echo -e $"\e[91mError:\e[0m Can't process video. please resample ${INPUT##*/} from input/vr/scaling/error"
 		mkdir -p input/vr/scaling/error
 		mv -f --  $INPUT input/vr/scaling/error
-		exit
+		exit 0
 	fi
 	PIXEL=$(( $RESW * $RESH ))
 	
@@ -266,7 +266,7 @@ else
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-					exit
+					exit 1
 				fi
 				# "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
 				echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$UPSCALEDIR_CALL"/sbssegment "$UPSCALEMODEL" "$DOWNSCALE" "$SCALEBLENDFACTOR" "$SCALESIGMARESOLUTION"  ; echo -ne $"\e[0m"
@@ -346,7 +346,7 @@ else
 		[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 		rm queuecheck.json
 		[ $loglevel -ge 0 ] && echo "Calling $UPSCALEDIR/concat.sh"
-		$UPSCALEDIR/concat.sh
+		$UPSCALEDIR/concat.sh || exit 1
 		mkdir -p input/vr/scaling/done
 		mv -fv "$INPUT" input/vr/scaling/done
 	else

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# batch_concat.sh
+# batch_concat.sh || exit 1
 #
 # Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio.
 #
@@ -62,7 +62,7 @@ else
 				echo "file $newfn" >>output/vr/concat/intermediate/mylist.txt
 			else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/concat/intermediate/$newfn"
-				exit
+				exit 1
 			fi						
 		done
 		

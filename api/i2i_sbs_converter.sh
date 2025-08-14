@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# i2i_sbs_converter.sh
+# i2i_sbs_converter.sh || exit 1
 #
 # Creates SBS image from a base image (input) and places result under ComfyUI/output/sbs folder.
 # The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
@@ -154,7 +154,7 @@ else
 				if test $# -ne 0
 				then	
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-					exit
+					exit 1
 				fi
 				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`

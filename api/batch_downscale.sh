@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# batch_downscale.sh
+# batch_downscale.sh || exit 1
 #
 # downscale a video (input).
 #

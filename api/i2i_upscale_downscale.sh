@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# i2i_upscale_downscale.sh
+# i2i_upscale_downscale.sh || exit 1
 #
 # Upscales a base video (input) by 4x_foolhardy_Remacri , then downscales it to fit 4K and places result (png) under ComfyUI/output subfolder.
 #
@@ -79,7 +79,7 @@ else
 			DOWNSCALE=0.5
 		else
 			 echo -e $"\e[91mError:\e[0m Allowed upscalefactor values: 2 or 4"
-			exit
+			exit 1
 		fi
 	fi
 	
@@ -196,18 +196,18 @@ else
 		then
 			[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$ORIGINALINPUT" -all:all -overwrite_original output/vr/scaling/tmpscaleresult_00001_.png && echo "tags copied."
 			mv -fv output/vr/scaling/tmpscaleresult_00001_.png "$FINALTARGETFOLDER"/"$TARGETPREFIX""_4K.png"
-			#exit
+			#exit 1
 			mkdir -p input/vr/scaling/done
 			mv -fv $ORIGINALINPUT input/vr/scaling/done
 			echo -e $"\e[92mdone\e[0m in $runtime""s. "
 		else
 			#echo "ERROR"
-			#exit
+			#exit 1
 			echo " "
 			echo -e $"\e[91mError:\e[0m Failed to upscale. File output/vr/scaling/tmpscaleresult_00001_.png not found "
 			mkdir -p input/vr/scaling/error
 			mv -fv $ORIGINALINPUT input/vr/scaling/error
-			exit
+			exit 0
 		fi
 
 	else

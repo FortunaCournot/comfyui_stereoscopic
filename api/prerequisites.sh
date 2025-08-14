@@ -291,7 +291,7 @@ fi
 
 # CHECK FOR VERSION UPDATE AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
-	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh
+	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
 	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 		echo -e $"\e[91mError:\e[0m Tests failed."
 		exit 1

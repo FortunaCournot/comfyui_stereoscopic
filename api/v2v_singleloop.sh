@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_singleloop.sh
+# v2v_singleloop.sh || exit 1
 #
 # Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio. All input video parameter must be absolute path.
 #

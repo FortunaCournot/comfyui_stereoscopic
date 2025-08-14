@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_dubbing.sh
+# v2v_dubbing.sh || exit 1
 #
 # dubbes a base video (input) by mmaudio and places result under ComfyUI/output/vr/dubbing/sfx folder.
 #
@@ -94,7 +94,7 @@ else
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 	if [ "$status" = "closed" ]; then
 		echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-		exit
+		exit 1
 	fi
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
@@ -121,7 +121,7 @@ else
 	if [ "$AUDIOSEGMENTLENGTH" -gt $MAXAUDIOSEGMENTLENGTH ]		# limitation to 8 maybe outdated now, but needs to be changed in python workflow as well (hardcoded).
 	then
 		echo -e $"\e[91mError:\e[0m Audio segmentlength may cause out of memory. AUDIOSEGMENTLENGTH="$AUDIOSEGMENTLENGTH" > 64. (SEGMENTTIME * PARALLELITY): $SEGMENTTIME * $PARALLELITY"
-		exit
+		exit 1
 	fi
 
 	PROGRESS=" "
@@ -170,7 +170,7 @@ else
 		if [ ! -e "$DUBBINGDIR/tmppadded.mp4" ]
 		then
 			echo -e $"\e[91mError:\e[0m padding failed."
-			exit
+			exit 1
 		fi
 		echo "height odd - padded."
 		SPLITINPUT="$DUBBINGDIR/tmppadded.mp4"
@@ -278,7 +278,7 @@ else
 			#cp -fv $INPUT $FINALTARGETFOLDER
 			#mkdir -p ./input/vr/dubbing/sfx/done
 			#mv -fv $INPUT ./input/vr/dubbing/sfx/done
-			exit
+			exit 1
 		else
 			for f in *.flac; do echo "file '$f'" >> list.txt; done
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -af anlmdn ../output$p.flac
@@ -336,7 +336,7 @@ else
 		echo -e $"\e[91mError:\e[0m failed to create merged-temp.flac(final)."
 		mkdir -p ./input/vr/dubbing/sfx/error
 		mv -fv $INPUT ./input/vr/dubbing/sfx/error
-		exit
+		exit 0
 	fi
 
 	echo "Dubbing done."

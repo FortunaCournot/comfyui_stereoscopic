@@ -39,11 +39,11 @@ elif [ "$status" = "closed" ]; then
 	echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on port 8188"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
-	./custom_nodes/comfyui_stereoscopic/api/clear.sh
+	./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
 	FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 	FREESPACE=${FREESPACE%G}
 	if [[ $FREESPACE -lt $MINSPACE ]] ; then
-		exit
+		exit 1
 	fi
 elif [ -d "custom_nodes" ]; then
 
@@ -62,7 +62,7 @@ elif [ -d "custom_nodes" ]; then
 	mkdir -p input/vr/scaling input/vr/fullsbs
 
 	# workaround for recovery problem.
-	#./custom_nodes/comfyui_stereoscopic/api/clear.sh
+	#./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
 	
 	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
@@ -77,10 +77,10 @@ elif [ -d "custom_nodes" ]; then
 			[ $loglevel -ge 0 ] && echo "******** SCALING *********"
 			[ $loglevel -ge 1 ] && echo "**************************"
 			if [ $SCALECOUNT -ge 1 ]; then
-				./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh
+				./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh || exit 1
 			fi
 			if [ $OVERRIDECOUNT -ge 1 ]; then
-				./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override
+				./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override || exit 1
 			fi
 		else
 			echo -e $"\e[93mWarning:\e[0m Less then 16GB of free memory - Skipped scaling. Memory: $MEMFREE/$MEMTOTAL"
@@ -101,7 +101,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "***** PREPARE SLIDES *****"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh || exit 1
 	fi
 	
 	# slides -> fullsbs
@@ -132,7 +132,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** SINGLE LOOP *******"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_singleloop.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_singleloop.sh || exit 1
 	fi
 
 	
@@ -144,7 +144,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "***** MAKE SLIDESHOW *****"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_make_slideshow.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_make_slideshow.sh || exit 1
 	fi
 
 
@@ -156,7 +156,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "******** CONCAT **********"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh || exit 1
 	fi
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
@@ -168,7 +168,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** DUBBING SFX *******"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh || exit 1
 	elif [ $DUBCOUNTSFX -gt 0 ]; then
 		mkdir -p input/vr/dubbing/sfx/error
 		mv -fv input/vr/dubbing/sfx/*.mp4 input/vr/dubbing/sfx/error
@@ -181,13 +181,13 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** ENCRYPTING ********"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_encrypt.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_encrypt.sh || exit 1
 	fi
 	if [ $WMDCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** DECRYPTING ********"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_decrypt.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_decrypt.sh || exit 1
 	fi
 
 	### SKIP IF CONFIG CHECK FAILED ###
@@ -196,7 +196,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh
+		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh || exit 1
 	fi
 
 	

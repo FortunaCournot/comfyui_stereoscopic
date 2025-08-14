@@ -109,12 +109,12 @@ else
 				else
 					echo -e $"\e[91mError:\e[0m Missing result: $RESULT"
 					sleep 10
-					exit
+					exit 1
 				fi
 			else
 				echo -e $"\e[91mError:\e[0m Missing input: $newfn"
 				sleep 10
-				exit
+				exit 1
 			fi			
 		done
 		ESTIMATED_SLIDE_COUNT=$(( FPSRATE * INDEX * (DISPLAYLENGTH - 1) ))
@@ -138,7 +138,7 @@ else
 		if [ ! -e "$TARGET" ]; then
 			echo -e $"\e[91mError:\e[0m Failed to make slideshow"
 			sleep 10
-			exit
+			exit 1
 		fi
 		
 	else

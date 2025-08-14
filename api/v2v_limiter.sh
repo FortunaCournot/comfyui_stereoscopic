@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_limiter.sh
+# v2v_limiter.sh || exit 1
 #
 # Downscales a video (input) to 4K resolution (3840 width) or below. the targetvideo is same path adding _4K to filename (even if smaller).
 #

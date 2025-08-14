@@ -144,12 +144,12 @@ else
 					else
 						echo -e $"\e[91mError:\e[0m Missing result: $RESULT"
 						sleep 10
-						exit
+						exit 1
 					fi
 				else
 					echo -e $"\e[91mError:\e[0m Missing script result: $SCRIPTRESULT. Please restart ComfyUI and try again."
 					sleep 10
-					exit
+					exit 1
 				fi
 			fi			
 		done

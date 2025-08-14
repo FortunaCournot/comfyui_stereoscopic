@@ -109,7 +109,7 @@ else
 						status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 						if [ "$status" = "closed" ]; then
 							echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-							exit
+							exit 1
 						fi
 					else
 						/bin/bash $SCRIPTPATH_TVAI "$newfn" $override_active 
@@ -154,7 +154,7 @@ else
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-					exit
+					exit 1
 				fi
 
 			else

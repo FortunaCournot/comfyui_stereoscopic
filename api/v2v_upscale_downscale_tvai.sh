@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_upscale_downscale_tvai.sh
+# v2v_upscale_downscale_tvai.sh || exit 1
 #
 # Upscales a base video (input) with Topaz Video AI and places result under ComfyUI/output/vr/scaling folder.
 #
@@ -80,7 +80,7 @@ else
 		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json not found in $TVAI_MODEL_DATA_DIR"
 		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING_UP4X=$TVAI_FILTER_STRING_UP4X"
 		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json not found in $TVAI_MODEL_DATA_DIR"
-		exit
+		exit 1
 	fi
 	
 	PROGRESS=" "
@@ -106,7 +106,7 @@ else
 		echo -e $"\e[91mError:\e[0m Can't process video. please resample ${INPUT##*/} from input/vr/scaling/error"
 		mkdir -p input/vr/scaling/error
 		mv -f --  $INPUT input/vr/scaling/error
-		exit
+		exit 0
 	fi
 	PIXEL=$(( $RESW * $RESH ))
 	
@@ -139,7 +139,7 @@ else
 	else
 		[ $loglevel -ge 0 ] && echo "Large video ($PIXEL > $LIMIT2X): Forwardung input to output folder"
 		mv -vf -- "$INPUT" $FINALTARGETFOLDER
-		exit
+		exit 1
 	fi
 	
 	

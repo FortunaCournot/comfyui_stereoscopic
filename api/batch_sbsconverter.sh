@@ -113,7 +113,7 @@ else
 		for nextinputfile in $IMGFILES ; do
 			if [ ! -e $nextinputfile ] ; then
 				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."
-				exit
+				exit 1
 			fi
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
@@ -135,7 +135,7 @@ else
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-					exit
+					exit 1
 				fi
 				
 			else
