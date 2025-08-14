@@ -66,8 +66,14 @@ else
 			fi						
 		done
 		
-		NOW=$( date '+%F_%H%M' )	
-		TARGET=output/vr/concat/concat-$NOW"_SBS_LR".mp4		# assume it is SBS
+		NOW=$( date '+%F_%H%M' )
+		BASE=${nextinputfile##*/}
+		BASE=${BASE%%_*}
+		if [[ "$nextinputfile" == *"_SBS_LR"* ]] ; then
+			TARGET=output/vr/concat/$BASE-$NOW"_SBS_LR".mp4
+		else
+			TARGET=output/vr/concat/$BASE-$NOW"".mp4
+		fi
 		
 		cd output/vr/concat/intermediate
 		echo -ne "Concat ($COUNT)...                             \r"
