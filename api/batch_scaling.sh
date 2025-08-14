@@ -104,7 +104,7 @@ else
 					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
 				else
 					if [ ! -e "$TVAI_BIN_DIR" ] ; then
-						/bin/bash $SCRIPTPATH "$newfn" $override_active 
+						/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
 					
 						status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 						if [ "$status" = "closed" ]; then
@@ -112,7 +112,7 @@ else
 							exit 1
 						fi
 					else
-						/bin/bash $SCRIPTPATH_TVAI "$newfn" $override_active 
+						/bin/bash $SCRIPTPATH_TVAI "$newfn" $override_active || exit 1
 					fi
 				fi
 			else

@@ -160,7 +160,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
-	DUBCOUNTSFX=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	DUBCOUNTSFX=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
 		# DUBBING: Video -> Video with SFX
 		# In:  input/vr/dubbing/sfx
