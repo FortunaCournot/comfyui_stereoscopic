@@ -28,11 +28,18 @@ fi
 echo -e $"\e[4m+++ Summary of Disk Usage +++\e[0m"
 du -s -BG *put/vr
 echo " "
-echo -e $"\e[4m\e[32m+++ Summary of Completed Files per Folder +++\e[0m\e[92m"
-du --inodes -d 0 -S output/vr/*           | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
-du --inodes -d 0 -S output/vr/dubbing/*   | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
-#du --inodes -d 0 -S output/vr/*/final | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
-echo -ne $"\e[0m"
+
+# Report completed files
+du --inodes -d 0 -S output/vr/*           | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >user/default/comfyui_stereoscopic/tmplog
+du --inodes -d 0 -S output/vr/dubbing/*   | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >>user/default/comfyui_stereoscopic/tmplog
+logsize=`stat -c %s user/default/comfyui_stereoscopic/tmplog`
+if [[ $logsize -gt 0 ]] ; then
+	echo -e $"\e[4m\e[32m+++ Summary of Completed Files per Folder +++\e[0m\e[92m"
+	cat user/default/comfyui_stereoscopic/tmplog
+	#du --inodes -d 0 -S output/vr/*/final | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
+	echo -ne $"\e[0m"
+fi
+rm user/default/comfyui_stereoscopic/tmplog
 
 find input/vr -type d -name error -o -name stopped  | { while read path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } | wc -l >.tmperrcount
 ERRFOLDERCOUNT=`cat .tmperrcount`
