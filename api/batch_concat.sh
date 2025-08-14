@@ -44,6 +44,8 @@ else
 	mkdir -p output/vr/concat/intermediate
 	mkdir -p input/vr/concat/done
 	
+	echo -ne $"\e[97m\e[1m=== CONCAT READY - PRESS RETURN TO START ===\e[0m" ; read forgetme ; echo "starting..."
+
 	COUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
