@@ -99,13 +99,20 @@ else
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
 			newfn=$INTERMEDIATEFOLDER/$newfn
-			cp -- "$nextinputfile" $newfn 
-			frame=$INTERMEDIATEFOLDER/frame.png
+			EXTENSION="${newfn##*.}"
+			if [ "$EXTENSION" == "mp4" ] ; then
+				cp -- "$nextinputfile" $newfn 
+			else
+				newfn=${newfn%.*}".mp4"
+				EXTENSION="${newfn##*.}"
+				nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$nextinputfile"  $newfn 
+			fi
 			
 			TARGETPREFIX=${newfn##*/}
 
 			echo "$INDEX/$COUNT"": "${newfn##*/}
 			
+			frame=$INTERMEDIATEFOLDER/frame.png
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i "$newfn"  -vf "select=eq(n\,1)" -vframes 1 "$frame"
 			
 			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH2  `realpath "$frame"` $DESCRIPTION_FLORENCE_TASK ; echo -ne $"\e[0m"
