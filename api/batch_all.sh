@@ -204,4 +204,5 @@ elif [ -d "custom_nodes" ]; then
 else
 	  echo -e $"\e[91mError:\e[0m Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
 fi
+exit 0
 

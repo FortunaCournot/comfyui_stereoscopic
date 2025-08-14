@@ -168,4 +168,5 @@ then
 	mkdir -p input/vr/scaling/done
 	mv -fv "$INPUT" input/vr/scaling/done
 fi
+exit 0
 

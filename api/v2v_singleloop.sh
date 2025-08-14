@@ -83,3 +83,4 @@ else
 	TARGETPREFIX=${TARGET##*/}
 	echo -e "$PROGRESS"$"\e[92mdone:\e[0m $TARGETPREFIX                      "
 fi
+exit 0

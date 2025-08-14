@@ -157,4 +157,5 @@ else
 		mv -fv -- "$INPUT" input/vr/scaling/error
 	fi
 fi
+exit 0
 

@@ -88,3 +88,4 @@ else
 	rm -f input/vr/singleloop/BATCHPROGRESS.TXT
 	echo "Batch done.                             "
 fi
+exit 0

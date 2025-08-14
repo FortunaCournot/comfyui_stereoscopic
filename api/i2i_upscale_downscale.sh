@@ -217,4 +217,5 @@ else
 	
 	rm  -rf $INTERMEDIATE_INPUT_FOLDER
 fi
+exit 0
 

@@ -45,3 +45,4 @@ if [[ "$ERRFOLDERCOUNT" -gt 0 ]] ; then
 	find input/vr -type d -name stopped | { while read path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
 	echo -ne $"\e[0m"
 fi
+exit 0

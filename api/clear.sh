@@ -30,3 +30,4 @@ FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
 
 echo "$FREESPACE""G left on device."
+exit 0

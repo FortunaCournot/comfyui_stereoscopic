@@ -105,4 +105,5 @@ else
 	echo "Batch done."
 
 fi
+exit 0
 

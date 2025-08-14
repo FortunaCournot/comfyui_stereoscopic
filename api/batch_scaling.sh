@@ -149,7 +149,7 @@ else
 					override_active=0
 				fi
 
-				/bin/bash $SCRIPTPATH2 "$newfn" $override_active 
+				/bin/bash $SCRIPTPATH2 "$newfn" $override_active || exit 1
 				
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then
@@ -165,7 +165,8 @@ else
 	fi
 	rm -f input/vr/scaling/BATCHPROGRESS.TXT
 	
-	[ $loglevel -ge 1 ] && echo "Batch done."
+	[ $loglevel -ge 0 ] && echo "Batch done."
 
 fi
 
+exit 0

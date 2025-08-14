@@ -188,3 +188,4 @@ else
 	rm -rf $INTERMEDIATEFOLDER
 	echo "Batch done."
 fi
+exit 0

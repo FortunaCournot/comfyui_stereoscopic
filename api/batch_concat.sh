@@ -91,3 +91,4 @@ else
 	fi
 	echo "Batch ($COUNT) done.                             "
 fi
+exit 0

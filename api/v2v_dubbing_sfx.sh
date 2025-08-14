@@ -345,4 +345,5 @@ else
 	echo "Dubbing done."
 
 fi
+exit 0
 

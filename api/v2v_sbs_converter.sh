@@ -328,4 +328,5 @@ else
 	$SBSDIR/concat.sh || exit 1
 	
 fi
+exit 0
 

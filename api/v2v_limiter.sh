@@ -65,4 +65,5 @@ else
 		echo "Skipping downscaling of video $INPUT: not above $RESLIMIT"
 	fi
 fi
+exit 0
 

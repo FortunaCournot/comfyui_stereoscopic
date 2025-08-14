@@ -147,3 +147,4 @@ else
 	fi	
 	echo "Batch done."
 fi
+exit 0
