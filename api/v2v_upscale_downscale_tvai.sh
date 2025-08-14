@@ -141,8 +141,7 @@ else
 		mv -vf -- "$INPUT" $FINALTARGETFOLDER
 		exit 0
 	fi
-	
-	
+
 	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING" "$TARGETPREFIX"".mkv"
 	if [ -e "$TARGETPREFIX"".mkv" ] ; then
 		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
