@@ -21,7 +21,7 @@ prompt_text = """
       "text_input": "",
       "task": "more_detailed_caption",
       "fill_mask": false,
-      "keep_model_loaded": true,
+      "keep_model_loaded": false,
       "max_new_tokens": 4096,
       "num_beams": 3,
       "do_sample": false,
@@ -67,7 +67,7 @@ prompt_text = """
       "text_input": "",
       "task": "ocr",
       "fill_mask": false,
-      "keep_model_loaded": true,
+      "keep_model_loaded": false,
       "max_new_tokens": 512,
       "num_beams": 3,
       "do_sample": false,
@@ -94,8 +94,8 @@ prompt_text = """
       "append": "overwrite",
       "insert": true,
       "text": [
-        "2",
-        2
+        "24",
+        0
       ]
     },
     "class_type": "SaveText|pysssss",
@@ -110,8 +110,8 @@ prompt_text = """
       "append": "overwrite",
       "insert": true,
       "text": [
-        "15",
-        2
+        "26",
+        0
       ]
     },
     "class_type": "SaveText|pysssss",
@@ -124,8 +124,8 @@ prompt_text = """
       "text_input": "",
       "task": "caption",
       "fill_mask": false,
-      "keep_model_loaded": true,
-      "max_new_tokens": 2048,
+      "keep_model_loaded": false,
+      "max_new_tokens": 1024,
       "num_beams": 3,
       "do_sample": false,
       "output_mask_select": "",
@@ -151,13 +151,49 @@ prompt_text = """
       "append": "overwrite",
       "insert": true,
       "text": [
-        "22",
-        2
+        "25",
+        0
       ]
     },
     "class_type": "SaveText|pysssss",
     "_meta": {
       "title": "Save Caption"
+    }
+  },
+  "24": {
+    "inputs": {
+      "formatted": [
+        "2",
+        2
+      ]
+    },
+    "class_type": "StripXML",
+    "_meta": {
+      "title": "StripXML"
+    }
+  },
+  "25": {
+    "inputs": {
+      "formatted": [
+        "22",
+        2
+      ]
+    },
+    "class_type": "StripXML",
+    "_meta": {
+      "title": "StripXML"
+    }
+  },
+  "26": {
+    "inputs": {
+      "formatted": [
+        "15",
+        2
+      ]
+    },
+    "class_type": "StripXML",
+    "_meta": {
+      "title": "StripXML"
     }
   }
 }

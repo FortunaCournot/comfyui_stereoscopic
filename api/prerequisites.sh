@@ -34,8 +34,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "loglevel=0">>"$CONFIGFILE"			
 	echo "">>"$CONFIGFILE"
 	
-	echo "# Set PIPELINE_AUTOFORWARD to 0 to disable it">>"$CONFIGFILE"
-	echo "PIPELINE_AUTOFORWARD=1">>"$CONFIGFILE"
+	echo "# Set PIPELINE_AUTOFORWARD to 1 to enable it">>"$CONFIGFILE"
+	echo "PIPELINE_AUTOFORWARD=0">>"$CONFIGFILE"
 	
 	echo "# --- comfyui server config ---">>"$CONFIGFILE"
 	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
@@ -192,7 +192,7 @@ if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
 		echo "TVAI_MODEL_DIR=" >>"$CONFIGFILE"
 	fi
 	
-	echo "# TVAI Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR">>"$CONFIGFILE"
+	echo "# TVAI Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR. better for portrait: iris-2">>"$CONFIGFILE"
 	echo "TVAI_FILTER_STRING_UP4X=tvai_up=model=prob-4:scale=4:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
 	echo "TVAI_FILTER_STRING_UP2X=tvai_up=model=prob-4:scale=2:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
 	echo "">>"$CONFIGFILE"
