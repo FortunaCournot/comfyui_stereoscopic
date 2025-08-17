@@ -83,6 +83,23 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from caption import StripXML
+    print("[comfyui_stereoscopic] Successfully imported StripXML")
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing StripXML: {e}")
+
+    # Create a placeholder class
+    class StripXML:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading StripXML"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
 
 try:
     from caption import SaveStrippedUTF8File
@@ -111,6 +128,7 @@ NODE_CLASS_MAPPINGS = {
     "GetResolutionForVR" : GetResolutionForVR,
     "EncryptWatermark" : EncryptWatermark,
     "DecryptWatermark" : DecryptWatermark,
+    "StripXML" : StripXML,
     "SaveStrippedUTF8File" : SaveStrippedUTF8File,
 }
 
@@ -120,6 +138,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "GetResolutionForVR": "Resolution Info",
     "EncryptWatermark": "Encrypt Watermark",
     "DecryptWatermark": "Decrypt Watermark",
+    "StripXML" : "Strip XML",
     "SaveStrippedUTF8File" : "Save Stripped UTF-8 File",
 }
 

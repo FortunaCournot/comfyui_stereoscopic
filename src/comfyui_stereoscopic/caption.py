@@ -16,6 +16,26 @@ def stripXML(inStr):
   return inStr[:a] + stripXML(inStr[b+1:])
 
 
+class StripXML:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "formatted": ("STRING", {"default": ""})
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("raw",)
+    FUNCTION = "execute"
+    CATEGORY = "Stereoscopic"
+    DESCRIPTION = "Strip off XML from text."
+    
+    def execute(self, formatted):
+        result = stripXML(formatted)
+        print("[comfyui_stereoscopic] StripXML result: " + result )
+        return ( result )
+
 class SaveStrippedUTF8File:
     OUTPUT_NODE = True
 
@@ -32,7 +52,7 @@ class SaveStrippedUTF8File:
     RETURN_NAMES = ("raw",)
     FUNCTION = "execute"
     CATEGORY = "Stereoscopic"
-    DESCRIPTION = "Strip XML from text and save it to file."
+    DESCRIPTION = "Strip off XML from text and save it to file."
 
     def execute(self, file, raw):
 
