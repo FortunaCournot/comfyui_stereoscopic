@@ -87,38 +87,6 @@ prompt_text = """
       "title": "Florence2Run"
     }
   },
-  "20": {
-    "inputs": {
-      "root_dir": "output",
-      "file": "vr/caption/intermediate/temp_caption_long.txt",
-      "append": "overwrite",
-      "insert": true,
-      "text": [
-        "24",
-        0
-      ]
-    },
-    "class_type": "SaveText|pysssss",
-    "_meta": {
-      "title": "Save Caption"
-    }
-  },
-  "21": {
-    "inputs": {
-      "root_dir": "output",
-      "file": "vr/caption/intermediate/temp_ocr.txt",
-      "append": "overwrite",
-      "insert": true,
-      "text": [
-        "26",
-        0
-      ]
-    },
-    "class_type": "SaveText|pysssss",
-    "_meta": {
-      "title": "Save Caption"
-    }
-  },
   "22": {
     "inputs": {
       "text_input": "",
@@ -144,56 +112,43 @@ prompt_text = """
       "title": "Florence2Run"
     }
   },
-  "23": {
+  "30": {
     "inputs": {
-      "root_dir": "output",
-      "file": "vr/caption/intermediate/temp_caption_short.txt",
-      "append": "overwrite",
-      "insert": true,
-      "text": [
-        "25",
-        0
-      ]
-    },
-    "class_type": "SaveText|pysssss",
-    "_meta": {
-      "title": "Save Caption"
-    }
-  },
-  "24": {
-    "inputs": {
-      "formatted": [
+      "file": "vr/caption/intermediate/temp_caption_long.txt",
+      "raw": [
         "2",
         2
       ]
     },
-    "class_type": "StripXML",
+    "class_type": "SaveStrippedUTF8File",
     "_meta": {
-      "title": "StripXML"
+      "title": "Save Stripped UTF-8 File"
     }
   },
-  "25": {
+  "31": {
     "inputs": {
-      "formatted": [
+      "file": "vr/caption/intermediate/temp_caption_short.txt",
+      "raw": [
         "22",
         2
       ]
     },
-    "class_type": "StripXML",
+    "class_type": "SaveStrippedUTF8File",
     "_meta": {
-      "title": "StripXML"
+      "title": "Save Stripped UTF-8 File"
     }
   },
-  "26": {
+  "32": {
     "inputs": {
-      "formatted": [
+      "file": "vr/caption/intermediate/temp_ocr.txt",
+      "raw": [
         "15",
         2
       ]
     },
-    "class_type": "StripXML",
+    "class_type": "SaveStrippedUTF8File",
     "_meta": {
-      "title": "StripXML"
+      "title": "Save Stripped UTF-8 File"
     }
   }
 }

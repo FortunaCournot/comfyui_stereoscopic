@@ -85,22 +85,23 @@ except ImportError as e:
 
 
 try:
-    from caption import StripXML
-    print("[comfyui_stereoscopic] Successfully imported StripXML")
+    from caption import SaveStrippedUTF8File
+    print("[comfyui_stereoscopic] Successfully imported SaveStrippedUTF8File")
 except ImportError as e:
     LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing StripXML: {e}")
+    print(f"[comfyui_stereoscopic] Error importing SaveStrippedUTF8File: {e}")
 
     # Create a placeholder class
-    class StripXML:
+    class SaveStrippedUTF8File:
         @classmethod
         def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading StripXML"})}}
+            return {"required": {"error": ("STRING", {"default": "Error loading SaveStrippedUTF8File"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
         CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
+
 
 
 # A dictionary that contains all nodes you want to export with their names
@@ -110,7 +111,7 @@ NODE_CLASS_MAPPINGS = {
     "GetResolutionForVR" : GetResolutionForVR,
     "EncryptWatermark" : EncryptWatermark,
     "DecryptWatermark" : DecryptWatermark,
-    "StripXML" : StripXML,
+    "SaveStrippedUTF8File" : SaveStrippedUTF8File,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -119,6 +120,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "GetResolutionForVR": "Resolution Info",
     "EncryptWatermark": "Encrypt Watermark",
     "DecryptWatermark": "Decrypt Watermark",
-    "StripXML" : "StripXML",
+    "SaveStrippedUTF8File" : "Save Stripped UTF-8 File",
 }
 
