@@ -41,7 +41,7 @@ if [[ $logsize -gt 0 ]] ; then
 fi
 rm user/default/comfyui_stereoscopic/tmplog
 
-find input/vr -type d -name error -o -name stopped  | { while read path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } | wc -l >.tmperrcount
+find input/vr -type d -name error -o -name stopped  | { while read path; do files=`ls -F $path |grep -v / |grep [.] | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } | wc -l >.tmperrcount
 ERRFOLDERCOUNT=`cat .tmperrcount`
 rm .tmperrcount
 if [[ "$ERRFOLDERCOUNT" -gt 0 ]] ; then

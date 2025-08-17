@@ -137,8 +137,12 @@ if [ ! -e $CONFIGFILE ] ; then
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 
 	mkdir -p input/vr/dubbing input/vr/downscale
-	echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >>input/vr/dubbing/DO_NOT_PLACE_HERE.TXT
+	echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >input/vr/dubbing/DO_NOT_PLACE_HERE.TXT
 	cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/downscale/DO_NOT_PLACE_HERE.TXT
+
+	mkdir -p input/vr/singleloop/error 
+	echo "Repair files with a tool like avidemux. You need just to load it, then save it again as mp4 (muxer) with video codec x264." >input/vr/singleloop/error/CONSIDER_REPAIRING
+
 
 	if ! command -v ffmpeg >/dev/null 2>&1
 	then
