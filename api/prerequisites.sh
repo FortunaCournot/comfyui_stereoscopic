@@ -137,11 +137,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 
 	mkdir -p input/vr/dubbing input/vr/downscale
-	echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >input/vr/dubbing/DO_NOT_PLACE_HERE.TXT
-	cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/downscale/DO_NOT_PLACE_HERE.TXT
 
 	mkdir -p input/vr/singleloop/error 
-	echo "Repair files with a tool like avidemux. You need just to load it, then save it again as mp4 (muxer) with video codec x264." >input/vr/singleloop/error/CONSIDER_REPAIRING
 
 
 	if ! command -v ffmpeg >/dev/null 2>&1
@@ -214,9 +211,6 @@ if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
 	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 	echo "Upgraded config.ini to v$config_version"
 fi
-
-[ $loglevel -ge 0 ] && echo -e $"For processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
-[ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
 
 
 ### CHECK TOOLS ###
@@ -293,6 +287,49 @@ elif [[ "$EXIFTOOLBINARY" =~ "(-k)" ]]; then
 	exit 1
 fi
 
+
+CONFIGPATH=user/default/comfyui_stereoscopic
+if [ ! -e "$CONFIGPATH" ]
+then
+	mkdir -p $CONFIGPATH
+fi
+
+
+# prepare tasks
+taskdefinitions=`ls custom_nodes/comfyui_stereoscopic/config/tasks/*.json`
+for task in $taskdefinitions ; do
+	taskname=${task##*/}
+	taskname=${taskname%.json}
+	version=`cat "$task" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ $version -eq 1 ] ; then
+		mkdir -p input/vr/tasks/$taskname output/vr/tasks/$taskname
+	fi
+done
+if [ ! -e "$CONFIGPATH"/tasks ]
+then
+	mkdir -p "$CONFIGPATH"/tasks
+fi
+taskdefinitions=`ls "$CONFIGPATH"/tasks/*.json 2>/dev/null` 
+for task in $taskdefinitions ; do
+	taskname=${task##*/}
+	taskname=${taskname%.json}
+	taskname=${taskname//[^[:alnum:].]/_}
+	taskname=${taskname// /_}
+	taskname=${taskname//\(/_}
+	taskname=${taskname//\)/_}
+	version=`cat "$task" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ $version -eq 1 ] ; then
+		mkdir -p input/vr/tasks/"_"$taskname output/vr/tasks/"_"$taskname
+	fi
+done
+
+# PLACE HINT FILES
+echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >input/vr/dubbing/DO_NOT_PLACE_HERE.TXT
+cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/downscale/DO_NOT_PLACE_HERE.TXT
+cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/tasks/DO_NOT_PLACE_HERE.TXT
+echo "Repair files with a tool like avidemux. You need just to load it, then save it again as mp4 (muxer) with video codec x264." >input/vr/singleloop/error/CONSIDER_REPAIRING
+
+
 # CHECK FOR VERSION UPDATE AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
@@ -302,19 +339,20 @@ if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 	fi
 fi
 
-CONFIGPATH=user/default/comfyui_stereoscopic
 POSITIVESFXPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
 NEGATIVESFXPATH="$CONFIGPATH/dubbing_sfx_negative.txt"
 if [ ! -e "$POSITIVESFXPATH" ]
 then
-	mkdir -p $CONFIGPATH
 	echo "" >$POSITIVESFXPATH
 fi
 if [ ! -e "$NEGATIVEPSFXATH" ]
 then
-	mkdir -p $CONFIGPATH
 	echo "music, voice, crying, squeaking." >$NEGATIVESFXPATH
 fi
+
+[ $loglevel -ge 0 ] && echo -e $"For processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
+[ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
+
 
 ### EXIT IF CHECK FAILED ###
 if [[ ! -z $CONFIGERROR ]]; then
