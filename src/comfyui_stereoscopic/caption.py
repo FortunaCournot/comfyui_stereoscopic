@@ -1,4 +1,6 @@
+import io
 import os
+
 import folder_paths
 
 
@@ -32,9 +34,14 @@ class StripXML:
     DESCRIPTION = "Strip off XML from text."
     
     def execute(self, formatted):
-        result = stripXML(formatted)
-        print("[comfyui_stereoscopic] StripXML result: " + result )
+    
+        result1 = stripXML(formatted)
+        
+        result = []
+        result.append(result1)
+        
         return ( result )
+
 
 class SaveStrippedUTF8File:
     OUTPUT_NODE = True
@@ -56,13 +63,14 @@ class SaveStrippedUTF8File:
 
     def execute(self, file, raw):
 
-        stripped = stripXML(raw)
+        stripped = str(stripXML(raw))
 
         path = os.path.realpath( os.path.join( os.path.realpath( folder_paths.get_output_directory() ), file ) )
 
-        #print("[comfyui_stereoscopic] Writing: " + stripped )
-    
         with open(path, "w", encoding="utf-8") as f:
             f.write(stripped)
  
-        return ( stripped )
+        result = []
+        result.append(stripped)
+        
+        return ( result )
