@@ -3,3 +3,5 @@ opencv-python>=4.7.0.72
 numpy
 pillow
 googletrans
+transformers
+
