@@ -313,7 +313,7 @@ taskdefinitions=`ls "$CONFIGPATH"/tasks/*.json 2>/dev/null`
 for task in $taskdefinitions ; do
 	taskname=${task##*/}
 	taskname=${taskname%.json}
-	taskname=${taskname//[^[:alnum:].]/_}
+	taskname=${taskname//[^[:alnum:].-]/_}
 	taskname=${taskname// /_}
 	taskname=${taskname//\(/_}
 	taskname=${taskname//\)/_}

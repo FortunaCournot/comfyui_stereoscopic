@@ -75,7 +75,7 @@ else
 
 	WATERMARK_SECRETKEY=$(awk -F "=" '/WATERMARK_SECRETKEY/ {print $2}' $CONFIGFILE) ; WATERMARK_SECRETKEY=${WATERMARK_SECRETKEY:-"-1"}
 	WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
-	WATERMARK_LABEL="${WATERMARK_LABEL//[^[:alnum:].]/_}"
+	WATERMARK_LABEL="${WATERMARK_LABEL//[^[:alnum:].-]/_}"
 	WATERMARK_LABEL="${WATERMARK_LABEL:0:17}"
 	WATERMARK_STOREFOLDER=`realpath ./user/default/comfyui_stereoscopic/watermark/$WATERMARK_SECRETKEY`
 	mkdir -p $WATERMARK_STOREFOLDER
@@ -106,7 +106,7 @@ else
 			echo "========== $INDEX/$COUNT"" encode "`echo $nextinputfile | grep -oP "$regex"`" =========="
 
 			newfn=${nextinputfile##*/}
-			newfn=${newfn//[^[:alnum:].]/_}
+			newfn=${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
@@ -136,7 +136,7 @@ else
 			echo "========== $INDEX/$COUNT"" encode "`echo $nextinputfile | grep -oP "$regex"`" =========="
 
 			newfn=${nextinputfile##*/}
-			newfn=${newfn//[^[:alnum:].]/_}
+			newfn=${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

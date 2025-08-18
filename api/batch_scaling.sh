@@ -81,7 +81,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/scaling/${newfn//[^[:alnum:].]/_}
+			newfn=input/vr/scaling/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
@@ -132,7 +132,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/scaling/${newfn//[^[:alnum:].]/_}
+			newfn=input/vr/scaling/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

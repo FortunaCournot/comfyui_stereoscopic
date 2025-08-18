@@ -54,7 +54,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/singleloop/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/singleloop/${newfn//[^[:alnum:].]/_}
+			newfn=input/vr/singleloop/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

@@ -73,7 +73,7 @@ else
 			echo "$INDEX/$COUNT" >input/vr/slideshow/BATCHPROGRESS.TXT
 			
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/slideshow/${newfn//[^[:alnum:].]/_}
+			newfn=input/vr/slideshow/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

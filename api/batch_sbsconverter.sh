@@ -75,7 +75,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].]/_}
+			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
@@ -118,7 +118,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].]/_}
+			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}

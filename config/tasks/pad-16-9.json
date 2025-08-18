@@ -1,5 +1,5 @@
 {
   "version": "1",
-  "blueprint": "ffmpeg-v2vx",
+  "blueprint": "ffmpeg-v2v",
   "options": "-vf 'pad=ih*16/9:ih:(iw-ow)/2:0'",
 }

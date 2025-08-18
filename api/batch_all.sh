@@ -199,6 +199,13 @@ elif [ -d "custom_nodes" ]; then
 		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh || exit 1
 	fi
 
+	TASKCOUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
+	if [ $TASKCOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "********* TASKS **********"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_tasks.sh || exit 1
+	fi
 	
 
 else

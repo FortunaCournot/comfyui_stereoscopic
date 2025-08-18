@@ -1,5 +1,5 @@
 #!/bin/sh
-# Upscales videos in batch from all base videos placed in ComfyUI/input/vr/dubbing/sfx (input)
+# handle tasks for images and videos in batch from all placed in subfolders of ComfyUI/input/vr/tasks 
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
@@ -9,7 +9,7 @@
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_dubbing_sfx.sh 
+SCRIPTFOLDERPATH=./custom_nodes/comfyui_stereoscopic/api/tasks
 
 cd $COMFYUIPATH
 
@@ -45,63 +45,68 @@ elif test $# -ne 0 ; then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
+
 	
-	COUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	COUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		VIDFILES=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
-		for nextinputfile in $VIDFILES ; do
+		TASKFILES=`find input/vr/tasks/*/ -maxdepth 1 -type f`
+		for nextinputfile in $TASKFILES ; do
+			INPUTDIR=`dirname -- $nextinputfile`
+			TASKNAME=${INPUTDIR##*/}
+
 			INDEX+=1
-			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
-			newfn=input/vr/dubbing/sfx/${newfn//[^[:alnum:].-]/_}
+			newfn=$INPUTDIR/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
+			mv -- "$nextinputfile" $newfn 
 
 			start=`date +%s`
 			end=`date +%s`
 			startiteration=$start
+
+			jsonblueprint=${INPUTDIR##*/}
+			DISPLAYNAME=$jsonblueprint
+			echo "$INDEX/$COUNT $DISPLAYNAME" >input/vr/tasks/BATCHPROGRESS.TXT
 			
-			/bin/bash $SCRIPTPATH "$newfn" || exit 1
-			
-			status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-			if [ "$status" = "closed" ]; then
-				echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-				exit 1
+			if [[ $jsonblueprint == "_"* ]] ; then
+				jsonblueprint="user/default/comfyui_stereoscopic/tasks/"${jsonblueprint:1}".json"
+			else
+				jsonblueprint="custom_nodes/comfyui_stereoscopic/config/tasks/"$jsonblueprint".json"
 			fi
 			
-			echo "Waiting for queue to finish..."
-			sleep 3  # Give some extra time to start...
-			lastcount=""
-			itertimemsg=""
-			until [ "$queuecount" = "0" ]
-			do
-				sleep 1
-				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
-				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-				if [[ "$lastcount" != "$queuecount" ]] && [[ -n "$lastcount" ]]
-				then
-					end=`date +%s`
-					runtime=$((end-start))
-					start=`date +%s`
-					secs=$(("$queuecount * runtime"))
-					eta=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-					itertimemsg=", $runtime""s/prompt, ETA in $eta"
+			if [ -e "$jsonblueprint" ] ; then
+				# handle only current version
+				taskversion="-1"
+				taskversion=`cat "$jsonblueprint" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+				CURRENTVERSION=1
+				if [ $taskversion -eq $CURRENTVERSION ] ; then
+					blueprint=`cat "$jsonblueprint" | grep -o '"blueprint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+					blueprint=${blueprint##*/}
+					blueprint=${blueprint//[^[:alnum:].-]/_}
+					blueprint=${blueprint// /_}
+					blueprint=${blueprint//\(/_}
+					blueprint=${blueprint//\)/_}
+					scriptpath=$SCRIPTFOLDERPATH/$blueprint".sh"
+					if [ -e $scriptpath ] ; then
+						/bin/bash $scriptpath "$jsonblueprint" "$TASKNAME" "$newfn" || exit 1
+					else
+						echo -e $"\e[91mError:\e[0m Invalid blueprint in $jsonblueprint . script missing: $SCRIPTFOLDERPATH/$blueprint"".sh"
+						exit 1
+					fi
+				else
+					echo -e $"\e[91mError:\e[0m Invalid task version in $jsonblueprint   $taskversion != $CURRENTVERSION"
+					exit 1
 				fi
-				lastcount="$queuecount"
-					
-				echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
-			done
-			end=`date +%s`
-			runtime=$((end-startiteration))
-			echo -e $"\e[92mdone.\e[0m duration: $runtime""s                        "
-			rm queuecheck.json
-				
+			else
+				echo -e $"\e[91mError:\e[0m No blueprint for task $DISPLAYNAME at `realpath $jsonblueprint`"
+				exit 1
+			fi
 		done
 	fi
-	rm -f input/vr/dubbing/sfx/BATCHPROGRESS.TXT
+	rm -f input/vr/tasks/BATCHPROGRESS.TXT
 	echo "Batch done."
 
 fi
