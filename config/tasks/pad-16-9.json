@@ -2,4 +2,6 @@
   "version": "1",
   "blueprint": "ffmpeg-v2v",
   "options": "-vf 'pad=ih*16/9:ih:(iw-ow)/2:0'",
+  "input": "video,image",
+  "output": "video,image",
 }

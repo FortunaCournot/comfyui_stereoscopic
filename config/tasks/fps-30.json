@@ -2,4 +2,6 @@
   "version": "1",
   "blueprint": "ffmpeg-v2v",
   "options": "-filter:v fps=30",
+  "input": "video",
+  "output": "video",
 }

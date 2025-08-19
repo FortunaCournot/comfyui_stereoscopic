@@ -2,4 +2,6 @@
   "version": "1",
   "blueprint": "ffmpeg-v2v",
   "options": "-filter:v scale=-2:1080",
+  "input": "video,image",
+  "output": "video,image",
 }
