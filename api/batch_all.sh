@@ -93,7 +93,7 @@ elif [ -d "custom_nodes" ]; then
 	unset GLOBIGNORE		
 
 
-	SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
+	SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	if [ $SLIDECOUNT -ge 2 ]; then
 		# PREPARE 4K SLIDES
 		# In:  input/vr/slides
