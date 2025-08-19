@@ -261,7 +261,7 @@ else
 					# create audio
 					mv "$f" "${f%.mp4}_na.mp4"
 					nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "${f%.mp4}_na.mp4" -y -f ffmetadata metadata.txt -c:v copy -c:a aac -shortest "$f"
-					rm -f "${f%.mp4}_na.mp4"
+					rm -f -- "${f%.mp4}_na.mp4"
 				fi
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 				if [ "$status" = "closed" ]; then

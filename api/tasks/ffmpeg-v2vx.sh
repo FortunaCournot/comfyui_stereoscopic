@@ -89,22 +89,31 @@ else
 	mkdir -p output/vr/tasks/intermediate
 	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
 	mkdir -p $FINALTARGETFOLDER
+	rm -f output/vr/tasks/intermediate/*.mp4 2>/dev/null
 	
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
 	
+	seqformat=`cat "$BLUEPRINTCONFIG" | grep -o '"seqformat":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ -z "$seqformat" ] ; then
+		seqformat="%05d"
+		echo -e $"\e[93mWarning: \e[0mseqformat key missing in $BLUEPRINTCONFIG . Using default."
+	fi
+
 	[ $loglevel -lt 2 ] && set -x
-	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" $options "$TARGETPREFIX"".mp4"
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" $options "$TARGETPREFIX""$seqformat"".mp4"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
-	if [ -e "$TARGETPREFIX"".mp4" ] ; then
-		mv -- "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
+	COUNT=`find output/vr/tasks/intermediate -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	if [ $COUNT -gt 0 ] ; then
+		FILES=`find output/vr/tasks/intermediate -maxdepth 1 -type f -name '*.mp4'`
+		mv -- $FILES $FINALTARGETFOLDER
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $INPUT input/vr/tasks/$TASKNAME/done
 		echo -e $"\e[92mtask done.\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m Task failed. Missing $TARGETPREFIX"".mp4"
-		rm -f -- "$TARGETPREFIX"".mp4" 2>/dev/null
+		echo -e $"\e[91mError:\e[0m Task failed. Missing $TARGETPREFIX""*.mp4"
+		rm -f -- "$TARGETPREFIX"*".mp4" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $INPUT input/vr/tasks/$TASKNAME/error
 	fi

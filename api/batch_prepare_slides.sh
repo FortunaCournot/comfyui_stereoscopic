@@ -132,7 +132,7 @@ else
 					SCALINGINTERMEDIATE=$INTERMEDIATEFOLDER/tmppadding.png
 					nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$RESULT" -vf "scale=w=3840:h=2160:force_original_aspect_ratio=1,pad=3840:2160:(ow-iw)/2:(oh-ih)/2" "$SCALINGINTERMEDIATE"
 					[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$RESULT" -all:all "$SCALINGINTERMEDIATE" && echo "tags copied."
-					rm -f "$RESULT"
+					rm -f -- "$RESULT"
 					RESULT="$SCALINGINTERMEDIATE"
 					
 					if [ -e "$RESULT" ]; then
