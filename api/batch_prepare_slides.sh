@@ -77,7 +77,7 @@ else
 			INDEX=$(( INDEX + 1 ))
 			INDEXM1=$(( INDEX - 1 ))
 			INDEXM2=$(( INDEX - 2 ))
-			echo "$INDEX/$COUNT" >input/vr/slides/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/slides/${newfn//[^[:alnum:].-]/_}
@@ -156,7 +156,7 @@ else
 		echo "========== Slides processed.  ==========                             "
 			
 		
-		rm input/vr/slides/BATCHPROGRESS.TXT
+		rm input/vr/scaling/BATCHPROGRESS.TXT
 		
 	else
 		# Not enought image files (png|jpg|jpeg) found in input/vr/slides. At least 2.
