@@ -48,6 +48,8 @@ elif [ "$status" = "closed" ]; then
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
+	echo -ne $"\e[97m\e[1m=== READY TO CREATE SLIDESHOW - PRESS RETURN TO START ===\e[0m" ; read forgetme ; echo "starting..."
+
 	for f in input/vr/slideshow/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
 
 	IMGFILES=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
@@ -82,8 +84,7 @@ else
 			
 			if [ -e "$newfn" ]; then
 			
-				TARGETPREFIX=${newfn##*/}
-				TARGETPREFIX=${TARGETPREFIX%.*}
+				TARGETPREFIX=$newfn
 				
 				RESULT=$newfn
 				
@@ -131,7 +132,15 @@ else
 		
 		#set +x
 		
-		TARGET=output/vr/slideshow/"$TARGETPREFIX-slideshow-$NOW_SBS_LR.mp4"
+		TARGETPREFIX=${TARGETPREFIX##*/}
+		TARGETPREFIX=${TARGETPREFIX%.*}
+		TAGS=
+		if [[ $TARGETPREFIX == *"_SBS_LR"* ]] ; then
+			TAGS="_SBS_LR"
+		fi
+		TARGETPREFIX=${TARGETPREFIX%%_*}
+		
+		TARGET=output/vr/slideshow/"$TARGETPREFIX-slideshow-""$NOW""$TAGS"".mp4"
 		mv -f $INTERMEDIATEFOLDER/output.mp4 "$TARGET"
 		rm input/vr/slideshow/BATCHPROGRESS.TXT
 		mkdir -p input/vr/slideshow/done

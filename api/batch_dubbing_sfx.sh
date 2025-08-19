@@ -54,15 +54,12 @@ else
 		for nextinputfile in $VIDFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
-			set -x
-			echo "$nextinputfile"
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/dubbing/sfx/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
-			set +x
 
 			start=`date +%s`
 			end=`date +%s`

@@ -202,7 +202,7 @@ if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
 	echo "# Videos with durations below above this threshold will be segmented.">>"$CONFIGFILE"
 	echo "DUBBINGSEGMENTTING_THRESHOLD=20">>"$CONFIGFILE"
 	echo "# Segment Duration. should be same as slide duration (including transition) for slideshows dubbing.">>"$CONFIGFILE"
-	echo "DUBBINGSEGMENTTIME=6">>"$CONFIGFILE"
+	echo "DUBBINGSEGMENTTIME=5">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
 	sed -i "/^config_version=/s/=.*/="$NEXTUPGRADESTEPVERSION"/" $CONFIGFILE

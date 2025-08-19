@@ -155,9 +155,11 @@ else
 				fi
 			fi			
 		done
-		echo "========== Slides processed.  ==========                             "
-			
-		
+		echo -e $"========== \e[92mSlides processed.\e[0m  ==========                             "
+
+		mkdir -p input/vr/slides/done
+		mv -f -- input/vr/slides/* input/vr/slides/done
+		rm -rf "$INTERMEDIATEFOLDER"/*  >/dev/null 2>&1
 		rm input/vr/scaling/BATCHPROGRESS.TXT
 		
 	else
