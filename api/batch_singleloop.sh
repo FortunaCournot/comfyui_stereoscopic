@@ -46,6 +46,8 @@ else
 	mkdir -p output/vr/singleloop/intermediate
 	mkdir -p input/vr/singleloop/done
 	
+	for f in input/vr/singleloop/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	
 	COUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then

@@ -106,6 +106,11 @@ else
 	INPUT="$1"
 	shift
 
+	if [ ! -e "$INPUT" ] ; then
+		echo -e $"\e[91mInternal Error:\e[0m Missing input $INPUT"
+		exit 1
+	fi
+	
 	duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
 	duration=${duration%.*}
 

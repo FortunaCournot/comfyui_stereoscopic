@@ -45,8 +45,8 @@ elif test $# -ne 0 ; then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
+	for d in input/vr/tasks/*; do for f in $d/*\ *; do mv -- "$f" "${f// /_}"; done; done 2>/dev/null
 
-	
 	COUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then

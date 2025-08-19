@@ -50,6 +50,8 @@ fi
 	mkdir -p output/vr/downscale/$TARGETSIZE/intermediate
 	mkdir -p input/vr/downscale/$TARGETSIZE/done
 	
+	for f in input/vr/downscale/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	
 	COUNT=`find input/vr/downscale/$TARGETSIZE -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then

@@ -45,6 +45,7 @@ elif test $# -ne 0 ; then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
+	for f in input/vr/dubbing/sfx/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
 	
 	COUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	declare -i INDEX=0
@@ -53,12 +54,15 @@ else
 		for nextinputfile in $VIDFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
+			set -x
+			echo "$nextinputfile"
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/dubbing/sfx/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
 			mv "$nextinputfile" $newfn 
+			set +x
 
 			start=`date +%s`
 			end=`date +%s`
