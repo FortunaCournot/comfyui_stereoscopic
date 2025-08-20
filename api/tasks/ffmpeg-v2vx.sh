@@ -93,6 +93,7 @@ else
 	
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
+	options="${options//\$INPUT/"$INPUT"}"
 	
 	seqformat=`cat "$BLUEPRINTCONFIG" | grep -o '"seqformat":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	if [ -z "$seqformat" ] ; then

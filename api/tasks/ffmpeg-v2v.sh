@@ -92,6 +92,7 @@ else
 	
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
+	options="${options//\$INPUT/"$INPUT"}"
 	
 	[ $loglevel -lt 2 ] && set -x
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX"".mp4"
