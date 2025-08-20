@@ -94,7 +94,7 @@ else
 	options="${options//\'/}"
 	
 	[ $loglevel -lt 2 ] && set -x
-	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" $options "$TARGETPREFIX"".mp4"
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX"".mp4"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
 	if [ -e "$TARGETPREFIX"".mp4" ] ; then
