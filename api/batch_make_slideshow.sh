@@ -27,6 +27,12 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+
+EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+
+ISO_639_2_CODE=$(awk -F "=" '/ISO_639_2_CODE/ {print $2}' $CONFIGFILE) ; ISO_639_2_CODE=${ISO_639_2_CODE:-"eng"}
+
 # Length of each Image to display in seconds (INTEGER)
 DISPLAYLENGTH=6
 # FPS Rate of the slideshow (INTEGER). Minimum=2
@@ -66,7 +72,7 @@ else
 		FILTEROPT=
 		CURRENTOFFSET=0
 		
-		sleep 5 # extra time for transfer multiple files.
+		echo -n "" >$INTERMEDIATEFOLDER/subtitles.srt
 		
 		for nextinputfile in $IMGFILES ; do
 			INDEX=$(( INDEX + 1 ))
@@ -108,6 +114,23 @@ else
 					else
 						FILTEROPT="[0][1]xfade=transition=$TRANSITION:duration=$TLENGTH:offset=$TOFFSET[f0]"
 					fi
+					
+					title=
+					[ -e "$EXIFTOOLBINARY" ] && title=`"$EXIFTOOLBINARY" -title "$newfn" | cut -d ':' -f 2 | xargs`
+					if [ ! -z "$title" ] ; then
+						echo "$INDEX" >>$INTERMEDIATEFOLDER/subtitles.srt
+						START=$(( INDEX * 5 - 5 ))
+						STARTTIME=`date -d@$START -u +%H:%M:%S,500`
+						END=$(( INDEX * 5 - 1))
+						ENDTIME=`date -d@$END -u +%H:%M:%S,500`
+
+						echo "$STARTTIME --> $ENDTIME" >>$INTERMEDIATEFOLDER/subtitles.srt
+						echo "$title" >>$INTERMEDIATEFOLDER/subtitles.srt
+						echo "" >>$INTERMEDIATEFOLDER/subtitles.srt
+					fi
+
+					echo "title: $title"
+					
 				else
 					echo -e $"\e[91mError:\e[0m Missing result: $RESULT"
 					sleep 10
@@ -128,6 +151,9 @@ else
 
 		"$FFMPEGPATHPREFIX"ffmpeg -v error -hide_banner -stats -loglevel repeat+level+error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4 
 
+		[ -e "$EXIFTOOLBINARY" ] && "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i $INTERMEDIATEFOLDER/output.mp4  -i $INTERMEDIATEFOLDER/subtitles.srt -c copy -c:s mov_text -metadata:s:s:0 language=$ISO_639_2_CODE $INTERMEDIATEFOLDER/output-srt.mp4 && mv -f -- $INTERMEDIATEFOLDER/output-srt.mp4 $INTERMEDIATEFOLDER/output.mp4
+		rm -f $INTERMEDIATEFOLDER/subtitles.srt
+		
 		echo -e $"\e[92mdone\e[0m                    "
 		
 		#set +x

@@ -129,6 +129,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "OCR_GENERATION_KEYSEP=,">>"$CONFIGFILE"	
 	echo "# Target language locale of the description. Set empty to deactivate translation (keep english):">>"$CONFIGFILE"
 	echo "DESCRIPTION_LOCALE="`locale -u`>>"$CONFIGFILE"
+	echo "# 3-ditit ISO 639-2 code used for subtitle language . has to be changed manually by user:">>"$CONFIGFILE"
+	echo "ISO_639_2_CODE=eng">>"$CONFIGFILE"
 	echo "# Caption Stage image strip off key list, e.g.: Prompt,Workflow,UserComment">>"$CONFIGFILE"
 	echo "EXIF_PURGE_CSKEYLIST=Prompt,Workflow,UserComment" >>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
