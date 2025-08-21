@@ -26,7 +26,7 @@ else
 	cd $COMFYUIPATH
 
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
-
+	CONFIGFILE=`realpath $CONFIGFILE`
 	export CONFIGFILE
 	if [ -e $CONFIGFILE ] ; then
 		loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
@@ -96,6 +96,7 @@ else
 	TARGETPREFIX_UPSCALE=${TARGETPREFIX%.*}
 	TARGETPREFIX=output/vr/scaling/intermediate/$TARGETPREFIX_UPSCALE
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
+	mkdir -p output/vr/scaling/intermediate
 	
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}

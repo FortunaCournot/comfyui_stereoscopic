@@ -97,6 +97,7 @@ else
 	TARGETPREFIX_CALL=vr/scaling/intermediate/$TARGETPREFIX_UPSCALE
 	TARGETPREFIX=output/vr/scaling/intermediate/$TARGETPREFIX_UPSCALE
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
+	mkdir -p output/vr/scaling/intermediate
 	
 	UPSCALEMODEL="RealESRGAN_x4plus.pth"
 	SCALEBLENDFACTOR=$(awk -F "=" '/SCALEBLENDFACTOR/ {print $2}' $CONFIGFILE) ; SCALEBLENDFACTOR=${SCALEBLENDFACTOR:-"0.7"}
