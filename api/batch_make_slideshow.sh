@@ -73,6 +73,7 @@ else
 		CURRENTOFFSET=0
 		
 		echo -n "" >$INTERMEDIATEFOLDER/subtitles.srt
+		HAS_SUBTITLES=
 		
 		for nextinputfile in $IMGFILES ; do
 			INDEX=$(( INDEX + 1 ))
@@ -118,6 +119,7 @@ else
 					title=
 					[ -e "$EXIFTOOLBINARY" ] && title=`"$EXIFTOOLBINARY" -title "$newfn" | cut -d ':' -f 2 | xargs`
 					if [ ! -z "$title" ] ; then
+						HAS_SUBTITLES=x
 						echo "$INDEX" >>$INTERMEDIATEFOLDER/subtitles.srt
 						START=$(( INDEX * 5 - 5 ))
 						STARTTIME=`date -d@$START -u +%H:%M:%S,500`
@@ -149,10 +151,15 @@ else
 		
 		#set -x
 
-		"$FFMPEGPATHPREFIX"ffmpeg -v error -hide_banner -stats -loglevel repeat+level+error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -pix_fmt yuv420p -vcodec libx264 $INTERMEDIATEFOLDER/output.mp4 
-
-		[ -e "$EXIFTOOLBINARY" ] && "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i $INTERMEDIATEFOLDER/output.mp4  -i $INTERMEDIATEFOLDER/subtitles.srt -c copy -c:s mov_text -metadata:s:s:0 language=$ISO_639_2_CODE $INTERMEDIATEFOLDER/output-srt.mp4 && mv -f -- $INTERMEDIATEFOLDER/output-srt.mp4 $INTERMEDIATEFOLDER/output.mp4
-		rm -f $INTERMEDIATEFOLDER/subtitles.srt
+		# To support transparency chhose something different than -pix_fmt yuv420p -vcodec libx264
+		"$FFMPEGPATHPREFIX"ffmpeg -v error -hide_banner -stats -loglevel repeat+level+error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -c:v ffv1 -pix_fmt yuva420p $INTERMEDIATEFOLDER/output.mkv 
+		# Transparency is not keept in next stage. leave mkv in intermediate folder for now
+		if [ ! -z "$HAS_SUBTITLES" ] ; then
+			[ -e "$EXIFTOOLBINARY" ] && "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i $INTERMEDIATEFOLDER/output.mkv  -i $INTERMEDIATEFOLDER/subtitles.srt -c:v libvpx -pix_fmt yuva420p -c:s mov_text -metadata:s:s:0 language=$ISO_639_2_CODE $INTERMEDIATEFOLDER/output-srt.mp4 && mv -f -- $INTERMEDIATEFOLDER/output-srt.mp4 $INTERMEDIATEFOLDER/output.mp4
+		else
+			"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i $INTERMEDIATEFOLDER/output.mkv $INTERMEDIATEFOLDER/output.mp4
+		fi
+		rm -f $INTERMEDIATEFOLDER/subtitles.srt 2>&/dev/null
 		
 		echo -e $"\e[92mdone\e[0m                    "
 		
