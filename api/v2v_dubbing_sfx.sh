@@ -104,6 +104,8 @@ else
 	fi
 
 	INPUT="$1"
+
+	if [ ! -e "$INPUT" ] ; then echo "input file removed: $INPUT"; exit 0; fi
 	shift
 
 	if [ ! -e "$INPUT" ] ; then

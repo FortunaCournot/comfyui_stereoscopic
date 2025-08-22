@@ -61,6 +61,8 @@ else
 
 	DOWNSCALE=1.0
 	INPUT="$1"
+
+	if [ ! -e "$INPUT" ] ; then echo "input file removed: $INPUT"; exit 0; fi
 	shift
 	override_active=$1
 	shift

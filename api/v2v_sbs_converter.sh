@@ -64,6 +64,7 @@ else
 	depth_offset="$1"
 	shift
 	INPUT="$1"
+	if [ ! -e "$1" ] ; then echo "input file removed: $INPUT"; exit 0; fi
 	shift
 
 	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS=${SBS_DEPTH_BLUR_RADIUS:-"19"}

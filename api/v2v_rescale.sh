@@ -59,6 +59,8 @@ then
 
 	SIGMA=0.2
 	INPUT="$1"
+
+	if [ ! -e "$INPUT" ] ; then echo "input file removed: $INPUT"; exit 0; fi
 	shift
 	
 	PROGRESS=" "
