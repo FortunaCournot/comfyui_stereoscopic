@@ -67,7 +67,7 @@ else
 	INPUT="$1"
 	shift
 			
-	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS=${SBS_DEPTH_BLUR_RADIUS:-"7"}
+	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS=${SBS_DEPTH_BLUR_RADIUS:-"19"}
 
 	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
 

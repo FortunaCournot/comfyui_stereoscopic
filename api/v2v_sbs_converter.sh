@@ -66,12 +66,12 @@ else
 	INPUT="$1"
 	shift
 
+	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS=${SBS_DEPTH_BLUR_RADIUS:-"19"}
+
 	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
 	VIDEO_FORMAT=$(awk -F "=" '/VIDEO_FORMAT/ {print $2}' $CONFIGFILE) ; VIDEO_FORMAT=${VIDEO_FORMAT:-"video/h264-mp4"}
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
-
-	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS=${SBS_DEPTH_BLUR_RADIUS:-"7"}
 
 	CWD=`pwd`
 	CWD=`realpath "$CWD"`
