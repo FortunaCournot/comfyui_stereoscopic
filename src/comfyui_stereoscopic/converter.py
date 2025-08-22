@@ -5,7 +5,7 @@ import os
 import sys
 import cv2
 from comfy.utils import ProgressBar
-#DEBUG: import time
+from datetime import datetime
 
 def gpu_blur(input_array, blur_radius):
 
@@ -79,6 +79,8 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
         return sbs_result
         
     # monotony per line (purly related to depth scale)
+    if processing == "display-values":
+        start_time = datetime.now()
     for y in range(H):
         for x in range(W):
             #xr=W-x-1
@@ -91,7 +93,9 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
                     shifted_x[y,x]=previous_value
             else:
                 previous_value=value
-
+    if processing == "display-values":
+        time_elapsed = datetime.now() - start_time
+        print('[comfyui_stereoscopic] (monotony per line) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
 
 
     if processing == "test-appliedshifts-x8":
@@ -183,6 +187,9 @@ class ImageVRConverter:
         Returns:
         - sbs_image: the stereoscopic image(s).
         """
+
+        if processing == "display-values":
+            start_time = datetime.now()
 
         #define constant
         mode="Parallel"
@@ -320,5 +327,9 @@ class ImageVRConverter:
         sbs_images_batch = torch.stack(sbs_images)
         # Print final output stats
         ##print(f"Final SBS image batch shape: {sbs_images_batch.shape}, min: {sbs_images_batch.min().item()}, max: {sbs_images_batch.max().item()}")
+ 
+        if processing == "display-values":
+            time_elapsed = datetime.now() - start_time
+            print('[comfyui_stereoscopic] Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
  
         return (sbs_images_batch, )
