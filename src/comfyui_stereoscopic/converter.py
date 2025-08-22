@@ -81,18 +81,7 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
     # monotony per line (purly related to depth scale)
     if processing == "display-values":
         start_time = datetime.now()
-    for y in range(H):
-        for x in range(W):
-            #xr=W-x-1
-            value=shifted_x[y,x]
-            if x>0:
-                if value>=previous_value:
-                    previous_value=value
-                else:
-                    #print(f"test improve: USE PREVIOUS at x={x} value={value} => previous_value={previous_value}")
-                    shifted_x[y,x]=previous_value
-            else:
-                previous_value=value
+    shifted_x = np.maximum.accumulate(shifted_x, axis=1)
     if processing == "display-values":
         time_elapsed = datetime.now() - start_time
         print('[comfyui_stereoscopic] (monotony per line) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))

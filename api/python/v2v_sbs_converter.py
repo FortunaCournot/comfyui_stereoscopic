@@ -134,16 +134,16 @@ def queue_prompt(prompt):
         print(response.status_code, response.text)
 
 
-if len(sys.argv) != 5 + 1:
-   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset InputVideoPath OutputPathPrefix videoformat videopixfmt videocrf")
+if len(sys.argv) != 6 + 1:
+   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset blur_radius InputVideoPath OutputPathPrefix videoformat videopixfmt videocrf")
 else:
     prompt = json.loads(prompt_text)
     prompt["175"]["inputs"]["ckpt_name"] = sys.argv[1]
     prompt["176"]["inputs"]["depth_scale"] = float(sys.argv[2])
     prompt["176"]["inputs"]["depth_offset"] = float(sys.argv[3])
-    prompt["176"]["inputs"]["blur_radius"] = int(45)
-    prompt["171"]["inputs"]["file"] = sys.argv[4]
-    prompt["177"]["inputs"]["filename_prefix"] = sys.argv[5] 
+    prompt["176"]["inputs"]["blur_radius"] = int(sys.argv[4])
+    prompt["171"]["inputs"]["file"] = sys.argv[5]
+    prompt["177"]["inputs"]["filename_prefix"] = sys.argv[6] 
     #prompt["164"]["inputs"]["format"] = sys.argv[6] 
     #prompt["164"]["inputs"]["pix_fmt"] = sys.argv[7] 
     #prompt["164"]["inputs"]["crf"] = sys.argv[8] 
