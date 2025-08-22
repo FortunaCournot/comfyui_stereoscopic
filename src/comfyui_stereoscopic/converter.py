@@ -86,18 +86,6 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
         time_elapsed = datetime.now() - start_time
         print('[comfyui_stereoscopic] (monotony per line) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
 
-
-    if processing == "test-appliedshifts-x8":
-        #print(f"test-appliedshifts-x8 exit called...")
-        for y in range(H):
-            for x in range(W):
-                shiftx8=int(shifted_x[y,x]-x) * 8
-                sbs_result[y, flip_offset+x, 0] = max(min(-shiftx8, 255), 0)
-                sbs_result[y, flip_offset+x, 1] = max(min(shiftx8, 255), 0)
-                sbs_result[y, flip_offset+x, 2] = 0
-        #print(f"test-appliedshifts-x8 processed: {sbs_result.shape}")
-        return sbs_result
-
     # Interpolation with remap
     shifted_img = cv2.remap(image, shifted_x, y_coords, interpolation=cv2.INTER_LINEAR,borderMode=cv2.BORDER_REFLECT)
 
@@ -156,7 +144,7 @@ class ImageVRConverter:
                 "switch_sides": ("BOOLEAN", {"default": False}),
                 "blur_radius": ("INT", {"default": 45, "min": -1, "max": 99, "step": 2}),
                 "symetric": ("BOOLEAN", {"default": True}),
-                "processing": (["Normal", "test-pixelshifts-x8",  "test-appliedshifts-x8", "test-blackout", "test-shift-grid", "display-values"], {"default": "Normal"}),
+                "processing": (["Normal", "test-pixelshifts-x8",  "test-blackout", "test-shift-grid", "display-values"], {"default": "Normal"}),
             }
         }
 
