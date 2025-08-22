@@ -73,13 +73,14 @@ else
 		VIDEOFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
+			[ ! -e $nextinputfile ] && continue
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
 			newfn=${newfn//\(/_}
 			newfn=${newfn//\)/_}
-			mv -- "$nextinputfile" $newfn 
+			mv -- "$nextinputfile" $newfn
 			
 			TARGETPREFIX=${newfn##*/}
 			if [[ "$TARGETPREFIX" = "*_SBS_LR.*" ]]; then
@@ -111,11 +112,8 @@ else
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
-			if [ ! -e $nextinputfile ] ; then
-				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."
-				exit 1
-			fi
 			INDEX+=1
+			[ ! -e $nextinputfile ] && continue
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
