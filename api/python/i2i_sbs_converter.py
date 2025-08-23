@@ -18,7 +18,7 @@ prompt_text = """
 {
   "158": {
     "inputs": {
-      "image": "SmallIconicTown.png"
+      "image": "Demo-Image.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -33,7 +33,7 @@ prompt_text = """
         3
       ],
       "image": [
-        "229",
+        "158",
         0
       ]
     },
@@ -44,14 +44,15 @@ prompt_text = """
   },
   "220": {
     "inputs": {
-      "depth_scale": 1,
+      "depth_scale": 1.25,
       "depth_offset": 0,
       "switch_sides": false,
-      "blur_radius": 45,
+      "blur_radius": 7,
       "symetric": true,
+      "iterations": 3,
       "processing": "Normal",
       "base_image": [
-        "229",
+        "158",
         0
       ],
       "depth_image": [
@@ -61,19 +62,19 @@ prompt_text = """
     },
     "class_type": "ImageVRConverter",
     "_meta": {
-      "title": "Convert to Side-by-Side"
+      "title": "Convert to VR"
     }
   },
   "222": {
     "inputs": {
       "base_image": [
-        "229",
+        "158",
         0
       ]
     },
     "class_type": "GetResolutionForVR",
     "_meta": {
-      "title": "Get Resolution"
+      "title": "Resolution Info"
     }
   },
   "227": {
@@ -87,18 +88,6 @@ prompt_text = """
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
-    }
-  },
-  "229": {
-    "inputs": {
-      "anything": [
-        "158",
-        0
-      ]
-    },
-    "class_type": "easy clearCacheAll",
-    "_meta": {
-      "title": "Clear Cache All"
     }
   }
 }

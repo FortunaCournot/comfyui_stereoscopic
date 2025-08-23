@@ -18,8 +18,7 @@ prompt_text = """
 {
   "171": {
     "inputs": {
-      "file": "",
-      "video-preview": ""
+      "file": "VR-we-are-RAW1.mp4"
     },
     "class_type": "LoadVideo",
     "_meta": {
@@ -47,7 +46,7 @@ prompt_text = """
     },
     "class_type": "GetResolutionForVR",
     "_meta": {
-      "title": "Get Resolution"
+      "title": "Resolution Info"
     }
   },
   "175": {
@@ -69,11 +68,12 @@ prompt_text = """
   },
   "176": {
     "inputs": {
-      "depth_scale": 1,
+      "depth_scale": 1.25,
       "depth_offset": 0,
       "switch_sides": false,
-      "blur_radius": 45,
+      "blur_radius": 19,
       "symetric": false,
+      "iterations": 3,
       "processing": "Normal",
       "base_image": [
         "173",
@@ -86,15 +86,14 @@ prompt_text = """
     },
     "class_type": "ImageVRConverter",
     "_meta": {
-      "title": "Convert to Side-by-Side"
+      "title": "Convert to VR"
     }
   },
   "177": {
     "inputs": {
-      "filename_prefix": "",
+      "filename_prefix": "video/sbstest",
       "format": "mp4",
       "codec": "h264",
-      "video-preview": "",
       "video": [
         "178",
         0
@@ -144,9 +143,10 @@ else:
     prompt["176"]["inputs"]["blur_radius"] = int(sys.argv[4])
     prompt["171"]["inputs"]["file"] = sys.argv[5]
     prompt["177"]["inputs"]["filename_prefix"] = sys.argv[6] 
-    #prompt["164"]["inputs"]["format"] = sys.argv[6] 
-    #prompt["164"]["inputs"]["pix_fmt"] = sys.argv[7] 
-    #prompt["164"]["inputs"]["crf"] = sys.argv[8] 
+    
+    # TODO: production mode
+    # "symetric" -> true
+    # "iterations" -> 5
     
     queue_prompt(prompt)
 

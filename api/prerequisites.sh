@@ -48,7 +48,9 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# Depth Placement. Normalized. Values over 0 make it appear closer, lower than 0 farer away. Absolute values higher than depth scale make it appear extremer.">>"$CONFIGFILE"
 	echo "SBS_DEPTH_OFFSET=0.0">>"$CONFIGFILE"
 	echo "# To reduce artifacts increase value for cost of depth detail quality. Number must be odd, between 1 and 99. -1 turns off. ">>"$CONFIGFILE"
-	echo "SBS_DEPTH_BLUR_RADIUS=19">>"$CONFIGFILE"
+	echo "SBS_DEPTH_BLUR_RADIUS_VIDEO=19">>"$CONFIGFILE"
+	echo "# To reduce artifacts increase value for cost of depth detail quality. Number must be odd, between 1 and 99. -1 turns off. ">>"$CONFIGFILE"
+	echo "SBS_DEPTH_BLUR_RADIUS_IMAGE=9">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# Used depth model by comfyui_controlnet_aux">>"$CONFIGFILE"

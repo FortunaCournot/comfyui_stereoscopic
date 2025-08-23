@@ -1,22 +1,36 @@
 import torch
 from PIL import Image
-import numpy as np
 import os
 import sys
 import cv2
+import math
 from comfy.utils import ProgressBar
 from datetime import datetime
 
+import numpy # Sometimes we want to use a numpy function even if CuPy is available
+
+try:
+    import cupy as np
+    import cupyx.scipy.ndimage
+    _USE_GPU = True
+except ModuleNotFoundError:
+    import numpy as np
+    print("CuPy not available, only use_gpu=False will work")
+    _USE_GPU = False
+    
 def gpu_blur(input_array, blur_radius):
 
-    gpu_mat = cv2.UMat(input_array)
-    kernel_size = (blur_radius, blur_radius)
-    smoothed_gpu = cv2.blur(gpu_mat, kernel_size)
-
-    blurred = cv2.UMat.get(smoothed_gpu)
+    if _USE_GPU:
+        # gaussian_filter radius := round(truncate * sigma) will be used. Truncate default = 4.0.
+        blurred = cupyx.scipy.ndimage.gaussian_filter(input_array, blur_radius / 4.0)
+    else:
+        gpu_mat = cv2.UMat(input_array)
+        kernel_size = (blur_radius, blur_radius)
+        smoothed_gpu = cv2.blur(gpu_mat, kernel_size)
+        blurred = cv2.UMat.get(smoothed_gpu)
     return blurred
 
-def invert_map(F):
+def invert_map(F, iterations, processing):
     """
     Performs mapping of pixel locations from image source to destination system.
     Source and discussion of the algorithm:
@@ -26,18 +40,32 @@ def invert_map(F):
 
     Returns shifted coordinates (pixel locations) solved to representation in image destination system.
     """
+
+    if processing == "display-values":
+        start_time = datetime.now()
+
     # shape is (h, w, 2), an "xymap"
     (h, w) = F.shape[:2]
     I = np.zeros_like(F)
     I[:,:,1], I[:,:,0] = np.indices((h, w)) # identity map
+    if _USE_GPU:
+        I = np.asnumpy(I)
+        src=np.asnumpy(F)
+    else:
+        src=F
     P = np.copy(I)
-    for i in range(10):
-        correction = I - cv2.remap(F, P, None, interpolation=cv2.INTER_LINEAR)
+    for i in range(iterations):
+        correction = I - cv2.remap(src, P, None, interpolation=cv2.INTER_LINEAR)
         P += correction * 0.5
+        
+    if processing == "display-values":
+        time_elapsed = datetime.now() - start_time
+        print('[comfyui_stereoscopic] (invert_map) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+        
     return P
 
   
-def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displaytext):
+def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, iterations, processing, displaytext):
     """
     Performs a subpixel shift of the image depending on the shift map
 
@@ -49,21 +77,41 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
     """
     H, W, _ = image.shape
 
+    if processing == "display-values":
+        start_time = datetime.now()
+
     # Create a coordinate grid
     x_coords, y_coords = np.meshgrid(np.arange(W), np.arange(H))
+
+    if processing == "display-values":
+        time_elapsed = datetime.now() - start_time
+        print('[comfyui_stereoscopic] (create grid) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
 
     #prepare remap by inverting shift towards destination space:
     F = np.zeros((H, W, 2), dtype=np.float32)
     F[..., 0] = np.clip(x_coords - pixel_shifts_in, 0, W-1)
     F[..., 1] = y_coords
-    P = invert_map(F)
+    P = invert_map(F, iterations, processing)
+    x_coords = np.asnumpy(x_coords)
+    if _USE_GPU:
+        x_coords = np.asnumpy(x_coords)
     pixel_shifts = x_coords - P[..., 0]
 
+
+    if processing == "display-values":
+        start_time = datetime.now()
     
     # Apply shift to x-coordinates
     shifted_x = x_coords - pixel_shifts  # left shift for left eye
     shifted_x = np.clip(shifted_x, 0, W - 1).astype(np.float32)
     y_coords = y_coords.astype(np.float32)
+
+    if processing == "display-values":
+        time_elapsed = datetime.now() - start_time
+        print('[comfyui_stereoscopic] (apply shift) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+
+    if processing == "display-values":
+        start_time = datetime.now()
 
     # Placement in the left half
     sbs_result = np.zeros((H, W * 2, 3), dtype=np.uint8)
@@ -72,23 +120,42 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
     if processing == "test-pixelshifts-x8":
         #print(f"test-pixelshifts-x8 exit called...")
         pixel_shifts_x8 = pixel_shifts * 8
-        sbs_result[:, flip_offset:flip_offset+W,0] = np.clip(pixel_shifts_x8, 0, 255).astype(np.uint8)
-        sbs_result[:, flip_offset:flip_offset+W,1] = np.clip(-pixel_shifts_x8, 0, 255).astype(np.uint8)
-        sbs_result[:, flip_offset:flip_offset+W,2] = np.clip(0, 0, 255).astype(np.uint8)
+        if _USE_GPU:
+            sbs_result = np.asnumpy(sbs_result)
+        sbs_result[:, flip_offset:flip_offset+W,0] = numpy.clip(pixel_shifts_x8, 0, 255).astype(np.uint8)
+        sbs_result[:, flip_offset:flip_offset+W,1] = numpy.clip(-pixel_shifts_x8, 0, 255).astype(np.uint8)
+        sbs_result[:, flip_offset:flip_offset+W,2] = numpy.clip(0, 0, 255).astype(np.uint8)
         #print(f"test-appliedshifts-x8 processed: {sbs_result.shape}")
         return sbs_result
+
+    if processing == "display-values":
+        time_elapsed = datetime.now() - start_time
+        print('[comfyui_stereoscopic] (other preparations) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
         
     # monotony per line (purly related to depth scale)
     if processing == "display-values":
         start_time = datetime.now()
-    shifted_x = np.maximum.accumulate(shifted_x, axis=1)
+    shifted_x = numpy.maximum.accumulate(shifted_x, axis=1)
+        
     if processing == "display-values":
         time_elapsed = datetime.now() - start_time
         print('[comfyui_stereoscopic] (monotony per line) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
 
     # Interpolation with remap
+    if processing == "display-values":
+        start_time = datetime.now()
+    if _USE_GPU:
+        y_coords = np.asnumpy(y_coords)
     shifted_img = cv2.remap(image, shifted_x, y_coords, interpolation=cv2.INTER_LINEAR,borderMode=cv2.BORDER_REFLECT)
+    if processing == "display-values":
+        time_elapsed = datetime.now() - start_time
+        print('[comfyui_stereoscopic] (interpolation) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
 
+    if processing == "display-values":
+        start_time = datetime.now()
+
+    if _USE_GPU:
+        sbs_result = np.asnumpy(sbs_result) 
 
     if processing == "pixel-shift-x8":   
         pixel_shifts_x2 = pixel_shifts * 8
@@ -99,15 +166,15 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
         # draw vertical lines
         step=10
         z=0
-        for x in np.linspace(start=0, stop=W-1, num=int(W/step)):
+        for x in numpy.linspace(start=0, stop=W-1, num=int(W/step)):
             x = int(round(x))
-            for y in np.linspace(start=step, stop=H-1, num=int(H/step)):
+            for y in numpy.linspace(start=step, stop=H-1, num=int(H/step)):
                 cv2.line(image, (int(round(x)), int(round(y-step))), (int(round(x)), int(round(y))), color=(255-int(255*z), int(255*z), 128), thickness=1)
                 z=1-z
         # draw horizontal lines
-        for y in np.linspace(start=0, stop=H-1, num=int(H/step)):
+        for y in numpy.linspace(start=0, stop=H-1, num=int(H/step)):
             y = int(round(y))
-            for x in np.linspace(start=step, stop=W-1, num=int(W/step)):
+            for x in numpy.linspace(start=step, stop=W-1, num=int(W/step)):
                 cv2.line(image, (int(round((x-step))), int(round(y))), (int(round(x)), int(round(y))), color=(0, int(255*z), 255-int(255*z)), thickness=1)
                 z=1-z
         shifted_img = cv2.remap(image, shifted_x, y_coords, interpolation=cv2.INTER_LINEAR,borderMode=cv2.BORDER_REFLECT)
@@ -115,7 +182,7 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
     else:
         # Placement in the left half
         sbs_result[:, flip_offset:flip_offset+W] = shifted_img
-       
+
     if processing != "Normal":          
         font = cv2.FONT_HERSHEY_SIMPLEX
         org = (flip_offset+10, H-10)
@@ -123,7 +190,11 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, processing, displa
         color = (255, 192, 192)
         thickness = 2 
         image = cv2.putText(sbs_result, displaytext, org, font, fontScale, color, thickness, cv2.LINE_AA)
-                   
+
+    if processing == "display-values":
+        time_elapsed = datetime.now() - start_time
+        print('[comfyui_stereoscopic] (finishing) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+
     return sbs_result
 
 
@@ -144,6 +215,7 @@ class ImageVRConverter:
                 "switch_sides": ("BOOLEAN", {"default": False}),
                 "blur_radius": ("INT", {"default": 45, "min": -1, "max": 99, "step": 2}),
                 "symetric": ("BOOLEAN", {"default": True}),
+                "iterations": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
                 "processing": (["Normal", "test-pixelshifts-x8",  "test-blackout", "test-shift-grid", "display-values"], {"default": "Normal"}),
             }
         }
@@ -156,7 +228,7 @@ class ImageVRConverter:
 
 
     def process(self, base_image, depth_image, depth_scale, depth_offset, switch_sides,
-        blur_radius, symetric, processing
+        blur_radius, symetric, iterations, processing
         ):
         """
         Convert image to a side-by-side (SBS) stereoscopic image using a provided depth map.
@@ -172,18 +244,6 @@ class ImageVRConverter:
         mode="Parallel"
         invert_depth=True  # The use of depth anything as depth generator requires this.
         
-        # DEBUG: start_depth =  time.perf_counter()
-
-        #blur_radius = 0
-        
-        # Update the depth model parameters
-        #if self.depth_model is not None:
-        #    # Set default edge_weight for compatibility
-        #    self.depth_model.edge_weight = 0.5
-        #    # Keep gradient_weight for compatibility but set to 0
-        #    self.depth_model.gradient_weight = 0.0
-        #    #self.depth_model.blur_radius = blur_radius
-
         # Get batch size
         B = base_image.shape[0]
 
@@ -191,6 +251,10 @@ class ImageVRConverter:
         sbs_images = []
 
         for b in range(B):
+
+            if processing == "display-values":
+                start_time2 = datetime.now()
+
             # Get the current image from the batch
             current_image = base_image[b].cpu().numpy()  # Get image b from batch
             current_image_pil = Image.fromarray((current_image * 255).astype(np.uint8))  # Convert to PIL
@@ -224,10 +288,16 @@ class ImageVRConverter:
             shifted_aimask_image = np.zeros((height, width * 2, 3), dtype=np.uint8)
 
             # Duplicate the source into both halves
-            if mode == "Parallel":
-                sbs_image[:, width:]  = current_image_np
+            if _USE_GPU:
+                if mode == "Parallel":
+                    sbs_image[:, width:]  = np.asarray(current_image_np)
+                else:
+                    sbs_image[:, :width]  = np.asarray(current_image_np)
             else:
-                sbs_image[:, :width]  = current_image_np
+                if mode == "Parallel":
+                    sbs_image[:, width:]  = current_image_np
+                else:
+                    sbs_image[:, :width]  = current_image_np
 
 
             # Define the viewing mode (parallel, cross)
@@ -235,7 +305,7 @@ class ImageVRConverter:
             
             displaytext = 'depth_scale ' + str(depth_scale) + ', depth_offset = ' + str(depth_offset)
             
-            depth_scale_local = depth_scale * width * 50.0 / 1000000.0
+            depth_scale_local = depth_scale * width * 50.0 / 1000000.0 * ( 1.0 + math.pow(0.5, iterations) )
             depth_offset_local = depth_offset * -8
 
             if symetric:
@@ -251,25 +321,39 @@ class ImageVRConverter:
                 crop_size2 = crop_size2 - int (depth_offset * 8)
                 crop_size2 = int(crop_size2 / 2)
             
+            if processing == "display-values":
+                time_elapsed = datetime.now() - start_time2
+                print('[comfyui_stereoscopic] (initialization) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+            
             pixel_shifts = (depth_np * depth_scale_local + depth_offset_local).astype(np.float32)# np.int32 to np.float32     
+
+            if processing == "display-values":
+                start_time2 = datetime.now()
             if blur_radius>0:
                 pixel_shifts = gpu_blur(pixel_shifts,blur_radius)
-            shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
+            if processing == "display-values":
+                time_elapsed = datetime.now() - start_time2
+                print('[comfyui_stereoscopic] (blur) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+                
+            shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, iterations, processing, displaytext)                
+            if _USE_GPU:
+                sbs_image = np.asnumpy(sbs_image) 
             sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
-            #if processing == "test-shift-grid":
-            #    shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
-            #    sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
 
             if symetric:
                 fliped = width - fliped
                 pixel_shifts = (depth_np * -depth_scale_local + depth_offset_local).astype(np.float32)# np.int32 to np.float32     
+                
+                if processing == "display-values":
+                    start_time2 = datetime.now()               
                 if blur_radius>0:
                     pixel_shifts = gpu_blur(pixel_shifts,blur_radius)
-                shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, processing, displaytext)                
+                if processing == "display-values":
+                    time_elapsed = datetime.now() - start_time2
+                    print('[comfyui_stereoscopic] (blur) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+                    
+                shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, iterations, processing, displaytext)                
                 sbs_image[:, fliped:fliped + width] = shifted_half[:, fliped:fliped + width]
-                #if processing == "test-shift-grid":
-                #    shifted_half = apply_subpixel_shift(current_image_np, pixel_shifts, fliped, "Normal", displaytext)                
-                #    sbs_image[:, wishifted_aimaskdth - fliped:width - fliped + width] = shifted_half[:, fliped:fliped + width]
                 
                 fliped = width - fliped
 
@@ -302,8 +386,6 @@ class ImageVRConverter:
             
         # Stack the results to create batched tensors
         sbs_images_batch = torch.stack(sbs_images)
-        # Print final output stats
-        ##print(f"Final SBS image batch shape: {sbs_images_batch.shape}, min: {sbs_images_batch.min().item()}, max: {sbs_images_batch.max().item()}")
  
         if processing == "display-values":
             time_elapsed = datetime.now() - start_time
