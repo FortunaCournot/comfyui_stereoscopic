@@ -72,8 +72,7 @@ prompt_text = """
       "depth_offset": 0,
       "switch_sides": false,
       "blur_radius": 19,
-      "symetric": false,
-      "iterations": 3,
+      "symetric": true,
       "processing": "Normal",
       "base_image": [
         "173",
@@ -141,12 +140,11 @@ else:
     prompt["176"]["inputs"]["depth_scale"] = float(sys.argv[2])
     prompt["176"]["inputs"]["depth_offset"] = float(sys.argv[3])
     prompt["176"]["inputs"]["blur_radius"] = int(sys.argv[4])
+    prompt["176"]["inputs"]["symetric"] = True
     prompt["171"]["inputs"]["file"] = sys.argv[5]
     prompt["177"]["inputs"]["filename_prefix"] = sys.argv[6] 
     
-    # TODO: production mode
-    # "symetric" -> true
-    # "iterations" -> 5
+
     
     queue_prompt(prompt)
 

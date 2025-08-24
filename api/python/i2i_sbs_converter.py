@@ -47,9 +47,8 @@ prompt_text = """
       "depth_scale": 1.25,
       "depth_offset": 0,
       "switch_sides": false,
-      "blur_radius": 7,
+      "blur_radius": 19,
       "symetric": true,
-      "iterations": 3,
       "processing": "Normal",
       "base_image": [
         "158",
@@ -108,6 +107,7 @@ else:
     prompt["220"]["inputs"]["depth_scale"] = float(sys.argv[2])
     prompt["220"]["inputs"]["depth_offset"] = float(sys.argv[3])
     prompt["220"]["inputs"]["blur_radius"] = int(sys.argv[4])
+    prompt["220"]["inputs"]["symetric"] = True
     prompt["158"]["inputs"]["image"] = sys.argv[5]
     prompt["227"]["inputs"]["filename_prefix"] = sys.argv[6] 
     

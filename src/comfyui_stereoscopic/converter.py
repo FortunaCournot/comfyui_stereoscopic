@@ -9,14 +9,14 @@ from datetime import datetime
 
 import numpy # Sometimes we want to use a numpy function even if CuPy is available
 
-try:
-    import cupy as np
-    import cupyx.scipy.ndimage
-    _USE_GPU = True
-except ModuleNotFoundError:
-    import numpy as np
-    print("CuPy not available, only use_gpu=False will work")
-    _USE_GPU = False
+_USE_GPU = False
+#try:
+#    import cupy as np
+#    import cupyx.scipy.ndimage
+#    _USE_GPU = True
+#except ModuleNotFoundError:
+import numpy as np
+#    print("CuPy not available, only use_gpu=False will work")
     
 def gpu_blur(input_array, blur_radius):
 
@@ -64,7 +64,37 @@ def invert_map(F, iterations, processing):
         
     return P
 
-  
+def invert_map_1d_monotonic(pixel_shifts_in, processing):
+    """
+    Inverse map for 1D horizontal shift without iterations.
+    Input:
+        pixel_shifts_in: (H, W) float32 — rightward shift for each pixel in the SOURCE image.
+    Output:
+        P: (H, W, 2) float32 — source coordinate map for each target pixel (as used in OpenCV remap).
+        P[...,0] — x-coordinate in the source; P[...,1] — y-coordinate in the source (just the row index).
+    """
+
+    if processing == "display-values":
+        start_time = datetime.now()
+
+    H, W = pixel_shifts_in.shape
+    x = np.arange(W, dtype=np.float32)
+    P = np.zeros((H, W, 2), dtype=np.float32)
+    P[...,1] = np.arange(H, dtype=np.float32)[:, None]
+
+    for y in range(H):
+        s = pixel_shifts_in[y]     # (W,)
+        u = x - s                  # source → receiver
+        u_mono = numpy.maximum.accumulate(u)  # guarantee monotony
+        t = x                      # uniform receiver grid
+        P[y, :, 0] = np.interp(t, u_mono, x, left=0.0, right=W-1)
+
+    if processing == "display-values":
+        time_elapsed = datetime.now() - start_time
+        print('[comfyui_stereoscopic] (invert_map_1d_monotonic) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+
+    return P
+    
 def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, iterations, processing, displaytext):
     """
     Performs a subpixel shift of the image depending on the shift map
@@ -88,14 +118,17 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, iterations, proces
         print('[comfyui_stereoscopic] (create grid) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
 
     #prepare remap by inverting shift towards destination space:
-    F = np.zeros((H, W, 2), dtype=np.float32)
-    F[..., 0] = np.clip(x_coords - pixel_shifts_in, 0, W-1)
-    F[..., 1] = y_coords
-    P = invert_map(F, iterations, processing)
-    x_coords = np.asnumpy(x_coords)
-    if _USE_GPU:
-        x_coords = np.asnumpy(x_coords)
+    P = invert_map_1d_monotonic(pixel_shifts_in.astype(np.float32), processing)
     pixel_shifts = x_coords - P[..., 0]
+    
+    #F = np.zeros((H, W, 2), dtype=np.float32)
+    #F[..., 0] = np.clip(x_coords - pixel_shifts_in, 0, W-1)
+    #F[..., 1] = y_coords
+    #P = invert_map(F, iterations, processing)
+    #x_coords = np.asnumpy(x_coords)
+    #if _USE_GPU:
+    #    x_coords = np.asnumpy(x_coords)
+    #pixel_shifts = x_coords - P[..., 0]
 
 
     if processing == "display-values":
@@ -133,13 +166,12 @@ def apply_subpixel_shift(image, pixel_shifts_in, flip_offset, iterations, proces
         print('[comfyui_stereoscopic] (other preparations) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
         
     # monotony per line (purly related to depth scale)
-    if processing == "display-values":
-        start_time = datetime.now()
-    shifted_x = numpy.maximum.accumulate(shifted_x, axis=1)
-        
-    if processing == "display-values":
-        time_elapsed = datetime.now() - start_time
-        print('[comfyui_stereoscopic] (monotony per line) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+    #if processing == "display-values":
+    #    start_time = datetime.now()
+    #shifted_x = numpy.maximum.accumulate(shifted_x, axis=1)
+    #if processing == "display-values":
+    #    time_elapsed = datetime.now() - start_time
+    #    print('[comfyui_stereoscopic] (monotony per line) Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
 
     # Interpolation with remap
     if processing == "display-values":
@@ -215,7 +247,7 @@ class ImageVRConverter:
                 "switch_sides": ("BOOLEAN", {"default": False}),
                 "blur_radius": ("INT", {"default": 45, "min": -1, "max": 99, "step": 2}),
                 "symetric": ("BOOLEAN", {"default": True}),
-                "iterations": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
+#                "iterations": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
                 "processing": (["Normal", "test-pixelshifts-x8",  "test-blackout", "test-shift-grid", "display-values"], {"default": "Normal"}),
             }
         }
@@ -228,7 +260,7 @@ class ImageVRConverter:
 
 
     def process(self, base_image, depth_image, depth_scale, depth_offset, switch_sides,
-        blur_radius, symetric, iterations, processing
+        blur_radius, symetric, processing
         ):
         """
         Convert image to a side-by-side (SBS) stereoscopic image using a provided depth map.
@@ -237,6 +269,8 @@ class ImageVRConverter:
         - sbs_image: the stereoscopic image(s).
         """
 
+        iterations = 1  # turned off - from old code
+        
         if processing == "display-values":
             start_time = datetime.now()
 
@@ -305,7 +339,7 @@ class ImageVRConverter:
             
             displaytext = 'depth_scale ' + str(depth_scale) + ', depth_offset = ' + str(depth_offset)
             
-            depth_scale_local = depth_scale * width * 50.0 / 1000000.0 * ( 1.0 + math.pow(0.5, iterations) )
+            depth_scale_local = depth_scale * width * 50.0 / 1000000.0 # * ( 1.0 + math.pow(0.5, iterations) )
             depth_offset_local = depth_offset * -8
 
             if symetric:
@@ -373,6 +407,12 @@ class ImageVRConverter:
                         cv2.rectangle(sbs_image, (width, 0), (width+crop_size2, height - 1), fillcolor, thickness)
                     elif crop_size2<0:
                         cv2.rectangle(sbs_image, (2*width+crop_size2, 0), (2*width -1, height - 1), fillcolor, thickness)
+                #else:
+                #    crop_size=-crop_size
+                #    if crop_size>0:
+                #        cv2.rectangle(sbs_image, (width - crop_size, 0), (width - 1, height - 1), fillcolor, thickness)
+                #    elif crop_size<0:
+                #        cv2.rectangle(sbs_image, (0, 0), (-crop_size - 1, height - 1), fillcolor, thickness)
             if switch_sides:
                 sbs_image_swapped = np.zeros((height, width * 2, 3), dtype=np.uint8)
                 sbs_image_swapped[:, 0: width] = sbs_image[:, width : width + width]

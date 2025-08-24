@@ -50,16 +50,11 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# To reduce artifacts increase value for cost of depth detail quality. Number must be odd, between 1 and 99. -1 turns off. ">>"$CONFIGFILE"
 	echo "SBS_DEPTH_BLUR_RADIUS_VIDEO=19">>"$CONFIGFILE"
 	echo "# To reduce artifacts increase value for cost of depth detail quality. Number must be odd, between 1 and 99. -1 turns off. ">>"$CONFIGFILE"
-	echo "SBS_DEPTH_BLUR_RADIUS_IMAGE=9">>"$CONFIGFILE"
+	echo "SBS_DEPTH_BLUR_RADIUS_IMAGE=19">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# Used depth model by comfyui_controlnet_aux">>"$CONFIGFILE"
-	if [ -e custom_nodes/comfyui_controlnet_aux/ckpts/depth-anything/Depth-Anything-V2-Giant ] ; then
-		echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitg.pth">>"$CONFIGFILE"
-	else
-		echo "# depth_anything_v2_vitg.pth installed ?">>"$CONFIGFILE"
-		echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitl.pth">>"$CONFIGFILE"
-	fi
+	echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitb.pth">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- video config ---">>"$CONFIGFILE"
