@@ -2,7 +2,7 @@
 [project]
 name = "comfyui_stereoscopic"
 version = "2.2.3"
-description = "VR we are! Tool, nodes and workflows to create stereoscopic images and movies."
+description = "VR we are! Tool, nodes and workflows to create stereoscopic images and movies. "
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.12"
@@ -10,6 +10,7 @@ dependencies = [ "torch", "opencv-python>=4.7.0.72", "numpy", "pillow", "googlet
 
 [project.urls]
 Repository = "https://github.com/FortunaCournot/comfyui_stereoscopic"
+Documentation = "https://www.3d-gallery.org/"
 
 [tool.comfy]
 PublisherId = "fortunacournot"
