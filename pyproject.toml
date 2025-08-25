@@ -16,4 +16,4 @@ Documentation = "https://www.3d-gallery.org/"
 PublisherId = "fortunacournot"
 DisplayName = "VR we are"
 Icon = "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/icon/VR2.png"
-
+Banner = "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/icon/banner.png"
