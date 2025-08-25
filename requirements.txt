@@ -4,4 +4,3 @@ numpy
 pillow
 googletrans
 transformers
-
