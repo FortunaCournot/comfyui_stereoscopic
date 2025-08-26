@@ -119,6 +119,23 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from scaling import ScaleByFactor
+    print("[comfyui_stereoscopic] Successfully imported ScaleByFactor")
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing ScaleByFactor: {e}")
+
+    # Create a placeholder class
+    class ScaleByFactor:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading ScaleByFactor"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
 
 
 # A dictionary that contains all nodes you want to export with their names
@@ -130,6 +147,7 @@ NODE_CLASS_MAPPINGS = {
     "DecryptWatermark" : DecryptWatermark,
     "StripXML" : StripXML,
     "SaveStrippedUTF8File" : SaveStrippedUTF8File,
+    "ScaleByFactor" : ScaleByFactor,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -140,5 +158,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "DecryptWatermark": "Decrypt Watermark",
     "StripXML" : "Strip XML",
     "SaveStrippedUTF8File" : "Save Stripped UTF-8 File",
+    "ScaleByFactor" : "Scale by Factor",
 }
 
