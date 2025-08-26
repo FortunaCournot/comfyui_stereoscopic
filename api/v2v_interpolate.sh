@@ -116,7 +116,7 @@ else
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX_FPS=${TARGETPREFIX%.*}"_FPS_LR"
+	TARGETPREFIX_FPS=${TARGETPREFIX%.*}
 	TARGETPREFIX_CALL=vr/interpolate/intermediate/$TARGETPREFIX_FPS
 	TARGETPREFIX=output/vr/interpolate/intermediate/$TARGETPREFIX_FPS
 	FINALTARGETFOLDER=`realpath "output/vr/interpolate"`
