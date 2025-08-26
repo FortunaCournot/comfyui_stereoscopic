@@ -107,7 +107,7 @@ else
 	PIXEL=$(( width * height ))
 	
 	if [ $PIXEL -gt $PIXELLIMIT ] ; then
-		echo -e $"\e[91mError:\e[0m VRAM ($VRAM) insufficient for processing this video. $PIXEL > $PIXELLIMIT "
+		echo -e $"\e[91mError:\e[0m VRAM ($VRAM""GB) insufficient for processing this video resolution. $width""x""$height > $PIXELLIMIT "
 		mkdir -p input/vr/interpolate/error
 		mv -fv -- "$INPUT" input/vr/interpolate/error
 		exit 0

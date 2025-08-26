@@ -65,26 +65,20 @@ else
 	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 	TVAI_MODEL_DATA_DIR=$(awk -F "=" '/TVAI_MODEL_DATA_DIR/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DATA_DIR=${TVAI_MODEL_DATA_DIR:-""}
 	TVAI_MODEL_DIR=$(awk -F "=" '/TVAI_MODEL_DIR/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DIR=${TVAI_MODEL_DIR:-""}
-	TVAI_FILTER_STRING_UP4X=`grep TVAI_FILTER_STRING_UP4X= $CONFIGFILE | cut -d'=' -f2-`
-	TVAI_FILTER_STRING_UP4X=${TVAI_FILTER_STRING_UP4X:-""}
-	TVAI_MODEL4X=${TVAI_FILTER_STRING_UP4X#*"model="}
-	TVAI_MODEL4X=${TVAI_MODEL4X%%:*}
-	TVAI_FILTER_STRING_UP2X=`grep TVAI_FILTER_STRING_UP2X= $CONFIGFILE | cut -d'=' -f2-`
-	TVAI_FILTER_STRING_UP2X=${TVAI_FILTER_STRING_UP2X:-""}
-	TVAI_MODEL2X=${TVAI_FILTER_STRING_UP2X#*"model="}
-	TVAI_MODEL2X=${TVAI_MODEL2X%%:*}
+	TVAI_FILTER_STRING_IP=`grep TVAI_FILTER_STRING_IP= $CONFIGFILE | cut -d'=' -f2-`
+	TVAI_FILTER_STRING_IP=${TVAI_FILTER_STRING_IP:-""}
+	TVAI_MODELFI=${TVAI_FILTER_STRING_IP#*"model="}
+	TVAI_MODELFI=${TVAI_MODELFI%%:*}
 
-	if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DATA_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] ; then
+	if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DATA_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODELFI".json" ] ; then
 		export TVAI_MODEL_DATA_DIR TVAI_MODEL_DIR
 	else
 		echo -e $"\e[91mError:\e[0m TVAI settings wrong. Please configure at $CONFIGFILE"":"
 		[ ! -e "$TVAI_BIN_DIR" ] && echo -e $"\e[91mError:\e[0m TVAI_BIN_DIR=$TVAI_BIN_DIR"
 		[ ! -e "$TVAI_MODEL_DATA_DIR" ] && echo -e $"\e[91mError:\e[0m TVAI_MODEL_DATA_DIR=$TVAI_MODEL_DATA_DIR"
 		[ ! -e "$TVAI_MODEL_DIR" ] && echo -e $"\e[91mError:\e[0m TVAI_MODEL_DIR=$TVAI_MODEL_DIR"
-		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING_UP2X=$TVAI_FILTER_STRING_UP2X"
-		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json not found in $TVAI_MODEL_DATA_DIR"
-		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING_UP4X=$TVAI_FILTER_STRING_UP4X"
-		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json not found in $TVAI_MODEL_DATA_DIR"
+		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODELFI".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING_IP=$TVAI_FILTER_STRING_IP"
+		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODELFI".json" ] && echo -e $"\e[91m      \e[0m ""$TVAI_MODEL_DIR""/""$TVAI_MODELFI"".json not found in $TVAI_MODEL_DATA_DIR"
 		exit 1
 	fi
 	
@@ -94,7 +88,7 @@ else
 		PROGRESS=`cat input/vr/interpolate/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
-	[ $loglevel -ge 0 ] && echo "========== $PROGRESS""rescale (tvai) "`echo $INPUT | grep -oP "$regex"`" =========="
+	[ $loglevel -ge 0 ] && echo "========== $PROGRESS""interpolate (tvai) "`echo $INPUT | grep -oP "$regex"`" =========="
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
@@ -106,8 +100,27 @@ else
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
 	
-	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
-	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
+	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams v:0 -show_entries stream=codec_type,codec_name,bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/interpolate/intermediate/probe.txt`
+	
+	temp=`grep width output/vr/interpolate/intermediate/probe.txt`
+	temp=${temp#*:}
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+    RESW="${temp%,*}"
+	
+	temp=`grep height output/vr/interpolate/intermediate/probe.txt`
+	temp=${temp#*:}
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+    RESH="${temp%,*}"
+
+	temp=`grep r_frame_rate output/vr/interpolate/intermediate/probe.txt`
+	temp=${temp#*:}
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+    FPS="${temp%,*}"
+	TARGETFPS=$(( multiplicator * $FPS ))
+	
 	if [ `echo $RESW | wc -l` -ne 1 ] || [ `echo $RESH | wc -l` -ne 1 ] ; then
 		echo -e $"\e[91mError:\e[0m Can't process video. please resample ${INPUT##*/} from input/vr/interpolate/error"
 		mkdir -p input/vr/interpolate/error
@@ -115,40 +128,11 @@ else
 		exit 0
 	fi
 	PIXEL=$(( $RESW * $RESH ))
-	
-	LIMIT4X=$(awk -F "=" '/LIMIT4X_NORMAL/ {print $2}' $CONFIGFILE) ; LIMIT4X=${LIMIT4X:-"518400"}
-	LIMIT2X=$(awk -F "=" '/LIMIT2X_NORMAL/ {print $2}' $CONFIGFILE) ; LIMIT2X=${LIMIT2X:-"2073600"}
-	if [ $override_active -gt 0 ]; then
-		[ $loglevel -ge 0 ] && echo "override active"
-		LIMIT4X=$(awk -F "=" '/LIMIT4X_OVERRIDE/ {print $2}' $CONFIGFILE) ; LIMIT4X_OVERRIDE=${LIMIT4X_OVERRIDE:-"1036800"}
-		duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
-		duration=${duration%.*}
-		if test $duration -ge 60 ; then
-			LIMIT2X=$(awk -F "=" '/LIMIT2X_OVERRIDE_LONG/ {print $2}' $CONFIGFILE) ; LIMIT2X_OVERRIDE_LONG=${LIMIT2X_OVERRIDE_LONG:-"4147200"}
-			[ $loglevel -ge 0 ] && echo "long video detected."
-		fi
-	fi
+	TVAI_FILTER_STRING_IP="$TVAI_FILTER_STRING_IP""$TARGETFPS"
 
-
-	if [ $PIXEL -lt $LIMIT2X ]; then
-		if [ $PIXEL -lt $LIMIT4X ]; then
-			TARGETPREFIX="$TARGETPREFIX""_x4"
-			UPSCALEFACTOR=4
-			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP4X"
-			[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
-		else
-			TARGETPREFIX="$TARGETPREFIX""_x2"
-			UPSCALEFACTOR=2
-			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP2X"
-			[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
-		fi
-	else
-		[ $loglevel -ge 0 ] && echo "Large video ($PIXEL > $LIMIT2X): Forwardung input to output folder"
-		mv -vf -- "$INPUT" $FINALTARGETFOLDER
-		exit 0
-	fi
-
-	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING" "$TARGETPREFIX"".mkv"
+	set -x
+	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING_IP" "$TARGETPREFIX"".mkv"
+	set +x
 	if [ -e "$TARGETPREFIX"".mkv" ] ; then
 		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
 		rm -f -- "$TARGETPREFIX"".mkv"
@@ -157,7 +141,7 @@ else
 		mv -f -- "$INPUT" input/vr/interpolate/done
 		echo -e $"\e[92mdone\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING in $CONFIGFILE"
+		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING_IP in $CONFIGFILE"
 		mkdir -p input/vr/interpolate/error
 		mv -fv -- "$INPUT" input/vr/interpolate/error
 	fi

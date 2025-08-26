@@ -11,7 +11,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_interpolate.sh 
 #SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_interpolate.sh 
-#SCRIPTPATH_TVAI=./custom_nodes/comfyui_stereoscopic/api/v2v_interpolate_tvai.sh 
+SCRIPTPATH_TVAI=./custom_nodes/comfyui_stereoscopic/api/v2v_interpolate_tvai.sh 
 
 cd $COMFYUIPATH
 
@@ -82,7 +82,7 @@ else
 			
 			if [ -e "$newfn" ]
 			then
-				#if [ ! -e "$TVAI_BIN_DIR" ] ; then
+				if [ ! -e "$TVAI_BIN_DIR" ] ; then
 					/bin/bash $SCRIPTPATH "$multiplicator" "$VRAM" "$newfn" || exit 1
 				
 					status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
@@ -90,9 +90,9 @@ else
 						echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 						exit 1
 					fi
-				#else
-				#	/bin/bash $SCRIPTPATH_TVAI "$multiplicator" "$VRAM" "$newfn"  || exit 1
-				#fi
+				else
+					/bin/bash $SCRIPTPATH_TVAI "$multiplicator" "$VRAM" "$newfn"  || exit 1
+				fi
 			else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
 			fi			

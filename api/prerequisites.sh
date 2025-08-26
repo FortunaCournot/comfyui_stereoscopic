@@ -194,9 +194,11 @@ if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
 		echo "TVAI_MODEL_DIR=" >>"$CONFIGFILE"
 	fi
 	
-	echo "# TVAI Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR. better for portrait: iris-2">>"$CONFIGFILE"
+	echo "# TVAI Upscale Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR. better for portrait: iris-2">>"$CONFIGFILE"
 	echo "TVAI_FILTER_STRING_UP4X=tvai_up=model=prob-4:scale=4:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
 	echo "TVAI_FILTER_STRING_UP2X=tvai_up=model=prob-4:scale=2:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
+	echo "# TVAI Interpolate Filter String. Ensure the model json, here chf-3, is existing in TVAI MODEL DIR.">>"$CONFIGFILE"
+	echo "TVAI_FILTER_STRING_IP=tvai_fi=model=chf-3:fps=30"
 	echo "">>"$CONFIGFILE"
 
 	echo "# --- dubbing config update ---">>"$CONFIGFILE"

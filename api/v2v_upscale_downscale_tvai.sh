@@ -145,7 +145,9 @@ else
 		exit 0
 	fi
 
+	set -x
 	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING" "$TARGETPREFIX"".mkv"
+	set +x
 	if [ -e "$TARGETPREFIX"".mkv" ] ; then
 		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
 		rm -f -- "$TARGETPREFIX"".mkv"
@@ -154,7 +156,7 @@ else
 		mv -f -- "$INPUT" input/vr/scaling/done
 		echo -e $"\e[92mdone\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING in $CONFIGFILE"
+		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING_UP4X and TVAI_FILTER_STRING_UP2X in $CONFIGFILE"
 		mkdir -p input/vr/scaling/error
 		mv -fv -- "$INPUT" input/vr/scaling/error
 	fi
