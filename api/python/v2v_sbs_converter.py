@@ -1,4 +1,4 @@
-#Copyright (c) 2025 FortunaCournot. MIT License.
+#Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
 import json
 import sys
