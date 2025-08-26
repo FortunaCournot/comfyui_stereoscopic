@@ -36,7 +36,7 @@ prompt_text = """
   },
   "183": {
     "inputs": {
-      "image": "90789961-CC BY-NC-SA-Adel-AI.png"
+      "image": "VR-we-are-startimage.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -78,7 +78,7 @@ prompt_text = """
     },
     "class_type": "GetResolutionForVR",
     "_meta": {
-      "title": "Get Resolution"
+      "title": "Resolution Info"
     }
   },
   "188": {
@@ -136,32 +136,16 @@ prompt_text = """
       "title": "Normalize Sigma"
     }
   },
-  "192": {
-    "inputs": {
-      "scale_by": [
-        "186",
-        0
-      ],
-      "images": [
-        "216",
-        0
-      ]
-    },
-    "class_type": "easy imageScaleDownBy",
-    "_meta": {
-      "title": "Image Scale Down By"
-    }
-  },
   "193": {
     "inputs": {
       "base_image": [
-        "192",
+        "220",
         0
       ]
     },
     "class_type": "GetResolutionForVR",
     "_meta": {
-      "title": "Get Resolution"
+      "title": "Resolution Info"
     }
   },
   "194": {
@@ -173,7 +157,7 @@ prompt_text = """
         0
       ],
       "image2": [
-        "192",
+        "220",
         0
       ]
     },
@@ -209,6 +193,24 @@ prompt_text = """
     "class_type": "Blur (mtb)",
     "_meta": {
       "title": "Blur (mtb)"
+    }
+  },
+  "220": {
+    "inputs": {
+      "factor": [
+        "186",
+        0
+      ],
+      "algorithm": "INTER_AREA",
+      "roundexponent": 1,
+      "image": [
+        "216",
+        0
+      ]
+    },
+    "class_type": "ScaleByFactor",
+    "_meta": {
+      "title": "Scale by Factor"
     }
   }
 }

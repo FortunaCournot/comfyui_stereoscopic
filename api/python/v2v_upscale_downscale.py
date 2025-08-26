@@ -54,8 +54,7 @@ prompt_text = """
   },
   "195": {
     "inputs": {
-      "file": "",
-      "video-preview": ""
+      "file": "VR-we-are-RAW1.mp4"
     },
     "class_type": "LoadVideo",
     "_meta": {
@@ -90,7 +89,6 @@ prompt_text = """
       ],
       "format": "mp4",
       "codec": "h264",
-      "video-preview": "",
       "video": [
         "198",
         0
@@ -155,19 +153,19 @@ prompt_text = """
     },
     "class_type": "GetResolutionForVR",
     "_meta": {
-      "title": "Get Resolution"
+      "title": "Resolution Info"
     }
   },
   "211": {
     "inputs": {
       "base_image": [
-        "216",
+        "224",
         0
       ]
     },
     "class_type": "GetResolutionForVR",
     "_meta": {
-      "title": "Get Resolution"
+      "title": "Resolution Info"
     }
   },
   "212": {
@@ -201,29 +199,13 @@ prompt_text = """
         0
       ],
       "image2": [
-        "216",
+        "224",
         0
       ]
     },
     "class_type": "ImageBlend",
     "_meta": {
       "title": "Image Blend"
-    }
-  },
-  "216": {
-    "inputs": {
-      "scale_by": [
-        "174",
-        0
-      ],
-      "images": [
-        "220",
-        0
-      ]
-    },
-    "class_type": "easy imageScaleDownBy",
-    "_meta": {
-      "title": "Image Scale Down By"
     }
   },
   "220": {
@@ -244,6 +226,24 @@ prompt_text = """
     "class_type": "Blur (mtb)",
     "_meta": {
       "title": "Blur (mtb)"
+    }
+  },
+  "224": {
+    "inputs": {
+      "factor": [
+        "174",
+        0
+      ],
+      "algorithm": "INTER_AREA",
+      "roundexponent": 1,
+      "image": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "ScaleByFactor",
+    "_meta": {
+      "title": "Scale by Factor"
     }
   }
 }
