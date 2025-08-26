@@ -4,7 +4,7 @@
 #
 # Reverse a video (input) and concat them. For multiple input videos (I2V: all must have same start frame, same resolution, etc. ) do same for each and concat all with silence audio.
 #
-# Copyright (c) 2025 FortunaCournot. MIT License.
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi

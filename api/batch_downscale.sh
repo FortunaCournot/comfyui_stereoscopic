@@ -4,7 +4,7 @@
 #
 # downscale a video (input).
 #
-# Copyright (c) 2025 FortunaCournot. MIT License.
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi

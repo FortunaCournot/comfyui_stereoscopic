@@ -199,6 +199,14 @@ elif [ -d "custom_nodes" ]; then
 		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh || exit 1
 	fi
 
+	INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	if [ $INTERPOLATECOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "****** INTERPOLATE *******"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_interpolate.sh || exit 1
+	fi
+
 	TASKCOUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
 	if [ $TASKCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"

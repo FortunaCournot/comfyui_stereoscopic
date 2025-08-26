@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# v2v_upscale_downscale_tvai.sh || exit 1
+# v2v_interpolate_tvai.sh || exit 1
 #
-# Upscales a base video (input) with Topaz Video AI and places result under ComfyUI/output/vr/scaling folder.
+# Interpolates a video (input) with Topaz Video AI and places result under ComfyUI/output/vr/interpolate folder.
 #
 # Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
@@ -17,11 +17,11 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 SCRIPTPATH=
 
 
-if test $# -ne 1 -a $# -ne 2
+if test $# -ne 3
 then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 input"
-    echo "E.g.: $0 SmallIconicTown.mp4 override_active"
+    echo "Usage: $0 multiplicator vram_gb input"
+    echo "E.g.: $0 2 16 SmallIconicTown.mp4"
 else
 	cd $COMFYUIPATH
 
@@ -51,7 +51,10 @@ else
 	  PYTHON_BIN_PATH=../python_embeded/
 	fi
 
-	DOWNSCALE=1.0
+	multiplicator="$1"
+	shift
+	VRAM="$1"
+	shift
 	INPUT="$1"
 
 	if [ ! -e "$INPUT" ] ; then echo "input file removed: $INPUT"; exit 0; fi
@@ -86,9 +89,9 @@ else
 	fi
 	
 	PROGRESS=" "
-	if [ -e input/vr/scaling/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/interpolate/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/vr/scaling/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/interpolate/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
 	[ $loglevel -ge 0 ] && echo "========== $PROGRESS""rescale (tvai) "`echo $INPUT | grep -oP "$regex"`" =========="
@@ -96,9 +99,9 @@ else
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX_UPSCALE=${TARGETPREFIX%.*}
-	TARGETPREFIX=output/vr/scaling/intermediate/$TARGETPREFIX_UPSCALE
-	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
-	mkdir -p output/vr/scaling/intermediate
+	TARGETPREFIX=output/vr/interpolate/intermediate/$TARGETPREFIX_UPSCALE
+	FINALTARGETFOLDER=`realpath "output/vr/interpolate"`
+	mkdir -p output/vr/interpolate/intermediate
 	
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
@@ -106,9 +109,9 @@ else
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
 	if [ `echo $RESW | wc -l` -ne 1 ] || [ `echo $RESH | wc -l` -ne 1 ] ; then
-		echo -e $"\e[91mError:\e[0m Can't process video. please resample ${INPUT##*/} from input/vr/scaling/error"
-		mkdir -p input/vr/scaling/error
-		mv -f --  $INPUT input/vr/scaling/error
+		echo -e $"\e[91mError:\e[0m Can't process video. please resample ${INPUT##*/} from input/vr/interpolate/error"
+		mkdir -p input/vr/interpolate/error
+		mv -f --  $INPUT input/vr/interpolate/error
 		exit 0
 	fi
 	PIXEL=$(( $RESW * $RESH ))
@@ -150,13 +153,13 @@ else
 		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
 		rm -f -- "$TARGETPREFIX"".mkv"
 		mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
-		mkdir -p input/vr/scaling/done
-		mv -f -- "$INPUT" input/vr/scaling/done
+		mkdir -p input/vr/interpolate/done
+		mv -f -- "$INPUT" input/vr/interpolate/done
 		echo -e $"\e[92mdone\e[0m"
 	else
 		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING in $CONFIGFILE"
-		mkdir -p input/vr/scaling/error
-		mv -fv -- "$INPUT" input/vr/scaling/error
+		mkdir -p input/vr/interpolate/error
+		mv -fv -- "$INPUT" input/vr/interpolate/error
 	fi
 fi
 exit 0

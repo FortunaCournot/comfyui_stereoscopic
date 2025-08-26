@@ -5,7 +5,7 @@
 # Creates SBS image from a base image (input) and places result under ComfyUI/output/sbs folder.
 # The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 #
-# Copyright (c) 2025 FortunaCournot. MIT License.
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
 # ComfyUI API script needs the following custom node packages: 
 #  comfyui_stereoscopic, comfyui_controlnet_aux, comfyui-videohelpersuite, bjornulf_custom_nodes, comfyui-easy-use, comfyui-custom-scripts, ComfyLiterals

@@ -4,7 +4,7 @@
 #
 # dubbes a base video (input) by mmaudio and places result under ComfyUI/output/vr/dubbing/sfx folder.
 #
-# Copyright (c) 2025 FortunaCournot. MIT License.
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
 # This ComfyUI API script needs addional custom node packages: 
 #  MMAudio, Florence2
@@ -120,7 +120,8 @@ else
 	temp=`grep duration output/vr/dubbing/sfx/intermediate/probe.txt`
 	temp=${temp#*:}
 	temp="${temp%\"*}"
-    duration="${temp#*\"}"
+    temp="${temp#*\"}"
+    duration="${temp%,*}"
 
 	if [ $duration -le $DUBBINGSEGMENTTING_THRESHOLD ]; then
 		SEGMENTTIME=$(( $duration + 1 ))

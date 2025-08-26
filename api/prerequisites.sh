@@ -351,7 +351,7 @@ then
 	echo "music, voice, crying, squeaking." >$NEGATIVESFXPATH
 fi
 
-[ $loglevel -ge 0 ] && echo -e $"For processings read docs on \e[36mhttps://civitai.com/models/1757677\e[0m"
+[ $loglevel -ge 0 ] && echo -e $"For processings read docs. \e[36mhttps://www.3d-gallery.org\e[0m"
 [ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
 
 

@@ -4,7 +4,7 @@
 #
 # dubbes a base video (input) by mmaudio and places result under ComfyUI/output/vr/tasks folder.
 #
-# Copyright (c) 2025 FortunaCournot. MIT License.
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
 # This ComfyUI API script needs addional custom node packages: 
 #  MMAudio, Florence2

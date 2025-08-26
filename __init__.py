@@ -28,7 +28,7 @@ def mkdirs():
         print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[91mFailed to create ({module_output_path})\033[0m')
         LOAD_ERRORS += 1
 
-    stage_list = ['concat','downscale','dubbing','fullsbs','scaling','singleloop','slides','slideshow','tasks','watermark','caption']
+    stage_list = ['concat','downscale','dubbing','fullsbs','scaling','singleloop','slides','slideshow','tasks','watermark','caption','interpolate']
 
     for stage in stage_list:
         stage_input_path = os.path.join(module_input_path, stage)
@@ -94,13 +94,14 @@ from .src.comfyui_stereoscopic.nodes import NODE_DISPLAY_NAME_MAPPINGS
 
 if LOAD_ERRORS == 0:
 
+    mkdirs()
+
     module_test_path = os.path.join(module_path, ".test")
     if not os.path.exists(module_test_path):
         os.mkdir(module_test_path)
     version_test_path = os.path.join(module_test_path, __version__ )
     if not os.path.exists(version_test_path):
         print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[93mVersion update detected.\033[0m')
-        mkdirs()
         shell_installtest_path = os.path.join(module_test_path, ".install" )
         os.mkdir(version_test_path)
         if os.path.exists(shell_installtest_path):

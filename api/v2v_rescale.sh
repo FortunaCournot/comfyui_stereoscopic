@@ -5,7 +5,7 @@
 # Scales a base video (input) down by factor 4 and than up by Real-ESRGAN-x4plus and places result under ComfyUI/output/vr/scaling folder.
 # The end condition must be checked manually in ComfyUI Frontend (Browser). If queue is empty the concat script (path is logged) can be called. 
 #
-# Copyright (c) 2025 FortunaCournot. MIT License.
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
 # ComfyUI API script needs the following custom node packages: 
 #  comfyui-videohelpersuite, bjornulf_custom_nodes, comfyui-easy-use, comfyui-custom-scripts, ComfyLiterals

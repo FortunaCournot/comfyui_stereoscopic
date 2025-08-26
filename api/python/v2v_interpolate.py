@@ -19,7 +19,7 @@ prompt_text = """
   "1": {
     "inputs": {
       "ckpt_name": "film_net_fp32.pt",
-      "clear_cache_after_n_frames": 10,
+      "clear_cache_after_n_frames": 8,
       "multiplier": [
         "8",
         0

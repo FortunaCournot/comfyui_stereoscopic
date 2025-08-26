@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# v2v_sbs_converter.sh || exit 1
+# v2v_interpolate.sh
 #
 # Creates SBS video from a base video (input) and places result under ComfyUI/output/sbs folder.
 #
@@ -15,7 +15,7 @@
 
 # - It will split the input video into segements,
 # - It queues sbs conversion workflows via api,
-# - Creates a shell script for concating resulting sbs segments
+# - Creates a shell script for concating resulting segments
 # - Wait until comfyui is done, then call created script manually.
 
 
@@ -23,7 +23,7 @@
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # API relative to COMFYUIPATH, or absolute path:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_sbs_converter.py
+SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/v2v_interpolate.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
@@ -33,8 +33,8 @@ fi
 if test $# -ne 3
 then
     # targetprefix path is relative; parent directories are created as needed
-    echo "Usage: $0 depth_scale depth_offset input"
-    echo "E.g.: $0 1.0 0.0 SmallIconicTown.mp4"
+    echo "Usage: $0 multiplicator vram_gb input"
+    echo "E.g.: $0 2 16 SmallIconicTown.mp4"
 else
 
 	cd $COMFYUIPATH
@@ -59,19 +59,17 @@ else
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
-	depth_scale="$1"
+	multiplicator="$1"
 	shift
-	depth_offset="$1"
+	VRAM="$1"
 	shift
 	INPUT="$1"
 	if [ ! -e "$1" ] ; then echo "input file removed: $INPUT"; exit 0; fi
 	shift
 
-	SEGMENTTIME=5
+	# Notice: At SEGMENTTIME=5 (63 frames 4K) crashes ComfyUI without error
+	SEGMENTTIME=1
 	
-	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS_VIDEO/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS_VIDEO=${SBS_DEPTH_BLUR_RADIUS_VIDEO:-"19"}
-
-	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
 	VIDEO_FORMAT=$(awk -F "=" '/VIDEO_FORMAT/ {print $2}' $CONFIGFILE) ; VIDEO_FORMAT=${VIDEO_FORMAT:-"video/h264-mp4"}
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
@@ -83,33 +81,59 @@ else
 	SETMETADATA="-metadata description=\"Created with Side-By-Side Converter: https://civitai.com/models/1757677\" -movflags +use_metadata_tags -metadata depth_scale=\"$depth_scale\" -metadata depth_offset=\"$depth_offset\""
 
 	PROGRESS=" "
-	if [ -e input/vr/fullsbs/BATCHPROGRESS.TXT ]
+	if [ -e input/vr/interpolate/BATCHPROGRESS.TXT ]
 	then
-		PROGRESS=`cat input/vr/fullsbs/BATCHPROGRESS.TXT`" "
+		PROGRESS=`cat input/vr/interpolate/BATCHPROGRESS.TXT`" "
 	fi
 	regex="[^/]*$"
-	echo "========== $PROGRESS""convert sbs "`echo $INPUT | grep -oP "$regex"`" =========="
+	echo "========== $PROGRESS""interpolate fps $multiplicator""x "`echo $INPUT | grep -oP "$regex"`" =========="
 
+	PIXELLIMIT=$(( 150000 * VRAM ))
+	
+	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams v:0 -show_entries stream=codec_type,codec_name,bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/interpolate/intermediate/probe.txt`
+	
+	temp=`grep width output/vr/interpolate/intermediate/probe.txt`
+	temp=${temp#*:}
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+    width="${temp%,*}"
+	
+	temp=`grep height output/vr/interpolate/intermediate/probe.txt`
+	temp=${temp#*:}
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+    height="${temp%,*}"
+	
+	PIXEL=$(( width * height ))
+	
+	if [ $PIXEL -gt $PIXELLIMIT ] ; then
+		echo -e $"\e[91mError:\e[0m VRAM ($VRAM) insufficient for processing this video. $PIXEL > $PIXELLIMIT "
+		mkdir -p input/vr/interpolate/error
+		mv -fv -- "$INPUT" input/vr/interpolate/error
+		exit 0
+	fi
+	
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX_SBS=${TARGETPREFIX%.*}"_SBS_LR"
-	TARGETPREFIX_CALL=vr/fullsbs/intermediate/$TARGETPREFIX_SBS
-	TARGETPREFIX=output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS
-	FINALTARGETFOLDER=`realpath "output/vr/fullsbs"`
+	TARGETPREFIX_FPS=${TARGETPREFIX%.*}"_FPS_LR"
+	TARGETPREFIX_CALL=vr/interpolate/intermediate/$TARGETPREFIX_FPS
+	TARGETPREFIX=output/vr/interpolate/intermediate/$TARGETPREFIX_FPS
+	FINALTARGETFOLDER=`realpath "output/vr/interpolate"`
 	
 	# RECOVERY : CHECK FOR OLD FILES AND EXTRACT UUID
+	mkdir -p output/vr/interpolate/intermediate
 	RECOVERY=
-	OLDINTERMEDIATEFOLDERCOUNT=`find output/vr/fullsbs/intermediate -type d -name "$TARGETPREFIX_SBS-"* | wc -l`
+	OLDINTERMEDIATEFOLDERCOUNT=`find output/vr/interpolate/intermediate -type d -name "$TARGETPREFIX_FPS-"* | wc -l`
 	if [ $OLDINTERMEDIATEFOLDERCOUNT -eq 1 ]; then
-		SEGDIR=`find output/vr/fullsbs/intermediate -type d -name "$TARGETPREFIX_SBS-"*`
+		SEGDIR=`find output/vr/interpolate/intermediate -type d -name "$TARGETPREFIX_FPS-"*`
 		olduuid=${SEGDIR##*-}
 		olduuid=${olduuid%.tmpseg}
-		if [ -e output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS"-"$olduuid".tmpseg" ] && [ -e output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS".tmpsbs/concat.sh" ] ; then
+		if [ -e output/vr/interpolate/intermediate/$TARGETPREFIX_FPS"-"$olduuid".tmpseg" ] && [ -e output/vr/interpolate/intermediate/$TARGETPREFIX_FPS".tmpfps/concat.sh" ] ; then
 			uuid=$olduuid
 			SEGDIR=`realpath "$SEGDIR"`
-			SBSDIR="$TARGETPREFIX"".tmpsbs"
-			SBSDIR_CALL="$TARGETPREFIX_CALL"".tmpsbs"
+			FPSDIR="$TARGETPREFIX"".tmpfps"
+			FPSDIR_CALL="$TARGETPREFIX_CALL"".tmpfps"
 			TARGETPREFIX=`realpath "$TARGETPREFIX"`
 			SPLITINPUT="$INPUT"
 			EXTENSION="${INPUT##*.}"
@@ -119,20 +143,20 @@ else
 	
 	if [ -z "$RECOVERY" ]; then
 		mkdir -p "$TARGETPREFIX""-$uuid"".tmpseg"
-		mkdir -p "$TARGETPREFIX"".tmpsbs"
+		mkdir -p "$TARGETPREFIX"".tmpfps"
 		SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
-		SBSDIR="$TARGETPREFIX"".tmpsbs"
-		SBSDIR_CALL="$TARGETPREFIX_CALL"".tmpsbs"
-		if [ ! -e "$SBSDIR/concat.sh" ]
+		FPSDIR="$TARGETPREFIX"".tmpfps"
+		FPSDIR_CALL="$TARGETPREFIX_CALL"".tmpfps"
+		if [ ! -e "$FPSDIR/concat.sh" ]
 		then
 			RECOVERY=
-			touch "$TARGETPREFIX"".tmpsbs"/x
+			touch "$TARGETPREFIX"".tmpfps"/x
 			touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
-			rm "$TARGETPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpsbs"/*
+			rm "$TARGETPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpfps"/*
 		fi
 		touch $TARGETPREFIX
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
-		echo "Converting to SBS from $TARGETPREFIX"
+		echo "Interpolating fps from $TARGETPREFIX"
 		rm "$TARGETPREFIX"
 
 		SPLITINPUT="$INPUT"
@@ -149,7 +173,7 @@ else
 
 
 
-	if [ ! -e "$SBSDIR/concat.sh" ]
+	if [ ! -e "$FPSDIR/concat.sh" ]
 	then
 		WIDTH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $SPLITINPUT`
 		HEIGHT=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $SPLITINPUT`
@@ -214,7 +238,7 @@ else
 	if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 		AUDIOMAPOPT=""
 	fi
-	if [ ! -e "$SBSDIR/concat.sh" ]
+	if [ ! -e "$FPSDIR/concat.sh" ]
 	then
 		echo "Splitting into segments"
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 17 -map 0:v:0 $AUDIOMAPOPT -segment_time $SEGMENTTIME -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -max_muxing_queue_size 9999 "$SEGDIR/segment%05d.mp4"
@@ -228,7 +252,7 @@ else
 	for f in "$SEGDIR"/segment*.mp4 ; do
 		f2=${f%.mp4}
 		f2=${f2#$SEGDIR/segment}
-		if [ ! -e "$SBSDIR/sbssegment_"$f2"_.mp4" ]
+		if [ ! -e "$FPSDIR/fpssegment_"$f2"_.mp4" ]
 		then
 			[ $loglevel -ge 0 ] && echo -ne "- $f2...       \r"
 			if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
@@ -243,7 +267,7 @@ else
 				exit 1
 			fi
 			# "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
-			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset $blur_radius "$f" "$SBSDIR_CALL"/sbssegment  ; echo -ne $"\e[0m"
+			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$f" "$FPSDIR_CALL"/sbssegment "$multiplicator" ; echo -ne $"\e[0m"
 		else
 			[ $loglevel -ge 0 ] && echo -ne "+ $f2...       \r"
 		fi
@@ -251,50 +275,50 @@ else
 
 	[ $loglevel -ge 0 ] && echo "Jobs running...   "
 	
-	if [ ! -e "$SBSDIR/concat.sh" ]
+	if [ ! -e "$FPSDIR/concat.sh" ]
 	then
-		echo "#!/bin/sh" >"$SBSDIR/concat.sh"
-		echo "cd \"\$(dirname \"\$0\")\"" >>"$SBSDIR/concat.sh"
-		echo "FPSOPTION=\"$FPSOPTION\"" >>"$SBSDIR/concat.sh"
-		echo "rm -rf \"$SEGDIR\"" >>"$SBSDIR/concat.sh"
-		echo "if [ -e ./sbssegment_00001-audio.mp4 ]" >>"$SBSDIR/concat.sh"
-		echo "then" >>"$SBSDIR/concat.sh"
-		echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$SBSDIR/concat.sh"
-		echo "    rm \$list" >>"$SBSDIR/concat.sh"
-		echo "fi" >>"$SBSDIR/concat.sh"
-		echo "for f in ./*.mp4 ; do" >>"$SBSDIR/concat.sh"
-		echo "	echo \"file \$f\" >> $CWD/"$SBSDIR"/list.txt" >>"$SBSDIR/concat.sh"
-		echo "done" >>"$SBSDIR/concat.sh"
-		echo "$FFMPEGPATHPREFIX""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$SBSDIR/concat.sh"
-		echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$SBSDIR/concat.sh"
-		echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$SBSDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy -max_muxing_queue_size 9999 output.mp4" >>"$SBSDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 -max_muxing_queue_size 9999 output2.mp4" >>"$SBSDIR/concat.sh"
-		#echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
-		echo "else" >>"$SBSDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$SBSDIR/concat.sh"
-		#echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i sbssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$SBSDIR/concat.sh"
-		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
-		echo "fi" >>"$SBSDIR/concat.sh"
-		echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$SBSDIR/concat.sh"
-		echo "then" >>"$SBSDIR/concat.sh"
-		echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -all:all= -overwrite_original $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
-		echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -m -tagsfromfile \"$INPUT\" -ItemList:Title -ItemList:Comment -creditLine -overwrite_original $TARGETPREFIX"".mp4 && echo \"ItemList tags copied.\"" >>"$SBSDIR/concat.sh"
-		echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -m '-creditLine<\\\$creditLine''. VR we are - https://civitai.com/models/1757677 .' -overwrite_original $TARGETPREFIX"".mp4" >>"$SBSDIR/concat.sh"
-		echo "    mkdir -p $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
-		echo "    mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$SBSDIR/concat.sh"
-		echo "    cd .." >>"$SBSDIR/concat.sh"
-		echo "    rm -rf \"$TARGETPREFIX\"\".tmpsbs\"" >>"$SBSDIR/concat.sh"
-		echo "    mkdir -p $CWD/input/vr/fullsbs/done" >>"$SBSDIR/concat.sh"
-		echo "    mv -fv -- $INPUT $CWD/input/vr/fullsbs/done" >>"$SBSDIR/concat.sh"
-		echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$SBSDIR/concat.sh"
-		echo "else" >>"$SBSDIR/concat.sh"
-		echo "    echo -e \$\"\\e[91mError\\e[0m: Concat failed.\"" >>"$SBSDIR/concat.sh"
-		echo "    mkdir -p input/vr/fullsbs/error" >>"$SBSDIR/concat.sh"
-		echo "    mv -fv -- $INPUT $CWD/input/vr/fullsbs/error" >>"$SBSDIR/concat.sh"
-		echo "    exit -1" >>"$SBSDIR/concat.sh"
-		echo "fi" >>"$SBSDIR/concat.sh"
+		echo "#!/bin/sh" >"$FPSDIR/concat.sh"
+		echo "cd \"\$(dirname \"\$0\")\"" >>"$FPSDIR/concat.sh"
+		echo "FPSOPTION=\"$FPSOPTION\"" >>"$FPSDIR/concat.sh"
+		echo "rm -rf \"$SEGDIR\"" >>"$FPSDIR/concat.sh"
+		echo "if [ -e ./fpssegment_00001-audio.mp4 ]" >>"$FPSDIR/concat.sh"
+		echo "then" >>"$FPSDIR/concat.sh"
+		echo "    list=\`find . -type f -print | grep mp4 | grep -v audio\`" >>"$FPSDIR/concat.sh"
+		echo "    rm \$list" >>"$FPSDIR/concat.sh"
+		echo "fi" >>"$FPSDIR/concat.sh"
+		echo "for f in ./*.mp4 ; do" >>"$FPSDIR/concat.sh"
+		echo "	echo \"file \$f\" >> $CWD/"$FPSDIR"/list.txt" >>"$FPSDIR/concat.sh"
+		echo "done" >>"$FPSDIR/concat.sh"
+		echo "$FFMPEGPATHPREFIX""ffprobe -i $INPUT -show_streams -select_streams a -loglevel error >TESTAUDIO.txt 2>&1"  >>"$FPSDIR/concat.sh"
+		echo "TESTAUDIO=\`cat TESTAUDIO.txt\`"  >>"$FPSDIR/concat.sh"
+		echo "if [[ \"\$TESTAUDIO\" =~ \"[STREAM]\" ]]; then" >>"$FPSDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy -max_muxing_queue_size 9999 output.mp4" >>"$FPSDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output.mp4 -i $INPUT -c copy -map 0:v:0 -map 1:a:0 -max_muxing_queue_size 9999 output2.mp4" >>"$FPSDIR/concat.sh"
+		#echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i fpssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$FPSDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$FPSDIR/concat.sh"
+		echo "else" >>"$FPSDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt -c copy output2.mp4" >>"$FPSDIR/concat.sh"
+		#echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 -i fpssegment_00001.png -map 1 -map 0 -c copy -disposition:0 attached_pic -max_muxing_queue_size 9999 output3.mp4" >>"$FPSDIR/concat.sh"
+		echo "    nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i output2.mp4 $SETMETADATA -vcodec libx264 -x264opts \"frame-packing=3\" -force_key_frames \"expr:gte(t,n_forced*1)\" -max_muxing_queue_size 9999 $TARGETPREFIX"".mp4" >>"$FPSDIR/concat.sh"
+		echo "fi" >>"$FPSDIR/concat.sh"
+		echo "if [ -e $TARGETPREFIX"".mp4 ]" >>"$FPSDIR/concat.sh"
+		echo "then" >>"$FPSDIR/concat.sh"
+		echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -all:all= -overwrite_original $TARGETPREFIX"".mp4" >>"$FPSDIR/concat.sh"
+		echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -m -tagsfromfile \"$INPUT\" -ItemList:Title -ItemList:Comment -creditLine -overwrite_original $TARGETPREFIX"".mp4 && echo \"ItemList tags copied.\"" >>"$FPSDIR/concat.sh"
+		echo "    [ -e \"$EXIFTOOLBINARY\" ] && \"$EXIFTOOLBINARY\" -m '-creditLine<\\\$creditLine''. VR we are - https://civitai.com/models/1757677 .' -overwrite_original $TARGETPREFIX"".mp4" >>"$FPSDIR/concat.sh"
+		echo "    mkdir -p $FINALTARGETFOLDER" >>"$FPSDIR/concat.sh"
+		echo "    mv -- $TARGETPREFIX"".mp4"" $FINALTARGETFOLDER" >>"$FPSDIR/concat.sh"
+		echo "    cd .." >>"$FPSDIR/concat.sh"
+		echo "    rm -rf \"$TARGETPREFIX\"\".tmpfps\"" >>"$FPSDIR/concat.sh"
+		echo "    mkdir -p $CWD/input/vr/interpolate/done" >>"$FPSDIR/concat.sh"
+		echo "    mv -fv -- $INPUT $CWD/input/vr/interpolate/done" >>"$FPSDIR/concat.sh"
+		echo "    echo -e \$\"\\e[92mdone.\\e[0m\"" >>"$FPSDIR/concat.sh"
+		echo "else" >>"$FPSDIR/concat.sh"
+		echo "    echo -e \$\"\\e[91mError\\e[0m: Concat failed.\"" >>"$FPSDIR/concat.sh"
+		echo "    mkdir -p input/vr/interpolate/error" >>"$FPSDIR/concat.sh"
+		echo "    mv -fv -- $INPUT $CWD/input/vr/interpolate/error" >>"$FPSDIR/concat.sh"
+		echo "    exit -1" >>"$FPSDIR/concat.sh"
+		echo "fi" >>"$FPSDIR/concat.sh"
 	fi
 	
 	echo "Waiting for queue to finish..."
@@ -329,8 +353,8 @@ else
 	runtime=$((end-startjob))
 	echo "done. duration: $runtime""s.                         "
 	rm queuecheck.json
-	echo "Calling $SBSDIR/concat.sh"
-	$SBSDIR/concat.sh || exit 1
+	echo "Calling $FPSDIR/concat.sh"
+	$FPSDIR/concat.sh || exit 1
 	
 fi
 exit 0

@@ -4,7 +4,7 @@
 #
 # Upscales a base video (input) by 4x_foolhardy_Remacri , then downscales it to fit 4K and places result (png) under ComfyUI/output subfolder.
 #
-# Copyright (c) 2025 FortunaCournot. MIT License.
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
 # ComfyUI API script needs the following custom node packages: 
 #  comfyui-videohelpersuite, bjornulf_custom_nodes, comfyui-easy-use, comfyui-custom-scripts, ComfyLiterals
