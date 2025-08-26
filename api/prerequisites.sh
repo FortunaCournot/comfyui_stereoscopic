@@ -328,7 +328,7 @@ echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >input/vr/dubbing/
 cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/downscale/DO_NOT_PLACE_HERE.TXT
 cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/tasks/DO_NOT_PLACE_HERE.TXT
 mkdir -p input/vr/singleloop/error
-touch input/vr/singleloop/error/CONSIDER_REPAIRING
+#touch input/vr/singleloop/error/CONSIDER_REPAIRING
 
 
 # CHECK FOR VERSION UPDATE AND RUN TESTS

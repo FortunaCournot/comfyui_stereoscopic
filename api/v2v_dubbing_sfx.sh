@@ -113,8 +113,14 @@ else
 		exit 1
 	fi
 	
-	duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
-	duration=${duration%.*}
+	mkdir -p output/vr/dubbing/sfx/intermediate
+	
+	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams v:0 -show_entries stream=codec_type,codec_name,bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/dubbing/sfx/intermediate/probe.txt`
+	
+	temp=`grep duration output/vr/dubbing/sfx/intermediate/probe.txt`
+	temp=${temp#*:}
+	temp="${temp%\"*}"
+    duration="${temp#*\"}"
 
 	if [ $duration -le $DUBBINGSEGMENTTING_THRESHOLD ]; then
 		SEGMENTTIME=$(( $duration + 1 ))
@@ -142,7 +148,6 @@ else
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/vr/dubbing/sfx/intermediate/${TARGETPREFIX%.*}
-	mkdir -p output/vr/dubbing/sfx
 	FINALTARGETFOLDER=`realpath "output/vr/dubbing/sfx"`
 	
 	FADEOUTSTART=$((SEGMENTTIME-1))

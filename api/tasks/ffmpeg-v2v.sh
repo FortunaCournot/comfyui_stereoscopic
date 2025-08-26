@@ -21,9 +21,34 @@
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 
+assertlimit() {
+    mode_upperlimit=$1
+    kv=$2
+	
+    key=${kv%=*}
+    value2=$(( ${kv#*=} ))
+
+    temp=`grep "$key" output/vr/tasks/intermediate/probe.txt`
+	temp=${temp#*:}
+    temp="${temp%,*}"
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+	value1=$(( $temp ))
+
+    if [ "$mode_upperlimit" != "true" ] ; then tmp="$value1" ; value1="$value2" ; value2="$tmp" ; fi
+	
+    if [ "$value1" -gt "$value2" ] ; then
+		echo -e $"\e[32mLimit already fullfilled:\e[0m $key"": $value1 > $value2"". Skip processing and forwarding to output."
+		mv -vf -- "$INPUT" "$FINALTARGETFOLDER"
+		exit 0
+	else
+		echo "Condition met. $key"": $value1 <= $value2"
+	fi
+} 
+
+
 # API relative to COMFYUIPATH, or absolute path:
 COMFYUIPATH=`realpath $(dirname "$0")/../../../..`
-
 
 if test $# -ne 3 
 then
@@ -83,12 +108,29 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS"`echo $INPUT | grep -oP "$regex"`" =========="
 	
+	mkdir -p output/vr/tasks/intermediate
+
+	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams v:0 -show_entries stream=codec_type,codec_name,bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/tasks/intermediate/probe.txt`
+	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/vr/tasks/intermediate/${TARGETPREFIX%.*}
-	mkdir -p output/vr/tasks/intermediate
 	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
 	mkdir -p $FINALTARGETFOLDER
+
+
+	upperlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"upperlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	for parameterkv in $(echo $upperlimits | sed "s/,/ /g")
+	do
+		assertlimit "true" "$parameterkv"
+	done
+	
+	lowerlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"lowerlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	for parameterkv in $(echo $lowerlimits | sed "s/,/ /g")
+	do
+		assertlimit "false" "$parameterkv"
+	done
+	
 	
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
