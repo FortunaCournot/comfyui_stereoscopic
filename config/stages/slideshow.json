@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "blueprint": "none",
+  "input": "image",
+  "output": "video",
+}
