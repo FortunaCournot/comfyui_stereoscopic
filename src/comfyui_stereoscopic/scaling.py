@@ -12,6 +12,7 @@ class ScaleByFactor:
                 "image": ("IMAGE",),
                 "factor": ("FLOAT", {"default": 1.0, "min": 0.125, "max": 8.0}),
                 "algorithm": (["INTER_LINEAR", "INTER_AREA", "INTER_NEAREST", "INTER_CUBIC", "INTER_LANCZOS4"], {"default": "INTER_LINEAR"}),
+                "roundexponent": ("INT", {"default": 1, "min": 0, "max": 4, "steps": 1}),
             }
         }
 
@@ -19,9 +20,14 @@ class ScaleByFactor:
     RETURN_NAMES = ("result",)
     FUNCTION = "execute"
     CATEGORY = "Stereoscopic"
-    DESCRIPTION = "Scale image with CV by factor using algorithm."
+    DESCRIPTION = "Scale image with CV by factor using algorithm. Use INTER_AREA for downscaling. No GPU operation at scale 1. *** Algorithms from OpenCV:  \
+INTER_NEAREST - a nearest-neighbor interpolation.  \
+INTER_LINEAR - a bilinear interpolation (used by default).  \
+INTER_AREA - resampling using pixel area relation. It may be a preferred method for image decimation, as it gives moire’-free results. But when the image is zoomed, it is similar to the INTER_NEAREST method.  \
+INTER_CUBIC - a bicubic interpolation over 4x4 pixel neighborhood.  \
+INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood.  "
     
-    def execute(self, image, factor=1.0, algorithm="INTER_LINEAR"):
+    def execute(self, image, factor=1.0, algorithm="INTER_LINEAR", roundexponent=1):
         """
         INTER_NEAREST - a nearest-neighbor interpolation
         INTER_LINEAR - a bilinear interpolation (used by default)
@@ -29,6 +35,8 @@ class ScaleByFactor:
         INTER_CUBIC - a bicubic interpolation over 4x4 pixel neighborhood
         INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood    
         """
+        
+        round=2**roundexponent
         
         # Get batch size
         B = image.shape[0]
@@ -58,8 +66,8 @@ class ScaleByFactor:
                 # Get the dimensions of the original img
                 width, height = image_pil.size
 
-                newwidth=int( width * factor / 2 ) * 2
-                newheight=int( height * factor / 2 ) * 2
+                newwidth=int( width * factor / round ) * round
+                newheight=int( height * factor / round ) * round
                 print(f"dimension: {width} x {height} -> {newwidth} x {newheight} ")
                 
                 gpu_mat = cv2.UMat(current_image_np)
