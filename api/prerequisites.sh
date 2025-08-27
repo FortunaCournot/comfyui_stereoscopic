@@ -216,6 +216,8 @@ if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
 	echo "Upgraded config.ini to v$config_version"
 fi
 
+TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
+
 
 ### CHECK TOOLS ###
 if ! command -v $FFMPEGPATHPREFIX"ffmpeg" >/dev/null 2>&1
@@ -351,6 +353,7 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo "# Video Stream Keys: bit_rate,width,height,r_frame_rate,duration,nb_frames,display_aspect_ratio"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# Audio Stream Keys: codec_type"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# Image Stream Keys: width,height"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# System Keys: vram,tvai"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# Condition operators: = != > <"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# Values must always be integer or text. floats will not be supported. Numbers or expressions from ffprobe are trunced."  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
@@ -358,19 +361,24 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo "rm -f -- output/vr/*/forward.txt output/vr/*/*/forward.txt 2>/dev/null"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo -e $'\e[94mInfo:\e[0m The pipeline starts with caption'"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo 'tasks/fps-limit-15' >output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[tvai=true]tasks/fps-limit-30' >output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[duration<10]tasks/fps-limit-30' >>output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'tasks/fps-limit-15' >>output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'scaling'            >output/vr/tasks/fps-limit-15/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'tasks/vlimit-2160p' >output/vr/scaling/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'fullsbs'            >output/vr/tasks/vlimit-2160p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	if [ -e  '/c/Program Files/Topaz Labs LLC/Topaz Video AI/ffmpeg.exe' ] ; then
-		echo "echo 'tasks/vlimit-1080p' >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-		echo "echo 'interpolate'        >output/vr/tasks/vlimit-1080p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	else
-		echo "echo 'tasks/vlimit-720p'  >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-		echo "echo 'interpolate'        >output/vr/tasks/vlimit-720p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	fi
+	echo "echo '[tvai=true:width<7680]interpolate' >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[tvai=true]tasks/vlimit-1080p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "#echo '[vram>24]interpolate' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[vram>16]tasks/vlimit-1080p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# handle height>width:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[vram>8:display_aspect_ratio=0]tasks/vlimit-1080p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[vram>8]tasks/vlimit-720p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# 8 VRAM or less will get no interpolation for now, until we find a better solution."  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'interpolate'        >output/vr/tasks/vlimit-1080p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'interpolate'        >output/vr/tasks/vlimit-720p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[duration<10:codec_type!=audio]singleloop'         >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "# APPEND more rule to this file"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# .. append more rules to this file"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[codec_type!=audio]dubbing/sfx'  >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'tasks/credit-vr-we-are' >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	

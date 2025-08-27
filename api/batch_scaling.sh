@@ -103,7 +103,7 @@ else
 					mv -fv "$newfn" input/vr/scaling/stopped
 					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
 				else
-					if [ ! -e "$TVAI_BIN_DIR" ] ; then
+					if [ ! -d "$TVAI_BIN_DIR" ] ; then
 						/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
 					
 						status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`

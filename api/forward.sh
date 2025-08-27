@@ -18,15 +18,21 @@ CheckProbeValue() {
 	op="${kopv:${#key}}"
 	op="${op::-${#value2}}"
 
-    temp=`grep "$key" user/default/comfyui_stereoscopic/.tmpprobe.txt`
-	temp=${temp#*:}
-    temp="${temp%,*}"
-	temp="${temp%\"*}"
-    temp="${temp#*\"}"
-	if [ -z "$temp" ] || [[ "$temp" = *[a-zA-Z]* ]]; then
-		value1="$temp"
-	else  # numric expression
-		value1="$(( $temp ))"
+	if [ "$key" = "vram" ] ; then
+		value1=`"$PYTHON_BIN_PATH"python.exe custom_nodes/comfyui_stereoscopic/api/python/get_vram.py`
+	elif [ "$key" = "tvai" ] ; then
+		if [ -d "$TVAI_BIN_DIR" ] ; then value1="true" ; else value1="false" ; fi
+	else
+		temp=`grep "$key" user/default/comfyui_stereoscopic/.tmpprobe.txt`
+		temp=${temp#*:}
+		temp="${temp%,*}"
+		temp="${temp%\"*}"
+		temp="${temp#*\"}"
+		if [ -z "$temp" ] || [[ "$temp" = *[a-zA-Z]* ]]; then
+			value1="$temp"
+		else  # numric expression
+			value1="$(( $temp ))"
+		fi
 	fi
 
 	if [ "$op" = "<" ] || [ "$op" = ">" ] ; then
@@ -56,6 +62,7 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
 	loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 	[ $loglevel -ge 2 ] && set -x
+	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 fi
 
 if test $# -ne 1
@@ -64,6 +71,13 @@ then
     echo "E.g.: $0 fullsbs"
 	exit 1
 else
+
+	# Use Systempath for python by default, but set it explictly for comfyui portable.
+	PYTHON_BIN_PATH=
+	if [ -d "../python_embeded" ]; then
+	  PYTHON_BIN_PATH=../python_embeded/
+	fi
+	
 	sourcestage=$1
 	
 	if [ -e output/vr/"$sourcestage"/forward.txt ] ; then
