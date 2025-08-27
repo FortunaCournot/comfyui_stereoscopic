@@ -93,128 +93,129 @@ else
 
 		forwarddef=output/vr/"$sourcestage"/forward.txt
 		forwarddef=`realpath $forwarddef`
-		destination=`cat $forwarddef`
-		conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
-		destination=${destination#*]}
-		if [ -z "$destination" ] ; then
-			echo -e $"\e[91mError:\e[0m Invalid stage path in $sourcestage""/forward.txt: file empty."
-			exit 0
-		elif [ -d input/vr/$destination ] ; then
+		
+		while read -r destination; do
+			conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
+			destination=${destination#*]}
+			if [ -z "$destination" ] ; then
+				SKIPPING_EMPTY_LINE=	# just ignore this line
+			elif [ -d input/vr/$destination ] ; then
 
-			[[ $destination == *"tasks/_"* ]] && echo 3
-			[[ $destination == *"tasks/"* ]] && echo 4
+				[[ $destination == *"tasks/_"* ]] && echo 3
+				[[ $destination == *"tasks/"* ]] && echo 4
 
-			if [[ $destination == *"tasks/_"* ]] ; then
-				userdestination=tasks/${destination#tasks/_}
+				if [[ $destination == *"tasks/_"* ]] ; then
+					userdestination=tasks/${destination#tasks/_}
 
-				if [ ! -e user/default/comfyui_stereoscopic/"$userdestination".json ] ; then
-					echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
-					echo -e $"\e[91mError:\e[0m Missing task destination definition at user/default/comfyui_stereoscopic/"$userdestination".json"
-					exit 0
+					if [ ! -e user/default/comfyui_stereoscopic/"$userdestination".json ] ; then
+						echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
+						echo -e $"\e[91mError:\e[0m Missing task destination definition at user/default/comfyui_stereoscopic/"$userdestination".json"
+						exit 0
+					fi
+					
+					#[ $loglevel -ge 1 ] && echo "forwarding media to user's $destination"
+
+					temp=`grep input user/default/comfyui_stereoscopic/"$userdestination".json`
+					temp=${temp#*:}
+					temp="${temp%\"*}"
+					temp="${temp#*\"}"
+					inputrule="${temp%,*}"
+					
+				elif [[ $destination == *"tasks/"* ]] ; then
+				
+					if [ ! -e custom_nodes/comfyui_stereoscopic/config/"$destination".json ] ; then
+						echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
+						echo -e $"\e[91mError:\e[0m Missing task destination definition at custom_nodes/comfyui_stereoscopic/config/"$destination".json"
+						exit 0
+					fi
+
+					#[ $loglevel -ge 1 ] && echo "forwarding media to $destination"
+					
+					temp=`grep input custom_nodes/comfyui_stereoscopic/config/"$destination".json`
+					temp=${temp#*:}
+					temp="${temp%\"*}"
+					temp="${temp#*\"}"
+					inputrule="${temp%,*}"
+					
+				else
+					if [ ! -e custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json ] ; then
+						echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
+						echo -e $"\e[91mError:\e[0m Missing stage destination definition at custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json"
+						exit 0
+					fi
+					
+					#[ $loglevel -ge 1 ] && echo "forwarding media to stage $destination"
+					
+					temp=`grep input custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json`
+					temp=${temp#*:}
+					temp="${temp%\"*}"
+					temp="${temp#*\"}"
+					inputrule="${temp%,*}"
+					
 				fi
 				
-				#[ $loglevel -ge 1 ] && echo "forwarding media to user's $destination"
-
-				temp=`grep input user/default/comfyui_stereoscopic/"$userdestination".json`
-				temp=${temp#*:}
-				temp="${temp%\"*}"
-				temp="${temp#*\"}"
-				inputrule="${temp%,*}"
+				#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
 				
-			elif [[ $destination == *"tasks/"* ]] ; then
-			
-				if [ ! -e custom_nodes/comfyui_stereoscopic/config/"$destination".json ] ; then
-					echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
-					echo -e $"\e[91mError:\e[0m Missing task destination definition at custom_nodes/comfyui_stereoscopic/config/"$destination".json"
-					exit 0
-				fi
-
-				#[ $loglevel -ge 1 ] && echo "forwarding media to $destination"
+				mkdir -p user/default/comfyui_stereoscopic
 				
-				temp=`grep input custom_nodes/comfyui_stereoscopic/config/"$destination".json`
-				temp=${temp#*:}
-				temp="${temp%\"*}"
-				temp="${temp#*\"}"
-				inputrule="${temp%,*}"
+				for i in ${inputrule//;/ }
+				do
+					for o in ${outputrule//;/ }
+					do
+						if [[ $i == $o ]] ; then
+							if [[ $i == "video" ]] ; then
+								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.MP4' -o -name '*.WEBM'`
+								for file in $FILES ; do
+									RULEFAILED=
+									if [ ! -z "$conditionalrules" ] ; then
+										
+										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
+										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$file" >>user/default/comfyui_stereoscopic/.tmpprobe.txt`
+										
+										for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
+										do
+											CheckProbeValue "$parameterkopv"
+											retval=$?
+											if [ "$retval" != 0 ] ; then
+												RULEFAILED="$parameterkopv"
+												break
+											fi
+										done
+									fi
+									[ -z "$RULEFAILED" ] && mv -f -- $file input/vr/$destination 2>/dev/null
+								done
+							elif  [[ $i == "image" ]] ; then
+								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
+								for file in $FILES ; do
+									RULEFAILED=
+									if [ ! -z "$conditionalrules" ] ; then
+									
+										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=width,height -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
+										
+										for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
+										do
+											CheckProbeValue "$parameterkopv"
+											retval=$?
+											if [ "$retval" != 0 ] ; then
+												RULEFAILED="$parameterkopv"
+												break
+											fi
+										done
+									fi
+									[ -z "$RULEFAILED" ] && mv -f -- $file input/vr/$destination 2>/dev/null
+								done
+							else
+								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
+							fi
+						fi
+					done
+				done
 				
 			else
-				if [ ! -e custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json ] ; then
-					echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
-					echo -e $"\e[91mError:\e[0m Missing stage destination definition at custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json"
-					exit 0
-				fi
-				
-				#[ $loglevel -ge 1 ] && echo "forwarding media to stage $destination"
-				
-				temp=`grep input custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json`
-				temp=${temp#*:}
-				temp="${temp%\"*}"
-				temp="${temp#*\"}"
-				inputrule="${temp%,*}"
-				
+				echo -e $"\e[91mError:\e[0m Invalid stage path in $sourcestage""/forward.txt: input/vr/""$destination does not exist."
+				exit 1
 			fi
-			
-			#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
-			
-			mkdir -p user/default/comfyui_stereoscopic
-			
-			for i in ${inputrule//;/ }
-			do
-				for o in ${outputrule//;/ }
-				do
-					if [[ $i == $o ]] ; then
-						if [[ $i == "video" ]] ; then
-							FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.MP4' -o -name '*.WEBM'`
-							for file in $FILES ; do
-								RULEFAILED=
-								if [ ! -z "$conditionalrules" ] ; then
-									
-									`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
-									`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$file" >>user/default/comfyui_stereoscopic/.tmpprobe.txt`
-									
-									for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
-									do
-										CheckProbeValue "$parameterkopv"
-										retval=$?
-										if [ "$retval" != 0 ] ; then
-											RULEFAILED="$parameterkopv"
-											break
-										fi
-									done
-								fi
-								[ -z "$RULEFAILED" ] && mv -f -- $file input/vr/$destination 2>/dev/null
-							done
-						elif  [[ $i == "image" ]] ; then
-							FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
-							for file in $FILES ; do
-								RULEFAILED=
-								if [ ! -z "$conditionalrules" ] ; then
-								
-									`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=width,height -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
-									
-									for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
-									do
-										CheckProbeValue "$parameterkopv"
-										retval=$?
-										if [ "$retval" != 0 ] ; then
-											RULEFAILED="$parameterkopv"
-											break
-										fi
-									done
-								fi
-								[ -z "$RULEFAILED" ] && mv -f -- $file input/vr/$destination 2>/dev/null
-							done
-						else
-							echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
-						fi
-					fi
-				done
-			done
-			
-		else
-			echo -e $"\e[91mError:\e[0m Invalid stage path in $sourcestage""/forward.txt: input/vr/""$destination does not exist."
-			exit 0
-		fi
+		done < $forwarddef
 	fi
 fi
 
