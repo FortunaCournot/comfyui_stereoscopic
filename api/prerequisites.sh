@@ -367,11 +367,17 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 		echo "echo 'tasks/vlimit-720p'  >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 		echo "echo 'interpolate'        >output/vr/tasks/vlimit-720p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	fi
-	echo "#echo '[duration<10:codec_type!=audio]singleloop'         >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo '[codec_type!=audio]dubbing/sfx'  >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[duration<10:codec_type!=audio]singleloop'         >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# APPEND more rule to this file"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[codec_type!=audio]dubbing/sfx'  >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'tasks/credit-vr-we-are' >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	
 	echo "echo 'dubbing/sfx'        >output/vr/singleloop/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "#echo 'tasks/credit-vr-we-are' >output/vr/dubbing/sfx.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo -ne $'\e[1m\e[95mVR we are credit be applied at the end. Replace this by your watermark task or remove the rule. Files without watermark are saved in \e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	DONEFOLDER=`realpath "../../input/vr/dubbing/sfx/done"`
+	echo "echo -e $'\e[36m$DONEFOLDER\e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# Replace this with your user defined watermark task:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'tasks/credit-vr-we-are' >output/vr/dubbing/sfx/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 fi
 cd ../..
 [ $PIPELINE_AUTOFORWARD -ge 1 ] && echo -e $"Auto-Forwarding \e[32mactive\e[0m" || echo -e $"Auto-Forwarding \e[33mdeactivated\e[0m"
