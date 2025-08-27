@@ -359,8 +359,10 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 		echo "echo 'tasks/vlimit-720p'  >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 		echo "echo 'interpolate'        >output/vr/tasks/vlimit-720p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	fi
-	echo "#echo 'singleloop'         >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "#echo 'dubbing/sfx'        >output/vr/singleloop/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "#echo '[duration<10:codec_type!=audio]singleloop'         >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[codec_type!=audio]dubbing/sfx'  >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	
+	echo "echo 'dubbing/sfx'        >output/vr/singleloop/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "#echo 'tasks/credit-vr-we-are' >output/vr/dubbing/sfx.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 fi
 cd ../..

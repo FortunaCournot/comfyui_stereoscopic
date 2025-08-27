@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # handle tasks for images and videos in batch from all placed in subfolders of ComfyUI/input/vr/tasks 
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
@@ -8,6 +8,46 @@
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
+
+CheckProbeValue() {
+    kopv="$1"
+	
+	key="${kopv%%[^a-z0-9_]*}"
+	value2="${kopv##*[^a-z0-9_]}"
+	# if [ -z "$key" ] ; then key="$value"; value=""; fi	# unitory op not used yet
+	op="${kopv:${#key}}"
+	op="${op::-${#value2}}"
+
+    temp=`grep "$key" user/default/comfyui_stereoscopic/.tmpprobe.txt`
+	temp=${temp#*:}
+    temp="${temp%,*}"
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+	if [ -z "$temp" ] || [[ "$temp" = *[a-zA-Z]* ]]; then
+		value1="$temp"
+	else  # numric expression
+		value1="$(( $temp ))"
+	fi
+
+	if [ "$op" = "<" ] || [ "$op" = ">" ] ; then
+		if [ "$op" = "<" ] ; then tmp="$value1" ; value1="$value2" ; value2="$tmp" ; fi
+		if [ "$value1" -gt "$value2" ] ; then
+			return 0
+		else
+			return -1
+		fi
+	elif [ "$op" = '!=' ] || [ "$op" = '=' ] ; then
+		if [ "$value1" = "$value2" ] ; then
+			[ "$op" = '=' ] && return 0 || return -1
+		else
+			[ "$op" = '=' ] && return -1 || return 0
+		fi
+	else
+		echo -e $"\e[91mError:\e[0m Invalid operator $op in $forwarddef"
+		exit 1
+	fi
+}
+
 
 cd $COMFYUIPATH
 
@@ -54,6 +94,8 @@ else
 		forwarddef=output/vr/"$sourcestage"/forward.txt
 		forwarddef=`realpath $forwarddef`
 		destination=`cat $forwarddef`
+		conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
+		destination=${destination#*]}
 		if [ -z "$destination" ] ; then
 			echo -e $"\e[91mError:\e[0m Invalid stage path in $sourcestage""/forward.txt: file empty."
 			exit 0
@@ -114,15 +156,54 @@ else
 			
 			#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
 			
+			mkdir -p user/default/comfyui_stereoscopic
+			
 			for i in ${inputrule//;/ }
 			do
 				for o in ${outputrule//;/ }
 				do
 					if [[ $i == $o ]] ; then
 						if [[ $i == "video" ]] ; then
-							mv -f -- output/vr/"$sourcestage"/*.mp4 output/vr/"$sourcestage"/*.webm output/vr/"$sourcestage"/*.MP4 output/vr/"$sourcestage"/*.WEBM input/vr/$destination 2>/dev/null
+							FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.MP4' -o -name '*.WEBM'`
+							for file in $FILES ; do
+								RULEFAILED=
+								if [ ! -z "$conditionalrules" ] ; then
+									
+									`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
+									`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$file" >>user/default/comfyui_stereoscopic/.tmpprobe.txt`
+									
+									for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
+									do
+										CheckProbeValue "$parameterkopv"
+										retval=$?
+										if [ "$retval" != 0 ] ; then
+											RULEFAILED="$parameterkopv"
+											break
+										fi
+									done
+								fi
+								[ -z "$RULEFAILED" ] && mv -f -- $file input/vr/$destination 2>/dev/null
+							done
 						elif  [[ $i == "image" ]] ; then
-							mv -f -- output/vr/"$sourcestage"/*.png output/vr/"$sourcestage"/*.jpg output/vr/"$sourcestage"/*.jpeg output/vr/"$sourcestage"/*.webp output/vr/"$sourcestage"/*.PNG output/vr/"$sourcestage"/*.JPG output/vr/"$sourcestage"/*.JPEG output/vr/"$sourcestage"/*.WEBP input/vr/$destination 2>/dev/null
+							FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
+							for file in $FILES ; do
+								RULEFAILED=
+								if [ ! -z "$conditionalrules" ] ; then
+								
+									`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=width,height -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
+									
+									for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
+									do
+										CheckProbeValue "$parameterkopv"
+										retval=$?
+										if [ "$retval" != 0 ] ; then
+											RULEFAILED="$parameterkopv"
+											break
+										fi
+									done
+								fi
+								[ -z "$RULEFAILED" ] && mv -f -- $file input/vr/$destination 2>/dev/null
+							done
 						else
 							echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
 						fi
