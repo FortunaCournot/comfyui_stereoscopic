@@ -387,7 +387,7 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	DONEFOLDER=`realpath "../../input/vr/dubbing/sfx/done"`
 	echo "echo -e $'\e[36m$DONEFOLDER\e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# Replace this with your user defined watermark task:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo 'tasks/credit-vr-we-are' >output/vr/dubbing/sfx/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[duration<60]tasks/credit-vr-we-are' >output/vr/dubbing/sfx/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# Create you own tasks by copy a json template from custom_nodes\comfyui_stereoscopic\config\tasks to user\default\comfyui_stereoscopic\tasks"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 fi
