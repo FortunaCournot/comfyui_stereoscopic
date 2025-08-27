@@ -28,7 +28,7 @@ else
 	
 	if [ -e output/vr/"$sourcestage"/forward.txt ] ; then
 
-		[ $loglevel -ge 1 ] && echo "sourcestage: '$sourcestage'"
+		#[ $loglevel -ge 1 ] && echo "sourcestage: '$sourcestage'"
 	
 		if [[ $sourcestage == *"tasks/_"* ]] ; then
 			usersourcestage=tasks/${sourcestage#tasks/_}
@@ -49,7 +49,7 @@ else
 		temp="${temp%\"*}"
 		temp="${temp#*\"}"
 		outputrule="${temp%,*}"
-		[ $loglevel -ge 1 ] && echo "forward output rule = $outputrule"
+		#[ $loglevel -ge 1 ] && echo "forward output rule = $outputrule"
 
 		forwarddef=output/vr/"$sourcestage"/forward.txt
 		forwarddef=`realpath $forwarddef`
@@ -71,7 +71,7 @@ else
 					exit 0
 				fi
 				
-				[ $loglevel -ge 1 ] && echo "forwarding media to user's $destination"
+				#[ $loglevel -ge 1 ] && echo "forwarding media to user's $destination"
 
 				temp=`grep input user/default/comfyui_stereoscopic/"$userdestination".json`
 				temp=${temp#*:}
@@ -87,7 +87,7 @@ else
 					exit 0
 				fi
 
-				[ $loglevel -ge 1 ] && echo "forwarding media to $destination"
+				#[ $loglevel -ge 1 ] && echo "forwarding media to $destination"
 				
 				temp=`grep input custom_nodes/comfyui_stereoscopic/config/"$destination".json`
 				temp=${temp#*:}
@@ -102,7 +102,7 @@ else
 					exit 0
 				fi
 				
-				[ $loglevel -ge 1 ] && echo "forwarding media to stage $destination"
+				#[ $loglevel -ge 1 ] && echo "forwarding media to stage $destination"
 				
 				temp=`grep input custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json`
 				temp=${temp#*:}
@@ -112,7 +112,7 @@ else
 				
 			fi
 			
-			[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
+			#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
 			
 			for i in ${inputrule//;/ }
 			do

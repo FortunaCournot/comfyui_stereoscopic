@@ -118,7 +118,8 @@ else
 	temp=${temp#*:}
 	temp="${temp%\"*}"
     temp="${temp#*\"}"
-    FPS="${temp%,*}"
+    temp="${temp%,*}"
+	FPS=$(( temp ))
 	TARGETFPS=$(( multiplicator * $FPS ))
 	
 	if [ `echo $RESW | wc -l` -ne 1 ] || [ `echo $RESH | wc -l` -ne 1 ] ; then
@@ -131,10 +132,10 @@ else
 	TVAI_FILTER_STRING_IP="$TVAI_FILTER_STRING_IP""$TARGETFPS"
 
 	set -x
-	"$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING_IP" "$TARGETPREFIX"".mkv"
+	nice "$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING_IP" "$TARGETPREFIX"".mkv"
 	set +x
 	if [ -e "$TARGETPREFIX"".mkv" ] ; then
-		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
 		if [ -e "$TARGETPREFIX"".mp4" ] ; then
 			rm -f -- "$TARGETPREFIX"".mkv"
 			mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER

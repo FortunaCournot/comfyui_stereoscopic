@@ -30,9 +30,9 @@ du -s -BG *put/vr
 echo " "
 
 # Report completed files
-du --inodes -d 0 -S output/vr/*           | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >user/default/comfyui_stereoscopic/tmplog
-du --inodes -d 0 -S output/vr/dubbing/*   | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >>user/default/comfyui_stereoscopic/tmplog
-du --inodes -d 0 -S output/vr/tasks/*   | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >>user/default/comfyui_stereoscopic/tmplog
+du --inodes -d 0 -S output/vr/*           | { while read inodes path; do files=`ls -F $path |grep -v / |grep -v .txt | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >user/default/comfyui_stereoscopic/tmplog
+du --inodes -d 0 -S output/vr/dubbing/*   | { while read inodes path; do files=`ls -F $path |grep -v / |grep -v .txt | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >>user/default/comfyui_stereoscopic/tmplog
+du --inodes -d 0 -S output/vr/tasks/*   | { while read inodes path; do files=`ls -F $path |grep -v / |grep -v .txt | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >>user/default/comfyui_stereoscopic/tmplog
 logsize=`stat -c %s user/default/comfyui_stereoscopic/tmplog`
 if [[ $logsize -gt 0 ]] ; then
 	echo -e $"\e[4m\e[32m+++ Summary of Completed Files per Folder +++\e[0m\e[92m"

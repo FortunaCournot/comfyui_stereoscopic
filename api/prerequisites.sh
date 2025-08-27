@@ -157,7 +157,7 @@ export CONFIGFILE
 loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 [ $loglevel -ge 2 ] && set -x
 
-[ $loglevel -ge 0 ] && echo -e $"\e[1mUsing $SHORT_CONFIGFILE\e[0m"
+[ $loglevel -ge 0 ] && echo -e $"\e[1mUsing \e[36m$CONFIGFILE\e[0m"
 config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
 FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
@@ -347,19 +347,26 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "rm -f -- output/vr/*/forward.txt output/vr/*/*/forward.txt 2>/dev/null"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "# VIDEO pipeline starts at caption..."  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo -e $'\e[94mInfo:\e[0m The pipeline starts with caption'"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'tasks/fps-limit-15' >output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'scaling'            >output/vr/tasks/fps-limit-15/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'tasks/vlimit-2160p' >output/vr/scaling/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'fullsbs'            >output/vr/tasks/vlimit-2160p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo 'tasks/vlimit-720p'  >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo 'interpolate'        >output/vr/tasks/vlimit-720p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo 'dubbing/sfx'        >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	if [ -e  '/c/Program Files/Topaz Labs LLC/Topaz Video AI/ffmpeg.exe' ] ; then
+		echo "echo 'tasks/vlimit-1080p' >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+		echo "echo 'interpolate'        >output/vr/tasks/vlimit-1080p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	else
+		echo "echo 'tasks/vlimit-720p'  >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+		echo "echo 'interpolate'        >output/vr/tasks/vlimit-720p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	fi
+	echo "#echo 'singleloop'         >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "#echo 'dubbing/sfx'        >output/vr/singleloop/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "#echo 'tasks/credit-vr-we-are' >output/vr/dubbing/sfx.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 fi
 cd ../..
+[ $PIPELINE_AUTOFORWARD -ge 1 ] && echo -e $"Auto-Forwarding \e[32mactive\e[0m" || echo -e $"Auto-Forwarding \e[33mdeactivated\e[0m"
+echo -e $"... using \e[36m$CONFIGPATH""/rebuild_autoforward.sh\e[0m"
 "$CONFIGPATH"/"rebuild_autoforward.sh"
-
 
 # CHECK FOR VERSION UPDATE AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
