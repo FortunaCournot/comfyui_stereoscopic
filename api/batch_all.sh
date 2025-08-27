@@ -222,7 +222,6 @@ elif [ -d "custom_nodes" ]; then
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task || exit 1 )
 			fi
 		done
-		
 
 	fi
 	

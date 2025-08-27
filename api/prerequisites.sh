@@ -26,6 +26,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	touch "$CONFIGFILE"
 	
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
+	echo "# if you delete this file it will be recreated on next start of the daemon."  >>"$CONFIGFILE"
 	echo "# Warning: Simple syntax. inline comments are not supported.">>"$CONFIGFILE"
 	echo "config_version=4">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
@@ -35,7 +36,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "">>"$CONFIGFILE"
 	
 	echo "# Set PIPELINE_AUTOFORWARD to 1 to enable it">>"$CONFIGFILE"
-	echo "PIPELINE_AUTOFORWARD=0">>"$CONFIGFILE"
+	echo "PIPELINE_AUTOFORWARD=1">>"$CONFIGFILE"
 	
 	echo "# --- comfyui server config ---">>"$CONFIGFILE"
 	echo "COMFYUIHOST=127.0.0.1">>"$CONFIGFILE"
@@ -291,6 +292,7 @@ fi
 
 
 CONFIGPATH=user/default/comfyui_stereoscopic
+CONFIGPATH=`realpath $CONFIGPATH`
 if [ ! -e "$CONFIGPATH" ]
 then
 	mkdir -p $CONFIGPATH
@@ -331,6 +333,32 @@ cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/downscale/DO_NOT_PLACE_HERE.T
 cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/tasks/DO_NOT_PLACE_HERE.TXT
 mkdir -p input/vr/singleloop/error
 #touch input/vr/singleloop/error/CONSIDER_REPAIRING
+
+# REBUILD WORKFLOW CHAIN
+mkdir -p output/vr
+cd output/vr
+mkdir -p caption fullsbs scaling dubbing/sfx interpolate watermark/encrypt slides concat singleloop slideshow
+if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
+	echo "#!/bin/bash"  >"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# Deactivate auto-forwarding by setting PIPELINE_AUTOFORWARD=0 in $CONFIGPATH""/config.ini"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# This script is called every time the VR-we-are daemon is started."  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# The forwards below are only processed after a stage is executed."  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# if you delete this file it will be recreated on next start of the daemon."  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "rm -f -- output/vr/*/forward.txt output/vr/*/*/forward.txt 2>/dev/null"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# VIDEO pipeline starts at caption..."  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'tasks/fps-limit-15' >output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'scaling'            >output/vr/tasks/fps-limit-15/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'tasks/vlimit-2160p' >output/vr/scaling/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'fullsbs'            >output/vr/tasks/vlimit-2160p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'tasks/vlimit-720p'  >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'interpolate'        >output/vr/tasks/vlimit-720p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo 'dubbing/sfx'        >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "#echo 'tasks/credit-vr-we-are' >output/vr/dubbing/sfx.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+fi
+cd ../..
+"$CONFIGPATH"/"rebuild_autoforward.sh"
 
 
 # CHECK FOR VERSION UPDATE AND RUN TESTS
