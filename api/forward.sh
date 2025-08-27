@@ -30,7 +30,10 @@ CheckProbeValue() {
 		temp="${temp#*\"}"
 		if [ -z "$temp" ] || [[ "$temp" = *[a-zA-Z]* ]]; then
 			value1="$temp"
-		else  # numric expression
+		elif [ "$key" = "display_aspect_ratio" ] ; then
+			temp="${temp//:/\/}"
+			value1="$(( $temp ))"
+		else  # numeric expression
 			value1="$(( $temp ))"
 		fi
 	fi
