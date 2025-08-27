@@ -135,11 +135,18 @@ else
 	set +x
 	if [ -e "$TARGETPREFIX"".mkv" ] ; then
 		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
-		rm -f -- "$TARGETPREFIX"".mkv"
-		mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
-		mkdir -p input/vr/interpolate/done
-		mv -f -- "$INPUT" input/vr/interpolate/done
-		echo -e $"\e[92mdone\e[0m"
+		if [ -e "$TARGETPREFIX"".mp4" ] ; then
+			rm -f -- "$TARGETPREFIX"".mkv"
+			mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
+			mkdir -p input/vr/interpolate/done
+			mv -f -- "$INPUT" input/vr/interpolate/done
+			echo -e $"\e[92mdone\e[0m"
+		else
+			echo -e $"\e[91mError:\e[0m TVAI generation failed. Check for error messages."
+			mkdir -p input/vr/interpolate/error
+			mv -vf -- "$INPUT" input/vr/interpolate/error
+			exit 0
+		fi
 	else
 		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING_IP in $CONFIGFILE"
 		mkdir -p input/vr/interpolate/error

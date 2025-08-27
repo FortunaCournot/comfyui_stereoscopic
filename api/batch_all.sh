@@ -82,15 +82,11 @@ elif [ -d "custom_nodes" ]; then
 			if [ $OVERRIDECOUNT -ge 1 ]; then
 				./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override || exit 1
 			fi
+			[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh scaling || exit 1 )
 		else
 			echo -e $"\e[93mWarning:\e[0m Less then 16GB of free memory - Skipped scaling. Memory: $MEMFREE/$MEMTOTAL"
 		fi
 	fi
-
-	# scaling -> fullsbs
-	GLOBIGNORE="*_SBS_LR*.mp4"
-	[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG output/vr/scaling/*.webm output/vr/scaling/*.WEBM input/vr/fullsbs  >/dev/null 2>&1
-	unset GLOBIGNORE		
 
 
 	SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
@@ -102,12 +98,9 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "***** PREPARE SLIDES *****"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_prepare_slides.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh slides || exit 1 )
 	fi
 	
-	# slides -> fullsbs
-	GLOBIGNORE="*_SBS_LR*.*"
-	[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
-	unset GLOBIGNORE		
 	
 	
 	SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
@@ -121,6 +114,7 @@ elif [ -d "custom_nodes" ]; then
 		SBS_DEPTH_SCALE=$(awk -F "=" '/SBS_DEPTH_SCALE/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_SCALE=${SBS_DEPTH_SCALE:-"1.25"}
 		SBS_DEPTH_OFFSET=$(awk -F "=" '/SBS_DEPTH_OFFSET/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_OFFSET=${SBS_DEPTH_OFFSET:-"0.0"}
 		./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh $SBS_DEPTH_SCALE $SBS_DEPTH_OFFSET
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh fullsbs || exit 1 )
 	fi
 
 
@@ -133,6 +127,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "****** SINGLE LOOP *******"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_singleloop.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh singleloop || exit 1 )
 	fi
 
 	
@@ -145,6 +140,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "***** MAKE SLIDESHOW *****"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_make_slideshow.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh slideshow || exit 1 )
 	fi
 
 
@@ -157,6 +153,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "******** CONCAT **********"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh concat || exit 1 )
 	fi
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
@@ -169,6 +166,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "****** DUBBING SFX *******"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh dubbing/sfx || exit 1 )
 	elif [ $DUBCOUNTSFX -gt 0 ]; then
 		mkdir -p input/vr/dubbing/sfx/error
 		mv -fv input/vr/dubbing/sfx/*.mp4 input/vr/dubbing/sfx/error
@@ -182,6 +180,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "****** ENCRYPTING ********"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_encrypt.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh watermark/encrypt || exit 1 )
 	fi
 	if [ $WMDCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
@@ -197,6 +196,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh caption || exit 1 )
 	fi
 
 	INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
@@ -205,6 +205,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "****** INTERPOLATE *******"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_interpolate.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh interpolate || exit 1 )
 	fi
 
 	TASKCOUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
@@ -213,6 +214,16 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "********* TASKS **********"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_tasks.sh || exit 1
+		
+		TASKDIR=`find output/vr/tasks -maxdepth 1 -type d`
+		for task in $TASKDIR; do
+			task=${task#output/vr/tasks/}
+			if [ ! -z $task ] ; then
+				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task || exit 1 )
+			fi
+		done
+		
+
 	fi
 	
 
