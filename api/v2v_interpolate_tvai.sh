@@ -92,8 +92,8 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX_UPSCALE=${TARGETPREFIX%.*}
-	TARGETPREFIX=output/vr/interpolate/intermediate/$TARGETPREFIX_UPSCALE
+	TARGETPREFIX_FPS=${TARGETPREFIX%.*}
+	TARGETPREFIX=output/vr/interpolate/intermediate/$TARGETPREFIX_FPS
 	FINALTARGETFOLDER=`realpath "output/vr/interpolate"`
 	mkdir -p output/vr/interpolate/intermediate
 	
@@ -144,7 +144,7 @@ else
 				exit 0
 		fi
 		
-		JOBLIST=`find output/vr/interpolate/intermediate -maxdepth 1 -type f -name "$TARGETPREFIX_UPSCALE""*-input.mp4"`
+		JOBLIST=`find output/vr/interpolate/intermediate -maxdepth 1 -type f -name "$TARGETPREFIX_FPS""*-input.mp4"`
 	fi
 	
 	declare -i INDEX=0
