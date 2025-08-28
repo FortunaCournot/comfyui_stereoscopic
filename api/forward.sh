@@ -11,6 +11,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 CheckProbeValue() {
     kopv="$1"
+	file="$2"
 	
 	key="${kopv%%[^a-z0-9_]*}"
 	value2="${kopv##*[^a-z0-9_]}"
@@ -22,6 +23,8 @@ CheckProbeValue() {
 		value1=`"$PYTHON_BIN_PATH"python.exe custom_nodes/comfyui_stereoscopic/api/python/get_vram.py`
 	elif [ "$key" = "tvai" ] ; then
 		if [ -d "$TVAI_BIN_DIR" ] ; then value1="true" ; else value1="false" ; fi
+	elif [ "$key" = "sbs" ] ; then
+		if [[ "$file" = *"_SBS_LR"* ]] ; then value1="true" ; else value1="false" ; fi
 	else
 		temp=`grep "$key" user/default/comfyui_stereoscopic/.tmpprobe.txt`
 		temp=${temp#*:}
@@ -32,7 +35,7 @@ CheckProbeValue() {
 			value1="$temp"
 		elif [ "$key" = "display_aspect_ratio" ] ; then
 			temp="${temp//:/\/}"
-			value1="$(( ${temp%.*} ))"
+			value1="$(( 1000 * ${temp%.*} ))"
 		elif [[ $temp = *"."* ]] ; then
 			value1="$(( ${temp%.*} ))"
 		else  # numeric expression
@@ -193,7 +196,7 @@ else
 										
 										for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
 										do
-											CheckProbeValue "$parameterkopv"
+											CheckProbeValue "$parameterkopv" "$file"
 											retval=$?
 											if [ "$retval" != 0 ] ; then
 												RULEFAILED="$parameterkopv"
@@ -213,7 +216,7 @@ else
 										
 										for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
 										do
-											CheckProbeValue "$parameterkopv"
+											CheckProbeValue "$parameterkopv" "$file"
 											retval=$?
 											if [ "$retval" != 0 ] ; then
 												RULEFAILED="$parameterkopv"

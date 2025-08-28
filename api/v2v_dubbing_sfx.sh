@@ -328,7 +328,7 @@ else
 	echo "Prompting done, dubbing...                               "
 	
 	if [ -e "$DUBBINGDIR/merged.flac" ]; then
-		TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
+		TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error | head -n 1`
 		AUDIOMAPOPT="-map 0:a:0"
 		if [[ $TESTAUDIO =~ "[STREAM]" ]]; then
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -q:a 0 -map a $DUBBINGDIR/source.mp3

@@ -131,28 +131,83 @@ else
 	PIXEL=$(( $RESW * $RESH ))
 	TVAI_FILTER_STRING_IP="$TVAI_FILTER_STRING_IP""$TARGETFPS"
 
-	set -x
-	nice "$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$INPUT" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING_IP" "$TARGETPREFIX"".mkv"
-	set +x
-	if [ -e "$TARGETPREFIX"".mkv" ] ; then
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
-		if [ -e "$TARGETPREFIX"".mp4" ] ; then
-			rm -f -- "$TARGETPREFIX"".mkv"
-			mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
-			mkdir -p input/vr/interpolate/done
-			mv -f -- "$INPUT" input/vr/interpolate/done
-			echo -e $"\e[92mdone\e[0m"
-		else
+	JOBLIST="$INPUT"
+	if [[ $INPUT == *"_SBS_LR"* ]] ; then
+		echo "Splitting..."
+		JOBLIST=
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$INPUT" -filter_complex "[0]crop=iw/2:ih:0:0[left];[0]crop=iw/2:ih:ow:0[right]" -map "[left]" "$TARGETPREFIX""-left-input.mp4" -map "[right]" "$TARGETPREFIX""-right-input.mp4"
+		
+		if [ ! -e "$TARGETPREFIX""-right-input.mp4" ] || [ ! -e "$TARGETPREFIX""-left-input.mp4" ] ; then
+				echo -e $"\e[91mError:\e[0m split failed. Check for error messages."
+				mkdir -p input/vr/interpolate/error
+				mv -vf -- "$INPUT" input/vr/interpolate/error
+				exit 0
+		fi
+		
+		JOBLIST=`find output/vr/interpolate/intermediate -maxdepth 1 -type f -name "$TARGETPREFIX_UPSCALE""*-input.mp4"`
+	fi
+	
+	declare -i INDEX=0
+	for inputfile in $JOBLIST ; do
+		INDEX+=1
+		echo "--- $INDEX $inputfile"
+		set -x
+		nice "$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$inputfile" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING_IP" "$TARGETPREFIX""-part""$INDEX"".mkv"
+		set +x
+		if [ ! -e "$TARGETPREFIX""-part""$INDEX".mkv ] ; then
+			echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING_IP in $CONFIGFILE"
+			mkdir -p input/vr/interpolate/error
+			mv -fv -- "$INPUT" input/vr/interpolate/error
+			exit 0
+		fi
+		
+		set -x
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""-part""$INDEX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX""-part""$INDEX"".mp4"
+		set +x
+		if [ ! -e "$TARGETPREFIX"-part"$INDEX".mp4 ] ; then
 			echo -e $"\e[91mError:\e[0m TVAI generation failed. Check for error messages."
 			mkdir -p input/vr/interpolate/error
 			mv -vf -- "$INPUT" input/vr/interpolate/error
 			exit 0
 		fi
+		rm -f -- "$TARGETPREFIX""-part""$INDEX"".mkv"
+		
+	done
+
+	if [[ $INPUT == *"_SBS_LR"* ]] ; then
+		echo "Joining..."
+
+		rm -f -- "$TARGETPREFIX""-right-input.mp4" "$TARGETPREFIX""-left-input.mp4"
+
+
+		TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$INPUT" -show_streams -select_streams a -loglevel error | head -n 1`
+		if [[ $TESTAUDIO =~ "[STREAM]" ]]; then
+			set -x
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""-part1.mp4" -i "$TARGETPREFIX""-part2.mp4" -i "$INPUT" -filter_complex "[0:v][1:v]hstack=inputs=2[v]" -map "[v]" -map "2:a" "$TARGETPREFIX".mp4
+			set +x
+		else
+			set -x
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""-part1.mp4" -i "$TARGETPREFIX""-part2.mp4" -i "$INPUT" -filter_complex "[0:v][1:v]hstack=inputs=2[v]" -map "[v]" "$TARGETPREFIX".mp4
+			set +x
+		fi
+		if [ ! -e "$TARGETPREFIX".mp4 ] ; then
+			echo -e $"\e[91mError:\e[0m join failed. Check for error messages."
+			mkdir -p input/vr/interpolate/error
+			mv -vf -- "$INPUT" input/vr/interpolate/error
+			exit 0
+		fi
+
+		rm -f -- "$TARGETPREFIX""-part1.mp4""$TARGETPREFIX""-part2.mp4"
+
 	else
-		echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING_IP in $CONFIGFILE"
-		mkdir -p input/vr/interpolate/error
-		mv -fv -- "$INPUT" input/vr/interpolate/error
+		mv -f -- "$TARGETPREFIX""-part1.mp4" "$TARGETPREFIX".mp4
 	fi
+
+	mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
+	mkdir -p input/vr/interpolate/done
+	mv -f -- "$INPUT" input/vr/interpolate/done
+	echo -e $"\e[92mdone\e[0m"
+	
 fi
 exit 0
 

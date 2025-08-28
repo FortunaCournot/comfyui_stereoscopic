@@ -205,7 +205,7 @@ else
 		queuecount=
 	fi
 	
-	TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error`
+	TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$SPLITINPUT" -show_streams -select_streams a -loglevel error | head -n 1`
 	AUDIOMAPOPT="-map 0:a:0"
 	if [[ ! $TESTAUDIO =~ "[STREAM]" ]]; then
 		AUDIOMAPOPT=""
