@@ -96,12 +96,12 @@ else
 					duration=${duration%.*}
 					override_active=0
 				fi
-				if test $duration -ge 60
+				if test $duration -ge 600
 				then
-					echo -e $"\e[93mWarning:\e[0m long video (>60s) detected; call $SCRIPTPATH directly or move it to input/vr/scaling$OVERRIDESUBPATH. Skipping $newfn"
+					echo -e $"\e[93mWarning:\e[0m long video (>600s) detected; call $SCRIPTPATH directly or move it to input/vr/scaling$OVERRIDESUBPATH. Skipping $newfn"
 					mkdir -p input/vr/scaling/stopped
 					mv -fv "$newfn" input/vr/scaling/stopped
-					sleep 10	# file will stay - this cause daemon to loop foreve - ensure user can read message
+					sleep 10
 				else
 					if [ ! -d "$TVAI_BIN_DIR" ] ; then
 						/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
