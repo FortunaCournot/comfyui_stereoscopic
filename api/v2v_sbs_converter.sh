@@ -159,10 +159,6 @@ else
 		
 		duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $SPLITINPUT`
 		duration=${duration%.*}
-		if test $duration -ge 60 ; then
-			[ $loglevel -ge 1 ] && echo "long video detected."
-			RESLIMIT=1920
-		fi
 
 		# Prepare to restrict resolution, and skip low res
 		if test $WIDTH -lt 128 -o $HEIGHT -lt  128

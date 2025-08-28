@@ -48,12 +48,12 @@ else
 	INPUTPATH=`dirname $INPUT`
 	
 	RESLIMIT=3840
-	duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
-	duration=${duration%.*}
-	if test $duration -ge 60 ; then
-		[ $loglevel -ge 1 ] && echo "long video detected."
-		RESLIMIT=1920
-	fi
+	#duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
+	#duration=${duration%.*}
+	#if test $duration -ge 60 ; then
+	#	[ $loglevel -ge 1 ] && echo "long video detected."
+	#	RESLIMIT=1920
+	#fi
 	
 	if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt $RESLIMIT
 	then 
