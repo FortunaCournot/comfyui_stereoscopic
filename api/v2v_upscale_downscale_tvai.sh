@@ -128,8 +128,8 @@ else
 	fi
 
 
-	if [ $PIXEL -lt $LIMIT2X ]; then
-		if [ $PIXEL -lt $LIMIT4X ]; then
+	if [ $PIXEL -le $LIMIT2X ]; then
+		if [ $PIXEL -le $LIMIT4X ]; then
 			TARGETPREFIX="$TARGETPREFIX""_x4"
 			UPSCALEFACTOR=4
 			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP4X"

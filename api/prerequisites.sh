@@ -157,7 +157,7 @@ export CONFIGFILE
 loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 [ $loglevel -ge 2 ] && set -x
 
-[ $loglevel -ge 0 ] && echo -e $"\e[1mUsing \e[36m$CONFIGFILE\e[0m"
+[ $loglevel -ge 0 ] && echo -e $"\e[2mUsing \e[36m$CONFIGFILE\e[0m"
 config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
 FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
@@ -336,6 +336,26 @@ cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/tasks/DO_NOT_PLACE_HERE.TXT
 mkdir -p input/vr/singleloop/error
 #touch input/vr/singleloop/error/CONSIDER_REPAIRING
 
+# Initialize input 'done' folders
+mkdir -p input/vr
+cd input/vr
+if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
+	for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
+		mkdir -p $stagepath/done
+	done
+	TASKDIR=`find tasks -maxdepth 1 -type d`
+	for task in $TASKDIR; do
+		task=${task#tasks/}
+		if [ ! -z $task ] ; then
+			mkdir -p tasks/$task/done
+		fi
+	done
+
+	touch fullsbs/done/.nocleanup slideshow/done/.nocleanup dubbing/sfx/done/.nocleanup watermark/encrypt/done/.nocleanup watermark/decrypt/done/.nocleanup singleloop/done/.nocleanup slides/done/.nocleanup tasks/credit-vr-we-are/done/.nocleanup tasks/vlimit-720p/done/.nocleanup tasks/vlimit-1080p/done/.nocleanup tasks/split-1m/done/.nocleanup tasks/fps-limit-15/done/.nocleanup
+	
+fi
+cd ../..
+
 # REBUILD WORKFLOW CHAIN
 mkdir -p output/vr
 cd output/vr
@@ -428,12 +448,30 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo "echo -ne $'\e[1m\e[95mVR we are credit is applied at the end. Replace this by your watermark task or remove the rule. Files without watermark are saved in \e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	DONEFOLDER=`realpath "../../input/vr/dubbing/sfx/done"`
 	echo "echo -e $'\e[36m$DONEFOLDER\e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	
 fi
 cd ../..
+
 [ $PIPELINE_AUTOFORWARD -ge 1 ] && echo -e $"Auto-Forwarding \e[32mactive\e[0m" || echo -e $"Auto-Forwarding \e[33mdeactivated\e[0m"
-echo -e $"... using \e[36m$CONFIGPATH""/rebuild_autoforward.sh\e[0m"
+echo -e $"\e[2m... using \e[36m$CONFIGPATH""/rebuild_autoforward.sh\e[0m"
 "$CONFIGPATH"/"rebuild_autoforward.sh"
+
+# Cleanup
+echo -e $"\e[2mCleaning up unprotected done folders\e[0m"
+for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
+	if [ ! -f input/vr/$stagepath/done/.nocleanup ] ; then
+		rm -f -- input/vr/$stagepath/done/* 2>/dev/null
+	fi
+done
+TASKDIR=`find input/vr/tasks -maxdepth 1 -type d`
+for task in $TASKDIR; do
+	task=${task#input/vr/tasks/}
+	if [ ! -z $task ] ; then
+		if [ ! -f input/vr/tasks/$task/done/.nocleanup ] ; then
+			rm -f -- input/vr/$stagepath/done/* 2>/dev/null
+		fi
+	fi
+done
+
 
 # CHECK FOR VERSION UPDATE AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
@@ -455,7 +493,7 @@ then
 	echo "music, voice, crying, squeaking." >$NEGATIVESFXPATH
 fi
 
-[ $loglevel -ge 0 ] && echo -e $"For processings read docs. \e[36mhttps://www.3d-gallery.org\e[0m"
+[ $loglevel -ge 0 ] && echo -e $"\e[2mFor processings read docs. \e[36mhttps://www.3d-gallery.org\e[0m"
 [ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
 
 

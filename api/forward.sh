@@ -125,9 +125,6 @@ else
 				SKIPPING_EMPTY_LINE=	# just ignore this line
 			elif [ -d input/vr/$destination ] ; then
 
-				[[ $destination == *"tasks/_"* ]] && echo 3
-				[[ $destination == *"tasks/"* ]] && echo 4
-
 				if [[ $destination == *"tasks/_"* ]] ; then
 					userdestination=tasks/${destination#tasks/_}
 
