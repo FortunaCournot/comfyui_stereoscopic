@@ -83,7 +83,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "LIMIT2X_NORMAL=2073600">>"$CONFIGFILE"
 	echo "# x4 scaling upper limit pixels for substage override">>"$CONFIGFILE"
 	echo "LIMIT4X_OVERRIDE=1036800">>"$CONFIGFILE"
-	echo "# x2 scaling upper limit pixels for substage override when 60s+ duration">>"$CONFIGFILE"
+	echo "# x2 scaling upper limit pixels for substage override when 600s+ duration">>"$CONFIGFILE"
 	echo "LIMIT2X_OVERRIDE_LONG=4147200">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
