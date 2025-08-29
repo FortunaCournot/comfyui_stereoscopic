@@ -117,6 +117,8 @@ else
 		forwarddef=`realpath $forwarddef`
 		
 		while read -r destination; do
+			[ !  -z "$destination" ] && [ "${destination:0:1}" = "#" ] && continue
+			
 			conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
 			destination=${destination#*]}
 			if [ -z "$destination" ] ; then

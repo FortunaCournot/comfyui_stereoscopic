@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-c:v libx264 -crf 18 -tune film -c:a copy",
+  "input": "video",
+  "output": "video",
+}
