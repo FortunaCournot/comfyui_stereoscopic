@@ -415,17 +415,19 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo "echo '"$HEADERCOMMENT"' >output/vr/singleloop/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'dubbing/sfx'        >>output/vr/singleloop/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo '"$HEADERCOMMENT"' >output/vr/singleloop/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo -ne $'\e[1m\e[95mVR we are credit is applied at the end. Replace this by your watermark task or remove the rule. Files without watermark are saved in \e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	DONEFOLDER=`realpath "../../input/vr/dubbing/sfx/done"`
-	echo "echo -e $'\e[36m$DONEFOLDER\e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# Replace this with your user defined watermark task:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '"$HEADERCOMMENT"' >output/vr/dubbing/sfx/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[duration<60]tasks/credit-vr-we-are' >>output/vr/dubbing/sfx/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# HINT:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# ... append more rules to this file , and"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# ... create you own tasks by copy a json template from "  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# ... custom_nodes\comfyui_stereoscopic\config\tasks to user\default\comfyui_stereoscopic\tasks"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "# Finally print some information to console when daemon is started:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo -ne $'\e[1m\e[95mVR we are credit is applied at the end. Replace this by your watermark task or remove the rule. Files without watermark are saved in \e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	DONEFOLDER=`realpath "../../input/vr/dubbing/sfx/done"`
+	echo "echo -e $'\e[36m$DONEFOLDER\e[0m'" >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	
 fi
 cd ../..
