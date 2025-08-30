@@ -417,6 +417,7 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo "echo '[duration<10:vram>6]tasks/vlimit-720p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[duration<10]singleloop' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[codec_type!=audio]dubbing/sfx' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[duration<60]tasks/credit-vr-we-are' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	#echo "# handle height>width:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	#echo "echo '[vram>8:display_aspect_ratio<1000]tasks/vlimit-1080p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	#echo "echo '[vram>8]tasks/vlimit-720p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"

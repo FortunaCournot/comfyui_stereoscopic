@@ -8,6 +8,20 @@ COMFYUIPATH=`realpath $(dirname "$0")/../..`
 
 cd $COMFYUIPATH
 
+cleanup() {
+	rm -f user/default/comfyui_stereoscopic/.daemonactive
+    exit 0 # exit script after cleanup
+}
+trap cleanup EXIT
+# Use Systempath for python by default, but set it explictly for comfyui portable.
+PYTHON_BIN_PATH=
+if [ -d "../python_embeded" ]; then
+  PYTHON_BIN_PATH=../python_embeded/
+fi
+mkdir -p user/default/comfyui_stereoscopic
+touch user/default/comfyui_stereoscopic/.daemonactive
+"$PYTHON_BIN_PATH"python.exe ./custom_nodes/comfyui_stereoscopic/api/python/status_gui.py 2>/dev/null &
+
 ./custom_nodes/comfyui_stereoscopic/api/prerequisites.sh || exit 1
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini

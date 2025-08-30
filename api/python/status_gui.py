@@ -1,39 +1,38 @@
 from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QVBoxLayout, QWidget
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap
-import sys, random
+import sys
 import os
+
+LOGOTIME = 3000
 
 path = os.path.dirname(os.path.abspath(__file__))
 
-ROWS = 10
-COLS = 4
-VALUES = ["ok", "error", "warn", "info", "idle"]
+COLNAMES = ["", "input", "processing", "output"]
+COLS = len(COLNAMES)
 
-# Color mapping
-def get_color(value):
-    mapping = {
-        "error": QColor("red"),
-        "ok": QColor("green"),
-        "warn": QColor("yellow"),
-        "info": QColor("blue")
-    }
-    return mapping.get(value.lower(), QColor("lightgray"))
+
+STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", ]
+ROWS = 1 + len(STAGES)
 
 class SpreadsheetApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VR we are - Status")
         self.setStyleSheet("background-color: black;")
+        self.setGeometry(100, 100, 300, 400)
+        self.move(60, 15)
 
         # Spreadsheet widget
         self.table = QTableWidget(ROWS, COLS)
-        self.table.setStyleSheet("background-color: black;")
+        self.table.setStyleSheet("background-color: black; color: black; gridline-color: black")
         self.table.setShowGrid(False)
+        self.table.setFrameStyle(0)
+        self.table.setSelectionMode(0)
 
         # Configure headers
-        self.table.horizontalHeader().setVisible(True)
-        self.table.verticalHeader().setVisible(True)
+        self.table.horizontalHeader().setVisible(False)
+        self.table.verticalHeader().setVisible(False)
         font = QFont()
         font.setBold(True)
         self.table.horizontalHeader().setFont(font)
@@ -53,7 +52,7 @@ class SpreadsheetApp(QWidget):
         self.logo_container.setLayout(vbox)
 
         self.logo_image = QLabel()
-        pixmap = QPixmap(os.path.join(path, "../../docs/icon/VR1.png"))
+        pixmap = QPixmap(os.path.join(path, "../../docs/icon/banner.png"))
         if not pixmap.isNull():
             self.logo_image.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         self.logo_image.setAlignment(Qt.AlignCenter)
@@ -78,7 +77,7 @@ class SpreadsheetApp(QWidget):
         self.switch_timer = QTimer()
         self.switch_timer.timeout.connect(self.show_table)
         self.switch_timer.setSingleShot(True)
-        self.switch_timer.start(5000)  # Show logo page for 5 seconds on startup
+        self.switch_timer.start(LOGOTIME)  # Show logo page for 2 seconds on startup
 
         # Cycle timer for repeating logo page every 3 minutes
         self.cycle_timer = QTimer()
@@ -90,12 +89,41 @@ class SpreadsheetApp(QWidget):
         self.update_timer.timeout.connect(self.update_table)
 
     def update_table(self):
+        
+        if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
+            sys.exit(app.exec_())
+            
         for r in range(ROWS):
             for c in range(COLS):
-                value = random.choice(VALUES)
-                item = QTableWidgetItem(value)
-                item.setForeground(QBrush(get_color(value)))
-                item.setBackground(QBrush(QColor("black")))
+                if c==0:
+                    if r==0:
+                        value = ""
+                    else:
+                        value = STAGES[r-1]
+                    item = QTableWidgetItem(value)
+                    font = QFont()
+                    font.setBold(True)
+                    font.setItalic(True)
+                    item.setFont(font)
+                    item.setForeground(QBrush(QColor("lightgray")))
+                    item.setBackground(QBrush(QColor("black")))
+                    item.setTextAlignment(Qt.AlignLeft + Qt.AlignVCenter)
+                else:
+                    if r==0:
+                        value = COLNAMES[c]
+                    else:
+                        value = "?"
+                    item = QTableWidgetItem(value)
+                    if r==0:
+                        font = QFont()
+                        font.setBold(True)
+                        font.setItalic(True)
+                        item.setFont(font)
+                        item.setForeground(QBrush(QColor("lightgray")))
+                    else:
+                        item.setForeground(QBrush(QColor("gray")))
+                    item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
+                    item.setBackground(QBrush(QColor("black")))
                 self.table.setItem(r, c, item)
 
     def show_table(self):
@@ -114,8 +142,16 @@ class SpreadsheetApp(QWidget):
         self.layout.addWidget(self.logo_container)
         self.switch_timer.start(5000)
 
+    def process_exists(self, pid):
+        return False
+
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = SpreadsheetApp()
-    window.show()
-    sys.exit(app.exec_())
+    if len(sys.argv) != 1:
+       print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " ")
+    elif os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
+        app = QApplication(sys.argv)
+        window = SpreadsheetApp()
+        window.show()
+        sys.exit(app.exec_())
+    else:
+        print("no lock.", os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive"))
