@@ -109,19 +109,47 @@ class SpreadsheetApp(QWidget):
                     item.setBackground(QBrush(QColor("black")))
                     item.setTextAlignment(Qt.AlignLeft + Qt.AlignVCenter)
                 else:
+                    color = "lightgray"
                     if r==0:
                         value = COLNAMES[c]
+                        color = "gray"
                     else:
-                        value = "?"
+                        if c==1:
+                            folder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
+                            if os.path.exists(folder):
+                                onlyfiles = next(os.walk(folder))[2]
+                                count = len(onlyfiles)
+                                if count>0:
+                                    value = str(count)
+                                else:
+                                    value = ""
+                            else:
+                                value = "?"
+                                color = "red"
+                        elif c==3:
+                            folder =  os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
+                            if os.path.exists(folder):
+                                onlyfiles = next(os.walk(folder))[2]
+                                count = len(onlyfiles)
+                                if count>0:
+                                    value = str(count)
+                                else:
+                                    value = ""
+                            else:
+                                value = "?"
+                                color = "red"
+                        elif c==2:
+                            value = ""
+                        else:
+                            value = "?"
+                            color = "red"
                     item = QTableWidgetItem(value)
                     if r==0:
                         font = QFont()
                         font.setBold(True)
                         font.setItalic(True)
                         item.setFont(font)
-                        item.setForeground(QBrush(QColor("lightgray")))
-                    else:
-                        item.setForeground(QBrush(QColor("gray")))
+                    item.setForeground(QBrush(QColor(color)))
                     item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                     item.setBackground(QBrush(QColor("black")))
                 self.table.setItem(r, c, item)
