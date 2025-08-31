@@ -9,5 +9,11 @@ echo %GITBIN%
 for /F "delims=" %%i in ("%GITBIN%") do set dirname="%%~dpi" 
 set dirname=%dirname:~0,-1%
 
-echo "Starting gui in git bash shell..."
-%dirname%..\git-bash.exe api/restart_gui.sh
+echo "Starting daemon in git bash shell..."
+echo on
+%dirname%..\git-bash.exe daemon.sh
+ 
+
+
+
+
