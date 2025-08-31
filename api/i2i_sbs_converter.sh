@@ -105,9 +105,10 @@ else
 	
 	if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -lt 128 -o `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -lt  128
 	then
-		echo -e $"\e[91mError:\e[0m Skipping low resolution image: $INPUT"
+		echo -e $"\e[93mWarning:\e[0m Skipping low resolution image: $INPUT"
 		mkdir -p  input/vr/fullsbs/error
-		mv -fv $INPUT input/vr/fullsbs/error
+		mv -fv -- $ORIGINALINPUT input/vr/fullsbs/error
+		exit 0
 	else
 
 		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt  8688

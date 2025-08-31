@@ -163,7 +163,10 @@ else
 		# Prepare to restrict resolution, and skip low res
 		if test $WIDTH -lt 128 -o $HEIGHT -lt  128
 		then
-			echo "Skipping low resolution video: $SPLITINPUT"
+			echo -e $"\e[93mWarning:\e[0m Skipping low resolution video: $SPLITINPUT"
+			mkdir -p input/vr/fullsbs/error
+			mv -fv -- $INPUT input/vr/fullsbs/error
+			exit 0
 		elif test $WIDTH -gt $RESLIMIT 
 		then 
 			echo "H-Resolution > $RESLIMIT: Downscaling..."

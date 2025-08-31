@@ -39,6 +39,7 @@ for dependency in $node_dependencies ; do
 					exit 1
 				fi
 			else
+				echo ""
 				echo -e $"\e[91mError:\e[0m Custom nodes $nodes not found. Please install version $minimum_version."
 				rm -f user/default/comfyui_stereoscopic/.daemonactive
 				sleep 30

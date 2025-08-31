@@ -85,7 +85,8 @@ elif [ -d "custom_nodes" ]; then
 			rm -f user/default/comfyui_stereoscopic/.daemonstatus
 			[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh scaling || exit 1 )
 		else
-			echo -e $"\e[93mWarning:\e[0m Less then 16GB of free memory - Skipped scaling. Memory: $MEMFREE/$MEMTOTAL"
+			echo -e $"\e[93mWarning:\e[0m Less than 16GB of free memory - Skipped scaling. Memory: $MEMFREE/ $MEMTOTAL"
+			mv -- input/vr/scaling/*.* output/vr/scaling
 		fi
 	fi
 
