@@ -8,7 +8,7 @@ LOGOTIME = 3000
 
 path = os.path.dirname(os.path.abspath(__file__))
 
-COLNAMES = ["", "input", "processing", "output"]
+COLNAMES = ["", "input (done)", "processing", "output"]
 COLS = len(COLNAMES)
 
 
@@ -118,11 +118,38 @@ class SpreadsheetApp(QWidget):
                             folder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
                             if os.path.exists(folder):
                                 onlyfiles = next(os.walk(folder))[2]
+                                onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
                                 count = len(onlyfiles)
                                 if count>0:
                                     value = str(count)
                                 else:
                                     value = ""
+                                subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/done")
+                                if os.path.exists(subfolder):
+                                    onlyfiles = next(os.walk(subfolder))[2]
+                                    nocleanup = False
+                                    #for f in onlyfiles:
+                                    #    print ( "f=", f, flush=True)
+                                    for f in onlyfiles:
+                                        if ".nocleanup" == f.lower():
+                                            nocleanup = True
+                                    if nocleanup:
+                                        onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
+                                        count = len(onlyfiles)
+                                        if count>0:
+                                            value = value + " ( " + str(count) + ")"
+                                            color = "green"
+                                subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
+                                if os.path.exists(subfolder):
+                                    onlyfiles = next(os.walk(subfolder))[2]
+                                    nocleanup = False
+                                    #for f in onlyfiles:
+                                    #    print ( "f=", f, flush=True)
+                                    onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
+                                    count = len(onlyfiles)
+                                    if count>0:
+                                        value = value + " " + str(count) + "!"
+                                        color = "red"
                             else:
                                 value = "?"
                                 color = "red"
@@ -130,6 +157,13 @@ class SpreadsheetApp(QWidget):
                             folder =  os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
                             if os.path.exists(folder):
                                 onlyfiles = next(os.walk(folder))[2]
+                                forward = False
+                                for f in onlyfiles:
+                                    if "forward.txt" == f.lower():
+                                        forward = True
+                                if not forward:
+                                    color = "green"
+                                onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
                                 count = len(onlyfiles)
                                 if count>0:
                                     value = str(count)
