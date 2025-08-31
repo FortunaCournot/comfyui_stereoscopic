@@ -445,6 +445,7 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# Replace this with your user defined own logo task:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '"$HEADERCOMMENT"' >output/vr/dubbing/sfx/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '# VR we are Logo © 2025 by Fortuna Cournot is licensed under CC BY-ND 4.0.' >>output/vr/dubbing/sfx/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[duration<60]tasks/credit-vr-we-are' >>output/vr/dubbing/sfx/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "# HINT:"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
