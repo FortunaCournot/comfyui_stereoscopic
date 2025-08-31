@@ -41,6 +41,8 @@ EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOO
 if [ ! -e "$EXIFTOOLBINARY" ]; then
 	echo -e $"\e[91mError:\e[0m Exiftool not found or properly configured. Set EXIFTOOLBINAR in"
 	echo -e $"\e[91m      \e[0m $CONFIGFILE"
+	echo -e $"\e[94m      \e[0m You may download Exiftool by visiting \e[36mhttps://exiftool.org\e[0m"
+	echo -e $"\e[94m      \e[0m The Exif tool binary must be renamed to exiftool.exe. Strip '(-k)' from name."
 	exit 1
 fi
 

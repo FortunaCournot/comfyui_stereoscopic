@@ -11,6 +11,7 @@ cd $COMFYUIPATH
 cleanup() {
 	rm -f user/default/comfyui_stereoscopic/.daemonactive
 	rm -f user/default/comfyui_stereoscopic/.daemonstatus
+	read -p "Press enter to continue"
     exit 0 # exit script after cleanup
 }
 trap cleanup EXIT
