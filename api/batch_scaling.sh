@@ -3,7 +3,6 @@
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
-
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
@@ -80,6 +79,8 @@ else
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
+			echo "scaling" >user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/scaling/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
@@ -120,6 +121,7 @@ else
 			fi			
 			
 		done
+		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	fi
 	rm -f input/vr/scaling/BATCHPROGRESS.TXT
 	
@@ -131,6 +133,8 @@ else
 		for nextinputfile in $IMGFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
+			echo "scaling" >user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/scaling/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
@@ -162,6 +166,7 @@ else
 			fi			
 			
 		done
+		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	fi
 	rm -f input/vr/scaling/BATCHPROGRESS.TXT
 	

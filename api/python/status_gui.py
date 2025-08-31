@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QVBoxLayout, QWidget, QAbstractItemView
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap
+from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon 
 import sys
 import os
 
@@ -13,14 +13,30 @@ COLS = len(COLNAMES)
 
 
 STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", ]
+subfolder = os.path.join(path, "../../../../custom_nodes/comfyui_stereoscopic/config/tasks")
+if os.path.exists(subfolder):
+    onlyfiles = next(os.walk(subfolder))[2]
+    for f in onlyfiles:
+        fl=f.lower()
+        if fl.endswith(".json"):
+            STAGES.append("tasks/" + fl[:-5])
+subfolder = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/tasks")
+if os.path.exists(subfolder):
+    onlyfiles = next(os.walk(subfolder))[2]
+    for f in onlyfiles:
+        fl=f.lower()
+        if fl.endswith(".json"):
+            STAGES.append("tasks/_" + fl[:-5])
 ROWS = 1 + len(STAGES)
+            
 
 class SpreadsheetApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VR we are - Status")
         self.setStyleSheet("background-color: black;")
-        self.setGeometry(100, 100, 300, 400)
+        self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
+        self.setGeometry(100, 100, 640, 600)
         self.move(60, 15)
 
         # Spreadsheet widget
@@ -28,8 +44,9 @@ class SpreadsheetApp(QWidget):
         self.table.setStyleSheet("background-color: black; color: black; gridline-color: black")
         self.table.setShowGrid(False)
         self.table.setFrameStyle(0)
-        self.table.setSelectionMode(0)
-
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.table.setFocusPolicy(Qt.NoFocus)
+        
         # Configure headers
         self.table.horizontalHeader().setVisible(False)
         self.table.verticalHeader().setVisible(False)
@@ -45,6 +62,9 @@ class SpreadsheetApp(QWidget):
         self.table.setColumnWidth(0, 250)
         for c in range(1, COLS):
             self.table.setColumnWidth(c, 100)
+
+        self.table.resizeRowsToContents()
+        self.table.resizeColumnsToContents()
 
         # Logo page widget (image + text)
         self.logo_container = QWidget()
@@ -80,9 +100,9 @@ class SpreadsheetApp(QWidget):
         self.switch_timer.start(LOGOTIME)  # Show logo page for 2 seconds on startup
 
         # Cycle timer for repeating logo page every 3 minutes
-        self.cycle_timer = QTimer()
-        self.cycle_timer.timeout.connect(self.show_logo_page)
-        self.cycle_timer.start(180000)  # 3 minutes
+        #self.cycle_timer = QTimer()
+        #self.cycle_timer.timeout.connect(self.show_logo_page)
+        #self.cycle_timer.start(180000)  # 3 minutes
 
         # Timer for updating table content
         self.update_timer = QTimer()
@@ -92,7 +112,23 @@ class SpreadsheetApp(QWidget):
         
         if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
             sys.exit(app.exec_())
-            
+
+        status="idle"
+        activestage=""
+        statusfile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonstatus")
+        if os.path.exists(statusfile):
+            with open(statusfile) as file:
+                statuslines = [line.rstrip() for line in file]
+                for line in range(len(statuslines)):
+                    print ( "line", line, flush=True)
+                    if line==0:
+                        activestage=statuslines[0]
+                        status="processing"
+                    else:
+                        status=status + " " + statuslines[line]
+        self.setWindowTitle("VR we are - " + activestage + " " + status)
+        
+        
         for r in range(ROWS):
             for c in range(COLS):
                 if c==0:
@@ -105,7 +141,12 @@ class SpreadsheetApp(QWidget):
                     font.setBold(True)
                     font.setItalic(True)
                     item.setFont(font)
-                    item.setForeground(QBrush(QColor("lightgray")))
+                    if value.startswith("tasks/_"):
+                        item.setForeground(QBrush(QColor("blue")))
+                    elif value.startswith("tasks/"):
+                        item.setForeground(QBrush(QColor("gray")))
+                    else:
+                        item.setForeground(QBrush(QColor("lightgray")))
                     item.setBackground(QBrush(QColor("black")))
                     item.setTextAlignment(Qt.AlignLeft + Qt.AlignVCenter)
                 else:
@@ -174,6 +215,11 @@ class SpreadsheetApp(QWidget):
                                 color = "red"
                         elif c==2:
                             value = ""
+                            if status!="idle":
+                                if activestage==STAGES[r-1]:
+                                    value=status
+                                    color="yellow"
+
                         else:
                             value = "?"
                             color = "red"
@@ -187,6 +233,8 @@ class SpreadsheetApp(QWidget):
                     item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                     item.setBackground(QBrush(QColor("black")))
                 self.table.setItem(r, c, item)
+                self.table.resizeRowsToContents()
+                self.table.resizeColumnsToContents()
 
     def show_table(self):
         # Replace logo page with table

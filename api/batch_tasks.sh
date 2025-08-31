@@ -105,6 +105,7 @@ else
 				exit 1
 			fi
 		done
+		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	fi
 	rm -f input/vr/tasks/BATCHPROGRESS.TXT
 	echo "Batch done."
