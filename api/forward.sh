@@ -44,6 +44,7 @@ CheckProbeValue() {
 	fi
 
 	if [ "$op" = "<" ] || [ "$op" = ">" ] ; then
+		if [ -z "$value1" ] ; then value1=0 ; fi
 		if [ "$op" = "<" ] ; then tmp="$value1" ; value1="$value2" ; value2="$tmp" ; fi
 		if [ "$value1" -gt "$value2" ] ; then
 			return 0

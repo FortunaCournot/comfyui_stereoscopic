@@ -120,7 +120,6 @@ class SpreadsheetApp(QWidget):
             with open(statusfile) as file:
                 statuslines = [line.rstrip() for line in file]
                 for line in range(len(statuslines)):
-                    print ( "line", line, flush=True)
                     if line==0:
                         activestage=statuslines[0]
                         status="processing"

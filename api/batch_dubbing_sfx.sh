@@ -54,6 +54,8 @@ else
 		for nextinputfile in $VIDFILES ; do
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
+			echo "dubbing/sfx" >user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/dubbing/sfx/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}

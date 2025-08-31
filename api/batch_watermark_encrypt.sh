@@ -101,6 +101,8 @@ else
 		VIDEOFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
+			echo "watermark/encrypt" >user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
 
 			regex="[^/]*$"
 			echo "========== $INDEX/$COUNT"" encode "`echo $nextinputfile | grep -oP "$regex"`" =========="
@@ -131,6 +133,8 @@ else
 				exit 1
 			fi
 			INDEX+=1
+			echo "watermark/encrypt" >user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
 
 			regex="[^/]*$"
 			echo "========== $INDEX/$COUNT"" encode "`echo $nextinputfile | grep -oP "$regex"`" =========="

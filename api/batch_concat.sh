@@ -52,6 +52,7 @@ else
 	INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		IMGANDVIDFILES=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4'`
+		echo "concat" >user/default/comfyui_stereoscopic/.daemonstatus
 	
 		echo "" >output/vr/concat/intermediate/mylist.txt
 		for nextinputfile in $IMGANDVIDFILES ; do

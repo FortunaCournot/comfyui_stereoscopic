@@ -56,6 +56,8 @@ else
 			TASKNAME=${INPUTDIR##*/}
 
 			INDEX+=1
+			echo "tasks/$TASKNAME" >user/default/comfyui_stereoscopic/.daemonstatus
+			echo "$INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=$INPUTDIR/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
