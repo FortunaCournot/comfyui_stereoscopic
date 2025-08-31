@@ -5,6 +5,8 @@ import sys
 import os
 
 LOGOTIME = 3000
+status="idle"
+idletime = 0
 
 path = os.path.dirname(os.path.abspath(__file__))
 
@@ -108,7 +110,20 @@ class SpreadsheetApp(QWidget):
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_table)
 
+        self.idlecount_timer = QTimer()
+        self.idlecount_timer.timeout.connect(self.update_idlecount)
+        self.idlecount_timer.start(1000)  # 1s
+
+
+
+    def update_idlecount(self):
+        global idletime
+        if status=="idle":
+            idletime += 1
+
+
     def update_table(self):
+        global idletime
         
         if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
             sys.exit(app.exec_())
@@ -123,10 +138,10 @@ class SpreadsheetApp(QWidget):
                     if line==0:
                         activestage=statuslines[0]
                         status="processing"
+                        idletime=0
                     else:
                         status=status + " " + statuslines[line]
         self.setWindowTitle("VR we are - " + activestage + " " + status)
-        
         
         for r in range(ROWS):
             for c in range(COLS):
@@ -198,6 +213,8 @@ class SpreadsheetApp(QWidget):
                             if os.path.exists(folder):
                                 onlyfiles = next(os.walk(folder))[2]
                                 forward = False
+                                if idletime>15:
+                                    color = "green"
                                 for f in onlyfiles:
                                     if "forward.txt" == f.lower():
                                         forward = True
