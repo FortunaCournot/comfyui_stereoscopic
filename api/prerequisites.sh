@@ -13,6 +13,41 @@ if [ ! -e "custom_nodes/comfyui_stereoscopic/.test" ] ; then
 	exit 1
 fi
 
+node_dependencies=`cat custom_nodes/comfyui_stereoscopic/node_dependencies.txt`
+for dependency in $node_dependencies ; do
+	if [ ! -z "$dependency" ] ; then
+			nodes="${dependency%=*}"
+			minimum_version="${dependency#*\=}"
+			if [ -e "custom_nodes/""$nodes""/pyproject.toml" ] ; then
+				v=`grep "^version" custom_nodes/"$nodes"/pyproject.toml` ; v=${v#*\"} ; current_version="${v%\"*}"
+				v1_min=${minimum_version%%\.*}
+				v1_cur=${current_version%%\.*}
+				v2_min=${minimum_version%\.*} ; v2_min=${v2_min#*\.}
+				v2_cur=${current_version%\.*} ; v2_cur=${v2_cur#*\.}
+				v3_min=${minimum_version##*\.} ; v3_min=${v3_min%[^0-9]*} 
+				v3_cur=${current_version##*\.} ; v3_cur=${v3_cur%[^0-9]*} 
+				if [ "$v1_cur" -gt "$v1_min" ] ; then
+					continue
+				elif [ "$v1_cur" -eq "$v1_min" ] && [ "$v2_cur" -gt "$v2_min" ] ; then
+					continue
+				elif [ "$v1_cur" -eq "$v1_min" ] && [ "$v2_cur" -eq "$v2_min" ] && [ "$v3_cur" -ge "$v3_min" ] ; then
+					continue
+				else
+					echo -e $"\e[91mError:\e[0m Custom nodes $nodes version ($current_version) to low. Please upgrade to $minimum_version."
+					rm -f user/default/comfyui_stereoscopic/.daemonactive
+					sleep 30
+					exit 1
+				fi
+			else
+				echo -e $"\e[91mError:\e[0m Custom nodes $nodes not found. Please install version $minimum_version."
+				rm -f user/default/comfyui_stereoscopic/.daemonactive
+				sleep 30
+				exit 1
+			fi
+	fi
+done
+ 
+
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
 	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}

@@ -13,6 +13,7 @@ SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/python/i2t_caption.py
 SCRIPTPATH3=./custom_nodes/comfyui_stereoscopic/api/python/translate.py
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 
+CAPTION_TIMEOUT=30
 
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
@@ -142,7 +143,7 @@ else
 				WAIT+=1
 				echo -ne "$WAIT\r"
 				sleep 1
-				if [[ $WAIT -ge 30 ]] ; then
+				if [[ $WAIT -ge $CAPTION_TIMEOUT ]] ; then
 					echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
 					exit 1
 				fi
@@ -253,7 +254,7 @@ else
 					WAIT+=1
 					echo -ne "$WAIT\r"
 					sleep 1
-					if [ $WAIT -ge 30 ] ; then
+					if [ $WAIT -ge $CAPTION_TIMEOUT ] ; then
 						echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
 						exit 1
 					fi

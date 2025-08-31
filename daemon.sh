@@ -15,6 +15,7 @@ cleanup() {
     exit 0 # exit script after cleanup
 }
 trap cleanup EXIT
+
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
