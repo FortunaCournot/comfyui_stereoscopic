@@ -151,8 +151,10 @@ else
 	for inputfile in $JOBLIST ; do
 		INDEX+=1
 		echo "--- $INDEX $inputfile"
+		echo "Reencode input..."
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$inputfile" -vcodec libx264 -crf 18 -qscale:v 2 -acodec aac -ac 2 -async 1 -strict experimental -threads 0 "$TARGETPREFIX""-rep-part""$INDEX"".mp4"
 		
+		echo "Interpolate..."
 		set -x
 		nice "$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$TARGETPREFIX""-rep-part""$INDEX"".mp4" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING_IP" "$TARGETPREFIX""-part""$INDEX"".mkv"
 		set +x
@@ -164,7 +166,8 @@ else
 			exit 0
 		fi
 		
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""-part""$INDEX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX""-part""$INDEX"".mp4"
+		echo "Reencode output..."
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""-part""$INDEX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p "$TARGETPREFIX""-part""$INDEX"".mp4"
 		if [ ! -e "$TARGETPREFIX"-part"$INDEX".mp4 ] ; then
 			echo -e $"\e[91mError:\e[0m TVAI generation failed. Check for error messages."
 			mkdir -p input/vr/interpolate/error
