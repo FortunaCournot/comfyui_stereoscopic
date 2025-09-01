@@ -141,13 +141,13 @@ else
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX"".mp4"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
-	if [ -e "$TARGETPREFIX"".mp4" ] ; then
+	if [ -e "$TARGETPREFIX"".mp4" ] && [ -s "$TARGETPREFIX"".mp4" ] ; then
 		mv -- "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $INPUT input/vr/tasks/$TASKNAME/done
 		echo -e $"\e[92mtask done.\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m Task failed. Missing $TARGETPREFIX"".mp4"
+		echo -e $"\e[91mError:\e[0m Task failed. $TARGETPREFIX"".mp4 missing or zero-length."
 		rm -f -- "$TARGETPREFIX"".mp4" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $INPUT input/vr/tasks/$TASKNAME/error
