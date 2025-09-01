@@ -385,7 +385,7 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 		fi
 	done
 
-	touch fullsbs/done/.nocleanup slideshow/done/.nocleanup dubbing/sfx/done/.nocleanup watermark/encrypt/done/.nocleanup watermark/decrypt/done/.nocleanup singleloop/done/.nocleanup slides/done/.nocleanup tasks/credit-vr-we-are/done/.nocleanup tasks/vlimit-720p/done/.nocleanup tasks/vlimit-1080p/done/.nocleanup tasks/split-1m/done/.nocleanup tasks/fps-limit-15/done/.nocleanup
+	touch fullsbs/done/.nocleanup slideshow/done/.nocleanup interpolate/done/.nocleanup dubbing/sfx/done/.nocleanup watermark/encrypt/done/.nocleanup watermark/decrypt/done/.nocleanup singleloop/done/.nocleanup slides/done/.nocleanup tasks/credit-vr-we-are/done/.nocleanup tasks/vlimit-720p/done/.nocleanup tasks/vlimit-1080p/done/.nocleanup tasks/split-1m/done/.nocleanup tasks/fps-limit-15/done/.nocleanup
 	
 fi
 cd ../..
