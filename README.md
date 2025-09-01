@@ -1,7 +1,10 @@
 # VR we are! (comfyui_stereoscopic nodes and scripts)
 ComfyUI Custom Nodes to create stereoscopic images and movies.
 
-Project Homepage with documentation and download is on Civitai: [![VR we are!](https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/advertising/VR-we-are-title.png)](https://civitai.com/models/1757677)
+Project Landing Page is [![https://www.3d-gallery.org/!]
+(https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/icon/banner.png)](https://www.3d-gallery.org/)
+
+Documentation and download is available on Civitai: [![VR we are!](https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/advertising/VR-we-are-title.png)](https://civitai.com/models/1757677)
 
 ## Summary
 

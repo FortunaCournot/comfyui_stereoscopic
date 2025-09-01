@@ -1,7 +1,7 @@
 {
   "version": "1",
   "blueprint": "ffmpeg-v2v",
-  "options": "-vcodec libx264 -crf 18 -qscale:v 2 -acodec aac -ac 2 -async 1 -strict experimental -threads 0 -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' -an",
+  "options": "-vcodec libx264 -crf 18 -qscale:v 2 -acodec aac -ac 2 -async 1 -strict experimental -threads 0 -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2'",
   "input": "video",
   "output": "video",
 }

@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-c copy -an",
+  "input": "video",
+  "output": "video",
+}
