@@ -22,6 +22,7 @@ trap cleanup EXIT
 echo "Restarting gui ..."
 "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH &
 
+echo "Closing on daemon shutdown. Waiting..."
 while [ -e user/default/comfyui_stereoscopic/.daemonactive ]; do
-	sleep 5
+	sleep 1
 done

@@ -60,7 +60,7 @@ else
 		echo -ne "$PROGRESS""Reversing #$i: ...                \r"
 		LOOPSEGMENT="part_$i.mp4"
 		# reverse audio does not sound well. it needs redubbing. [0:a]areverse[a];  -map "[a]" 
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$FPATH" -filter_complex "[0:v]reverse,fifo[rv];[0:v][rv]concat=n=2:v=1[v]" -map "[v]" "$LOOPSEGMENT"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$FPATH" -filter_complex "[0:v]reverse[rv];[0:v][rv]concat=n=2:v=1[v]" -map "[v]" "$LOOPSEGMENT"
 		echo "file part_$i.mp4" >>mylist.txt
 		cd ../../../..
 	done

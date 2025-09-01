@@ -87,3 +87,4 @@ echo " "
 
 echo -e $"\e[92m####### ALL TESTS SUCCEEDED ######\e[0m"
 rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
+exit 0

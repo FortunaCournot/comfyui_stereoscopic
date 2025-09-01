@@ -39,24 +39,23 @@ then
     # targetprefix path is relative; parent directories are created as needed
     echo "Usage: $0 input"
     echo "E.g.: $0 SmallIconicTown.mp4"
-elif [ ! -d "$COMFYUIPATH/custom_nodes/ComfyUI-MMAudio" ]
-then
-	echo -e $"\e[91mError:\e[0m ComfyUI-MMAudio custom nodes not installed from https://github.com/kijai/ComfyUI-MMAudio. This needs manual setup, read the manual please. "
-elif [ ! -d "$COMFYUIPATH/custom_nodes/comfyui-florence2" ]
-then
-	echo -e $"\e[91mError:\e[0m comfyui-florence2 custom nodes not installed. Please install through ComfyUI Manager."
+	exit 1
 elif [ ! -e "$COMFYUIPATH/models/mmaudio/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" ]
 then
 	echo -e $"\e[91mError:\e[0m mmaudio models not yet installed. Follow guide at https://github.com/kijai/ComfyUI-MMAudio?tab=readme-ov-file#installation"
+	exit 1
 elif [ ! -e "$COMFYUIPATH/models/mmaudio/mmaudio_vae_44k_fp16.safetensors" ]
 then
 	echo -e $"\e[91mError:\e[0m mmaudio models not yet installed. Follow guide at https://github.com/kijai/ComfyUI-MMAudio?tab=readme-ov-file#installation"
+	exit 1
 elif [ ! -e "$COMFYUIPATH/models/mmaudio/mmaudio_large_44k_v2_fp16.safetensors" ]
 then
 	echo -e $"\e[91mError:\e[0m mmaudio models not yet installed. Follow guide at https://github.com/kijai/ComfyUI-MMAudio?tab=readme-ov-file#installation"
+	exit 1
 elif [ ! -e "$COMFYUIPATH/models/mmaudio/mmaudio_synchformer_fp16.safetensors" ]
 then
 	echo -e $"\e[91mError:\e[0m mmaudio models not yet installed. Follow guide at https://github.com/kijai/ComfyUI-MMAudio?tab=readme-ov-file#installation"
+	exit 1
 else
 	
 	cd $COMFYUIPATH
@@ -88,7 +87,7 @@ else
 	FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
 
 	DUBBINGSEGMENTTING_THRESHOLD=$(awk -F "=" '/DUBBINGSEGMENTTING_THRESHOLD/ {print $2}' $CONFIGFILE) ; DUBBINGSEGMENTTING_THRESHOLD=${DUBBINGSEGMENTTING_THRESHOLD:-"20"}
-	DUBBINGSEGMENTTIME=$(awk -F "=" '/DUBBINGSEGMENTTIME/ {print $2}' $CONFIGFILE) ; DUBBINGSEGMENTTIME=${DUBBINGSEGMENTTIME:-"5"}
+	DUBBINGSEGMENTTIME_DURATION=$(awk -F "=" '/DUBBINGSEGMENTTIME_DURATION/ {print $2}' $CONFIGFILE) ; DUBBINGSEGMENTTIME_DURATION=${DUBBINGSEGMENTTIME_DURATION:-"5"}
 
 
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
@@ -121,13 +120,14 @@ else
 	temp=${temp#*:}
 	temp="${temp%\"*}"
     temp="${temp#*\"}"
-    duration="${temp%,*}"
-
-	if [ $duration -le $DUBBINGSEGMENTTING_THRESHOLD ]; then
+    temp="${temp%,*}"
+    duration="${temp%.*}"
+	duration=$(( duration ))
+	if [ "$duration" -le "$DUBBINGSEGMENTTING_THRESHOLD" ]; then
 		SEGMENTTIME=$(( $duration + 1 ))
 		PARALLELITY=1
 	else
-		SEGMENTTIME=$DUBBINGSEGMENTTIME
+		SEGMENTTIME=$DUBBINGSEGMENTTIME_DURATION
 		PARALLELITY=1
 	fi
 	AUDIOSEGMENTLENGTH=$((SEGMENTTIME * PARALLELITY))

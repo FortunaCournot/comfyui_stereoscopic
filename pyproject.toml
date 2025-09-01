@@ -1,7 +1,7 @@
 
 [project]
 name = "comfyui_stereoscopic"
-version = "2.2.3"
+version = "3.0.0"
 description = 'VR we are! Tool, nodes and workflows to create stereoscopic images and movies. <a href="http://www.3d-gallery.org/">http://www.3d-gallery.org/"</a>'
 readme = "README.md"
 license = {file = "LICENSE"}

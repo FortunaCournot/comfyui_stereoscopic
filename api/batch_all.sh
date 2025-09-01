@@ -64,8 +64,8 @@ elif [ -d "custom_nodes" ]; then
 	# workaround for recovery problem.
 	#./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
 	
-	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
-	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
+	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
 		MEMFREE=`awk '/MemFree/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
 		MEMTOTAL=`awk '/MemTotal/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
@@ -166,15 +166,20 @@ elif [ -d "custom_nodes" ]; then
 	### SKIP IF DEPENDENCY CHECK FAILED ###
 	DUBCOUNTSFX=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
-		# DUBBING: Video -> Video with SFX
-		# In:  input/vr/dubbing/sfx
-		# Out: output/vr/dubbing/sfx
-		[ $loglevel -ge 1 ] && echo "**************************"
-		[ $loglevel -ge 0 ] && echo "****** DUBBING SFX *******"
-		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh || exit 1
-		rm -f user/default/comfyui_stereoscopic/.daemonstatus
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh dubbing/sfx || exit 1 )
+		if [ -x "$(command -v nvidia-smi)" ]; then
+			# DUBBING: Video -> Video with SFX
+			# In:  input/vr/dubbing/sfx
+			# Out: output/vr/dubbing/sfx
+			[ $loglevel -ge 1 ] && echo "**************************"
+			[ $loglevel -ge 0 ] && echo "****** DUBBING SFX *******"
+			[ $loglevel -ge 1 ] && echo "**************************"
+			./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_sfx.sh || exit 1
+			rm -f user/default/comfyui_stereoscopic/.daemonstatus
+			[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh dubbing/sfx || exit 1 )
+		else
+			echo 'Warning: nvidea-smi is not installed. Dubbing required CUDA.'
+		fi
+
 	elif [ $DUBCOUNTSFX -gt 0 ]; then
 		mkdir -p input/vr/dubbing/sfx/error
 		mv -fv input/vr/dubbing/sfx/*.mp4 input/vr/dubbing/sfx/error

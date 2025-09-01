@@ -1,8 +1,5 @@
 @echo off
 
-set sp=%CD%
-
-
 
 WHERE git.exe >%temp%\.tmpstereoscopic
 SET /p GITBIN= < %temp%\.tmpstereoscopic
@@ -14,6 +11,7 @@ for /F "delims=" %%i in ("%GITBIN%") do set dirname="%%~dpi"
 set dirname=%dirname:~0,-1%
 
 echo "Starting gui in git bash shell..."
-%dirname%..\git-bash.exe %sp%api/restart_gui.sh
-exit 
+echo on
+%dirname%..\git-bash.exe api/restart_gui.sh
+
 

@@ -52,7 +52,7 @@ done
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
 	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	if [ $config_version -lt 4 ]; then
+	if [ $config_version -lt 7 ]; then
 		mv -f -- $CONFIGFILE $CONFIGFILE-$config_version.bak
 	fi
 fi
@@ -64,7 +64,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
 	echo "# if you delete this file it will be recreated on next start of the daemon."  >>"$CONFIGFILE"
 	echo "# Warning: Simple syntax. inline comments are not supported.">>"$CONFIGFILE"
-	echo "config_version=4">>"$CONFIGFILE"
+	echo "config_version=7">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# Loglevel is not fully implemented overall yet.  -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x), keep intermediate. ">>"$CONFIGFILE"			
@@ -139,6 +139,10 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- dubbing config ---">>"$CONFIGFILE"
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
 	echo "SPLITSEGMENTTIME=1">>"$CONFIGFILE"
+	echo "# Videos with durations below above this threshold will be segmented.">>"$CONFIGFILE"
+	echo "DUBBINGSEGMENTTING_THRESHOLD=20">>"$CONFIGFILE"
+	echo "# Segment Duration. should be same as slide duration (including transition) for slideshows dubbing.">>"$CONFIGFILE"
+	echo "DUBBINGSEGMENTTIME_DURATION=5">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
 	echo "# --- watermark config ---">>"$CONFIGFILE"
@@ -171,6 +175,36 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "EXIF_PURGE_CSKEYLIST=Prompt,Workflow,UserComment" >>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
  
+ 
+	echo "# --- TVAI config ---">>"$CONFIGFILE"
+
+	# Check windows default path for default
+	echo "# Path of the Topaz Video AI (v6 + v7) software. If present Video AI software is used for the video scaling stage.">>"$CONFIGFILE"
+	if [ -e  '/c/Program Files/Topaz Labs LLC/Topaz Video AI/ffmpeg.exe' ] ; then
+		echo "TVAI_BIN_DIR=/c/Program Files/Topaz Labs LLC/Topaz Video AI" >>"$CONFIGFILE"
+	else
+		echo "TVAI_BIN_DIR=" >>"$CONFIGFILE"
+	fi
+
+	echo "# Path to the Topaz Video AI models. Refer to manual">>"$CONFIGFILE"
+	if [ -e  '$TVAI_MODEL_DATA_DIR' ] && [ -e  '$TVAI_MODEL_DIR' ] ; then
+		echo "TVAI_MODEL_DATA_DIR=$TVAI_MODEL_DATA_DIR" >>"$CONFIGFILE"
+		echo "TVAI_MODEL_DIR=$TVAI_MODEL_DIR" >>"$CONFIGFILE"
+	elif [ -e  '/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models' ] ; then
+		echo "TVAI_MODEL_DATA_DIR=/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models" >>"$CONFIGFILE"
+		echo "TVAI_MODEL_DIR=/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models" >>"$CONFIGFILE"
+	else
+		echo "TVAI_MODEL_DATA_DIR=" >>"$CONFIGFILE"
+		echo "TVAI_MODEL_DIR=" >>"$CONFIGFILE"
+	fi
+	
+	echo "# TVAI Upscale Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR. better for portrait: iris-2">>"$CONFIGFILE"
+	echo "TVAI_FILTER_STRING_UP4X=tvai_up=model=prob-4:scale=4:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.0:device=0:vram=1:instances=1">>"$CONFIGFILE"
+	echo "TVAI_FILTER_STRING_UP2X=tvai_up=model=prob-4:scale=2:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.0:device=0:vram=1:instances=1">>"$CONFIGFILE"
+	echo "# TVAI Interpolate Filter String; MUST END WITH ':fps=', target fps is calculated. Ensure the model json, here chf-3, is existing in TVAI MODEL DIR.">>"$CONFIGFILE"
+	echo "TVAI_FILTER_STRING_IP=tvai_fi=model=chf-3:slowmo=1:rdt=-0.000001:device=0:vram=1:instances=1:fps=">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+
 
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 
@@ -204,56 +238,19 @@ DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEP
 
 CONFIGERROR=
 
-# Delta Upgrade config to version 5
-NEXTUPGRADESTEPVERSION=5
-if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
-	echo "Upgrading config.ini from v$config_version to v$NEXTUPGRADESTEPVERSION"
+# Delta Upgrade config to version 6
+#NEXTUPGRADESTEPVERSION=7
+#if [ $config_version -lt $NEXTUPGRADESTEPVERSION ] ; then
+#	sed -i "/^config_version=/s/=.*/="$NEXTUPGRADESTEPVERSION"/" $CONFIGFILE
+#	echo "">>"$CONFIGFILE"
+#	echo "Upgrading config.ini from v$config_version to v$NEXTUPGRADESTEPVERSION"
+#	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+#	echo "Upgraded config.ini to v$config_version"
+#fi
 
-	echo "# --- TVAI config ---">>"$CONFIGFILE"
 
-	# Check windows default path for default
-	echo "# Path of the Topaz Video AI (v6 + v7) software. If present Video AI software is used for the video scaling stage.">>"$CONFIGFILE"
-	if [ -e  '/c/Program Files/Topaz Labs LLC/Topaz Video AI/ffmpeg.exe' ] ; then
-		echo "TVAI_BIN_DIR=/c/Program Files/Topaz Labs LLC/Topaz Video AI" >>"$CONFIGFILE"
-	else
-		echo "TVAI_BIN_DIR=" >>"$CONFIGFILE"
-	fi
-
-	echo "# Path to the Topaz Video AI models. Refer to manual">>"$CONFIGFILE"
-	if [ -e  '$TVAI_MODEL_DATA_DIR' ] && [ -e  '$TVAI_MODEL_DIR' ] ; then
-		echo "TVAI_MODEL_DATA_DIR=$TVAI_MODEL_DATA_DIR" >>"$CONFIGFILE"
-		echo "TVAI_MODEL_DIR=$TVAI_MODEL_DIR" >>"$CONFIGFILE"
-	elif [ -e  '/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models' ] ; then
-		echo "TVAI_MODEL_DATA_DIR=/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models" >>"$CONFIGFILE"
-		echo "TVAI_MODEL_DIR=/c/ProgramData/Topaz Labs LLC/Topaz Video AI/models" >>"$CONFIGFILE"
-	else
-		echo "TVAI_MODEL_DATA_DIR=" >>"$CONFIGFILE"
-		echo "TVAI_MODEL_DIR=" >>"$CONFIGFILE"
-	fi
-	
-	echo "# TVAI Upscale Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR. better for portrait: iris-2">>"$CONFIGFILE"
-	echo "TVAI_FILTER_STRING_UP4X=tvai_up=model=prob-4:scale=4:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
-	echo "TVAI_FILTER_STRING_UP2X=tvai_up=model=prob-4:scale=2:recoverOriginalDetailValue=0:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.2:device=0:vram=1:instances=1"
-	echo "# TVAI Interpolate Filter String; MUST END WITH ':fps=', target fps is calculated. Ensure the model json, here chf-3, is existing in TVAI MODEL DIR.">>"$CONFIGFILE"
-	echo "TVAI_FILTER_STRING_IP=tvai_fi=model=chf-3:slowmo=1:rdt=-0.000001:device=0:vram=1:instances=1:fps="
-	echo "">>"$CONFIGFILE"
-
-	echo "# --- dubbing config update ---">>"$CONFIGFILE"
-	echo "# Videos with durations below above this threshold will be segmented.">>"$CONFIGFILE"
-	echo "DUBBINGSEGMENTTING_THRESHOLD=20">>"$CONFIGFILE"
-	echo "# Segment Duration. should be same as slide duration (including transition) for slideshows dubbing.">>"$CONFIGFILE"
-	echo "DUBBINGSEGMENTTIME=5">>"$CONFIGFILE"
-	echo "">>"$CONFIGFILE"
-
-	sed -i "/^config_version=/s/=.*/="$NEXTUPGRADESTEPVERSION"/" $CONFIGFILE
-	echo "">>"$CONFIGFILE"
-	
-	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	echo "Upgraded config.ini to v$config_version"
-fi
 
 TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
-
 
 ### CHECK TOOLS ###
 if ! command -v $FFMPEGPATHPREFIX"ffmpeg" >/dev/null 2>&1
