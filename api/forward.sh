@@ -3,6 +3,7 @@
 # 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
+LOGRULES=0
 
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
@@ -49,12 +50,15 @@ CheckProbeValue() {
 		if [ "$value1" -gt "$value2" ] ; then
 			return 0
 		else
+			[ $LOGRULES -gt 0 ] && echo "Rule failed: $kopv for $file"": $value1 $op $value2"
 			return -1
 		fi
 	elif [ "$op" = '!=' ] || [ "$op" = '=' ] ; then
 		if [ "$value1" = "$value2" ] ; then
+			[ $LOGRULES -gt 0 ] && [ "$op" != '=' ] && echo "Rule failed: $kopv for $file"": $value1 $op $value2"
 			[ "$op" = '=' ] && return 0 || return -1
 		else
+			[ $LOGRULES -gt 0 ] && [ "$op" = '=' ] && echo "Rule failed: $kopv for $file"": $value1 $op $value2"
 			[ "$op" = '=' ] && return -1 || return 0
 		fi
 	else
@@ -191,6 +195,7 @@ else
 									RULEFAILED=
 									if [ ! -z "$conditionalrules" ] ; then
 										
+										rm -f -- user/default/comfyui_stereoscopic/.tmpprobe.txt 2>/dev/null
 										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames,display_aspect_ratio -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
 										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$file" >>user/default/comfyui_stereoscopic/.tmpprobe.txt`
 										
@@ -204,7 +209,7 @@ else
 											fi
 										done
 									fi
-									[ -z "$RULEFAILED" ] && mv -f -- $file input/vr/$destination 2>/dev/null
+									[ -z "$RULEFAILED" ] && mv -fv -- $file input/vr/$destination
 								done
 							elif  [[ $i == "image" ]] ; then
 								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
@@ -212,6 +217,7 @@ else
 									RULEFAILED=
 									if [ ! -z "$conditionalrules" ] ; then
 									
+										rm -f -- user/default/comfyui_stereoscopic/.tmpprobe.txt 2>/dev/null
 										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=width,height -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
 										
 										for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
@@ -224,7 +230,7 @@ else
 											fi
 										done
 									fi
-									[ -z "$RULEFAILED" ] && mv -f -- $file input/vr/$destination 2>/dev/null
+									[ -z "$RULEFAILED" ] && mv -fv -- $file input/vr/$destination
 								done
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"

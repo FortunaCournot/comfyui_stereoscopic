@@ -1,10 +1,19 @@
 from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QVBoxLayout, QWidget, QAbstractItemView
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon 
+from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor
 import sys
 import os
+from PIL import Image
+import urllib.request
+from urllib.error import HTTPError
+import requests
+from random import randrange
+import webbrowser
 
 LOGOTIME = 3000
+BREAKFREQ = 30000
+TABLEUPDATEFREQ = 1000
+BREAKTIME = 20000
 status="idle"
 idletime = 0
 
@@ -72,13 +81,11 @@ class SpreadsheetApp(QWidget):
         self.logo_container = QWidget()
         vbox = QVBoxLayout()
         self.logo_container.setLayout(vbox)
-
         self.logo_image = QLabel()
         pixmap = QPixmap(os.path.join(path, "../../docs/icon/banner.png"))
         if not pixmap.isNull():
             self.logo_image.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         self.logo_image.setAlignment(Qt.AlignCenter)
-
         self.logo_text = QLabel("★ VR we are! ★")
         self.logo_text.setAlignment(Qt.AlignCenter)
         self.logo_text.setStyleSheet("color: white; background-color: black;")
@@ -86,14 +93,34 @@ class SpreadsheetApp(QWidget):
         logo_font.setPointSize(20)
         logo_font.setBold(True)
         self.logo_text.setFont(logo_font)
-
         vbox.addWidget(self.logo_image)
         vbox.addWidget(self.logo_text)
-
+        
+        # Idle page widget (image + text)
+        self.idle_container = QWidget()
+        vbox = QVBoxLayout()
+        self.idle_container.setLayout(vbox)
+        self.idle_image = QLabel()
+        pixmap = QPixmap(os.path.join(path, "../../docs/icon/banner.png"))
+        if not pixmap.isNull():
+            self.idle_image.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.idle_image.setAlignment(Qt.AlignCenter)
+        self.idle_text = QLabel("Idle - waiting for files...")
+        self.idle_text.setAlignment(Qt.AlignCenter)
+        self.idle_text.setStyleSheet("color: white; background-color: black;")
+        idle_font = QFont()
+        idle_font.setPointSize(20)
+        idle_font.setBold(False)
+        self.idle_text.setFont(idle_font)
+        vbox.addWidget(self.idle_image)
+        vbox.addWidget(self.idle_text)
+        
         # Layout
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         self.layout.addWidget(self.logo_container)
+
+        self.idle_container_active = False
 
         # Timer for switching views
         self.switch_timer = QTimer()
@@ -101,10 +128,10 @@ class SpreadsheetApp(QWidget):
         self.switch_timer.setSingleShot(True)
         self.switch_timer.start(LOGOTIME)  # Show logo page for 2 seconds on startup
 
-        # Cycle timer for repeating logo page every 3 minutes
-        #self.cycle_timer = QTimer()
-        #self.cycle_timer.timeout.connect(self.show_logo_page)
-        #self.cycle_timer.start(180000)  # 3 minutes
+        # Cycle timer for displaying idle page
+        self.cycle_timer = QTimer()
+        self.cycle_timer.timeout.connect(self.show_idle_page)
+        self.cycle_timer.start(BREAKFREQ)  
 
         # Timer for updating table content
         self.update_timer = QTimer()
@@ -114,7 +141,17 @@ class SpreadsheetApp(QWidget):
         self.idlecount_timer.timeout.connect(self.update_idlecount)
         self.idlecount_timer.start(1000)  # 1s
 
-
+        self.imageurls = []
+        self.linkurls = []
+        try:
+            for line in urllib.request.urlopen("https://www.3d-gallery.org/gui_image_list.txt"):
+                text=line.decode('utf-8', errors='ignore')
+                if text != "":
+                    parts=text.partition(" ")
+                    self.imageurls.append(parts[0])
+                    self.linkurls.append(parts[2])
+        except HTTPError as err:
+            print("Notice: Can't fetch image list.", flush=True)
 
     def update_idlecount(self):
         global idletime
@@ -128,6 +165,10 @@ class SpreadsheetApp(QWidget):
         if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
             sys.exit(app.exec_())
 
+        if self.idle_container_active:
+            if idletime < 15:
+                self.show_table()
+            
         status="idle"
         activestage=""
         statusfile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonstatus")
@@ -183,24 +224,20 @@ class SpreadsheetApp(QWidget):
                                 if os.path.exists(subfolder):
                                     onlyfiles = next(os.walk(subfolder))[2]
                                     nocleanup = False
-                                    #for f in onlyfiles:
-                                    #    print ( "f=", f, flush=True)
                                     for f in onlyfiles:
                                         if ".nocleanup" == f.lower():
-                                            nocleanup = True
+                                            nocleanup = True                                            
                                     if nocleanup:
                                         onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
-                                        count = len(onlyfiles)
-                                        if count>0:
-                                            value = value + " ( " + str(count) + ")"
+                                        count2 = len(onlyfiles)
+                                        if count2>0:
+                                            value = value + " (" + str(count2) + ")"
                                             color = "green"
+                                        elif count == 0:
+                                            value = value + " (-)"
                                 subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
                                 if os.path.exists(subfolder):
                                     onlyfiles = next(os.walk(subfolder))[2]
-                                    nocleanup = False
-                                    #for f in onlyfiles:
-                                    #    print ( "f=", f, flush=True)
-                                    onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
                                     count = len(onlyfiles)
                                     if count>0:
                                         value = value + " " + str(count) + "!"
@@ -213,8 +250,6 @@ class SpreadsheetApp(QWidget):
                             if os.path.exists(folder):
                                 onlyfiles = next(os.walk(folder))[2]
                                 forward = False
-                                if idletime>15:
-                                    color = "green"
                                 for f in onlyfiles:
                                     if "forward.txt" == f.lower():
                                         forward = True
@@ -224,8 +259,12 @@ class SpreadsheetApp(QWidget):
                                 count = len(onlyfiles)
                                 if count>0:
                                     value = str(count)
+                                    if idletime>15:
+                                        color = "green"
                                 else:
                                     value = ""
+                                if forward:
+                                    value = value + " ->"
                             else:
                                 value = "?"
                                 color = "red"
@@ -253,23 +292,90 @@ class SpreadsheetApp(QWidget):
                 self.table.resizeColumnsToContents()
 
     def show_table(self):
+        self.idle_container_active=False
         # Replace logo page with table
         self.layout.removeWidget(self.logo_container)
+        self.layout.removeWidget(self.idle_container)
         self.logo_container.setParent(None)
+        self.idle_container.setParent(None)
         self.layout.addWidget(self.table)
         self.update_table()
-        self.update_timer.start(5000)
+        self.update_timer.start(TABLEUPDATEFREQ)
 
     def show_logo_page(self):
         # Switch back to logo page for 5 seconds
         self.update_timer.stop()
         self.layout.removeWidget(self.table)
         self.table.setParent(None)
+        self.idle_container.setParent(None)
         self.layout.addWidget(self.logo_container)
-        self.switch_timer.start(5000)
+        self.switch_timer.start(TABLEUPDATEFREQ)
 
-    def process_exists(self, pid):
-        return False
+    def show_idle_page(self):
+        if idletime<15:
+            return
+        
+        # Switch back to main page after 15 seconds
+        if len(self.imageurls) > 0:
+            newindex=randrange(len(self.imageurls))
+            try:
+                im = Image.open(requests.get(self.imageurls[newindex], stream=True).raw)
+                pixmap = self.pil2pixmap(im)
+                if not pixmap.isNull():
+                    self.idle_container.deleteLater()
+                    self.idle_container = QWidget()
+                    vbox = QVBoxLayout()
+                    self.idle_container.setLayout(vbox)
+                    if self.linkurls[newindex] != "":
+                        self.idle_image = ClickableLabel(self.linkurls[newindex])
+                        self.idle_image.setCursor(QCursor(Qt.PointingHandCursor))  
+                    else:
+                        self.idle_image = QLabel()
+                    self.idle_image.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                    self.idle_image.setAlignment(Qt.AlignCenter)
+                    self.idle_text = QLabel("Idle - waiting for files...")
+                    self.idle_text.setAlignment(Qt.AlignCenter)
+                    self.idle_text.setStyleSheet("color: white; background-color: black;")
+                    idle_font = QFont()
+                    idle_font.setPointSize(20)
+                    idle_font.setBold(False)
+                    self.idle_text.setFont(idle_font)
+                    vbox.addWidget(self.idle_image)
+                    vbox.addWidget(self.idle_text)
+            except Exception as e:
+                print("Unexpected error:", sys.exc_info()[0], flush=True)
+                raise
+        self.layout.removeWidget(self.table)
+        self.table.setParent(None)
+        self.logo_container.setParent(None)
+        self.layout.addWidget(self.idle_container)
+        self.switch_timer.start(BREAKTIME)
+        self.idle_container_active = True
+
+    def pil2pixmap(self, im):
+        if im.mode == "RGB":
+            r, g, b = im.split()
+            im = Image.merge("RGB", (b, g, r))
+        elif  im.mode == "RGBA":
+            r, g, b, a = im.split()
+            im = Image.merge("RGBA", (b, g, r, a))
+        elif im.mode == "L":
+            im = im.convert("RGBA")
+        # Bild in RGBA konvertieren, falls nicht bereits passiert
+        im2 = im.convert("RGBA")
+        data = im2.tobytes("raw", "RGBA")
+        qim = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
+        pixmap = QPixmap.fromImage(qim)
+        return pixmap
+
+class ClickableLabel(QLabel):
+    def __init__(self, url, parent=None):
+        super().__init__(parent)
+        self.url = url
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            webbrowser.open(self.url)
 
 if __name__ == "__main__":
     if len(sys.argv) != 1:
