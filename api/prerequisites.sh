@@ -452,7 +452,7 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '"$HEADERCOMMENT"' >output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[duration<60:tvai=true:width<7681:r_frame_rate<31]interpolate' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo '[duration<60:tvai=true]tasks/limit-720p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[duration<60:tvai=true]tasks/vlimit-720p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "#echo '[duration<10:vram>52:r_frame_rate<31]interpolate' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[duration<60:vram>6]tasks/vlimit-720p' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[codec_type!=audio:duration<20]singleloop' >>output/vr/fullsbs/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
