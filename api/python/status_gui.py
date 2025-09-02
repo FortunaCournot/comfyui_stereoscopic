@@ -237,6 +237,8 @@ class SpreadsheetApp(QWidget):
                                             color = "green"
                                         elif count == 0:
                                             value = value + " (-)"
+                                    else:
+                                        color = "yellow"
                                 subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
                                 if os.path.exists(subfolder):
                                     onlyfiles = next(os.walk(subfolder))[2]
@@ -266,7 +268,7 @@ class SpreadsheetApp(QWidget):
                                 else:
                                     value = ""
                                 if forward:
-                                    value = value + " ->"
+                                    value = value + " ➤"
                             else:
                                 value = "?"
                                 color = "red"

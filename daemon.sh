@@ -8,9 +8,18 @@ COMFYUIPATH=`realpath $(dirname "$0")/../..`
 
 cd $COMFYUIPATH
 
+while [ -e user/default/comfyui_stereoscopic/.daemonactive ]; do
+    read -p "daemon already active. Start anyway? " yn
+    case $yn in
+        [Yy]* ) break;;
+        [Nn]* ) NOCLEANUP=1; exit 0;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+
 cleanup() {
-	rm -f user/default/comfyui_stereoscopic/.daemonactive
-	rm -f user/default/comfyui_stereoscopic/.daemonstatus
+	[ "$NOCLEANUP" -lt 1 ] && rm -f user/default/comfyui_stereoscopic/.daemonactive
+	[ "$NOCLEANUP" -lt 1 ] && rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	read -p "Press enter to continue"
     exit 0 # exit script after cleanup
 }
