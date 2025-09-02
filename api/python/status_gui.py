@@ -11,7 +11,7 @@ from random import randrange
 import webbrowser
 
 LOGOTIME = 3000
-BREAKFREQ = 30000
+BREAKFREQ = 120000
 TABLEUPDATEFREQ = 1000
 BREAKTIME = 20000
 status="idle"
@@ -143,6 +143,7 @@ class SpreadsheetApp(QWidget):
 
         self.imageurls = []
         self.linkurls = []
+        self.imagecache = []
         try:
             for line in urllib.request.urlopen("https://www.3d-gallery.org/gui_image_list.txt"):
                 text=line.decode('utf-8', errors='ignore')
@@ -150,6 +151,7 @@ class SpreadsheetApp(QWidget):
                     parts=text.partition(" ")
                     self.imageurls.append(parts[0])
                     self.linkurls.append(parts[2])
+                    self.imagecache.append(None)
         except HTTPError as err:
             print("Notice: Can't fetch image list.", flush=True)
 
@@ -315,12 +317,15 @@ class SpreadsheetApp(QWidget):
         if idletime<15:
             return
         
-        # Switch back to main page after 15 seconds
         if len(self.imageurls) > 0:
             newindex=randrange(len(self.imageurls))
             try:
-                im = Image.open(requests.get(self.imageurls[newindex], stream=True).raw)
-                pixmap = self.pil2pixmap(im)
+                if self.imagecache[newindex] == None:
+                    im = Image.open(requests.get(self.imageurls[newindex], stream=True).raw)
+                    pixmap = self.pil2pixmap(im)
+                    self.imagecache[newindex] = pixmap
+                else:
+                    pixmap = self.imagecache[newindex]
                 if not pixmap.isNull():
                     self.idle_container.deleteLater()
                     self.idle_container = QWidget()
@@ -348,6 +353,7 @@ class SpreadsheetApp(QWidget):
         self.table.setParent(None)
         self.logo_container.setParent(None)
         self.layout.addWidget(self.idle_container)
+        # Switch back to main page after BREAKTIME seconds
         self.switch_timer.start(BREAKTIME)
         self.idle_container_active = True
 
