@@ -429,6 +429,7 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo "echo '[tvai=true]tasks/fps-limit-30' >>output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[vram>8]tasks/fps-limit-30' >>output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'tasks/fps-limit-15' >>output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[duration<1]scaling' >>output/vr/caption/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '"$HEADERCOMMENT"' >output/vr/tasks/createsilence/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo 'tasks/reencode' >>output/vr/tasks/createsilence/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
@@ -524,18 +525,22 @@ done
 
 # Do initial auto-forward
 if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
-
+	echo -e $"\e[2mSearching for files left to forward\e[0m"
 	for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
-		 ./custom_nodes/comfyui_stereoscopic/api/forward.sh $stagepath || exit 1
+		[ $loglevel -ge 1 ] && echo " - $stagepath"
+		./custom_nodes/comfyui_stereoscopic/api/forward.sh $stagepath || exit 1
 	done
 	
 	TASKDIR=`find output/vr/tasks -maxdepth 1 -type d`
 	for task in $TASKDIR; do
 		task=${task#output/vr/tasks/}
 		if [ ! -z $task ] ; then
+			[ $loglevel -ge 1 ] && echo " - tasks/$task"
 			./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task || exit 1
 		fi
 	done
+else
+	echo -e $"\e[94mInfo:\e[0m Auto-Forward deactivated."
 fi
 
 # CHECK FOR VERSION UPDATE AND RUN TESTS
