@@ -145,7 +145,7 @@ class SpreadsheetApp(QWidget):
         self.linkurls = []
         self.imagecache = []
         try:
-            for line in urllib.request.urlopen("https://www.3d-gallery.org/gui_image_list.txt"):
+            for line in urllib.request.urlopen("https://www.3d-gallery.org/gui/gui_image_list.txt"):
                 text=line.decode('utf-8', errors='ignore')
                 if text != "":
                     parts=text.partition(" ")
