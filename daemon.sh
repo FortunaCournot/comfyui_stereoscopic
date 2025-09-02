@@ -8,6 +8,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../..`
 
 cd $COMFYUIPATH
 
+NOCLEANUP=0
 while [ -e user/default/comfyui_stereoscopic/.daemonactive ]; do
     read -p "daemon already active. Start anyway? " yn
     case $yn in
