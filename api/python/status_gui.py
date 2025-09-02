@@ -331,7 +331,7 @@ class SpreadsheetApp(QWidget):
                         self.idle_image.setCursor(QCursor(Qt.PointingHandCursor))  
                     else:
                         self.idle_image = QLabel()
-                    self.idle_image.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                    self.idle_image.setPixmap(pixmap.scaled(512, 512, Qt.KeepAspectRatio, Qt.SmoothTransformation))
                     self.idle_image.setAlignment(Qt.AlignCenter)
                     self.idle_text = QLabel("Idle - waiting for files...")
                     self.idle_text.setAlignment(Qt.AlignCenter)

@@ -118,7 +118,7 @@ else
 	TARGETPREFIX=output/vr/tasks/intermediate/${TARGETPREFIX%.*}
 	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
 	mkdir -p $FINALTARGETFOLDER
-
+	EXTENSION="."${INPUT##*.}
 
 	upperlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"upperlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	for parameterkv in $(echo $upperlimits | sed "s/,/ /g")
@@ -138,17 +138,17 @@ else
 	options="${options//\$INPUT/"$INPUT"}"
 	
 	[ $loglevel -lt 2 ] && set -x
-	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX"".mp4"
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX""$EXTENSION"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
-	if [ -e "$TARGETPREFIX"".mp4" ] && [ -s "$TARGETPREFIX"".mp4" ] ; then
-		mv -- "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
+	if [ -e "$TARGETPREFIX""$EXTENSION" ] && [ -s "$TARGETPREFIX""$EXTENSION" ] ; then
+		mv -- "$TARGETPREFIX""$EXTENSION" $FINALTARGETFOLDER
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $INPUT input/vr/tasks/$TASKNAME/done
 		echo -e $"\e[92mtask done.\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m Task failed. $TARGETPREFIX"".mp4 missing or zero-length."
-		rm -f -- "$TARGETPREFIX"".mp4" 2>/dev/null
+		echo -e $"\e[91mError:\e[0m Task failed. $TARGETPREFIX""$EXTENSION missing or zero-length."
+		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $INPUT input/vr/tasks/$TASKNAME/error
 	fi
