@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-filter:v scale=3840:-2",
+  "lowerlimits": "width=3841",
+  "input": "video,image",
+  "output": "video,image",
+}
