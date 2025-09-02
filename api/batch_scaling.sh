@@ -99,22 +99,18 @@ else
 				fi
 				if test $duration -ge 600
 				then
-					echo -e $"\e[93mWarning:\e[0m long video (>600s) detected; call $SCRIPTPATH directly or move it to input/vr/scaling$OVERRIDESUBPATH. Skipping $newfn"
-					mkdir -p input/vr/scaling/stopped
-					mv -fv "$newfn" input/vr/scaling/stopped
-					sleep 10
-				else
-					if [ ! -d "$TVAI_BIN_DIR" ] ; then
-						/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
-					
-						status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-						if [ "$status" = "closed" ]; then
-							echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-							exit 1
-						fi
-					else
-						/bin/bash $SCRIPTPATH_TVAI "$newfn" $override_active || exit 1
+					echo -e $"\e[93mWarning:\e[0m long video (>600s) detected."
+				fi
+				if [ ! -d "$TVAI_BIN_DIR" ] ; then
+					/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
+				
+					status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+					if [ "$status" = "closed" ]; then
+						echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+						exit 1
 					fi
+				else
+					/bin/bash $SCRIPTPATH_TVAI "$newfn" $override_active || exit 1
 				fi
 			else
 				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
