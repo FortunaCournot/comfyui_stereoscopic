@@ -344,7 +344,6 @@ class SpreadsheetApp(QWidget):
                     vbox.addWidget(self.idle_text)
             except Exception as e:
                 print("Unexpected error:", sys.exc_info()[0], flush=True)
-                raise
         self.layout.removeWidget(self.table)
         self.table.setParent(None)
         self.logo_container.setParent(None)
