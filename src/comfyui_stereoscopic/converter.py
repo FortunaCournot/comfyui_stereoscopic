@@ -339,8 +339,8 @@ class ImageVRConverter:
             
             displaytext = 'depth_scale ' + str(depth_scale) + ', depth_offset = ' + str(depth_offset)
             
-            depth_scale_local = depth_scale * width * 50.0 / 1000000.0 # * ( 1.0 + math.pow(0.5, iterations) )
-            depth_offset_local = depth_offset * -8
+            depth_scale_local = 0.2 # magic
+            depth_offset_local = depth_offset * - 24.0 # magic 
 
             if symetric:
                 depth_scale_local = depth_scale_local / 2.0
