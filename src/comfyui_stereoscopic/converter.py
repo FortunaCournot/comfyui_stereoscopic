@@ -339,8 +339,9 @@ class ImageVRConverter:
             
             displaytext = 'depth_scale ' + str(depth_scale) + ', depth_offset = ' + str(depth_offset)
             
-            depth_scale_local = 0.2 # magic
-            depth_offset_local = depth_offset * - 24.0 # magic 
+            adjustment_scalar=0.5   # depth reduction scale (0.0-1.0) after tests with glasses to have a natural depth feeling.
+            depth_scale_local = adjustment_scalar * 0.2                        # magic: 0.2 ?
+            depth_offset_local = -depth_offset * adjustment_scalar * 24.0      # magic : 24
 
             if symetric:
                 depth_scale_local = depth_scale_local / 2.0
