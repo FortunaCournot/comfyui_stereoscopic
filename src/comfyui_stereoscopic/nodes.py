@@ -137,6 +137,24 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from stringutils import RegexSubstitute
+    print("[comfyui_stereoscopic] Successfully imported RegexSubstitute")
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing RegexSubstitute: {e}")
+
+    # Create a placeholder class
+    class RegexSubstitute:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading RegexSubstitute"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "utils/string/stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
 
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
@@ -148,6 +166,7 @@ NODE_CLASS_MAPPINGS = {
     "StripXML" : StripXML,
     "SaveStrippedUTF8File" : SaveStrippedUTF8File,
     "ScaleByFactor" : ScaleByFactor,
+    "RegexSubstitute" : RegexSubstitute,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -159,5 +178,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "StripXML" : "Strip XML",
     "SaveStrippedUTF8File" : "Save Stripped UTF-8 File",
     "ScaleByFactor" : "Scale by Factor",
+    "RegexSubstitute": "Regex Substitute"
 }
 
