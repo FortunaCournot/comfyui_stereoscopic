@@ -293,7 +293,7 @@ else
 			PARALLELITY=$p
 			cd "$COMFYUIPATH"
 			echo ""
-			echo -e $"\e[93mWarning:\e[0m@$p/$PARALLELITY: No flac files!"
+			echo -e $"\e[91mError:\e[0m@$p/$PARALLELITY: No flac files!"
 			#echo -e $"\e[93mWarning:\e[0m@$p/$PARALLELITY: No flac files. Skipped dubbing."
 			#cp -fv $INPUT $FINALTARGETFOLDER
 			#mkdir -p ./input/vr/dubbing/sfx/done

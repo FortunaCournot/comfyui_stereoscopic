@@ -28,6 +28,14 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
+onExit() {
+	exit_code=$?
+	[ $loglevel -ge 1 ] && echo "Exit code: $exit_code"
+	exit $exit_code
+}
+trap onExit EXIT
+
+
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
 MINSPACE=10

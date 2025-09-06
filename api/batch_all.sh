@@ -5,6 +5,7 @@
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 # Prerequisite: Placed sbs_api.py somewhere and configured path variables below.
 
+
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
@@ -25,6 +26,13 @@ if [ -e $CONFIGFILE ] ; then
 else
     touch "$CONFIGFILE"
 fi
+
+onExit() {
+	exit_code=$?
+	[ $loglevel -ge 1 ] && echo "Exit code: $exit_code"
+	exit $exit_code
+}
+trap onExit EXIT
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}

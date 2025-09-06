@@ -3,6 +3,11 @@
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 
+onExit() {
+	exit_code=$?
+	exit $exit_code
+}
+trap onExit EXIT
 
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder

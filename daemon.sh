@@ -19,15 +19,16 @@ while [ -e user/default/comfyui_stereoscopic/.daemonactive ]; do
 done
 
 cleanup() {
+	exit_code=$?
 	[ "$NOCLEANUP" -lt 1 ] && rm -f user/default/comfyui_stereoscopic/.daemonactive
 	[ "$NOCLEANUP" -lt 1 ] && rm -f user/default/comfyui_stereoscopic/.daemonstatus
-	exit_code=$?
+	echo "Exit code $exit_code"
 	while [[ ${exit_code} -ne 0 ]]; do
-		read -p "Error detected. Exit? " yn
+		read -p "Error detected. Quit? " yn
 		case $yn in
 			[Yy]* ) exit_code=0; break;;
 			[Nn]* ) ;;
-			* ) echo "Please answer yes or no.";;
+			* ) echo "Please answer yes to quit. (No other option))";;
 		esac
 	done
     exit 0 # exit script after cleanup
