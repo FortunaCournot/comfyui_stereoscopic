@@ -29,21 +29,21 @@ else
 	CONFIGFILE=`realpath $CONFIGFILE`
 	export CONFIGFILE
 	if [ -e $CONFIGFILE ] ; then
-		loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+		loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 		[ $loglevel -ge 2 ] && set -x
-		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 		export COMFYUIHOST COMFYUIPORT
 	else
 		touch "$CONFIGFILE"
 		echo "config_version=1">>"$CONFIGFILE"
 	fi
 
-	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
-	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
@@ -59,9 +59,9 @@ else
 	override_active=$1
 	
 
-	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
-	TVAI_MODEL_DATA_DIR=$(awk -F "=" '/TVAI_MODEL_DATA_DIR/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DATA_DIR=${TVAI_MODEL_DATA_DIR:-""}
-	TVAI_MODEL_DIR=$(awk -F "=" '/TVAI_MODEL_DIR/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DIR=${TVAI_MODEL_DIR:-""}
+	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
+	TVAI_MODEL_DATA_DIR=$(awk -F "=" '/TVAI_MODEL_DATA_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DATA_DIR=${TVAI_MODEL_DATA_DIR:-""}
+	TVAI_MODEL_DIR=$(awk -F "=" '/TVAI_MODEL_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DIR=${TVAI_MODEL_DIR:-""}
 	TVAI_FILTER_STRING_UP4X=`grep TVAI_FILTER_STRING_UP4X= $CONFIGFILE | cut -d'=' -f2-`
 	TVAI_FILTER_STRING_UP4X=${TVAI_FILTER_STRING_UP4X:-""}
 	TVAI_MODEL4X=${TVAI_FILTER_STRING_UP4X#*"model="}
@@ -100,8 +100,8 @@ else
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	mkdir -p output/vr/scaling/intermediate
 	
-	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
-	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
+	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT=/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
+	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF=/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
 	
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
@@ -113,16 +113,16 @@ else
 	fi
 	PIXEL=$(( $RESW * $RESH ))
 	
-	LIMIT4X=$(awk -F "=" '/LIMIT4X_NORMAL/ {print $2}' $CONFIGFILE) ; LIMIT4X=${LIMIT4X:-"518400"}
-	LIMIT2X=$(awk -F "=" '/LIMIT2X_NORMAL/ {print $2}' $CONFIGFILE) ; LIMIT2X=${LIMIT2X:-"2073600"}
+	LIMIT4X=$(awk -F "=" '/LIMIT4X_NORMAL=/ {print $2}' $CONFIGFILE) ; LIMIT4X=${LIMIT4X:-"518400"}
+	LIMIT2X=$(awk -F "=" '/LIMIT2X_NORMAL=/ {print $2}' $CONFIGFILE) ; LIMIT2X=${LIMIT2X:-"2073600"}
 	override_active=1	# override in TVAI always active
 	if [ $override_active -gt 0 ]; then
 		[ $loglevel -ge 0 ] && echo "override active"
-		LIMIT4X=$(awk -F "=" '/LIMIT4X_OVERRIDE/ {print $2}' $CONFIGFILE) ; LIMIT4X_OVERRIDE=${LIMIT4X_OVERRIDE:-"1036800"}
+		LIMIT4X=$(awk -F "=" '/LIMIT4X_OVERRIDE=/ {print $2}' $CONFIGFILE) ; LIMIT4X_OVERRIDE=${LIMIT4X_OVERRIDE:-"1036800"}
 		duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
 		duration=${duration%.*}
 		if test $duration -ge 600 ; then
-			LIMIT2X=$(awk -F "=" '/LIMIT2X_OVERRIDE_LONG/ {print $2}' $CONFIGFILE) ; LIMIT2X_OVERRIDE_LONG=${LIMIT2X_OVERRIDE_LONG:-"4147200"}
+			LIMIT2X=$(awk -F "=" '/LIMIT2X_OVERRIDE_LONG=/ {print $2}' $CONFIGFILE) ; LIMIT2X_OVERRIDE_LONG=${LIMIT2X_OVERRIDE_LONG:-"4147200"}
 			[ $loglevel -ge 0 ] && echo "long video detected."
 		fi
 	fi

@@ -23,11 +23,11 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 export CONFIGFILE
 if [ -e $CONFIGFILE ] ; then
-	loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 	[ $loglevel -ge 2 ] && set -x
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+    config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 	export COMFYUIHOST COMFYUIPORT
 else
     touch "$CONFIGFILE"
@@ -35,7 +35,7 @@ else
 fi
 
 # set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
-FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
@@ -72,8 +72,8 @@ else
 	for f in input/vr/watermark/decrypt/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
 	for f in input/vr/watermark/decrypt/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
 
-	WATERMARK_SECRETKEY=$(awk -F "=" '/WATERMARK_SECRETKEY/ {print $2}' $CONFIGFILE) ; WATERMARK_SECRETKEY=${WATERMARK_SECRETKEY:-"-1"}
-	WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
+	WATERMARK_SECRETKEY=$(awk -F "=" '/WATERMARK_SECRETKEY=/ {print $2}' $CONFIGFILE) ; WATERMARK_SECRETKEY=${WATERMARK_SECRETKEY:-"-1"}
+	WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL=/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
 	WATERMARK_LABEL="${WATERMARK_LABEL//[^[:alnum:].-]/_}"
 	WATERMARK_LABEL="${WATERMARK_LABEL:0:17}"
 	WATERMARK_STOREFOLDER=./user/default/comfyui_stereoscopic/watermark/$WATERMARK_SECRETKEY

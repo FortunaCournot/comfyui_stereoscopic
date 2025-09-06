@@ -26,11 +26,11 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 export CONFIGFILE
 if [ -e $CONFIGFILE ] ; then
-	loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 	[ $loglevel -ge 2 ] && set -x
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+    config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 	export COMFYUIHOST COMFYUIPORT
 else
     touch "$CONFIGFILE"
@@ -38,7 +38,7 @@ else
 fi
 
 # CHECK TOOLS
-EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 if [ ! -e "$EXIFTOOLBINARY" ]; then
 	echo -e $"\e[91mError:\e[0m Exiftool not found or properly configured. Set EXIFTOOLBINAR in"
 	echo -e $"\e[91m      \e[0m $CONFIGFILE"
@@ -48,7 +48,7 @@ if [ ! -e "$EXIFTOOLBINARY" ]; then
 fi
 
 # set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
-FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
@@ -73,14 +73,14 @@ else
 	for f in input/vr/caption/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
 	for f in input/vr/caption/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
 
-	TITLE_GENERATION_CSKEYLIST=$(awk -F "=" '/TITLE_GENERATION_CSKEYLIST/ {print $2}' $CONFIGFILE) ; TITLE_GENERATION_CSKEYLIST=${TITLE_GENERATION_CSKEYLIST:-"XMP:Title"}
-	DESCRIPTION_GENERATION_CSKEYLIST=$(awk -F "=" '/DESCRIPTION_GENERATION_CSKEYLIST/ {print $2}' $CONFIGFILE) ; DESCRIPTION_GENERATION_CSKEYLIST=${DESCRIPTION_GENERATION_CSKEYLIST:-"XPComment,iptc:Caption-Abstract"}
-	OCR_GENERATION_CSKEYLIST=$(awk -F "=" '/OCR_GENERATION_CSKEYLIST/ {print $2}' $CONFIGFILE) ; OCR_GENERATION_CSKEYLIST=${OCR_GENERATION_CSKEYLIST:-"Keywords,iptc:Keywords"}
-	OCR_GENERATION_KEYSEP=$(awk -F "=" '/OCR_GENERATION_KEYSEP/ {print $2}' $CONFIGFILE) ; OCR_GENERATION_KEYSEP=${OCR_GENERATION_KEYSEP:-","}
+	TITLE_GENERATION_CSKEYLIST=$(awk -F "=" '/TITLE_GENERATION_CSKEYLIST=/ {print $2}' $CONFIGFILE) ; TITLE_GENERATION_CSKEYLIST=${TITLE_GENERATION_CSKEYLIST:-"XMP:Title"}
+	DESCRIPTION_GENERATION_CSKEYLIST=$(awk -F "=" '/DESCRIPTION_GENERATION_CSKEYLIST=/ {print $2}' $CONFIGFILE) ; DESCRIPTION_GENERATION_CSKEYLIST=${DESCRIPTION_GENERATION_CSKEYLIST:-"XPComment,iptc:Caption-Abstract"}
+	OCR_GENERATION_CSKEYLIST=$(awk -F "=" '/OCR_GENERATION_CSKEYLIST=/ {print $2}' $CONFIGFILE) ; OCR_GENERATION_CSKEYLIST=${OCR_GENERATION_CSKEYLIST:-"Keywords,iptc:Keywords"}
+	OCR_GENERATION_KEYSEP=$(awk -F "=" '/OCR_GENERATION_KEYSEP=/ {print $2}' $CONFIGFILE) ; OCR_GENERATION_KEYSEP=${OCR_GENERATION_KEYSEP:-","}
 	# task of Florence2Run node. One of : more_detailed_caption, detailed_caption, caption 
-	DESCRIPTION_FLORENCE_TASK=$(awk -F "=" '/DESCRIPTION_FLORENCE_TASK/ {print $2}' $CONFIGFILE) ; DESCRIPTION_FLORENCE_TASK=${DESCRIPTION_FLORENCE_TASK:-"more_detailed_caption"}
-	DESCRIPTION_LOCALE=$(awk -F "=" '/DESCRIPTION_LOCALE/ {print $2}' $CONFIGFILE) ; DESCRIPTION_LOCALE=${DESCRIPTION_LOCALE:-""}
-	EXIF_PURGE_CSKEYLIST=$(awk -F "=" '/EXIF_PURGE_CSKEYLIST/ {print $2}' $CONFIGFILE) ; EXIF_PURGE_CSKEYLIST=${EXIF_PURGE_CSKEYLIST:-""}
+	DESCRIPTION_FLORENCE_TASK=$(awk -F "=" '/DESCRIPTION_FLORENCE_TASK=/ {print $2}' $CONFIGFILE) ; DESCRIPTION_FLORENCE_TASK=${DESCRIPTION_FLORENCE_TASK:-"more_detailed_caption"}
+	DESCRIPTION_LOCALE=$(awk -F "=" '/DESCRIPTION_LOCALE=/ {print $2}' $CONFIGFILE) ; DESCRIPTION_LOCALE=${DESCRIPTION_LOCALE:-""}
+	EXIF_PURGE_CSKEYLIST=$(awk -F "=" '/EXIF_PURGE_CSKEYLIST=/ {print $2}' $CONFIGFILE) ; EXIF_PURGE_CSKEYLIST=${EXIF_PURGE_CSKEYLIST:-""}
 
 	uuid=$(openssl rand -hex 16)
 	INTERMEDIATEFOLDER_CALL=vr/caption/intermediate/$uuid			# context: output/

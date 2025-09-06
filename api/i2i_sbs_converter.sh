@@ -44,11 +44,11 @@ else
 	export CONFIGFILE
 
 	if [ -e $CONFIGFILE ] ; then
-		loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+		loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 		[ $loglevel -ge 2 ] && set -x
-		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 		export COMFYUIHOST COMFYUIPORT
 	else
 		touch "$CONFIGFILE"
@@ -56,9 +56,9 @@ else
 	fi
 
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
-	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 	
-	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 
 	depth_scale="$1"
 	shift
@@ -69,9 +69,9 @@ else
 	if [ ! -e "$INPUT" ] ; then echo "input file removed: $INPUT"; exit 0; fi
 	shift
 			
-	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS_IMAGE/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS_IMAGE=${SBS_DEPTH_BLUR_RADIUS_IMAGE:-"19"}
+	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS_IMAGE=/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS_IMAGE=${SBS_DEPTH_BLUR_RADIUS_IMAGE:-"19"}
 
-	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
+	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT=/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
 
 	PROGRESS=" "
 	if [ -e input/vr/fullsbs/BATCHPROGRESS.TXT ]

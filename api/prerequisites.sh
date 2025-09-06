@@ -51,7 +51,7 @@ done
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
-	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 	if [ $config_version -lt 7 ]; then
 		mv -f -- $CONFIGFILE $CONFIGFILE-$config_version.bak
 	fi
@@ -230,17 +230,17 @@ SHORT_CONFIGFILE=$CONFIGFILE
 CONFIGFILE=`realpath "$CONFIGFILE"`
 export CONFIGFILE
 
-loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 [ $loglevel -ge 2 ] && set -x
 
 [ $loglevel -ge 0 ] && echo -e $"\e[2mUsing \e[36m$CONFIGFILE\e[0m"
-config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
-FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
-UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx4=${UPSCALEMODELx4:-"RealESRGAN_x4plus.pth"}
-UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"RealESRGAN_x4plus.pth"}
-FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
-DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
+config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD=/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
+FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4=/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx4=${UPSCALEMODELx4:-"RealESRGAN_x4plus.pth"}
+UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2=/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"RealESRGAN_x4plus.pth"}
+FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL=/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
+DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT=/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
 
 CONFIGERROR=
 
@@ -250,13 +250,13 @@ CONFIGERROR=
 #	sed -i "/^config_version=/s/=.*/="$NEXTUPGRADESTEPVERSION"/" $CONFIGFILE
 #	echo "">>"$CONFIGFILE"
 #	echo "Upgrading config.ini from v$config_version to v$NEXTUPGRADESTEPVERSION"
-#	config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+#	config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 #	echo "Upgraded config.ini to v$config_version"
 #fi
 
 
 
-TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
+TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 
 ### CHECK TOOLS ###
 if ! command -v $FFMPEGPATHPREFIX"ffmpeg" >/dev/null 2>&1
@@ -320,7 +320,7 @@ if [[ $SEARCHCOUNT_MODEL -eq 0 ]] ; then
 fi
 
 # CHECK TOOLS
-EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 if [ ! -e "$EXIFTOOLBINARY" ]; then
 	echo -e $"\e[94mInfo:\e[0m Tagging not available, Exif tool missing. Set path at \e[92mEXIFTOOLBINARY\e[0m in"
 	echo -e $"\e[94m     \e[0m \e[36m$CONFIGFILE\e[0m"
@@ -330,6 +330,11 @@ elif [[ "$EXIFTOOLBINARY" =~ "(-k)" ]]; then
 	echo -e $"\e[91mError:\e[0m Exif tool binary must be renamed to exiftool.exe. Strip '(-k)' from name and update path at \e[92mEXIFTOOLBINARY\e[0m in"
 	echo -e $"\e[91m      \e[0m \e[36m$CONFIGFILE\e[0m"
 	exit 1
+fi
+
+if [ ! -z "$TVAI_BIN_DIR" ] && [ ! -d "$TVAI_BIN_DIR" ] ; then
+	echo -e $"\e[93mWarning:\e[0m TVAI path set but now found. Please configure in $CONFIGFILE"":"
+	echo -e $"\e[93mWarning:\e[0m TVAI_BIN_DIR=$TVAI_BIN_DIR"
 fi
 
 
@@ -476,8 +481,8 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 	echo "echo '[codec_type!=audio]dubbing/sfx'         >>output/vr/tasks/vlimit-720p/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '"$HEADERCOMMENT"' >output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
-	echo "echo '[codec_type!=audio]dubbing/sfx'  >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[codec_type!=audio:duration<20]singleloop'         >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
+	echo "echo '[codec_type!=audio]dubbing/sfx'  >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[duration<20:width<3841:sbs=true]tasks/credit-vr-we-are' >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo "echo '[duration<20:width<3841:sbs=false]tasks/credit-no-sbs' >>output/vr/interpolate/forward.txt"  >>"$CONFIGPATH"/"rebuild_autoforward.sh"
 	echo ""  >>"$CONFIGPATH"/"rebuild_autoforward.sh"

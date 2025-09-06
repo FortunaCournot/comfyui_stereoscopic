@@ -37,21 +37,21 @@ else
 
 	export CONFIGFILE
 	if [ -e $CONFIGFILE ] ; then
-		loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+		loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 		[ $loglevel -ge 2 ] && set -x
-		config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 		export COMFYUIHOST COMFYUIPORT
 	else
 		touch "$CONFIGFILE"
 		echo "config_version=1">>"$CONFIGFILE"
 	fi
 
-	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
-	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
@@ -102,11 +102,11 @@ else
 	mkdir -p output/vr/scaling/intermediate
 	
 	UPSCALEMODEL="RealESRGAN_x4plus.pth"
-	SCALEBLENDFACTOR=$(awk -F "=" '/SCALEBLENDFACTOR/ {print $2}' $CONFIGFILE) ; SCALEBLENDFACTOR=${SCALEBLENDFACTOR:-"0.7"}
-	SCALESIGMARESOLUTION=$(awk -F "=" '/SCALESIGMARESOLUTION/ {print $2}' $CONFIGFILE) ; SCALESIGMARESOLUTION=${SCALESIGMARESOLUTION:-"1920.0"}
-	VIDEO_FORMAT=$(awk -F "=" '/VIDEO_FORMAT/ {print $2}' $CONFIGFILE) ; VIDEO_FORMAT=${VIDEO_FORMAT:-"video/h264-mp4"}
-	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
-	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
+	SCALEBLENDFACTOR=$(awk -F "=" '/SCALEBLENDFACTOR=/ {print $2}' $CONFIGFILE) ; SCALEBLENDFACTOR=${SCALEBLENDFACTOR:-"0.7"}
+	SCALESIGMARESOLUTION=$(awk -F "=" '/SCALESIGMARESOLUTION=/ {print $2}' $CONFIGFILE) ; SCALESIGMARESOLUTION=${SCALESIGMARESOLUTION:-"1920.0"}
+	VIDEO_FORMAT=$(awk -F "=" '/VIDEO_FORMAT=/ {print $2}' $CONFIGFILE) ; VIDEO_FORMAT=${VIDEO_FORMAT:-"video/h264-mp4"}
+	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT=/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
+	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF=/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
 	
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
@@ -118,15 +118,15 @@ else
 	fi
 	PIXEL=$(( $RESW * $RESH ))
 	
-	LIMIT4X=$(awk -F "=" '/LIMIT4X_NORMAL/ {print $2}' $CONFIGFILE) ; LIMIT4X=${LIMIT4X:-"518400"}
-	LIMIT2X=$(awk -F "=" '/LIMIT2X_NORMAL/ {print $2}' $CONFIGFILE) ; LIMIT2X=${LIMIT2X:-"2073600"}
+	LIMIT4X=$(awk -F "=" '/LIMIT4X_NORMAL=/ {print $2}' $CONFIGFILE) ; LIMIT4X=${LIMIT4X:-"518400"}
+	LIMIT2X=$(awk -F "=" '/LIMIT2X_NORMAL=/ {print $2}' $CONFIGFILE) ; LIMIT2X=${LIMIT2X:-"2073600"}
 	if [ $override_active -gt 0 ]; then
 		[ $loglevel -ge 0 ] && echo "override active"
-		LIMIT4X=$(awk -F "=" '/LIMIT4X_OVERRIDE/ {print $2}' $CONFIGFILE) ; LIMIT4X_OVERRIDE=${LIMIT4X_OVERRIDE:-"1036800"}
+		LIMIT4X=$(awk -F "=" '/LIMIT4X_OVERRIDE=/ {print $2}' $CONFIGFILE) ; LIMIT4X_OVERRIDE=${LIMIT4X_OVERRIDE:-"1036800"}
 		duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
 		duration=${duration%.*}
 		if test $duration -ge 60 ; then
-			LIMIT2X=$(awk -F "=" '/LIMIT2X_OVERRIDE_LONG/ {print $2}' $CONFIGFILE) ; LIMIT2X_OVERRIDE_LONG=${LIMIT2X_OVERRIDE_LONG:-"4147200"}
+			LIMIT2X=$(awk -F "=" '/LIMIT2X_OVERRIDE_LONG=/ {print $2}' $CONFIGFILE) ; LIMIT2X_OVERRIDE_LONG=${LIMIT2X_OVERRIDE_LONG:-"4147200"}
 			[ $loglevel -ge 0 ] && echo "long video detected."
 		fi
 	fi
@@ -139,16 +139,16 @@ else
 				TARGETPREFIX="$TARGETPREFIX""_x4"
 				TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x4"
 				TARGETPREFIX_UPSCALE="$TARGETPREFIX_UPSCALE""_x4"
-				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
-				DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
+				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4=/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
+				DOWNSCALE=$(awk -F "=" '/RESCALEx4=/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 				UPSCALEFACTOR=4
 				[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
 				TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x2"
 				TARGETPREFIX_UPSCALE="$TARGETPREFIX_UPSCALE""_x2"
-				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
-				DOWNSCALE=$(awk -F "=" '/RESCALEx2/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"0.5"}
+				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2=/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
+				DOWNSCALE=$(awk -F "=" '/RESCALEx2=/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"0.5"}
 				UPSCALEFACTOR=2
 				[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 			fi
@@ -160,8 +160,8 @@ else
 		TARGETPREFIX="$TARGETPREFIX""_x$UPSCALEFACTOR"
 		TARGETPREFIX_CALL="$TARGETPREFIX_CALL""_x$UPSCALEFACTOR"
 		TARGETPREFIX_UPSCALE="$TARGETPREFIX_UPSCALE""_x$UPSCALEFACTOR"
-		UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
-		DOWNSCALE=$(awk -F "=" '/RESCALEx4/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
+		UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx4=/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
+		DOWNSCALE=$(awk -F "=" '/RESCALEx4=/ {print $2}' $CONFIGFILE) ; DOWNSCALE=${DOWNSCALE:-"1.0"}
 	fi
 
 
@@ -219,7 +219,7 @@ else
 		if [ ! -e "$UPSCALEDIR/concat.sh" ]
 		then
 			# Prepare to restrict fps
-			MAXFPS=$(awk -F "=" '/MAXFPS/ {print $2}' $CONFIGFILE) ; MAXFPS=${MAXFPS:-"30"}
+			MAXFPS=$(awk -F "=" '/MAXFPS=/ {print $2}' $CONFIGFILE) ; MAXFPS=${MAXFPS:-"30"}
 			fpsv=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
 			fps=$(($fpsv))
 			[ $loglevel -ge 1 ] && echo "Source FPS: $fps ($fpsv)"

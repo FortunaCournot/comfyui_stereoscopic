@@ -19,11 +19,11 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 export CONFIGFILE
 if [ -e $CONFIGFILE ] ; then
-	loglevel=$(awk -F "=" '/loglevel/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 	[ $loglevel -ge 2 ] && set -x
-    config_version=$(awk -F "=" '/config_version/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+    config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 	export COMFYUIHOST COMFYUIPORT
 else
     touch "$CONFIGFILE"
@@ -47,7 +47,7 @@ else
 
 	multiplicator=2
 
-	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
+	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
@@ -103,59 +103,6 @@ else
 	fi
 	rm -f input/vr/interpolate/BATCHPROGRESS.TXT
 	
-	
-	
-	
-	
-	exit 0
-	
-	
-	
-	
-	
-	IMGFILES=`find input/vr/interpolate -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM'`
-	COUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
-	declare -i INDEX=0
-	[ $loglevel -ge 1 ] && echo "Image Count: $COUNT"
-	if [[ $COUNT -gt 0 ]] ; then
-		for nextinputfile in $IMGFILES ; do
-			INDEX+=1
-			echo "$INDEX/$COUNT" >input/vr/interpolate/BATCHPROGRESS.TXT
-			echo "interpolate" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/interpolate/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
-			
-			if [[ "$newfn" == *_x?* ]]; then
-				echo "Skipping $newfn (already scaled)"
-				mv -fv $newfn output/vr/interpolate
-			elif [ -e "$newfn" ]
-			then
-				duration=-1
-				override_active=1
-				if [ -z "$OVERRIDESUBPATH" ]; then
-					override_active=0
-				fi
-
-				/bin/bash $SCRIPTPATH2 "$newfn" $override_active || exit 1
-				
-				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-				if [ "$status" = "closed" ]; then
-					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-					exit 1
-				fi
-
-			else
-				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: $newfn"
-			fi			
-			
-		done
-	fi
-	rm -f input/vr/interpolate/BATCHPROGRESS.TXT
 	
 	[ $loglevel -ge 0 ] && echo "Batch done."
 
