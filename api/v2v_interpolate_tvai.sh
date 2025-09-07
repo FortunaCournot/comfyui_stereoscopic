@@ -210,8 +210,8 @@ else
 	mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
 	mkdir -p input/vr/interpolate/done
 	mv -f -- "$INPUT" input/vr/interpolate/done
+	rm -rf -- output/vr/interpolate/intermediate 2>/dev/null
 	echo -e $"\e[92mdone\e[0m"
-	
 fi
 exit 0
 
