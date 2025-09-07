@@ -213,7 +213,9 @@ else
 	if [ ! -e "$DUBBINGDIR/concat.sh" ]
 	then
 		echo $NOLINE "Splitting into segments..."
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "scale=w=800:h=800:force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 17 -map 0:v:0 $AUDIOMAPOPT -segment_time $SEGMENTTIME -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -vcodec libx264 "$SEGDIR/segment%05d.ts"
+		set -x
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -c:v libx264 -vf "scale=w=800:h=800:force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2" -crf 17 -map 0:v:0 $AUDIOMAPOPT -segment_time $SEGMENTTIME -g 9 -sc_threshold 0 -force_key_frames "expr:gte(t,n_forced*9)" -f segment -segment_start_number 1 -vcodec libx264 "$SEGDIR/segment%05d.mp4"
+		set +x
 		echo "done.                                               "
 	fi
 
@@ -228,29 +230,29 @@ else
 		echo $NOLINE "Prompting $p/$PARALLELITY ...         \r"
 		mkdir -p $DUBBINGDIR/$p
 
-		SEGCOUNT=`find $SEGDIR -maxdepth 1 -type f -name 'segment*.ts' | wc -l`
+		SEGCOUNT=`find $SEGDIR -maxdepth 1 -type f -name 'segment*.mp4' | wc -l`
 
 		declare -i i=0
 		declare -i pindex=0
 		declare -i dindex=1
 		concatopt=""
 		echo $NOLINE "Prompting $p/$PARALLELITY ($SEGCOUNT)...         \r"
-		for f in "$SEGDIR"/segment*.ts ; do
+		for f in "$SEGDIR"/segment*.mp4 ; do
 			i=$((i+1))
 			if [ $i -ge $p ]; then
-				f2=${f%.ts}
+				f2=${f%.mp4}
 				f2=${f2#$SEGDIR/segment}
 
 				if [ $pindex -eq 0 ]; then
-					concatopt="concat:segment$f2.ts"
+					concatopt="concat:segment$f2.mp4"
 				else
-					concatopt="$concatopt|segment$f2.ts"
+					concatopt="$concatopt|segment$f2.mp4"
 				fi
 				
 				pindex=$((pindex+1))
 				if [ $pindex -le $PARALLELITY ]; then
 
-					TMPFILE=$DUBBINGDIR/currentvideosegment.ts
+					TMPFILE=$DUBBINGDIR/currentvideosegment.mp4
 					TMPFILE=`realpath "$TMPFILE"`
 					cd "$SEGDIR"
 					nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$concatopt" -c copy "$TMPFILE"
