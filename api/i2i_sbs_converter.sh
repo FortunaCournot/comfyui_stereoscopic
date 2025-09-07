@@ -203,7 +203,7 @@ else
 			echo -e $"\e[91mError:\e[0m Input file not found: $INPUT"
 		fi
 	fi
-	rm -rf $INTERMEDIATE_INPUT_FOLDER
+	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 fi
 exit 0
 

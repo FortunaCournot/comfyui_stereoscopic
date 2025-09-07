@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# v2v_dubbing.sh || exit 1
+# ffmpeg-v2vx.sh
 #
-# dubbes a base video (input) by mmaudio and places result under ComfyUI/output/vr/tasks folder.
+# executes a ffmpeg based option task under ComfyUI/output/vr/tasks folder.
 #
 # Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
@@ -13,10 +13,7 @@
 # Prerequisite: Configured path variables below.
 # Prerequisite: Git Bash installed. Call this script in Git Bash
 
-# - It will split the input video into segements,
-# - It queues dubbing workflows via api,
-# - Creates a shell script for concating resulting audio segments and dubbes video
-# - Waits until comfyui is done, then call created script.
+
 
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi

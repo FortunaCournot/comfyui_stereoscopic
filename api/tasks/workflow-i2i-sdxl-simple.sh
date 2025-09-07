@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# ffmpeg-v2v.sh
+# workflow-i2i-flux-simple.sh
 #
-# executes a ffmpeg based option task under ComfyUI/output/vr/tasks folder.
+# executes a v2v workflow for a base video (input) by and places result under ComfyUI/output/vr/tasks folder.
 #
 # Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
@@ -13,7 +13,10 @@
 # Prerequisite: Configured path variables below.
 # Prerequisite: Git Bash installed. Call this script in Git Bash
 
-
+# - It will split the input video into segements,
+# - It queues workflows via api,
+# - Creates a shell script for concating resulting audio segments and dubbes video
+# - Waits until comfyui is done, then call created script.
 
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
@@ -44,7 +47,6 @@ assertlimit() {
 } 
 
 
-# API relative to COMFYUIPATH, or absolute path:
 COMFYUIPATH=`realpath $(dirname "$0")/../../../..`
 
 if test $# -ne 3 
@@ -56,6 +58,9 @@ else
 	cd $COMFYUIPATH
 
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+
+	# API relative to COMFYUIPATH, or absolute path:
+	SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/workflow/i2i_sdxl_simple.py
 
 	NOLINE=-ne
 	
@@ -110,12 +115,21 @@ else
 	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/tasks/intermediate/probe.txt`
 	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$INPUT" >>output/vr/tasks/intermediate/probe.txt`
 	
+	ORIGINALINPUT="$INPUT"
 	TARGETPREFIX=${INPUT##*/}
-	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/vr/tasks/intermediate/${TARGETPREFIX%.*}
+	TARGETPREFIX=`realpath "$TARGETPREFIX"`
 	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
 	mkdir -p $FINALTARGETFOLDER
-	EXTENSION="."${INPUT##*.}
+
+	uuid=$(openssl rand -hex 16)
+	INTERMEDIATE_INPUT_FOLDER=input/vr/tasks/intermediate/$uuid
+	mkdir -p $INTERMEDIATE_INPUT_FOLDER
+	EXTENSION="${INPUT##*.}"
+	IMAGEINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmp-input.$EXTENSION
+	cp -fv $INPUT $IMAGEINTERMEDIATE
+	INPUT="$IMAGEINTERMEDIATE"
+	INPUT=`realpath "$INPUT"`
 
 	upperlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"upperlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	for parameterkv in $(echo $upperlimits | sed "s/,/ /g")
@@ -129,27 +143,57 @@ else
 		assertlimit "false" "$parameterkv"
 	done
 	
+
 	
-	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-	options="${options//\'/}"
-	options="${options//\$INPUT/"$INPUT"}"
+	sdxl_checkpoint=`cat "$BLUEPRINTCONFIG" | grep -o '"sdxl_checkpoint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	sdxl_checkpoint="${sdxl_checkpoint////\\}"
+	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	
 	[ $loglevel -lt 2 ] && set -x
-	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX""$EXTENSION"
+	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$sdxl_checkpoint" "$INPUT" "$TARGETPREFIX"
 	set +x && [ $loglevel -ge 2 ] && set -x
+
+	EXTENSION=".png"
+	INTERMEDIATE="$TARGETPREFIX""_00001_""$EXTENSION"
+	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
 	
-	if [ -e "$TARGETPREFIX""$EXTENSION" ] && [ -s "$TARGETPREFIX""$EXTENSION" ] ; then
-		mv -- "$TARGETPREFIX""$EXTENSION" $FINALTARGETFOLDER
+	start=`date +%s`
+	end=`date +%s`
+	secs=0
+	until [ "$queuecount" = "0" ]
+	do
+		sleep 1
+		
+		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+		if test $# -ne 0
+		then	
+			echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+			exit 1
+		fi
+		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+	
+		end=`date +%s`
+		secs=$((end-start))
+		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+		echo -ne "$itertimemsg         \r"
+	done
+	runtime=$((end-start))
+	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
+	
+	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
+		mv -- "$INTERMEDIATE" "$FINALTARGET"
 		mkdir -p input/vr/tasks/$TASKNAME/done
-		mv -- $INPUT input/vr/tasks/$TASKNAME/done
+		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
 		echo -e $"\e[92mtask done.\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m Task failed. $TARGETPREFIX""$EXTENSION missing or zero-length."
+		echo -e $"\e[91mError:\e[0m Task failed. $INTERMEDIATE missing or zero-length."
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
-		mv -- $INPUT input/vr/tasks/$TASKNAME/error
+		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 	fi
 	
+	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 
 fi
 exit 0
