@@ -73,6 +73,9 @@ if [ ! -e $CONFIGFILE ] ; then
 	
 	echo "# Set PIPELINE_AUTOFORWARD to 1 to enable it">>"$CONFIGFILE"
 	echo "PIPELINE_AUTOFORWARD=1">>"$CONFIGFILE"
+	echo "# Set DEBUG_AUTOFORWARD_RULES to 1 to debug rules">>"$CONFIGFILE"
+	echo "DEBUG_AUTOFORWARD_RULES=0">>"$CONFIGFILE"
+	
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- comfyui server config ---">>"$CONFIGFILE"

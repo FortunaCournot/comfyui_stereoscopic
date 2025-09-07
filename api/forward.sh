@@ -78,6 +78,8 @@ if [ -e $CONFIGFILE ] ; then
 	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 fi
 
+DEBUG_AUTOFORWARD_RULES=$(awk -F "=" '/DEBUG_AUTOFORWARD_RULES=/ {print $2}' $CONFIGFILE) ; DEBUG_AUTOFORWARD_RULES=${DEBUG_AUTOFORWARD_RULES:-"0"}
+
 if test $# -ne 1
 then
     echo "Usage: $0 outputpath"
@@ -191,6 +193,7 @@ else
 						if [[ $i == $o ]] ; then
 							if [[ $i == "video" ]] ; then
 								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.MP4' -o -name '*.WEBM'`
+								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no video files.\e[0m"
 								for file in $FILES ; do
 									RULEFAILED=
 									if [ ! -z "$conditionalrules" ] ; then
@@ -199,10 +202,14 @@ else
 										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames,display_aspect_ratio -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
 										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$file" >>user/default/comfyui_stereoscopic/.tmpprobe.txt`
 										
+										[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo -e $"\e[2m""     $destination""($i) "$file":\e[0m"
 										for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
 										do
 											CheckProbeValue "$parameterkopv" "$file"
 											retval=$?
+											retname="ok"
+											[ "$retval" != 0 ] && retname="invalid"
+											[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo -e $"\e[2m""       "$parameterkopv" => $retname""\e[0m"
 											if [ "$retval" != 0 ] ; then
 												RULEFAILED="$parameterkopv"
 												break
@@ -213,6 +220,7 @@ else
 								done
 							elif  [[ $i == "image" ]] ; then
 								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
+								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no image files.\e[0m"
 								for file in $FILES ; do
 									RULEFAILED=
 									if [ ! -z "$conditionalrules" ] ; then
@@ -220,10 +228,14 @@ else
 										rm -f -- user/default/comfyui_stereoscopic/.tmpprobe.txt 2>/dev/null
 										`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=width,height -of json -i "$file" >user/default/comfyui_stereoscopic/.tmpprobe.txt`
 										
+										[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo -e $"\e[2m""     $destination""($i) "$file":\e[0m"
 										for parameterkopv in $(echo $conditionalrules | sed "s/:/ /g")
 										do
 											CheckProbeValue "$parameterkopv" "$file"
 											retval=$?
+											retname="ok"
+											[ "$retval" != 0 ] && retname="invalid"
+											[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo -e $"\e[2m""       "$parameterkopv" => $retname""\e[0m"
 											if [ "$retval" != 0 ] ; then
 												RULEFAILED="$parameterkopv"
 												break
@@ -244,6 +256,8 @@ else
 				exit 1
 			fi
 		done < $forwarddef
+	else
+		echo -e $"\e[2m""     no forward.txt file\e[0m"
 	fi
 fi
 
