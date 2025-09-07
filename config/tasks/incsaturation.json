@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-vf eq=saturation=1.3",
+  "input": "video,image",
+  "output": "video,image"
+}
