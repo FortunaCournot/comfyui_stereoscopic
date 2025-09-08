@@ -308,12 +308,10 @@ class SpreadsheetApp(QMainWindow):
                                 onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
                                 count = len(onlyfiles)
                                 if count>0:
+                                    displayRequired=True
                                     value = str(count)
                                     if idletime>15:
                                         color = "green"
-                                        displayRequired=True
-                                    elif not forward:
-                                        displayRequired=True
                                 else:
                                     value = ""
                                 if forward:
