@@ -13,6 +13,8 @@ from urllib.error import HTTPError
 import requests
 from random import randrange
 import webbrowser
+import re
+
 
 LOGOTIME = 3000
 BREAKFREQ = 120000
@@ -23,8 +25,7 @@ idletime = 0
 
 path = os.path.dirname(os.path.abspath(__file__))
 
-COLNAMES = ["", "input (done)", "processing", "output"]
-COLS = len(COLNAMES)
+COLS = 4
 
 
 STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", ]
@@ -56,7 +57,9 @@ class SpreadsheetApp(QMainWindow):
 
         # Flags for toggles
         self.toogle_stages_expanded = False
-
+        # Initialize caches
+        self.stageTypes = []
+        
         # Central widget container
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -224,19 +227,46 @@ class SpreadsheetApp(QMainWindow):
                         status=status + " " + statuslines[line]
         self.setWindowTitle("VR we are - " + activestage + " " + status)
 
+        COLNAMES = []
         if self.toogle_stages_expanded:
+            COLS=5
+            self.table.setColumnCount(COLS)
+            header = self.table.horizontalHeader()    
+            header.setSectionResizeMode(QHeaderView.Fixed);
+            COLNAMES.clear()
             COL_IDX_STAGENAME=0        
-            COL_IDX_IN=1
-            COL_IDX_PROCESSING=2
-            COL_IDX_OUT=3
-            COL_COUNT=4
+            header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
+            COLNAMES.append("")
+            COL_IDX_IN_TYPES=1
+            header.setSectionResizeMode(COL_IDX_IN_TYPES, QHeaderView.ResizeToContents)
+            COLNAMES.append("type")
+            COL_IDX_IN=2
+            #header.setSectionResizeMode(COL_IDX_IN, QHeaderView.ResizeToContents)
+            COLNAMES.append("input (done)")
+            COL_IDX_PROCESSING=3
+            #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
+            COLNAMES.append("processing")
+            COL_IDX_OUT=4
+            header.setSectionResizeMode(COL_IDX_OUT, QHeaderView.Stretch)
+            COLNAMES.append("output")
         else:
+            COLS=4
+            self.table.setColumnCount(COLS)
+            header = self.table.horizontalHeader()       
+            COLNAMES.clear()
             COL_IDX_STAGENAME=0        
+            header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
+            COLNAMES.append("")
             COL_IDX_IN=1
+            #header.setSectionResizeMode(COL_IDX_IN, QHeaderView.ResizeToContents)
+            COLNAMES.append("input (done)")
             COL_IDX_PROCESSING=2
+            #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
+            COLNAMES.append("processing")
             COL_IDX_OUT=3
-            COL_COUNT=4
-
+            header.setSectionResizeMode(COL_IDX_OUT, QHeaderView.Stretch)
+            COLNAMES.append("output")
+        
         skippedrows=0
         self.table.clear()
         for r in range(ROWS):
@@ -341,6 +371,47 @@ class SpreadsheetApp(QMainWindow):
                                     value=status
                                     color="yellow"
                                     displayRequired=True
+                        elif self.toogle_stages_expanded:
+                            if c==COL_IDX_IN_TYPES:
+                                if len(self.stageTypes)+1==ROWS:
+                                    value = self.stageTypes[r-1]
+                                    if value == "?":
+                                        displayRequired=True
+                                        color = "red"
+                                else:   # build and store in cache
+                                    if re.match(r"tasks/_.*", STAGES[r-1]):
+                                        stageDefRes="user/default/comfyui_stereoscopic/tasks/" + STAGES[r-1][7:] + ".json"
+                                    elif re.match(r"tasks/.*", STAGES[r-1]):
+                                        stageDefRes="custom_nodes/comfyui_stereoscopic/config/tasks/" + STAGES[r-1][6:] + ".json"
+                                    else:
+                                        stageDefRes="custom_nodes/comfyui_stereoscopic/config/stages/" + STAGES[r-1] + ".json"
+
+                                    value = "?"
+                                    defFile = os.path.join(path, "../../../../" + stageDefRes)
+                                    if os.path.exists(defFile):
+                                        with open(defFile) as file:
+                                            color = "lightgray"
+                                            deflines = [line.rstrip() for line in file]
+                                            for line in range(len(deflines)):
+                                                inputMatch=re.match(r".*\"input\":", deflines[line])
+                                                if inputMatch:
+                                                    value = "in"
+                                                    valuepart=deflines[line][inputMatch.end():]
+                                                    match = re.search(r"\".*\"", valuepart)
+                                                    print("inputvalue",  valuepart, flush=True)
+                                                    print("match", match, flush=True)
+                                                    if match:
+                                                        value = valuepart[match.start()+1:match.end()][:-1]
+                                                    else:
+                                                        value = "?"
+                                    self.stageTypes.append(value)
+                                    if value == "?":
+                                        displayRequired=True
+                                        color = "red"
+                            else:
+                                value = "?"
+                                color = "red"
+                                displayRequired=True
                         else:
                             value = "?"
                             color = "red"
@@ -363,9 +434,7 @@ class SpreadsheetApp(QMainWindow):
                 skippedrows+=1
                 
         self.table.setRowCount(ROWS-skippedrows)
-        self.table.setColumnCount(COL_COUNT)
         self.table.resizeRowsToContents()
-        self.table.resizeColumnsToContents()
 
     def show_table(self):
         self.idle_container_active=False
