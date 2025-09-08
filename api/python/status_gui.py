@@ -224,6 +224,7 @@ class SpreadsheetApp(QMainWindow):
         self.setWindowTitle("VR we are - " + activestage + " " + status)
         
         skippedrows=0
+        self.table.clear()
         for r in range(ROWS):
             displayRequired=False
             currentRowItems = []
@@ -348,15 +349,9 @@ class SpreadsheetApp(QMainWindow):
                     self.table.setItem(r-skippedrows, c, currentRowItems[c])
             else:
                 skippedrows+=1
-                print("skippedrow", r )
                 
-        print("ROWS", ROWS )
-        for r in range(ROWS-skippedrows, ROWS):
-            print("clear", r )
-            for c in range(COLS):
-                self.table.setItem(r, c, QTableWidgetItem(""))
-        print("skippedrows", skippedrows )
-        print("self.toogle_stages_expanded", self.toogle_stages_expanded )
+        self.table.setRowCount(ROWS-skippedrows)
+
         self.table.resizeRowsToContents()
         self.table.resizeColumnsToContents()
 
