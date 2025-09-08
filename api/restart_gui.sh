@@ -23,7 +23,7 @@ echo "Restarting gui ..."
 touch user/default/comfyui_stereoscopic/.guiactive
 "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH && rm -f -- user/default/comfyui_stereoscopic/.guiactive &
 
-echo "Closing on daemon shutdown. Waiting..."
+echo "Waiting for gui or daemon to shutdown..."
 while [ -e user/default/comfyui_stereoscopic/.daemonactive ] && [ -e user/default/comfyui_stereoscopic/.guiactive ]; do
 	sleep 1
 done
