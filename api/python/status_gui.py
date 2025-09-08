@@ -1,4 +1,7 @@
-from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QVBoxLayout, QWidget, QAbstractItemView
+from PyQt5.QtWidgets import (
+QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,
+QVBoxLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView
+)
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor
 import sys
@@ -41,7 +44,7 @@ if os.path.exists(subfolder):
 ROWS = 1 + len(STAGES)
             
 
-class SpreadsheetApp(QWidget):
+class SpreadsheetApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VR we are - Status")
@@ -49,6 +52,14 @@ class SpreadsheetApp(QWidget):
         self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
         self.setGeometry(100, 100, 640, 600)
         self.move(60, 15)
+
+        # Flags for toggles
+        self.toogle_stages_expanded = False
+
+        # Central widget container
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
 
         # Spreadsheet widget
         self.table = QTableWidget(ROWS, COLS)
@@ -115,9 +126,10 @@ class SpreadsheetApp(QWidget):
         vbox.addWidget(self.idle_image)
         vbox.addWidget(self.idle_text)
         
-        # Layout
-        self.layout = QVBoxLayout()
-        self.setLayout(self.layout)
+        # Setup toolbar
+        self.init_toolbar()
+        
+        # Initially show logo page
         self.layout.addWidget(self.logo_container)
 
         self.idle_container_active = False
@@ -155,6 +167,31 @@ class SpreadsheetApp(QWidget):
         except HTTPError as err:
             print("Notice: Can't fetch image list.", flush=True)
 
+
+    def toggle_stage_expanded_enabled(self, state):
+        self.toogle_stages_expanded = state
+        if self.toogle_stages_expanded:
+            self.toggle_stages_expanded_action.setIcon(self.toggle_stages_expanded_icon_true)
+        else:
+            self.toggle_stages_expanded_action.setIcon(self.toggle_stages_expanded_icon_false)
+
+    def init_toolbar(self):
+        self.toolbar = QToolBar("Main Toolbar")
+        self.addToolBar(self.toolbar)
+
+        self.toggle_stages_expanded_icon_true = QIcon(os.path.join(path, '../../api/img/expanded64.png'))
+        self.toggle_stages_expanded_icon_false = QIcon(os.path.join(path, '../../api/img/collapsed64.png'))
+
+        # Toggle stage expanded action with icon
+        self.toggle_stages_expanded_action = QAction(self.toggle_stages_expanded_icon_true if self.toogle_stages_expanded else self.toggle_stages_expanded_icon_false, "Expanded" if self.toogle_stages_expanded else "Collapsed", self)
+        self.toggle_stages_expanded_action.setCheckable(True)
+        self.toggle_stages_expanded_action.setChecked(self.toogle_stages_expanded)
+        self.toggle_stages_expanded_action.triggered.connect(self.toggle_stage_expanded_enabled)
+        self.toolbar.addAction(self.toggle_stages_expanded_action)    
+        
+       
+        
+
     def update_idlecount(self):
         global idletime
         if status=="idle":
@@ -186,10 +223,14 @@ class SpreadsheetApp(QWidget):
                         status=status + " " + statuslines[line]
         self.setWindowTitle("VR we are - " + activestage + " " + status)
         
+        skippedrows=0
         for r in range(ROWS):
+            displayRequired=False
+            currentRowItems = []
             for c in range(COLS):
                 if c==0:
                     if r==0:
+                        displayRequired=True
                         value = ""
                     else:
                         value = STAGES[r-1]
@@ -209,6 +250,7 @@ class SpreadsheetApp(QWidget):
                 else:
                     color = "lightgray"
                     if r==0:
+                        displayRequired=True
                         value = COLNAMES[c]
                         color = "gray"
                     else:
@@ -220,6 +262,7 @@ class SpreadsheetApp(QWidget):
                                 count = len(onlyfiles)
                                 if count>0:
                                     value = str(count)
+                                    displayRequired=True
                                 else:
                                     value = ""
                                 subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/done")
@@ -246,9 +289,11 @@ class SpreadsheetApp(QWidget):
                                     if count>0:
                                         value = value + " " + str(count) + "!"
                                         color = "red"
+                                        displayRequired=True
                             else:
                                 value = "?"
                                 color = "red"
+                                displayRequired=True
                         elif c==3:
                             folder =  os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
                             if os.path.exists(folder):
@@ -265,6 +310,9 @@ class SpreadsheetApp(QWidget):
                                     value = str(count)
                                     if idletime>15:
                                         color = "green"
+                                        displayRequired=True
+                                    elif not forward:
+                                        displayRequired=True
                                 else:
                                     value = ""
                                 if forward:
@@ -272,16 +320,18 @@ class SpreadsheetApp(QWidget):
                             else:
                                 value = "?"
                                 color = "red"
+                                displayRequired=True
                         elif c==2:
                             value = ""
                             if status!="idle":
                                 if activestage==STAGES[r-1]:
                                     value=status
                                     color="yellow"
-
+                                    displayRequired=True
                         else:
                             value = "?"
                             color = "red"
+                            displayRequired=True
                     item = QTableWidgetItem(value)
                     if r==0:
                         font = QFont()
@@ -291,9 +341,24 @@ class SpreadsheetApp(QWidget):
                     item.setForeground(QBrush(QColor(color)))
                     item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                     item.setBackground(QBrush(QColor("black")))
-                self.table.setItem(r, c, item)
-                self.table.resizeRowsToContents()
-                self.table.resizeColumnsToContents()
+                currentRowItems.append(item)
+                
+            if displayRequired or self.toogle_stages_expanded:
+                for c in range(len(currentRowItems)):
+                    self.table.setItem(r-skippedrows, c, currentRowItems[c])
+            else:
+                skippedrows+=1
+                print("skippedrow", r )
+                
+        print("ROWS", ROWS )
+        for r in range(ROWS-skippedrows, ROWS):
+            print("clear", r )
+            for c in range(COLS):
+                self.table.setItem(r, c, QTableWidgetItem(""))
+        print("skippedrows", skippedrows )
+        print("self.toogle_stages_expanded", self.toogle_stages_expanded )
+        self.table.resizeRowsToContents()
+        self.table.resizeColumnsToContents()
 
     def show_table(self):
         self.idle_container_active=False
