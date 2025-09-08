@@ -42,6 +42,7 @@ if [ -d "../python_embeded" ]; then
   PYTHON_BIN_PATH=../python_embeded/
 fi
 mkdir -p user/default/comfyui_stereoscopic
+rm -f -- user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
 touch user/default/comfyui_stereoscopic/.daemonactive
 "$PYTHON_BIN_PATH"python.exe ./custom_nodes/comfyui_stereoscopic/api/python/status_gui.py 2>/dev/null &
 
