@@ -1,9 +1,10 @@
 from PyQt5.QtWidgets import (
 QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,
-QVBoxLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView
+QVBoxLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox
 )
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor
+
 import sys
 import os
 from PIL import Image
@@ -167,7 +168,7 @@ class SpreadsheetApp(QMainWindow):
         except HTTPError as err:
             print("Notice: Can't fetch image list.", flush=True)
 
-
+            
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
         if self.toogle_stages_expanded:
@@ -222,14 +223,27 @@ class SpreadsheetApp(QMainWindow):
                     else:
                         status=status + " " + statuslines[line]
         self.setWindowTitle("VR we are - " + activestage + " " + status)
-        
+
+        if self.toogle_stages_expanded:
+            COL_IDX_STAGENAME=0        
+            COL_IDX_IN=1
+            COL_IDX_PROCESSING=2
+            COL_IDX_OUT=3
+            COL_COUNT=4
+        else:
+            COL_IDX_STAGENAME=0        
+            COL_IDX_IN=1
+            COL_IDX_PROCESSING=2
+            COL_IDX_OUT=3
+            COL_COUNT=4
+
         skippedrows=0
         self.table.clear()
         for r in range(ROWS):
             displayRequired=False
             currentRowItems = []
             for c in range(COLS):
-                if c==0:
+                if c==COL_IDX_STAGENAME:
                     if r==0:
                         displayRequired=True
                         value = ""
@@ -255,7 +269,7 @@ class SpreadsheetApp(QMainWindow):
                         value = COLNAMES[c]
                         color = "gray"
                     else:
-                        if c==1:
+                        if c==COL_IDX_IN:
                             folder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
                             if os.path.exists(folder):
                                 onlyfiles = next(os.walk(folder))[2]
@@ -295,7 +309,7 @@ class SpreadsheetApp(QMainWindow):
                                 value = "?"
                                 color = "red"
                                 displayRequired=True
-                        elif c==3:
+                        elif c==COL_IDX_OUT:
                             folder =  os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
                             if os.path.exists(folder):
                                 onlyfiles = next(os.walk(folder))[2]
@@ -320,7 +334,7 @@ class SpreadsheetApp(QMainWindow):
                                 value = "?"
                                 color = "red"
                                 displayRequired=True
-                        elif c==2:
+                        elif c==COL_IDX_PROCESSING:
                             value = ""
                             if status!="idle":
                                 if activestage==STAGES[r-1]:
@@ -349,7 +363,7 @@ class SpreadsheetApp(QMainWindow):
                 skippedrows+=1
                 
         self.table.setRowCount(ROWS-skippedrows)
-
+        self.table.setColumnCount(COL_COUNT)
         self.table.resizeRowsToContents()
         self.table.resizeColumnsToContents()
 
@@ -432,6 +446,13 @@ class SpreadsheetApp(QMainWindow):
         qim = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
         pixmap = QPixmap.fromImage(qim)
         return pixmap
+
+    def closeEvent(self,event):
+        try:
+            os.remove(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.guiactive"))
+        except OSError as e:
+            print("Error: %s - %s." % (e.filename, e.strerror))
+        event.accept()
 
 class ClickableLabel(QLabel):
     def __init__(self, url, parent=None):

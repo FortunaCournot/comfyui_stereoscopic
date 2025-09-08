@@ -20,9 +20,10 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Restarting gui ..."
-"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH &
+touch user/default/comfyui_stereoscopic/.guiactive
+"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH && rm -f -- user/default/comfyui_stereoscopic/.guiactive &
 
 echo "Closing on daemon shutdown. Waiting..."
-while [ -e user/default/comfyui_stereoscopic/.daemonactive ]; do
+while [ -e user/default/comfyui_stereoscopic/.daemonactive ] && [ -e user/default/comfyui_stereoscopic/.guiactive ]; do
 	sleep 1
 done
