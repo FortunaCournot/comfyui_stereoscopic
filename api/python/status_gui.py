@@ -174,6 +174,8 @@ class SpreadsheetApp(QMainWindow):
             
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
+        self.table.setRowCount(0)
+        self.table.clear()
         if self.toogle_stages_expanded:
             self.toggle_stages_expanded_action.setIcon(self.toggle_stages_expanded_icon_true)
         else:
@@ -226,6 +228,14 @@ class SpreadsheetApp(QMainWindow):
                     else:
                         status=status + " " + statuslines[line]
         self.setWindowTitle("VR we are - " + activestage + " " + status)
+
+        fontC0 = QFont()
+        fontC0.setBold(True)
+        fontC0.setItalic(True)
+
+        fontR0 = QFont()
+        fontR0.setBold(True)
+        fontR0.setItalic(True)
 
         COLNAMES = []
         if self.toogle_stages_expanded:
@@ -280,10 +290,7 @@ class SpreadsheetApp(QMainWindow):
                     else:
                         value = STAGES[r-1]
                     item = QTableWidgetItem(value)
-                    font = QFont()
-                    font.setBold(True)
-                    font.setItalic(True)
-                    item.setFont(font)
+                    item.setFont(fontC0)
                     if value.startswith("tasks/_"):
                         item.setForeground(QBrush(QColor("blue")))
                     elif value.startswith("tasks/"):
@@ -373,8 +380,9 @@ class SpreadsheetApp(QMainWindow):
                                     displayRequired=True
                         elif self.toogle_stages_expanded:
                             if c==COL_IDX_IN_TYPES:
-                                if len(self.stageTypes)+1==ROWS:
+                                if len(self.stageTypes)+1==ROWS:  # use cache
                                     value = self.stageTypes[r-1]
+                                    color = "#5E271F" # need also to set below
                                     if value == "?":
                                         displayRequired=True
                                         color = "red"
@@ -390,16 +398,13 @@ class SpreadsheetApp(QMainWindow):
                                     defFile = os.path.join(path, "../../../../" + stageDefRes)
                                     if os.path.exists(defFile):
                                         with open(defFile) as file:
-                                            color = "lightgray"
+                                            color = "#5E271F" # need also to set above at cache
                                             deflines = [line.rstrip() for line in file]
                                             for line in range(len(deflines)):
                                                 inputMatch=re.match(r".*\"input\":", deflines[line])
                                                 if inputMatch:
-                                                    value = "in"
                                                     valuepart=deflines[line][inputMatch.end():]
                                                     match = re.search(r"\".*\"", valuepart)
-                                                    print("inputvalue",  valuepart, flush=True)
-                                                    print("match", match, flush=True)
                                                     if match:
                                                         value = valuepart[match.start()+1:match.end()][:-1]
                                                     else:
@@ -418,13 +423,11 @@ class SpreadsheetApp(QMainWindow):
                             displayRequired=True
                     item = QTableWidgetItem(value)
                     if r==0:
-                        font = QFont()
-                        font.setBold(True)
-                        font.setItalic(True)
-                        item.setFont(font)
+                        item.setFont(fontR0)
                     item.setForeground(QBrush(QColor(color)))
                     item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                     item.setBackground(QBrush(QColor("black")))
+                    
                 currentRowItems.append(item)
                 
             if displayRequired or self.toogle_stages_expanded:
@@ -433,7 +436,23 @@ class SpreadsheetApp(QMainWindow):
             else:
                 skippedrows+=1
                 
-        self.table.setRowCount(ROWS-skippedrows)
+        if ROWS-skippedrows == 1:
+            for c in range(COLS):
+                if c==COL_IDX_PROCESSING:
+                    item=QTableWidgetItem("Nothing to display.")
+                else:
+                    item=QTableWidgetItem("")
+                font = QFont()
+                font.setBold(False)
+                font.setItalic(True)
+                item.setFont(font)
+                item.setForeground(QBrush(QColor("lightgreen")))
+                item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
+                item.setBackground(QBrush(QColor("black")))
+                self.table.setItem(1, c, item)
+            self.table.setRowCount(2)
+        else:
+            self.table.setRowCount(ROWS-skippedrows)
         self.table.resizeRowsToContents()
 
     def show_table(self):
