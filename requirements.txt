@@ -6,3 +6,4 @@ googletrans
 transformers
 gputil
 PyQt5
+plantuml

@@ -2,7 +2,7 @@
   "version": "1",
   "blueprint": "ffmpeg-v2v",
   "options": "-filter_complex '[0]crop=x=0:y=0:w=in_w/2:y=in_h,pad=ih*16/9:ih:(iw-ow)/2:0[left];[0]crop=x=in_w/2:y=0:w=in_w/2:h=in_h,pad=ih*16/9:ih:(iw-ow)/2:0[right];[left][right]hstack=inputs=2'",
-  "input": "video,image",
-  "output": "video,image",
+  "input": "video;image",
+  "output": "video;image",
 }
 

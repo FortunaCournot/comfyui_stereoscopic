@@ -28,7 +28,7 @@ def mkdirs():
         print(f'\033[35m[comfyui-stereoscopic]\033[0m \033[91mFailed to create ({module_output_path})\033[0m')
         LOAD_ERRORS += 1
 
-    stage_list = ['concat','downscale','dubbing','fullsbs','scaling','singleloop','slides','slideshow','tasks','watermark','caption','interpolate']
+    stage_list = ['concat','dubbing','fullsbs','scaling','singleloop','slides','slideshow','tasks','watermark','caption','interpolate']
 
     for stage in stage_list:
         stage_input_path = os.path.join(module_input_path, stage)
@@ -42,13 +42,6 @@ def mkdirs():
     if not os.path.exists(substage_path):
         os.mkdir(substage_path)
     substage_path = os.path.join( os.path.join(module_output_path, "dubbing"), "sfx" )
-    if not os.path.exists(substage_path):
-        os.mkdir(substage_path)
-
-    substage_path = os.path.join( os.path.join(module_input_path, "downscale"), "4K" )
-    if not os.path.exists(substage_path):
-        os.mkdir(substage_path)
-    substage_path = os.path.join( os.path.join(module_output_path, "downscale"), "4K" )
     if not os.path.exists(substage_path):
         os.mkdir(substage_path)
 

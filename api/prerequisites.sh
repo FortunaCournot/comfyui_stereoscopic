@@ -217,7 +217,7 @@ if [ ! -e $CONFIGFILE ] ; then
 
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 
-	mkdir -p input/vr/dubbing input/vr/downscale
+	mkdir -p input/vr/dubbing
 
 	mkdir -p input/vr/singleloop/error 
 
@@ -379,7 +379,6 @@ done
 
 # PLACE HINT FILES
 echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >input/vr/dubbing/DO_NOT_PLACE_HERE.TXT
-cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/downscale/DO_NOT_PLACE_HERE.TXT
 cp input/vr/dubbing/DO_NOT_PLACE_HERE.TXT input/vr/tasks/DO_NOT_PLACE_HERE.TXT
 mkdir -p input/vr/singleloop/error
 #touch input/vr/singleloop/error/CONSIDER_REPAIRING
@@ -516,6 +515,14 @@ cd ../..
 [ $PIPELINE_AUTOFORWARD -ge 1 ] && echo -e $"Auto-Forwarding \e[32mactive\e[0m" || echo -e $"Auto-Forwarding \e[33mdeactivated\e[0m"
 echo -e $"\e[2m... using \e[36m$CONFIGPATH""/rebuild_autoforward.sh\e[0m"
 "$CONFIGPATH"/"rebuild_autoforward.sh"
+if [ ! -e "$CONFIGPATH"/uml/"autoforward.uml" ] || [ "$CONFIGPATH"/uml/"autoforward.uml" -ot "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
+	rm -f -- "$CONFIGPATH"/uml/*.* 2>/dev/null
+	./custom_nodes/comfyui_stereoscopic/api/uml_build_definition.sh
+fi
+if [ ! -e "$CONFIGPATH"/uml/"autoforward.png" ] || [ ! -s "$CONFIGPATH"/uml/"autoforward.png" ] ; then
+	# Requires to be online...
+	./custom_nodes/comfyui_stereoscopic/api/uml_generate_image.sh
+fi
 
 # Cleanup
 echo -e $"\e[2mCleaning up unprotected done folders\e[0m"

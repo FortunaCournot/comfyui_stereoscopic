@@ -38,6 +38,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+
+./custom_nodes/comfyui_stereoscopic/api/prerequisites.sh || exit 1
+
+
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
@@ -47,8 +51,6 @@ mkdir -p user/default/comfyui_stereoscopic
 rm -f -- user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
 touch user/default/comfyui_stereoscopic/.daemonactive
 "$PYTHON_BIN_PATH"python.exe ./custom_nodes/comfyui_stereoscopic/api/python/status_gui.py 2>/dev/null &
-
-./custom_nodes/comfyui_stereoscopic/api/prerequisites.sh || exit 1
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
@@ -213,11 +215,6 @@ else
 			fi
 		fi
 		
-		DOWNSCALECOUNT=`find input/vr/downscale/4K -maxdepth 1 -type f -name '*.mp4' | wc -l`
-		if [[ $DOWNSCALECOUNT -gt 0 ]]; then
-			./custom_nodes/comfyui_stereoscopic/api/batch_downscale.sh || exit 1
-		fi
-
 	done #KILL ME
 fi
 [ $loglevel -ge 0 ] && set +x
