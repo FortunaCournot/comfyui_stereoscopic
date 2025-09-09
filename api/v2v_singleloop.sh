@@ -76,7 +76,7 @@ else
 	cd ../../../..
 	mv -f output/vr/singleloop/intermediate/result.mp4 "$TARGET"
 	
-	if [ ! -e "$TARGET" ]; then
+	if [ ! -e "$TARGET" ] && [ ! -s "$TARGET" ]; then
 		echo -e "$PROGRESS"$"\e[91mError:\e[0m Failed to create target file $TARGET"
 	fi
 	

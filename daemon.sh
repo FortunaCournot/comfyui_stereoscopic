@@ -20,17 +20,18 @@ done
 
 cleanup() {
 	exit_code=$?
+	rm -f user/default/comfyui_stereoscopic/.daemonactive
+	rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	#echo "Exit code $exit_code"
 	while [[ ${exit_code} -ne 0 ]]; do
-		read -p "Error/Interrupt detected. Quit? " yn
+		read -p "Error/Interrupt detected. Please press enter to quit: " yn
 		case $yn in
-			[Yy]* )
+			[A-Za-z]* )
 				exit_code=0
-				rm -f user/default/comfyui_stereoscopic/.daemonactive
-				rm -f user/default/comfyui_stereoscopic/.daemonstatus
 				break;;
-			[Nn]* ) ;;
-			* ) echo "Please answer yes to quit. (No other option))";;
+			* )
+				echo "Please answer yes or no to quit (no options)."
+				break;;
 		esac
 	done
     exit 0 # exit script after cleanup

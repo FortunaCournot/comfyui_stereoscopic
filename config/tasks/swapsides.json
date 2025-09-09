@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-vf stereo3d=sbsr:sbsl",
+  "input": "video,image",
+  "output": "video,image",
+}

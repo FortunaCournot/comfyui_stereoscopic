@@ -167,7 +167,7 @@ else
 		else
 			"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i $INTERMEDIATEFOLDER/output.mkv $INTERMEDIATEFOLDER/output.mp4
 		fi
-		rm -f $INTERMEDIATEFOLDER/subtitles.srt 2>&/dev/null
+		rm -f $INTERMEDIATEFOLDER/subtitles.srt 2>/dev/null
 		
 		echo -e $"\e[92mdone\e[0m                    "
 		
@@ -186,7 +186,7 @@ else
 		rm input/vr/slideshow/BATCHPROGRESS.TXT
 		mkdir -p input/vr/slideshow/done
 		mv input/vr/slideshow/*.* input/vr/slideshow/done
-		if [ ! -e "$TARGET" ]; then
+		if [ ! -e "$TARGET" ] && [ ! -s "$TARGET" ]; then
 			echo -e $"\e[91mError:\e[0m Failed to make slideshow"
 			sleep 10
 			exit 1
