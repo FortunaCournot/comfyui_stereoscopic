@@ -209,7 +209,8 @@ else
 
 	mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
 	mkdir -p input/vr/interpolate/done
-	mv -f -- "$INPUT" input/vr/interpolate/done
+	# do not overwrite done because it can be self-looped
+	if [ ! -e input/vr/interpolate/done/${INPUT%##*/} ] ; then mv -- "$INPUT" input/vr/interpolate/done ; fi
 	rm -rf -- output/vr/interpolate/intermediate 2>/dev/null
 	echo -e $"\e[92mdone\e[0m"
 fi
