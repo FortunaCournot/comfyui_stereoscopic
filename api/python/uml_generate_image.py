@@ -4,7 +4,7 @@ import os
 try:
     path = os.path.dirname(os.path.abspath(__file__))
     uml_folder = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml")
-    uml_def = os.path.join(uml_folder, "autoforward.uml")
+    uml_def = os.path.join(uml_folder, "autoforward.pu")
 
     # generate UML image
     server = PlantUML(url='http://www.plantuml.com/plantuml/img/',

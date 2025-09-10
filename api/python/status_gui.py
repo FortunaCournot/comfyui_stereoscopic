@@ -182,7 +182,9 @@ class SpreadsheetApp(QMainWindow):
             lay.addWidget(label)
             pixmap = QPixmap(imagepath)
             label.setPixmap(pixmap)
+            self.button_show_pipeline_action.setEnabled(False)
             dialog.exec_()
+            self.button_show_pipeline_action.setEnabled(True)
         
     def show_manual(self, state):
             webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
@@ -214,6 +216,9 @@ class SpreadsheetApp(QMainWindow):
         self.button_show_pipeline_action.setCheckable(False)
         self.button_show_pipeline_action.triggered.connect(self.show_pipeline)
         self.toolbar.addAction(self.button_show_pipeline_action)    
+        imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
+        if not os.path.exists(imagepath):
+            self.button_show_pipeline_action.setEnabled(False)
         
         self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../api/img/manual64.png')), "clicked")      
         self.button_show_manual_action.setCheckable(False)

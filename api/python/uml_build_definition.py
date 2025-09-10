@@ -24,7 +24,7 @@ if os.path.exists(subfolder):
 # generate UML definition
 uml_folder = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml")
 os.makedirs(uml_folder, exist_ok=True)
-uml_def = os.path.join(uml_folder, "autoforward.uml")
+uml_def = os.path.join(uml_folder, "autoforward.pu")
 with open(uml_def, "w") as f:
     f.write("' This file is generated - do not edit.\n")
     f.write("\n")
