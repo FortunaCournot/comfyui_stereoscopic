@@ -123,21 +123,21 @@ else
 		forwarddef=output/vr/"$sourcestage"/forward.txt
 		forwarddef=`realpath $forwarddef`
 		
-		while read -r destination; do
+		cat $forwarddef | tr -d '\r' | while read -r destination; do
 			[ !  -z "$destination" ] && [ "${destination:0:1}" = "#" ] && continue
-			
 			conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
-			destination=${destination#*]}
+			destination=${destination##*\]}
+			mkdir -p input/vr/$destination 2>/dev/null
 			if [ -z "$destination" ] ; then
 				SKIPPING_EMPTY_LINE=	# just ignore this line
 			elif [ -d input/vr/$destination ] ; then
-
 				if [[ $destination == *"tasks/_"* ]] ; then
 					userdestination=tasks/${destination#tasks/_}
 
-					if [ ! -e user/default/comfyui_stereoscopic/"$userdestination".json ] ; then
+					jsonFile="user/default/comfyui_stereoscopic/""$userdestination"".json"
+					if [ ! -e "$jsonFile" ] ; then
 						echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
-						echo -e $"\e[91mError:\e[0m Missing task destination definition at user/default/comfyui_stereoscopic/"$userdestination".json"
+						echo -e $"\e[91mError:\e[0m Missing task destination definition at $jsonFile"
 						exit 0
 					fi
 					
@@ -151,9 +151,10 @@ else
 					
 				elif [[ $destination == *"tasks/"* ]] ; then
 				
-					if [ ! -e custom_nodes/comfyui_stereoscopic/config/"$destination".json ] ; then
+					jsonFile="custom_nodes/comfyui_stereoscopic/config/""$destination"".json"
+					if [ ! -e "$jsonFile" ] ; then
 						echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
-						echo -e $"\e[91mError:\e[0m Missing task destination definition at custom_nodes/comfyui_stereoscopic/config/"$destination".json"
+						echo -e $"\e[91mError:\e[0m Missing task destination definition at $jsonFile"
 						exit 0
 					fi
 
@@ -166,9 +167,10 @@ else
 					inputrule="${temp%,*}"
 					
 				else
-					if [ ! -e custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json ] ; then
+					jsonFile="custom_nodes/comfyui_stereoscopic/config/stages/""$destination"".json"
+					if [ ! -e  "$jsonFile" ] ; then
 						echo -e $"\e[91mError:\e[0m Invalid destination! Check $forwarddef"
-						echo -e $"\e[91mError:\e[0m Missing stage destination definition at custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json"
+						echo -e $"\e[91mError:\e[0m Missing stage destination definition at $jsonFile"
 						exit 0
 					fi
 					
@@ -255,7 +257,7 @@ else
 				echo -e $"\e[91mError:\e[0m Invalid stage path in $sourcestage""/forward.txt: input/vr/""$destination does not exist."
 				exit 1
 			fi
-		done < $forwarddef
+		done
 	else
 		echo -e $"\e[2m""     no forward.txt file\e[0m"
 	fi

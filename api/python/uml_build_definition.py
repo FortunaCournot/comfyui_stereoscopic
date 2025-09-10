@@ -26,7 +26,7 @@ uml_folder = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/u
 os.makedirs(uml_folder, exist_ok=True)
 uml_def = os.path.join(uml_folder, "autoforward.pu")
 with open(uml_def, "w") as f:
-    f.write("' This file is generated - do not edit.\n")
+    f.write("' This file is generated and contains PlantUML commands - do not edit.\n")
     f.write("\n")
     f.write("@startuml\n")
     f.write("<style>\n")

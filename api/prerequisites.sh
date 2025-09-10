@@ -409,7 +409,7 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 fi
 cd ../..
 
-# Initialize output folders
+# Initialize folders
 mkdir -p output/vr
 cd output/vr
 mkdir -p caption fullsbs scaling dubbing/sfx interpolate watermark/encrypt watermark/decrypt slides concat singleloop slideshow
