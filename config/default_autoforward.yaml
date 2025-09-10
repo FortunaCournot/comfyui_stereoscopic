@@ -47,7 +47,7 @@ forwards:
   - from: scaling
     rules:
       - rule:
-          to: vlimit-2160p
+          to: tasks/vlimit-2160p
           conditions:
             - sbs=false
             - height>2160
