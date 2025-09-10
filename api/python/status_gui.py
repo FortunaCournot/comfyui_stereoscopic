@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,
+QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QDialog,
 QVBoxLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox
 )
 from PyQt5.QtCore import QTimer, Qt
@@ -171,7 +171,22 @@ class SpreadsheetApp(QMainWindow):
         except HTTPError as err:
             print("Notice: Can't fetch image list.", flush=True)
 
-            
+
+    def show_pipeline(self, state):
+        imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
+        if os.path.exists(imagepath):
+            dialog = QDialog()
+            dialog.setWindowTitle("VR We Are - Pipeline")
+            lay = QVBoxLayout(dialog)
+            label = QLabel()
+            lay.addWidget(label)
+            pixmap = QPixmap(imagepath)
+            label.setPixmap(pixmap)
+            dialog.exec_()
+        
+    def show_manual(self, state):
+            webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
+
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
         self.table.setRowCount(0)
@@ -195,7 +210,15 @@ class SpreadsheetApp(QMainWindow):
         self.toggle_stages_expanded_action.triggered.connect(self.toggle_stage_expanded_enabled)
         self.toolbar.addAction(self.toggle_stages_expanded_action)    
         
-       
+        self.button_show_pipeline_action = QAction(QIcon(os.path.join(path, '../../api/img/pipeline64.png')), "clicked")      
+        self.button_show_pipeline_action.setCheckable(False)
+        self.button_show_pipeline_action.triggered.connect(self.show_pipeline)
+        self.toolbar.addAction(self.button_show_pipeline_action)    
+        
+        self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../api/img/manual64.png')), "clicked")      
+        self.button_show_manual_action.setCheckable(False)
+        self.button_show_manual_action.triggered.connect(self.show_manual)
+        self.toolbar.addAction(self.button_show_manual_action)    
         
 
     def update_idlecount(self):
@@ -292,11 +315,11 @@ class SpreadsheetApp(QMainWindow):
                     item = QTableWidgetItem(value)
                     item.setFont(fontC0)
                     if value.startswith("tasks/_"):
-                        item.setForeground(QBrush(QColor("blue")))
+                        item.setForeground(QBrush(QColor("#666666")))
                     elif value.startswith("tasks/"):
-                        item.setForeground(QBrush(QColor("gray")))
+                        item.setForeground(QBrush(QColor("#888888")))
                     else:
-                        item.setForeground(QBrush(QColor("lightgray")))
+                        item.setForeground(QBrush(QColor("#CCCCCC")))
                     item.setBackground(QBrush(QColor("black")))
                     item.setTextAlignment(Qt.AlignLeft + Qt.AlignVCenter)
                 else:
@@ -383,7 +406,11 @@ class SpreadsheetApp(QMainWindow):
                                 if len(self.stageTypes)+1==ROWS:  # use cache
                                     value = self.stageTypes[r-1]
                                     color = "#5E271F" # need also to set below
-                                    if value == "?":
+                                    if value == "video":
+                                        color = "#04018C"   # need also to set below
+                                    elif value == "image":
+                                        color = "#018C08"   # need also to set below
+                                    elif value == "?":
                                         displayRequired=True
                                         color = "red"
                                 else:   # build and store in cache
@@ -407,6 +434,10 @@ class SpreadsheetApp(QMainWindow):
                                                     match = re.search(r"\".*\"", valuepart)
                                                     if match:
                                                         value = valuepart[match.start()+1:match.end()][:-1]
+                                                        if value == "video":
+                                                            color = "#04018C"   # need also to set above at cache
+                                                        elif value == "image":
+                                                            color = "#018C08"   # need also to set above at cache
                                                     else:
                                                         value = "?"
                                     self.stageTypes.append(value)
