@@ -1,0 +1,152 @@
+--- # delete this file (in user\default\comfyui_stereoscopic) to reset it to defaults.
+forwards:
+  - from: caption
+    rules:
+      - rule:
+          to: tasks/reencode
+          conditions:
+            - codec_type=audio
+      - rule:
+          to: tasks/fps-limit-30
+          conditions:
+            - tvai=true
+      - rule:
+          to: tasks/fps-limit-30
+          conditions:
+            - vram>8
+      - rule:
+          to: tasks/fps-limit-15
+      - rule:
+          to: scaling
+          conditions:
+            - duration<1
+  - from: tasks/createsilence
+    rules:
+      - rule:
+          to: tasks/reencode
+  - from: tasks/reencode
+    rules:
+      - rule:
+          to: tasks/fps-limit-30
+          conditions:
+            - tvai=true
+      - rule:
+          to: tasks/fps-limit-30
+          conditions:
+            - vram>8
+      - rule:
+          to: tasks/fps-limit-15
+  - from: tasks/fps-limit-15
+    rules:
+      - rule:
+          to: scaling
+  - from: tasks/fps-limit-30
+    rules:
+      - rule:
+          to: scaling
+  - from: scaling
+    rules:
+      - rule:
+          to: vlimit-2160p
+          conditions:
+            - sbs=false
+            - height>2160
+      - rule:
+          to: tasks/vlimit-1080p
+          conditions:
+            - sbs=false
+            - duration>90
+      - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+  - from: tasks/vlimit-2160p
+    rules:
+      - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+      - rule:
+          to: watermark/encrypt
+          conditions:
+            - duration<1
+  - from: tasks/vlimit-1080p
+    rules:
+      - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+      - rule:
+          to: watermark/encrypt
+          conditions:
+            - duration<1
+  - from: fullsbs
+    rules:
+      - rule:
+          to: interpolate
+          conditions:
+            - duration<60
+            - tvai=true
+            - width<7681
+            - r_frame_rate<31
+      - rule:
+          to: tasks/vlimit-720p
+          conditions:
+            - duration<60
+            - tvai=true
+      - rule:
+          to: tasks/vlimit-720p
+          conditions:
+            - duration<60
+            - vram>6
+      - rule:
+          to: singleloop
+          conditions:
+            - codec_type!=audio
+            - duration<20
+      - rule:
+          to: dubbing/sfx
+          conditions:
+            - codec_type!=audio
+      - rule:
+          to: tasks/vlimit-2160p
+          conditions:
+            - duration<1
+  - from: tasks/vlimit-720p
+    rules:
+      - rule:
+          to: interpolate
+          conditions:
+            - duration<20
+            - vram>6
+            - r_frame_rate<31
+      - rule:
+          to: singleloop
+          conditions:
+            - codec_type!=audio
+            - duration<20
+      - rule:
+          to: dubbing/sfx
+          conditions:
+            - codec_type!=audio
+  - from: interpolate
+    rules:
+      - rule:
+          to: interpolate
+          conditions:
+            - r_frame_rate<31
+      - rule:
+          to: singleloop
+          conditions:
+            - codec_type!=audio
+            - duration<20
+      - rule:
+          to: dubbing/sfx
+          conditions:
+            - codec_type!=audio
+  - from: singleloop
+    rules:
+      - rule:
+          to: dubbing/sfx
+          conditions:
+            - codec_type!=audio
