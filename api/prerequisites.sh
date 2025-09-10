@@ -497,7 +497,7 @@ then
 fi
 
 [ $loglevel -ge 0 ] && echo -e $"\e[2mFor processings read docs. \e[36mhttps://www.3d-gallery.org\e[0m"
-[ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You can use Control + Click on any links that appear.\e[0m"
+[ $loglevel -ge 0 ] && echo -e $"\e[2mHint: You may use Control + Click on any links that appear.\e[0m"
 
 
 ### EXIT IF CHECK FAILED ###
