@@ -259,7 +259,7 @@ else
 			fi
 		done
 	else
-		echo -e $"\e[2m""     no forward.txt file\e[0m"
+		[ $loglevel -ge 1 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"
 	fi
 fi
 
