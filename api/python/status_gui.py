@@ -647,6 +647,23 @@ class ClickableLabel(QLabel):
         if event.button() == Qt.LeftButton:
             webbrowser.open(self.url)
 
+class ActionButton(QPushButton):
+    def __init__(self):
+        super().__init__()
+        #self.button_prev_file.setStyleSheet("background : black; color: white;")
+        self.updateStylesheet()
+
+    def updateStylesheet(self):
+
+        self.setStyleSheet(
+            """
+        QPushButton:pressed {
+            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #000000, stop: 1 #000000);
+        }
+        """
+        )
+        
+
 
 class VideoThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
@@ -665,12 +682,14 @@ class VideoThread(QThread):
         self._run_flag = True
         print("open video", self.filepath)
         self.cap = cv2.VideoCapture(self.filepath)
-        frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        print("frames", frame_count)
+        self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.a = 0
+        self.b = self.frame_count - 1
+        print("frames", self.frame_count)
         fps = self.cap.get(cv2.CAP_PROP_FPS)
         print("fps", fps, flush=True)
         self.slider.setMinimum(0)
-        self.slider.setMaximum(frame_count-1)
+        self.slider.setMaximum(self.frame_count-1)
         self.slider.setValue(0)
         self.slider.setTickPosition(QSlider.TicksBelow)
         if fps<1:
@@ -681,31 +700,42 @@ class VideoThread(QThread):
         self.slider.valueChanged.connect(self.sliderChanged)
         self.update(self.pause)
 
-        currentFrame=-1      # before start. first frame will be number 0
+        self.currentFrame=-1      # before start. first frame will be number 0
         while self._run_flag:
             if not self.pause:
-                ret, cv_img = self.cap.read()
-                if ret:
-                    currentFrame+=1
-                    print("frame #", currentFrame)
-                    self.slider.setValue(currentFrame)
-                    self.change_pixmap_signal.emit(cv_img)
-                    #status.showMessage('frame ...')
+                if self.currentFrame+1>self.b or self.currentFrame+1<self.a:
+                    self.seek(self.a)
                 else:
-                    print("failed to load", currentFrame)
-                    self.cap.release()
-                    self.cap = cv2.VideoCapture(self.filepath)
                     ret, cv_img = self.cap.read()
                     if ret:
-                        currentFrame=0
-                        self.slider.setValue(currentFrame)
+                        self.currentFrame+=1
+                        print("frame #", self.currentFrame, flush=True)
+                        self.slider.setValue(self.currentFrame)
                         self.change_pixmap_signal.emit(cv_img)
+                        #status.showMessage('frame ...')
                     else:
+                        print("failed to load", self.currentFrame)
                         self.cap.release()
+                        self.cap = cv2.VideoCapture(self.filepath)
+                        self.seek(self.a)
+                        #ret, cv_img = self.cap.read()
+                        #if ret:
+                        #    #self.currentFrame=0
+                        #    #self.slider.setValue(self.currentFrame)
+                        #    self.change_pixmap_signal.emit(cv_img)
+                        #else:
+                        #    self.cap.release()
             time.sleep(1.0/fps)
             
         self.cap.release()
 
+    def getFrameCount(self):
+        return self.frame_count
+
+    def getCurrentFrameIndex(self):
+        print("currentFrame=", self.currentFrame, flush=True)
+        return self.currentFrame
+    
     def isPaused(self):
         return self.pause
 
@@ -716,17 +746,31 @@ class VideoThread(QThread):
 
 
     def seek(self, frame_number):
-        if self.pause:
-            self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
-            ret, cv_img = self.cap.read()
-            if ret:
-                currentFrame=frame_number
-                self.slider.setValue(currentFrame)
-                self.change_pixmap_signal.emit(cv_img)
+        #if self.pause:
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
+        ret, cv_img = self.cap.read()
+        if ret:
+            self.currentFrame=frame_number
+            print("currentFrame=", self.currentFrame, flush=True)
+            self.slider.setValue(self.currentFrame)
+            self.change_pixmap_signal.emit(cv_img)
+        else:
+            self.cap.release()
+            self._run_flag = False
                 
     def sliderChanged(self):
         if self.pause:
             self.seek(self.sender().value())
+
+    def setA(self, frame_number):
+        self.a=frame_number
+        if self.a>self.b:
+            self.b=self.a
+            
+    def setB(self, frame_number):
+        self.b=frame_number
+        if self.b<self.a:
+            self.a=self.b
 
     
 class Display(QLabel):
@@ -794,18 +838,40 @@ class Display(QLabel):
         self.slider.setVisible(True)
         self.thread.change_pixmap_signal.connect(self.update_image)
         self.thread.start()
-        self.button.clicked.connect(self.thread.tooglePause)
+        self.button.clicked.connect(self.tooglePausePressed)
 
     def releaseVideo(self):
         self.thread.change_pixmap_signal.disconnect(self.update_image)
-        self.button.clicked.disconnect(self.thread.tooglePause)
+        self.button.clicked.disconnect(self.tooglePausePressed)
         self.thread.stop()
 
     def updatePaused(self, isPaused):
         self.update(isPaused)
 
-    def togglePause(self):
+    def tooglePausePressed(self):
+        self.button.setEnabled(False)
         self.thread.tooglePause()
+        self.button.setEnabled(True)
+
+    def trimA(self):
+        count=self.thread.getFrameCount()
+        if count>1:
+            self.slider.setA(float(self.thread.getCurrentFrameIndex())/float(count-1))
+            print("A", float(self.thread.getCurrentFrameIndex())/float(count-1), self.thread.getCurrentFrameIndex(), float(count-1), flush=True)
+            self.thread.setA(self.thread.getCurrentFrameIndex())
+        else:
+            self.slider.setA(0.0)
+            self.thread.setA(0)
+
+    def trimB(self):
+        count=self.thread.getFrameCount()
+        if count>1:
+            self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
+            print("B", float(self.thread.getCurrentFrameIndex())/float(count-1), self.thread.getCurrentFrameIndex(), float(count-1), flush=True)
+            self.thread.setB(self.thread.getCurrentFrameIndex())
+        else:
+            self.slider.setB(1.0)
+            self.thread.setB(count-1)
 
 
 class FrameSlider(QSlider):
@@ -819,13 +885,11 @@ class FrameSlider(QSlider):
         
     def setA(self, a):
         self.a = min(max(0.0, a), 1.0)
-        if self.a > self.b:
-            self.b = self.a
+        self.update()
 
     def setB(self, b):
         self.b = min(max(0.0, b), 1.0)
-        if self.a > self.b:
-            self.a = self.b
+        self.update()
 
     def paintEvent(self, event: QPaintEvent):
 
@@ -867,25 +931,34 @@ class RateAndCutDialog(QDialog):
         self.setLayout(self.outer_main_layout)
         self.setStyleSheet("background : black; color: white;")
 
-        self.button_startpause_video = QPushButton(self)
+        self.button_startpause_video = ActionButton()
         self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png')))
         self.button_startpause_video.setIconSize(QSize(80,80))
-        self.button_startpause_video.setStyleSheet("background : black; color: white;")
 
-        self.button_trima_video = QPushButton(self)
+        self.button_trima_video = ActionButton()
         self.button_trima_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trima80.png')))
         self.button_trima_video.setIconSize(QSize(80,80))
-        self.button_trima_video.setStyleSheet("background : black; color: white;")
 
-        self.button_trimb_video = QPushButton(self)
+        self.button_trimb_video = ActionButton()
         self.button_trimb_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trimb80.png')))
         self.button_trimb_video.setIconSize(QSize(80,80))
-        self.button_trimb_video.setStyleSheet("background : black; color: white;")
 
-        self.button_snapshot_video = QPushButton(self)
+        self.button_snapshot_video = ActionButton()
         self.button_snapshot_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/snapshot80.png')))
         self.button_snapshot_video.setIconSize(QSize(80,80))
-        self.button_snapshot_video.setStyleSheet("background : black; color: white;")
+
+        self.button_prev_file = ActionButton()
+        self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/prevf80.png')))
+        self.button_prev_file.setIconSize(QSize(80,80))
+
+        self.button_cutandclone = ActionButton()
+        self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../api/img/cutclone80.png')))
+        self.button_cutandclone.setIconSize(QSize(80,80))
+
+        self.button_next_file = ActionButton()
+        self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/nextf80.png')))
+        self.button_next_file.setIconSize(QSize(80,80))
+
 
         self.sl = FrameSlider(Qt.Horizontal)
         self.sl.setEnabled(False)
@@ -908,13 +981,22 @@ class RateAndCutDialog(QDialog):
 
         # Common Tool layout
         self.commontool_layout = QHBoxLayout()
+        #emptyLeft = QWidget()
+        #emptyLeft.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Minimum)
+        #self.commontool_layout.addWidget(emptyLeft)
+        self.commontool_layout.addWidget(QLabel())
+        self.commontool_layout.addWidget(self.button_prev_file)
+        self.commontool_layout.addWidget(self.button_cutandclone)
+        self.commontool_layout.addWidget(self.button_next_file)
 
         # Tool layout
         self.tool_layout = QGridLayout()
-        self.tool_layout.addLayout(self.videotool_layout, 0, 0, 1, 0)
-        self.tool_layout.addLayout(self.commontool_layout, 0, 0, 1, 0)
+        self.tool_layout.addLayout(self.videotool_layout, 0, 0, 1, 3)
+        self.tool_layout.addLayout(self.commontool_layout, 1, 1, 1, 1)
 
         self.button_startpause_video.clicked.connect(self.display.startVideo)
+        self.button_trima_video.clicked.connect(self.display.trimA)
+        self.button_trimb_video.clicked.connect(self.display.trimB)
 
 
         #Main Layout
