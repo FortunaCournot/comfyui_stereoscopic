@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (
 QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QDialog,
-QVBoxLayout, QHBoxLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox, QPushButton
+QVBoxLayout, QHBoxLayout, QGridLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox, QPushButton
 )
-from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot, QSize 
 from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor
 
 import sys
@@ -195,9 +195,6 @@ class SpreadsheetApp(QMainWindow):
 
     def check_rate(self, state):
             dialog = RateDialog()
-            lay = QVBoxLayout(dialog)
-            label = QLabel()
-            lay.addWidget(label)
             self.button_show_pipeline_action.setEnabled(False)
             dialog.exec_()
             self.button_show_pipeline_action.setEnabled(True)
@@ -656,56 +653,32 @@ class VideoThread(QThread):
         self._run_flag = False
 
 
+class Display(QLabel):
 
-class RateDialog(QDialog):
-
-    def __init__(self):
+    def __init__(self, pushbutton):
         super().__init__()
-
-        self.startpause_video = QPushButton(self)
-        self.startpause_video.setText('Start video')
-        self.startpause_video.resize(180, 80)
-        self.startpause_video.clicked.connect(self.startVideo)
-
-        self.display = QLabel(self)
-        self.display_width = 640
-        self.display_height = 480
-        self.display.resize(self.display_width, self.display_height)
-        self.display.setStyleSheet("background : black;")
-        self.display.move(0, 0)
+        self.qt_img=None
+        self.setStyleSheet("background : black; color: white;")
+        self.button = pushbutton
+        self.display_width = 3840
+        self.display_height = 2160
+        self.resize(self.display_width, self.display_height)
         
-        # Display layout
-        self.display_layout = QVBoxLayout()
-        self.display_layout.addWidget(self.display)
-
-        # Tool layout
-        self.tool_layout = QVBoxLayout()
-        self.tool_layout.addWidget(self.startpause_video)
-        self.tool_layout.addStretch(1)
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.qt_img:
+            print(f"display geaendert auf: {event.size().width()}x{event.size().height()}")
+            self.setPixmap(self.qt_img.scaled(event.size().width(), event.size().height(), Qt.KeepAspectRatio))
         
-        #Main Layout
-        self.main_layout = QHBoxLayout()
-        self.main_layout.addLayout(self.display_layout)
-        self.main_layout.addLayout(self.tool_layout)
-
-        #Main group box
-        self.main_group_box = QGroupBox()
-        self.main_group_box.setStyleSheet("QGroupBox{font-size: 10px}")
-        self.main_group_box.setTitle("Video")
-        self.main_group_box.setLayout(self.main_layout)
-
-        #Outer main layout to accomodate the group box
-        self.outer_main_layout = QVBoxLayout()
-        self.outer_main_layout.addWidget(self.main_group_box)
-
-        #Set the main layout
-        self.setLayout(self.outer_main_layout)
-        self.setWindowTitle("VR We Are - Rating")
+    def minimumSizeHint(self):
+        return QSize(50, 50)
 
     @pyqtSlot(ndarray)
     def update_image(self, cv_img):
-        qt_img = self.convert_cv_qt(cv_img)
-        self.display.setPixmap(qt_img)
+        self.qt_img = self.convert_cv_qt(cv_img)
+        geometry=self.size() # self.display_layout.contentsRect()
+        print(f"update_image : {geometry.width()}x{geometry.height()}")
+        self.setPixmap(self.qt_img.scaled(geometry.width(), geometry.height(), Qt.KeepAspectRatio))
 
     def convert_cv_qt(self, cv_img):
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
@@ -717,21 +690,71 @@ class RateDialog(QDialog):
 
     def startVideo(self):
         
-        self.startpause_video.clicked.disconnect(self.startVideo)
-        self.startpause_video.setText('Pause')
+        self.button.clicked.disconnect(self.startVideo)
+        self.button.setText('Pause')
         self.thread = VideoThread("output/testvideo.mp4")
         self.thread.change_pixmap_signal.connect(self.update_image)
 
         self.thread.start()
-        self.startpause_video.clicked.connect(self.thread.stop)
-        self.startpause_video.clicked.connect(self.pauseVideo)
+        self.button.clicked.connect(self.thread.stop)
+        self.button.clicked.connect(self.pauseVideo)
 
     def pauseVideo(self):
         self.thread.change_pixmap_signal.disconnect()
-        self.startpause_video.setText('Start')
-        self.startpause_video.clicked.disconnect(self.pauseVideo)
-        self.startpause_video.clicked.disconnect(self.thread.stop)
-        self.startpause_video.clicked.connect(self.startVideo)
+        self.button.setText('Start')
+        self.button.clicked.disconnect(self.pauseVideo)
+        self.button.clicked.disconnect(self.thread.stop)
+        self.button.clicked.connect(self.startVideo)
+
+
+class RateDialog(QDialog):
+
+    def __init__(self):
+        super().__init__()
+
+        self.qt_img=None
+
+        #Set the main layout
+        self.setWindowTitle("VR We Are - Rating")
+        self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
+        self.outer_main_layout = QVBoxLayout()
+        self.setLayout(self.outer_main_layout)
+        self.setStyleSheet("background : black; color: white;")
+
+        self.button_startpause_video = QPushButton(self)
+        self.button_startpause_video.setText('Start video')
+        self.button_startpause_video.setStyleSheet("background : black; color: white;")
+        self.button_startpause_video.resize(180, 80)
+
+        self.display = Display(self.button_startpause_video)
+        #self.display.resize(self.display_width, self.display_height)
+
+        self.button_startpause_video.clicked.connect(self.display.startVideo)
+
+        # Display layout
+        self.display_layout = QGridLayout()
+        self.display_layout.addWidget(self.display ,0 ,0, 1, 1)
+
+        # Tool layout
+        self.tool_layout = QVBoxLayout()
+        self.tool_layout.addWidget(self.button_startpause_video)
+        #self.display_layout.addStretch(0)
+
+        #Main Layout
+        self.main_layout = QVBoxLayout()
+        self.main_layout.addLayout(self.display_layout)
+        self.main_layout.addLayout(self.tool_layout)
+
+        #Main group box
+        self.main_group_box = QGroupBox()
+        self.main_group_box.setStyleSheet("QGroupBox{font-size: 10px}")
+        self.main_group_box.setTitle("Video")
+        self.main_group_box.setLayout(self.main_layout)
+
+        #Outer main layout to accomodate the group box
+
+        self.outer_main_layout.addWidget(self.main_group_box)
+
 
 
 if __name__ == "__main__":
