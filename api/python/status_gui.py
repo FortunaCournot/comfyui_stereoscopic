@@ -189,6 +189,30 @@ class SpreadsheetApp(QMainWindow):
     def show_manual(self, state):
             webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
 
+    def check_rate(self, state):
+            dialog = QDialog()
+            dialog.setWindowTitle("VR We Are - Rating")
+            lay = QVBoxLayout(dialog)
+            label = QLabel()
+            lay.addWidget(label)
+            #pixmap = QPixmap(imagepath)
+            #label.setPixmap(pixmap)
+            self.button_show_pipeline_action.setEnabled(False)
+            dialog.exec_()
+            self.button_show_pipeline_action.setEnabled(True)
+
+    def check_judge(self, state):
+            dialog = QDialog()
+            dialog.setWindowTitle("VR We Are - Judging")
+            lay = QVBoxLayout(dialog)
+            label = QLabel()
+            lay.addWidget(label)
+            #pixmap = QPixmap(imagepath)
+            #label.setPixmap(pixmap)
+            self.button_show_pipeline_action.setEnabled(False)
+            dialog.exec_()
+            self.button_show_pipeline_action.setEnabled(True)
+
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
         self.table.setRowCount(0)
@@ -220,6 +244,16 @@ class SpreadsheetApp(QMainWindow):
         if not os.path.exists(imagepath):
             self.button_show_pipeline_action.setEnabled(False)
         
+        self.button_check_rate_action = QAction(QIcon(os.path.join(path, '../../api/img/rate64.png')), "clicked")      
+        self.button_check_rate_action.setCheckable(False)
+        self.button_check_rate_action.triggered.connect(self.check_rate)
+        self.toolbar.addAction(self.button_check_rate_action)    
+
+        self.button_check_judge_action = QAction(QIcon(os.path.join(path, '../../api/img/judge64.png')), "clicked")      
+        self.button_check_judge_action.setCheckable(False)
+        self.button_check_judge_action.triggered.connect(self.check_judge)
+        self.toolbar.addAction(self.button_check_judge_action)    
+
         self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../api/img/manual64.png')), "clicked")      
         self.button_show_manual_action.setCheckable(False)
         self.button_show_manual_action.triggered.connect(self.show_manual)
