@@ -194,8 +194,14 @@ class SpreadsheetApp(QMainWindow):
     def show_manual(self, state):
             webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
 
+    def check_cutandclone(self, state):
+            dialog = RateAndCutDialog(True)
+            #self.button_check_rate_action.setEnabled(False)
+            dialog.exec_()
+            #self.button_check_rate_action.setEnabled(True)
+
     def check_rate(self, state):
-            dialog = RateDialog()
+            dialog = RateAndCutDialog(False)
             #self.button_check_rate_action.setEnabled(False)
             dialog.exec_()
             #self.button_check_rate_action.setEnabled(True)
@@ -242,7 +248,7 @@ class SpreadsheetApp(QMainWindow):
         self.button_check_cutclone_action = QAction(StyledIcon(os.path.join(path, '../../api/img/cut64.png')), "Cut & Clone")      
         self.button_check_cutclone_action.setCheckable(False)
         self.button_check_cutclone_action.setEnabled(False)
-        self.button_check_cutclone_action.triggered.connect(self.check_rate)
+        self.button_check_cutclone_action.triggered.connect(self.check_cutandclone)
         self.toolbar.addAction(self.button_check_cutclone_action)    
                              
         self.button_check_rate_action = QAction(StyledIcon(os.path.join(path, '../../api/img/rate64.png')), "Rate")      
@@ -279,9 +285,11 @@ class SpreadsheetApp(QMainWindow):
         # some non-table stuff
         try:
             checkfiles = next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
-            self.button_check_rate_action.setEnabled(len(checkfiles)>0)
+            self.button_check_rate_action.setEnabled(len(checkfiles)>0)     # will never get executed if 0
+            self.button_check_cutclone_action.setEnabled(len(checkfiles)>0) # will never get executed if 0
         except StopIteration as e:
             self.button_check_rate_action.setEnabled(False)
+            self.button_check_cutclone_action.setEnabled(False)
         
         if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
             sys.exit(app.exec_())
@@ -643,14 +651,15 @@ class ClickableLabel(QLabel):
 class VideoThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
 
-    def __init__(self, filepath, slider):
+    def __init__(self, filepath, slider, update):
         super().__init__()
         self.filepath = filepath
         self.slider = slider
+        self.update = update
         
         self._run_flag = True
         self.pause = False
-
+        self.update(self.pause)
 
     def run(self):
         self._run_flag = True
@@ -670,6 +679,7 @@ class VideoThread(QThread):
         self.slider.setSingleStep(1)        
         self.slider.setPageStep(int(fps))        
         self.slider.valueChanged.connect(self.sliderChanged)
+        self.update(self.pause)
 
         currentFrame=-1      # before start. first frame will be number 0
         while self._run_flag:
@@ -696,10 +706,14 @@ class VideoThread(QThread):
             
         self.cap.release()
 
+    def isPaused(self):
+        return self.pause
+
     def tooglePause(self):
         self.pause = not self.pause
         self.slider.setEnabled(self.pause)
-        #self._run_flag = False
+        self.update(self.pause)
+
 
     def seek(self, frame_number):
         if self.pause:
@@ -717,7 +731,7 @@ class VideoThread(QThread):
     
 class Display(QLabel):
 
-    def __init__(self, pushbutton, slider):
+    def __init__(self, pushbutton, slider, update):
         super().__init__()
         self.qt_img=None
         self.setStyleSheet("background : black; color: white;")
@@ -725,11 +739,12 @@ class Display(QLabel):
         self.button.setVisible(False)
         self.slider = slider
         self.slider.setVisible(False)
+        self.update = update
 
         self.display_width = 3840
         self.display_height = 2160
         self.resize(self.display_width, self.display_height)
-        #self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignCenter)
         
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -757,8 +772,10 @@ class Display(QLabel):
         videoExtensions = ['.mp4']
         if filepath.endswith(tuple(videoExtensions)):
             self.setVideo(filepath)
+            return "video"
         else:
             self.setImage(filepath)
+            return "image"
 
     def setVideo(self, filepath):
         self.filepath = filepath
@@ -771,9 +788,9 @@ class Display(QLabel):
         
     def startVideo(self):
         self.button.clicked.disconnect(self.startVideo)
-        self.button.setText('Pause')
+        self.button.setIcon(QIcon(os.path.join(path, '../../api/img/pause80.png')))
         self.button.setVisible(True)
-        self.thread = VideoThread(self.filepath, self.slider)
+        self.thread = VideoThread(self.filepath, self.slider, self.updatePaused)
         self.slider.setVisible(True)
         self.thread.change_pixmap_signal.connect(self.update_image)
         self.thread.start()
@@ -784,6 +801,11 @@ class Display(QLabel):
         self.button.clicked.disconnect(self.thread.tooglePause)
         self.thread.stop()
 
+    def updatePaused(self, isPaused):
+        self.update(isPaused)
+
+    def togglePause(self):
+        self.thread.tooglePause()
 
 
 class FrameSlider(QSlider):
@@ -829,9 +851,9 @@ class FrameSlider(QSlider):
             #painter.drawPixmap(0, 0, self.pixmap)
 
             
-class RateDialog(QDialog):
+class RateAndCutDialog(QDialog):
 
-    def __init__(self):
+    def __init__(self, cutMode):
         super().__init__()
 
         self.qt_img=None
@@ -839,33 +861,58 @@ class RateDialog(QDialog):
         #Set the main layout
         self.setWindowTitle("VR We Are - Rating")
         self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
-        self.setMaximumSize(QSize(1280,768))
-        self.resize(800, 600)
+        self.setMaximumSize(QSize(1920,1080))
+        self.setGeometry(150, 150, 1280, 768)
         self.outer_main_layout = QVBoxLayout()
         self.setLayout(self.outer_main_layout)
         self.setStyleSheet("background : black; color: white;")
 
         self.button_startpause_video = QPushButton(self)
-        self.button_startpause_video.setText('Start video')
+        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png')))
+        self.button_startpause_video.setIconSize(QSize(80,80))
         self.button_startpause_video.setStyleSheet("background : black; color: white;")
-        self.button_startpause_video.resize(180, 80)
+
+        self.button_trima_video = QPushButton(self)
+        self.button_trima_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trima80.png')))
+        self.button_trima_video.setIconSize(QSize(80,80))
+        self.button_trima_video.setStyleSheet("background : black; color: white;")
+
+        self.button_trimb_video = QPushButton(self)
+        self.button_trimb_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trimb80.png')))
+        self.button_trimb_video.setIconSize(QSize(80,80))
+        self.button_trimb_video.setStyleSheet("background : black; color: white;")
+
+        self.button_snapshot_video = QPushButton(self)
+        self.button_snapshot_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/snapshot80.png')))
+        self.button_snapshot_video.setIconSize(QSize(80,80))
+        self.button_snapshot_video.setStyleSheet("background : black; color: white;")
 
         self.sl = FrameSlider(Qt.Horizontal)
         self.sl.setEnabled(False)
         
-        self.display = Display(self.button_startpause_video, self.sl)
+        self.display = Display(self.button_startpause_video, self.sl, self.updatePaused)
         #self.display.resize(self.display_width, self.display_height)
 
         # Display layout
         self.display_layout = QGridLayout()
-        self.display_layout.addWidget(self.display ,0 ,0, 1, 1)
+        self.display_layout.addWidget(self.display, 0, 0, 1, 1)
+
+
+        # Video Tool layout
+        self.videotool_layout = QHBoxLayout()
+        self.videotool_layout.addWidget(self.button_startpause_video)
+        self.videotool_layout.addWidget(self.button_trima_video)
+        self.videotool_layout.addWidget(self.sl)
+        self.videotool_layout.addWidget(self.button_trimb_video)
+        self.videotool_layout.addWidget(self.button_snapshot_video)
+
+        # Common Tool layout
+        self.commontool_layout = QHBoxLayout()
 
         # Tool layout
-        self.tool_layout = QVBoxLayout()
-        self.tool_layout.addWidget(self.sl)
-        self.tool_layout.addWidget(self.button_startpause_video)
-        #self.display_layout.addStretch(0)
-
+        self.tool_layout = QGridLayout()
+        self.tool_layout.addLayout(self.videotool_layout, 0, 0, 1, 0)
+        self.tool_layout.addLayout(self.commontool_layout, 0, 0, 1, 0)
 
         self.button_startpause_video.clicked.connect(self.display.startVideo)
 
@@ -886,13 +933,22 @@ class RateDialog(QDialog):
         
         self.rateNext()
         
+    def updatePaused(self, isPaused):
+        self.button_trima_video.setEnabled(isPaused)
+        self.button_trimb_video.setEnabled(isPaused)
+        self.button_snapshot_video.setEnabled(isPaused)
+        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png') if isPaused else os.path.join(path, '../../api/img/pause80.png') ))
         
     def rateNext(self):
         try:
             folder=os.path.join(path, "../../../../input/vr/check/rate")
             checkfiles = next(os.walk(folder))[2]
-            self.display.show(os.path.join(folder, checkfiles[0]))
             self.main_group_box.setTitle(checkfiles[0])
+            isVideo=self.display.show(os.path.join(folder, checkfiles[0])) == "video"
+            self.button_trima_video.setVisible(isVideo)
+            self.button_trimb_video.setVisible(isVideo)
+            self.button_snapshot_video.setVisible(isVideo)
+            self.button_startpause_video.setVisible(isVideo)
         except StopIteration as e:
             self.close()
 
