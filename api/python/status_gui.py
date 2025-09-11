@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (
-QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QDialog,
-QVBoxLayout, QHBoxLayout, QGridLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox, QPushButton, QSlider
+QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QDialog, QSizePolicy, QPushButton, QSlider,
+QVBoxLayout, QHBoxLayout, QGridLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox
 )
-from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot, QSize
+from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot, QSize, QBuffer
 from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor, QPainter, QPen, QPaintEvent 
 
 import sys
@@ -18,7 +18,8 @@ import numpy as np
 from numpy import ndarray
 import time
 import cv2
-
+import ntpath
+import io
 
 LOGOTIME = 3000
 BREAKFREQ = 120000
@@ -195,9 +196,9 @@ class SpreadsheetApp(QMainWindow):
 
     def check_rate(self, state):
             dialog = RateDialog()
-            self.button_check_rate_action.setEnabled(False)
+            #self.button_check_rate_action.setEnabled(False)
             dialog.exec_()
-            self.button_check_rate_action.setEnabled(True)
+            #self.button_check_rate_action.setEnabled(True)
 
     def check_judge(self, state):
             #dialog = QDialog()
@@ -228,7 +229,7 @@ class SpreadsheetApp(QMainWindow):
         self.toggle_stages_expanded_action.triggered.connect(self.toggle_stage_expanded_enabled)
         self.toolbar.addAction(self.toggle_stages_expanded_action)    
         
-        self.button_show_pipeline_action = QAction(QIcon(os.path.join(path, '../../api/img/pipeline64.png')), "clicked")      
+        self.button_show_pipeline_action = QAction(QIcon(os.path.join(path, '../../api/img/pipeline64.png')), "Worflow")      
         self.button_show_pipeline_action.setCheckable(False)
         self.button_show_pipeline_action.triggered.connect(self.show_pipeline)
         self.toolbar.addAction(self.button_show_pipeline_action)    
@@ -236,17 +237,31 @@ class SpreadsheetApp(QMainWindow):
         if not os.path.exists(imagepath):
             self.button_show_pipeline_action.setEnabled(False)
         
-        self.button_check_rate_action = QAction(QIcon(os.path.join(path, '../../api/img/rate64.png')), "clicked")      
+        self.toolbar.addSeparator()
+
+        self.button_check_cutclone_action = QAction(StyledIcon(os.path.join(path, '../../api/img/cut64.png')), "Cut & Clone")      
+        self.button_check_cutclone_action.setCheckable(False)
+        self.button_check_cutclone_action.setEnabled(False)
+        self.button_check_cutclone_action.triggered.connect(self.check_rate)
+        self.toolbar.addAction(self.button_check_cutclone_action)    
+                             
+        self.button_check_rate_action = QAction(StyledIcon(os.path.join(path, '../../api/img/rate64.png')), "Rate")      
         self.button_check_rate_action.setCheckable(False)
+        self.button_check_rate_action.setEnabled(False)
         self.button_check_rate_action.triggered.connect(self.check_rate)
         self.toolbar.addAction(self.button_check_rate_action)    
 
-        self.button_check_judge_action = QAction(QIcon(os.path.join(path, '../../api/img/judge64.png')), "clicked")      
+        self.button_check_judge_action = QAction(StyledIcon(os.path.join(path, '../../api/img/judge64.png')), "Judge")      
         self.button_check_judge_action.setCheckable(False)
         self.button_check_judge_action.triggered.connect(self.check_judge)
+        self.button_check_judge_action.setEnabled(False)
         self.toolbar.addAction(self.button_check_judge_action)    
+        
+        empty = QWidget()
+        empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+        self.toolbar.addWidget(empty)
 
-        self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../api/img/manual64.png')), "clicked")      
+        self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../api/img/manual64.png')), "Manual")      
         self.button_show_manual_action.setCheckable(False)
         self.button_show_manual_action.triggered.connect(self.show_manual)
         self.toolbar.addAction(self.button_show_manual_action)    
@@ -260,6 +275,13 @@ class SpreadsheetApp(QMainWindow):
 
     def update_table(self):
         global idletime
+
+        # some non-table stuff
+        try:
+            checkfiles = next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
+            self.button_check_rate_action.setEnabled(len(checkfiles)>0)
+        except StopIteration as e:
+            self.button_check_rate_action.setEnabled(False)
         
         if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
             sys.exit(app.exec_())
@@ -546,7 +568,7 @@ class SpreadsheetApp(QMainWindow):
             try:
                 if self.imagecache[newindex] == None:
                     im = Image.open(requests.get(self.imageurls[newindex], stream=True).raw)
-                    pixmap = self.pil2pixmap(im)
+                    pixmap = pil2pixmap(im)
                     self.imagecache[newindex] = pixmap
                 else:
                     pixmap = self.imagecache[newindex]
@@ -581,28 +603,32 @@ class SpreadsheetApp(QMainWindow):
         self.switch_timer.start(BREAKTIME)
         self.idle_container_active = True
 
-    def pil2pixmap(self, im):
-        if im.mode == "RGB":
-            r, g, b = im.split()
-            im = Image.merge("RGB", (b, g, r))
-        elif  im.mode == "RGBA":
-            r, g, b, a = im.split()
-            im = Image.merge("RGBA", (b, g, r, a))
-        elif im.mode == "L":
-            im = im.convert("RGBA")
-        # Bild in RGBA konvertieren, falls nicht bereits passiert
-        im2 = im.convert("RGBA")
-        data = im2.tobytes("raw", "RGBA")
-        qim = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
-        pixmap = QPixmap.fromImage(qim)
-        return pixmap
-
+   
     def closeEvent(self,event):
         try:
             os.remove(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.guiactive"))
         except OSError as e:
             print("Error: %s - %s." % (e.filename, e.strerror))
         event.accept()
+
+class StyledIcon(QIcon):
+    def __init__(self, path):
+        enabled_icon = QPixmap(path)
+        super().__init__(enabled_icon)
+        
+        img = enabled_icon.toImage()
+        buffer = QBuffer()
+        buffer.open(QBuffer.ReadWrite)
+        img.save(buffer, "PNG")
+        pil_im = Image.open(io.BytesIO(buffer.data()))
+       
+        DIMFACTOR=0.25
+        image_arr = np.array(pil_im) / 255.0 * DIMFACTOR
+        convolved = Image.fromarray(np.uint8(255 * image_arr), 'RGB') 
+        disabled_icon=pil2pixmap(convolved)
+        self.addPixmap( disabled_icon, QIcon.Disabled )
+
+
 
 class ClickableLabel(QLabel):
     def __init__(self, url, parent=None):
@@ -628,10 +654,12 @@ class VideoThread(QThread):
 
     def run(self):
         self._run_flag = True
+        print("open video", self.filepath)
         self.cap = cv2.VideoCapture(self.filepath)
-
         frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        print("frames", frame_count)
         fps = self.cap.get(cv2.CAP_PROP_FPS)
+        print("fps", fps, flush=True)
         self.slider.setMinimum(0)
         self.slider.setMaximum(frame_count-1)
         self.slider.setValue(0)
@@ -649,10 +677,12 @@ class VideoThread(QThread):
                 ret, cv_img = self.cap.read()
                 if ret:
                     currentFrame+=1
+                    print("frame #", currentFrame)
                     self.slider.setValue(currentFrame)
                     self.change_pixmap_signal.emit(cv_img)
                     #status.showMessage('frame ...')
                 else:
+                    print("failed to load", currentFrame)
                     self.cap.release()
                     self.cap = cv2.VideoCapture(self.filepath)
                     ret, cv_img = self.cap.read()
@@ -692,11 +722,14 @@ class Display(QLabel):
         self.qt_img=None
         self.setStyleSheet("background : black; color: white;")
         self.button = pushbutton
+        self.button.setVisible(False)
         self.slider = slider
+        self.slider.setVisible(False)
 
         self.display_width = 3840
         self.display_height = 2160
         self.resize(self.display_width, self.display_height)
+        #self.setAlignment(Qt.AlignCenter)
         
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -716,27 +749,41 @@ class Display(QLabel):
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
-        convert_to_Qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-        p = convert_to_Qt_format.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
+        convert_cv_qt = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        p = convert_cv_qt.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
         return QPixmap.fromImage(p)
 
-    def startVideo(self):
+    def show(self, filepath):
+        videoExtensions = ['.mp4']
+        if filepath.endswith(tuple(videoExtensions)):
+            self.setVideo(filepath)
+        else:
+            self.setImage(filepath)
+
+    def setVideo(self, filepath):
+        self.filepath = filepath
+        self.startVideo()
+
+    def setImage(self, filepath):
+        self.filepath = filepath
+        cv_img  = cv2.imread(self.filepath)
+        self.update_image(cv_img)        
         
+    def startVideo(self):
         self.button.clicked.disconnect(self.startVideo)
         self.button.setText('Pause')
-        self.thread = VideoThread("output/testvideo.mp4", self.slider)
+        self.button.setVisible(True)
+        self.thread = VideoThread(self.filepath, self.slider)
+        self.slider.setVisible(True)
         self.thread.change_pixmap_signal.connect(self.update_image)
-        
         self.thread.start()
         self.button.clicked.connect(self.thread.tooglePause)
-        #self.button.clicked.connect(self.pauseVideo)
 
-    #def pauseVideo(self):
-    #    self.thread.change_pixmap_signal.disconnect()
-    #    self.button.setText('Start')
-    #    self.button.clicked.disconnect(self.pauseVideo)
-    #    self.button.clicked.disconnect(self.thread.stop)
-    #    self.button.clicked.connect(self.startVideo)
+    def releaseVideo(self):
+        self.thread.change_pixmap_signal.disconnect(self.update_image)
+        self.button.clicked.disconnect(self.thread.tooglePause)
+        self.thread.stop()
+
 
 
 class FrameSlider(QSlider):
@@ -831,14 +878,40 @@ class RateDialog(QDialog):
         #Main group box
         self.main_group_box = QGroupBox()
         self.main_group_box.setStyleSheet("QGroupBox{font-size: 10px}")
-        self.main_group_box.setTitle("Video")
         self.main_group_box.setLayout(self.main_layout)
 
         #Outer main layout to accomodate the group box
 
         self.outer_main_layout.addWidget(self.main_group_box)
+        
+        self.rateNext()
+        
+        
+    def rateNext(self):
+        try:
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
+            checkfiles = next(os.walk(folder))[2]
+            self.display.show(os.path.join(folder, checkfiles[0]))
+            self.main_group_box.setTitle(checkfiles[0])
+        except StopIteration as e:
+            self.close()
 
 
+def pil2pixmap(im):
+    if im.mode == "RGB":
+        r, g, b = im.split()
+        im = Image.merge("RGB", (b, g, r))
+    elif  im.mode == "RGBA":
+        r, g, b, a = im.split()
+        im = Image.merge("RGBA", (b, g, r, a))
+    elif im.mode == "L":
+        im = im.convert("RGBA")
+    # Bild in RGBA konvertieren, falls nicht bereits passiert
+    im2 = im.convert("RGBA")
+    data = im2.tobytes("raw", "RGBA")
+    qim = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
+    pixmap = QPixmap.fromImage(qim)
+    return pixmap
 
 if __name__ == "__main__":
     if len(sys.argv) != 1:
