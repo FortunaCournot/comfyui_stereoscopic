@@ -1,9 +1,9 @@
 from PyQt5.QtWidgets import (
 QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QDialog,
-QVBoxLayout, QHBoxLayout, QGridLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox, QPushButton
+QVBoxLayout, QHBoxLayout, QGridLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox, QPushButton, QSlider
 )
-from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot, QSize 
-from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor
+from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot, QSize
+from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor, QPainter, QPen, QPaintEvent 
 
 import sys
 import os
@@ -195,19 +195,15 @@ class SpreadsheetApp(QMainWindow):
 
     def check_rate(self, state):
             dialog = RateDialog()
-            self.button_show_pipeline_action.setEnabled(False)
+            self.button_check_rate_action.setEnabled(False)
             dialog.exec_()
-            self.button_show_pipeline_action.setEnabled(True)
+            self.button_check_rate_action.setEnabled(True)
 
     def check_judge(self, state):
-            dialog = QDialog()
-            dialog.setWindowTitle("VR We Are - Judging")
-            lay = QVBoxLayout(dialog)
-            label = QLabel()
-            lay.addWidget(label)
-            self.button_show_pipeline_action.setEnabled(False)
-            dialog.exec_()
-            self.button_show_pipeline_action.setEnabled(True)
+            #dialog = QDialog()
+            self.button_check_judge_action.setEnabled(False)
+            #dialog.exec_()
+            #self.button_check_judge_action.setEnabled(True)
 
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
@@ -621,45 +617,83 @@ class ClickableLabel(QLabel):
 class VideoThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
 
-    def __init__(self, filepath):
+    def __init__(self, filepath, slider):
         super().__init__()
-        self._run_flag = True
         self.filepath = filepath
+        self.slider = slider
+        
+        self._run_flag = True
+        self.pause = False
+
 
     def run(self):
-        # capture from file
         self._run_flag = True
         self.cap = cv2.VideoCapture(self.filepath)
 
-        # Get video properties (e.g., frame count and frame width)
-        frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))  # Get total number of frames in the video
-        fps = self.cap.get(cv2.CAP_PROP_FPS)  # Get frames per second (FPS)
-        print(f"Total frames: {frame_count}, FPS: {fps}")
+        frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = self.cap.get(cv2.CAP_PROP_FPS)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(frame_count-1)
+        self.slider.setValue(0)
+        self.slider.setTickPosition(QSlider.TicksBelow)
         if fps<1:
             fps=1
+        self.slider.setTickInterval(int(fps))
+        self.slider.setSingleStep(1)        
+        self.slider.setPageStep(int(fps))        
+        self.slider.valueChanged.connect(self.sliderChanged)
 
+        currentFrame=-1      # before start. first frame will be number 0
         while self._run_flag:
-            ret, cv_img = self.cap.read()
-            if ret:
-                self.change_pixmap_signal.emit(cv_img)
-                time.sleep(1.0/fps)
-                #status.showMessage('frame ...')
-
-        # shut down capture system
+            if not self.pause:
+                ret, cv_img = self.cap.read()
+                if ret:
+                    currentFrame+=1
+                    self.slider.setValue(currentFrame)
+                    self.change_pixmap_signal.emit(cv_img)
+                    #status.showMessage('frame ...')
+                else:
+                    self.cap.release()
+                    self.cap = cv2.VideoCapture(self.filepath)
+                    ret, cv_img = self.cap.read()
+                    if ret:
+                        currentFrame=0
+                        self.slider.setValue(currentFrame)
+                        self.change_pixmap_signal.emit(cv_img)
+                    else:
+                        self.cap.release()
+            time.sleep(1.0/fps)
+            
         self.cap.release()
 
-    def stop(self):
-        """Sets run flag to False and waits for thread to finish"""
-        self._run_flag = False
+    def tooglePause(self):
+        self.pause = not self.pause
+        self.slider.setEnabled(self.pause)
+        #self._run_flag = False
 
+    def seek(self, frame_number):
+        if self.pause:
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
+            ret, cv_img = self.cap.read()
+            if ret:
+                currentFrame=frame_number
+                self.slider.setValue(currentFrame)
+                self.change_pixmap_signal.emit(cv_img)
+                
+    def sliderChanged(self):
+        if self.pause:
+            self.seek(self.sender().value())
 
+    
 class Display(QLabel):
 
-    def __init__(self, pushbutton):
+    def __init__(self, pushbutton, slider):
         super().__init__()
         self.qt_img=None
         self.setStyleSheet("background : black; color: white;")
         self.button = pushbutton
+        self.slider = slider
+
         self.display_width = 3840
         self.display_height = 2160
         self.resize(self.display_width, self.display_height)
@@ -667,7 +701,6 @@ class Display(QLabel):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.qt_img:
-            print(f"display geaendert auf: {event.size().width()}x{event.size().height()}")
             self.setPixmap(self.qt_img.scaled(event.size().width(), event.size().height(), Qt.KeepAspectRatio))
         
     def minimumSizeHint(self):
@@ -676,8 +709,7 @@ class Display(QLabel):
     @pyqtSlot(ndarray)
     def update_image(self, cv_img):
         self.qt_img = self.convert_cv_qt(cv_img)
-        geometry=self.size() # self.display_layout.contentsRect()
-        print(f"update_image : {geometry.width()}x{geometry.height()}")
+        geometry=self.size()
         self.setPixmap(self.qt_img.scaled(geometry.width(), geometry.height(), Qt.KeepAspectRatio))
 
     def convert_cv_qt(self, cv_img):
@@ -692,21 +724,64 @@ class Display(QLabel):
         
         self.button.clicked.disconnect(self.startVideo)
         self.button.setText('Pause')
-        self.thread = VideoThread("output/testvideo.mp4")
+        self.thread = VideoThread("output/testvideo.mp4", self.slider)
         self.thread.change_pixmap_signal.connect(self.update_image)
-
+        
         self.thread.start()
-        self.button.clicked.connect(self.thread.stop)
-        self.button.clicked.connect(self.pauseVideo)
+        self.button.clicked.connect(self.thread.tooglePause)
+        #self.button.clicked.connect(self.pauseVideo)
 
-    def pauseVideo(self):
-        self.thread.change_pixmap_signal.disconnect()
-        self.button.setText('Start')
-        self.button.clicked.disconnect(self.pauseVideo)
-        self.button.clicked.disconnect(self.thread.stop)
-        self.button.clicked.connect(self.startVideo)
+    #def pauseVideo(self):
+    #    self.thread.change_pixmap_signal.disconnect()
+    #    self.button.setText('Start')
+    #    self.button.clicked.disconnect(self.pauseVideo)
+    #    self.button.clicked.disconnect(self.thread.stop)
+    #    self.button.clicked.connect(self.startVideo)
 
 
+class FrameSlider(QSlider):
+    def __init__(self, orientation):
+        super().__init__(orientation)
+        self.resetAB()
+     
+    def resetAB(self):
+        self.a = 0.0
+        self.b = 1.0
+        
+    def setA(self, a):
+        self.a = min(max(0.0, a), 1.0)
+        if self.a > self.b:
+            self.b = self.a
+
+    def setB(self, b):
+        self.b = min(max(0.0, b), 1.0)
+        if self.a > self.b:
+            self.a = self.b
+
+    def paintEvent(self, event: QPaintEvent):
+
+        super().paintEvent(event)
+
+        with QPainter(self) as painter:
+            
+            geo = self.geometry()
+
+            x = geo.x()
+            y = geo.y()
+            width = geo.width()
+            height = geo.height()
+
+            painter.fillRect(x, y, width, height, QColor(220,0,0));
+    
+            painter.setPen(QPen(Qt.red, 4, Qt.SolidLine, Qt.RoundCap));
+            if self.a > 0.0:
+                painter.drawLine(0, 0, int(width*self.a), 0);
+            if self.b < 1.0:
+                painter.drawLine(int(width*self.b), 0, width, 0);
+            #painter.drawLine(int(width/4), 0, int(width*3/4), 0);
+            #painter.drawPixmap(0, 0, self.pixmap)
+
+            
 class RateDialog(QDialog):
 
     def __init__(self):
@@ -717,6 +792,8 @@ class RateDialog(QDialog):
         #Set the main layout
         self.setWindowTitle("VR We Are - Rating")
         self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
+        self.setMaximumSize(QSize(1280,768))
+        self.resize(800, 600)
         self.outer_main_layout = QVBoxLayout()
         self.setLayout(self.outer_main_layout)
         self.setStyleSheet("background : black; color: white;")
@@ -726,10 +803,11 @@ class RateDialog(QDialog):
         self.button_startpause_video.setStyleSheet("background : black; color: white;")
         self.button_startpause_video.resize(180, 80)
 
-        self.display = Display(self.button_startpause_video)
+        self.sl = FrameSlider(Qt.Horizontal)
+        self.sl.setEnabled(False)
+        
+        self.display = Display(self.button_startpause_video, self.sl)
         #self.display.resize(self.display_width, self.display_height)
-
-        self.button_startpause_video.clicked.connect(self.display.startVideo)
 
         # Display layout
         self.display_layout = QGridLayout()
@@ -737,8 +815,13 @@ class RateDialog(QDialog):
 
         # Tool layout
         self.tool_layout = QVBoxLayout()
+        self.tool_layout.addWidget(self.sl)
         self.tool_layout.addWidget(self.button_startpause_video)
         #self.display_layout.addStretch(0)
+
+
+        self.button_startpause_video.clicked.connect(self.display.startVideo)
+
 
         #Main Layout
         self.main_layout = QVBoxLayout()
