@@ -71,6 +71,7 @@ elif [ -d "custom_nodes" ]; then
 
 	# workaround for recovery problem.
 	#./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
+
 	
 	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
@@ -91,11 +92,11 @@ elif [ -d "custom_nodes" ]; then
 				./custom_nodes/comfyui_stereoscopic/api/batch_scaling.sh /override || exit 1
 			fi
 			rm -f user/default/comfyui_stereoscopic/.daemonstatus
-			[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh scaling || exit 1 )
 		else
 			echo -e $"\e[93mWarning:\e[0m Less than 16GB of free memory - Skipped scaling. Memory: $MEMFREE/ $MEMTOTAL"
 			mv -- input/vr/scaling/*.* output/vr/scaling
 		fi
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh scaling || exit 1 )
 	fi
 
 
@@ -251,6 +252,9 @@ elif [ -d "custom_nodes" ]; then
 
 	fi
 	
+	[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/judge || exit 1 )
+
+	done
 
 else
 	  echo -e $"\e[91mError:\e[0m Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
