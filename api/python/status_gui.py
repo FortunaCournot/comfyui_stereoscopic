@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (
 QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QDialog,
-QVBoxLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox
+QVBoxLayout, QHBoxLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox, QPushButton
 )
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor
 
 import sys
@@ -14,6 +14,10 @@ import requests
 from random import randrange
 import webbrowser
 import re
+import numpy as np
+from numpy import ndarray
+import time
+import cv2
 
 
 LOGOTIME = 3000
@@ -190,13 +194,10 @@ class SpreadsheetApp(QMainWindow):
             webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
 
     def check_rate(self, state):
-            dialog = QDialog()
-            dialog.setWindowTitle("VR We Are - Rating")
+            dialog = RateDialog()
             lay = QVBoxLayout(dialog)
             label = QLabel()
             lay.addWidget(label)
-            #pixmap = QPixmap(imagepath)
-            #label.setPixmap(pixmap)
             self.button_show_pipeline_action.setEnabled(False)
             dialog.exec_()
             self.button_show_pipeline_action.setEnabled(True)
@@ -207,8 +208,6 @@ class SpreadsheetApp(QMainWindow):
             lay = QVBoxLayout(dialog)
             label = QLabel()
             lay.addWidget(label)
-            #pixmap = QPixmap(imagepath)
-            #label.setPixmap(pixmap)
             self.button_show_pipeline_action.setEnabled(False)
             dialog.exec_()
             self.button_show_pipeline_action.setEnabled(True)
@@ -620,6 +619,120 @@ class ClickableLabel(QLabel):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             webbrowser.open(self.url)
+
+
+class VideoThread(QThread):
+    change_pixmap_signal = pyqtSignal(np.ndarray)
+
+    def __init__(self, filepath):
+        super().__init__()
+        self._run_flag = True
+        self.filepath = filepath
+
+    def run(self):
+        # capture from file
+        self._run_flag = True
+        self.cap = cv2.VideoCapture(self.filepath)
+
+        # Get video properties (e.g., frame count and frame width)
+        frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))  # Get total number of frames in the video
+        fps = self.cap.get(cv2.CAP_PROP_FPS)  # Get frames per second (FPS)
+        print(f"Total frames: {frame_count}, FPS: {fps}")
+        if fps<1:
+            fps=1
+
+        while self._run_flag:
+            ret, cv_img = self.cap.read()
+            if ret:
+                self.change_pixmap_signal.emit(cv_img)
+                time.sleep(1.0/fps)
+                #status.showMessage('frame ...')
+
+        # shut down capture system
+        self.cap.release()
+
+    def stop(self):
+        """Sets run flag to False and waits for thread to finish"""
+        self._run_flag = False
+
+
+
+class RateDialog(QDialog):
+
+    def __init__(self):
+        super().__init__()
+
+        self.startpause_video = QPushButton(self)
+        self.startpause_video.setText('Start video')
+        self.startpause_video.resize(180, 80)
+        self.startpause_video.clicked.connect(self.startVideo)
+
+        self.display = QLabel(self)
+        self.display_width = 640
+        self.display_height = 480
+        self.display.resize(self.display_width, self.display_height)
+        self.display.setStyleSheet("background : black;")
+        self.display.move(0, 0)
+        
+        # Display layout
+        self.display_layout = QVBoxLayout()
+        self.display_layout.addWidget(self.display)
+
+        # Tool layout
+        self.tool_layout = QVBoxLayout()
+        self.tool_layout.addWidget(self.startpause_video)
+        self.tool_layout.addStretch(1)
+        
+        #Main Layout
+        self.main_layout = QHBoxLayout()
+        self.main_layout.addLayout(self.display_layout)
+        self.main_layout.addLayout(self.tool_layout)
+
+        #Main group box
+        self.main_group_box = QGroupBox()
+        self.main_group_box.setStyleSheet("QGroupBox{font-size: 10px}")
+        self.main_group_box.setTitle("Video")
+        self.main_group_box.setLayout(self.main_layout)
+
+        #Outer main layout to accomodate the group box
+        self.outer_main_layout = QVBoxLayout()
+        self.outer_main_layout.addWidget(self.main_group_box)
+
+        #Set the main layout
+        self.setLayout(self.outer_main_layout)
+        self.setWindowTitle("VR We Are - Rating")
+
+    @pyqtSlot(ndarray)
+    def update_image(self, cv_img):
+        qt_img = self.convert_cv_qt(cv_img)
+        self.display.setPixmap(qt_img)
+
+    def convert_cv_qt(self, cv_img):
+        rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb_image.shape
+        bytes_per_line = ch * w
+        convert_to_Qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        p = convert_to_Qt_format.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
+        return QPixmap.fromImage(p)
+
+    def startVideo(self):
+        
+        self.startpause_video.clicked.disconnect(self.startVideo)
+        self.startpause_video.setText('Pause')
+        self.thread = VideoThread("output/testvideo.mp4")
+        self.thread.change_pixmap_signal.connect(self.update_image)
+
+        self.thread.start()
+        self.startpause_video.clicked.connect(self.thread.stop)
+        self.startpause_video.clicked.connect(self.pauseVideo)
+
+    def pauseVideo(self):
+        self.thread.change_pixmap_signal.disconnect()
+        self.startpause_video.setText('Start')
+        self.startpause_video.clicked.disconnect(self.pauseVideo)
+        self.startpause_video.clicked.disconnect(self.thread.stop)
+        self.startpause_video.clicked.connect(self.startVideo)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 1:
