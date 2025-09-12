@@ -675,8 +675,7 @@ class VideoThread(QThread):
         self.filepath = filepath
         self.slider = slider
         self.update = update
-        
-        self._run_flag = True
+        self.cap=None
         self.pause = False
         self.update(self.pause)
 
@@ -730,6 +729,10 @@ class VideoThread(QThread):
             time.sleep(1.0/fps)
             
         self.cap.release()
+
+    def stop(self):
+        self._run_flag=False
+        self.cap.release()        
 
     def getFrameCount(self):
         return self.frame_count
@@ -786,7 +789,10 @@ class Display(QLabel):
         self.slider = slider
         self.slider.setVisible(False)
         self.update = update
-
+        self.onUpdateFile=None
+        self.onUpdateImage=None
+        self.sourcePixmap=None
+        
         self.display_width = 3840
         self.display_height = 2160
         self.resize(self.display_width, self.display_height)
@@ -797,6 +803,9 @@ class Display(QLabel):
         if self.qt_img:
             self.setPixmap(self.qt_img.scaled(event.size().width(), event.size().height(), Qt.KeepAspectRatio))
         
+    def getSourcePixmap(self):
+        return self.sourcePixmap
+        
     def minimumSizeHint(self):
         return QSize(50, 50)
 
@@ -805,15 +814,18 @@ class Display(QLabel):
         self.qt_img = self.convert_cv_qt(cv_img)
         geometry=self.size()
         self.setPixmap(self.qt_img.scaled(geometry.width(), geometry.height(), Qt.KeepAspectRatio))
-        self.updateImage()
+        if self.onUpdateImage:
+            self.onUpdateImage()
 
-    def convert_cv_qt(self, cv_img):
+    def convert_cv_qt(self, cv_img):    # scaled!
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
         convert_cv_qt = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        self.sourcePixmap=QPixmap.fromImage(convert_cv_qt)
         p = convert_cv_qt.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
         return QPixmap.fromImage(p)
+
 
     def show(self, filepath):
         videoExtensions = ['.mp4']
@@ -826,15 +838,22 @@ class Display(QLabel):
 
     def setVideo(self, filepath):
         self.filepath = filepath
+        if self.onUpdateFile:
+            self.onUpdateFile()
         self.startVideo()
 
     def setImage(self, filepath):
         self.filepath = filepath
+        if self.onUpdateFile:
+            self.onUpdateFile()
         cv_img  = cv2.imread(self.filepath)
         self.update_image(cv_img)        
         
-    def registerForUpdates(self, updateImage):
-        self.updateImage = updateImage
+    def registerForUpdates(self, onUpdateImage):
+        self.onUpdateImage = onUpdateImage
+
+    def registerForFileChange(self, onUpdateFile):
+        self.onUpdateFile = onUpdateFile
         
     def startVideo(self):
         self.button.clicked.disconnect(self.startVideo)
@@ -1022,6 +1041,10 @@ class RateAndCutDialog(QDialog):
         
         self.rateNext()
         
+    def closeEvent(self, evnt):
+        self.display.releaseVideo()
+        super(QDialog, self).closeEvent(evnt)
+            
     def updatePaused(self, isPaused):
         self.button_trima_video.setEnabled(isPaused)
         self.button_trimb_video.setEnabled(isPaused)
@@ -1056,6 +1079,7 @@ class CropWidget(QWidget):
         # Internes Label, in dem wir das Bild anzeigen
         self.image_label = display
         self.image_label.registerForUpdates(self.imageUpdated)
+        self.image_label.registerForFileChange(self.fileChanged)
         #self.image_label.setAlignment(Qt.AlignCenter)
         #self.image_label.setFrameStyle(QFrame.Box)
         #self.image_label.setStyleSheet("background-color: black;")
@@ -1124,28 +1148,33 @@ class CropWidget(QWidget):
         self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         self.save_shortcut.activated.connect(self.save_cropped_image)
 
-    # ---------------------------
-    # ---------------------------
-    def imageUpdated(self):
-        """Übernimmt das aktuelle Bild aus einem externen QLabel."""
-        pixmap = self.image_label.pixmap()
-        if pixmap is None or pixmap.isNull():
-            raise ValueError("Das übergebene QLabel enthält kein gültiges Bild.")
-
-        # Originalbild speichern
-        self.original_pixmap = pixmap.copy()
-        self.display_pixmap = pixmap.copy()
-        self.image_label.setPixmap(self.display_pixmap)
-
+    def fileChanged(self):
         # Crop-Werte zurücksetzen
         self.crop_left = 0
         self.crop_right = 0
         self.crop_top = 0
         self.crop_bottom = 0
-
         # Slider aktivieren und konfigurieren
         self.update_slider_ranges()
         self.enable_sliders(True)
+    
+    def imageUpdated(self):
+        print("Image updated", flush=True)
+        
+        sourcePixmap = self.image_label.getSourcePixmap()
+        if sourcePixmap is None or sourcePixmap.isNull():
+            raise ValueError("Das Source Image enthält kein gültiges Bild.")
+        self.sourceWidth=sourcePixmap.width()
+        self.sourceHeight=sourcePixmap.height()
+
+        pixmap = self.image_label.pixmap()
+        if pixmap is None or pixmap.isNull():
+            raise ValueError("Das übergebene QLabel enthält kein gültiges Bild.")
+        
+        # Originalbild speichern
+        self.original_pixmap = pixmap.copy()
+        self.display_pixmap = pixmap.copy()
+        self.image_label.setPixmap(self.display_pixmap)
 
         self.apply_crop()
 
@@ -1189,8 +1218,8 @@ class CropWidget(QWidget):
         if not self.original_pixmap:
             return
 
-        w = self.original_pixmap.width()
-        h = self.original_pixmap.height()
+        w = self.sourceWidth
+        h = self.sourceHeight
 
         self.slider_left.setMaximum(w // 2)
         self.slider_right.setMaximum(w // 2)
@@ -1217,26 +1246,27 @@ class CropWidget(QWidget):
     def apply_crop(self):
         if not self.original_pixmap:
             return
-
+        
         w = self.original_pixmap.width()
         h = self.original_pixmap.height()
-
         temp_pixmap = self.original_pixmap.copy()
 
+        mx = float(w) / float(self.sourceWidth)
+        my = float(h) / float(self.sourceHeight)
         # Rahmen zeichnen
         painter = QPainter(temp_pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
 
         crop_rect = QRect(
-            self.crop_left,
-            self.crop_top,
-            w - self.crop_left - self.crop_right,
-            h - self.crop_top - self.crop_bottom
+            int(self.crop_left * mx),
+            int(self.crop_top * my),
+            w - int(self.crop_left * mx) - int(self.crop_right * mx),
+            h - int(self.crop_top * my) - int(self.crop_bottom * my)
         )
 
         # Abdunkeln außerhalb des Crop-Bereichs
-        overlay_color = QColor(0, 0, 0, 120)
-        painter.fillRect(0, 0, w, h, overlay_color)
+        #overlay_color = QColor(0, 0, 0, 120)
+        #painter.fillRect(0, 0, w, h, overlay_color)
         painter.setCompositionMode(QPainter.CompositionMode_Clear)
         painter.fillRect(crop_rect, QColor(0, 0, 0, 0))
 
@@ -1254,7 +1284,7 @@ class CropWidget(QWidget):
     def update_magnifier(self):
         if not self.original_pixmap:
             return
-
+        return
         self.magnifier.show()
 
         zoom_size = 40
@@ -1304,9 +1334,6 @@ class CropWidget(QWidget):
         if save_path:
             cropped.save(save_path)
             print(f"Bild gespeichert unter: {save_path}")
-
-
-
 
 
 

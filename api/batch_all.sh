@@ -254,7 +254,6 @@ elif [ -d "custom_nodes" ]; then
 	
 	[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/judge || exit 1 )
 
-	done
 
 else
 	  echo -e $"\e[91mError:\e[0m Wrong path to script. COMFYUIPATH=$COMFYUIPATH"
