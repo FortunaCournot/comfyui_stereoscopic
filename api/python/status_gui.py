@@ -665,6 +665,159 @@ class ActionButton(QPushButton):
         """
         )
         
+           
+class RateAndCutDialog(QDialog):
+
+    def __init__(self, cutMode):
+        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+
+        self.cutMode=cutMode
+        self.qt_img=None
+        self.hasCropOrTrim=False
+        self.isPaused = False
+        
+        #Set the main layout
+        if cutMode:
+            self.setWindowTitle("VR We Are - Check Files: Cut and Trim")
+        else:
+            self.setWindowTitle("VR We Are - Check Files: Rating")
+        self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
+        self.setMaximumSize(QSize(1920,1080))
+        self.setGeometry(150, 150, 1280, 768)
+        self.outer_main_layout = QVBoxLayout()
+        self.setLayout(self.outer_main_layout)
+        self.setStyleSheet("background : black; color: white;")
+
+        self.button_startpause_video = ActionButton()
+        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png')))
+        self.button_startpause_video.setIconSize(QSize(80,80))
+
+        if cutMode:
+            self.button_trima_video = ActionButton()
+            self.button_trima_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trima80.png')))
+            self.button_trima_video.setIconSize(QSize(80,80))
+
+            self.button_trimb_video = ActionButton()
+            self.button_trimb_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trimb80.png')))
+            self.button_trimb_video.setIconSize(QSize(80,80))
+
+            self.button_snapshot_from_video = ActionButton()
+            self.button_snapshot_from_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/snapshot80.png')))
+            self.button_snapshot_from_video.setIconSize(QSize(80,80))
+
+        self.button_prev_file = ActionButton()
+        self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/prevf80.png')))
+        self.button_prev_file.setIconSize(QSize(80,80))
+
+        if cutMode:
+            self.button_cutandclone = ActionButton()
+            self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../api/img/cutclone80.png')))
+            self.button_cutandclone.setIconSize(QSize(80,80))
+
+        self.button_next_file = ActionButton()
+        self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/nextf80.png')))
+        self.button_next_file.setIconSize(QSize(80,80))
+
+
+        self.sl = FrameSlider(Qt.Horizontal)
+        self.sl.setEnabled(False)
+        
+        self.display = Display(self.button_startpause_video, self.sl, self.updatePaused)
+        #self.display.resize(self.display_width, self.display_height)
+
+        # Display layout
+        self.display_layout = QGridLayout()
+        self.display.registerForTrimUpdate(self.onCropOrTrim)
+        if cutMode:
+            self.cropWidget=CropWidget(self.display)
+            self.display_layout.addWidget(self.cropWidget, 0, 0, 1, 1)
+            self.cropWidget.registerForUpdate(self.onCropOrTrim)
+        else:
+            self.display_layout.addWidget(self.display, 0, 0, 1, 1)
+
+
+        # Video Tool layout
+        self.videotool_layout = QHBoxLayout()
+        self.videotool_layout.addWidget(self.button_startpause_video)
+        if cutMode:
+            self.videotool_layout.addWidget(self.button_trima_video)
+        self.videotool_layout.addWidget(self.sl)
+        if cutMode:
+            self.videotool_layout.addWidget(self.button_trimb_video)
+            self.videotool_layout.addWidget(self.button_snapshot_from_video)
+
+        # Common Tool layout
+        self.commontool_layout = QHBoxLayout()
+        #emptyLeft = QWidget()
+        #emptyLeft.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Minimum)
+        #self.commontool_layout.addWidget(emptyLeft)
+        self.commontool_layout.addWidget(QLabel())
+        self.commontool_layout.addWidget(self.button_prev_file)
+        if cutMode:
+            self.commontool_layout.addWidget(self.button_cutandclone)
+        self.commontool_layout.addWidget(self.button_next_file)
+
+        # Tool layout
+        self.tool_layout = QGridLayout()
+        self.tool_layout.addLayout(self.videotool_layout, 0, 0, 1, 3)
+        self.tool_layout.addLayout(self.commontool_layout, 1, 1, 1, 1)
+
+        self.button_startpause_video.clicked.connect(self.display.startVideo)
+        if cutMode:
+            self.button_trima_video.clicked.connect(self.display.trimA)
+            self.button_trimb_video.clicked.connect(self.display.trimB)
+
+
+        #Main Layout
+        self.main_layout = QVBoxLayout()
+        self.main_layout.addLayout(self.display_layout)
+        self.main_layout.addLayout(self.tool_layout)
+
+        #Main group box
+        self.main_group_box = QGroupBox()
+        self.main_group_box.setStyleSheet("QGroupBox{font-size: 10px}")
+        self.main_group_box.setLayout(self.main_layout)
+
+        #Outer main layout to accomodate the group box
+
+        self.outer_main_layout.addWidget(self.main_group_box)
+        
+        self.rateNext()
+        
+    def closeEvent(self, evnt):
+        self.display.releaseVideo()
+        super(QDialog, self).closeEvent(evnt)
+            
+    def updatePaused(self, isPaused):
+        self.isPaused = isPaused
+        if self.cutMode:
+            self.button_trima_video.setEnabled(isPaused)
+            self.button_trimb_video.setEnabled(isPaused)
+            self.button_snapshot_from_video.setEnabled(isPaused and self.isVideo)
+        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png') if isPaused else os.path.join(path, '../../api/img/pause80.png') ))
+
+    def onCropOrTrim(self):
+        self.hasCropOrTrim=True
+        self.button_cutandclone.setEnabled(True)
+        
+    def rateNext(self):
+        try:
+            self.hasCropOrTrim=False
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
+            checkfiles = next(os.walk(folder))[2]
+            self.main_group_box.setTitle(checkfiles[0])
+            self.isVideo=self.display.show(os.path.join(folder, checkfiles[0])) == "video"
+            if self.cutMode:
+                self.button_trima_video.setVisible(self.isVideo)
+                self.button_trimb_video.setVisible(self.isVideo)
+                self.button_trima_video.setEnabled(False)
+                self.button_trimb_video.setEnabled(False)
+                self.button_cutandclone.setEnabled(False)
+                self.button_snapshot_from_video.setVisible(self.isVideo)
+                self.button_snapshot_from_video.setEnabled(False)
+        except StopIteration as e:
+            self.close()
+
 
 
 class VideoThread(QThread):
@@ -710,7 +863,6 @@ class VideoThread(QThread):
                     ret, cv_img = self.cap.read()
                     if ret:
                         self.currentFrame+=1
-                        print("frame #", self.currentFrame, flush=True)
                         self.slider.setValue(self.currentFrame)
                         self.change_pixmap_signal.emit(cv_img)
                         #status.showMessage('frame ...')
@@ -738,7 +890,6 @@ class VideoThread(QThread):
         return self.frame_count
 
     def getCurrentFrameIndex(self):
-        print("currentFrame=", self.currentFrame, flush=True)
         return self.currentFrame
     
     def isPaused(self):
@@ -791,6 +942,7 @@ class Display(QLabel):
         self.update = update
         self.onUpdateFile=None
         self.onUpdateImage=None
+        self.onCropOrTrim = None
         self.sourcePixmap=None
         
         self.display_width = 3840
@@ -855,6 +1007,9 @@ class Display(QLabel):
     def registerForFileChange(self, onUpdateFile):
         self.onUpdateFile = onUpdateFile
         
+    def registerForTrimUpdate(self, onCropOrTrim):
+        self.onCropOrTrim = onCropOrTrim
+
     def startVideo(self):
         self.button.clicked.disconnect(self.startVideo)
         self.button.setIcon(QIcon(os.path.join(path, '../../api/img/pause80.png')))
@@ -887,7 +1042,9 @@ class Display(QLabel):
         else:
             self.slider.setA(0.0)
             self.thread.setA(0)
-
+        if self.onCropOrTrim:
+            self.onCropOrTrim()
+        
     def trimB(self):
         count=self.thread.getFrameCount()
         if count>1:
@@ -897,6 +1054,8 @@ class Display(QLabel):
         else:
             self.slider.setB(1.0)
             self.thread.setB(count-1)
+        if self.onCropOrTrim:
+            self.onCropOrTrim()
 
 
 class FrameSlider(QSlider):
@@ -939,133 +1098,6 @@ class FrameSlider(QSlider):
             #painter.drawLine(int(width/4), 0, int(width*3/4), 0);
             #painter.drawPixmap(0, 0, self.pixmap)
 
-            
-class RateAndCutDialog(QDialog):
-
-    def __init__(self, cutMode):
-        super().__init__()
-
-        self.qt_img=None
-
-        #Set the main layout
-        self.setWindowTitle("VR We Are - Rating")
-        self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
-        self.setMaximumSize(QSize(1920,1080))
-        self.setGeometry(150, 150, 1280, 768)
-        self.outer_main_layout = QVBoxLayout()
-        self.setLayout(self.outer_main_layout)
-        self.setStyleSheet("background : black; color: white;")
-
-        self.button_startpause_video = ActionButton()
-        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png')))
-        self.button_startpause_video.setIconSize(QSize(80,80))
-
-        self.button_trima_video = ActionButton()
-        self.button_trima_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trima80.png')))
-        self.button_trima_video.setIconSize(QSize(80,80))
-
-        self.button_trimb_video = ActionButton()
-        self.button_trimb_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trimb80.png')))
-        self.button_trimb_video.setIconSize(QSize(80,80))
-
-        self.button_snapshot_video = ActionButton()
-        self.button_snapshot_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/snapshot80.png')))
-        self.button_snapshot_video.setIconSize(QSize(80,80))
-
-        self.button_prev_file = ActionButton()
-        self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/prevf80.png')))
-        self.button_prev_file.setIconSize(QSize(80,80))
-
-        self.button_cutandclone = ActionButton()
-        self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../api/img/cutclone80.png')))
-        self.button_cutandclone.setIconSize(QSize(80,80))
-
-        self.button_next_file = ActionButton()
-        self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/nextf80.png')))
-        self.button_next_file.setIconSize(QSize(80,80))
-
-
-        self.sl = FrameSlider(Qt.Horizontal)
-        self.sl.setEnabled(False)
-        
-        self.display = Display(self.button_startpause_video, self.sl, self.updatePaused)
-        #self.display.resize(self.display_width, self.display_height)
-
-        # Display layout
-        self.display_layout = QGridLayout()
-        self.cropWidget=CropWidget(self.display)
-        self.display_layout.addWidget(self.cropWidget, 0, 0, 1, 1)
-
-
-        # Video Tool layout
-        self.videotool_layout = QHBoxLayout()
-        self.videotool_layout.addWidget(self.button_startpause_video)
-        self.videotool_layout.addWidget(self.button_trima_video)
-        self.videotool_layout.addWidget(self.sl)
-        self.videotool_layout.addWidget(self.button_trimb_video)
-        self.videotool_layout.addWidget(self.button_snapshot_video)
-
-        # Common Tool layout
-        self.commontool_layout = QHBoxLayout()
-        #emptyLeft = QWidget()
-        #emptyLeft.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Minimum)
-        #self.commontool_layout.addWidget(emptyLeft)
-        self.commontool_layout.addWidget(QLabel())
-        self.commontool_layout.addWidget(self.button_prev_file)
-        self.commontool_layout.addWidget(self.button_cutandclone)
-        self.commontool_layout.addWidget(self.button_next_file)
-
-        # Tool layout
-        self.tool_layout = QGridLayout()
-        self.tool_layout.addLayout(self.videotool_layout, 0, 0, 1, 3)
-        self.tool_layout.addLayout(self.commontool_layout, 1, 1, 1, 1)
-
-        self.button_startpause_video.clicked.connect(self.display.startVideo)
-        self.button_trima_video.clicked.connect(self.display.trimA)
-        self.button_trimb_video.clicked.connect(self.display.trimB)
-
-
-        #Main Layout
-        self.main_layout = QVBoxLayout()
-        self.main_layout.addLayout(self.display_layout)
-        self.main_layout.addLayout(self.tool_layout)
-
-        #Main group box
-        self.main_group_box = QGroupBox()
-        self.main_group_box.setStyleSheet("QGroupBox{font-size: 10px}")
-        self.main_group_box.setLayout(self.main_layout)
-
-        #Outer main layout to accomodate the group box
-
-        self.outer_main_layout.addWidget(self.main_group_box)
-        
-        self.rateNext()
-        
-    def closeEvent(self, evnt):
-        self.display.releaseVideo()
-        super(QDialog, self).closeEvent(evnt)
-            
-    def updatePaused(self, isPaused):
-        self.button_trima_video.setEnabled(isPaused)
-        self.button_trimb_video.setEnabled(isPaused)
-        self.button_snapshot_video.setEnabled(isPaused)
-        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png') if isPaused else os.path.join(path, '../../api/img/pause80.png') ))
-        
-    def rateNext(self):
-        try:
-            folder=os.path.join(path, "../../../../input/vr/check/rate")
-            checkfiles = next(os.walk(folder))[2]
-            self.main_group_box.setTitle(checkfiles[0])
-            isVideo=self.display.show(os.path.join(folder, checkfiles[0])) == "video"
-            self.button_trima_video.setVisible(isVideo)
-            self.button_trimb_video.setVisible(isVideo)
-            self.button_snapshot_video.setVisible(isVideo)
-            self.button_startpause_video.setVisible(isVideo)
-        except StopIteration as e:
-            self.close()
-
-
-
 class CropWidget(QWidget):
     def __init__(self, display, parent=None):
         """
@@ -1073,6 +1105,8 @@ class CropWidget(QWidget):
         """
         super().__init__(parent)
 
+        self.onCropOrTrim = None
+        
         self.setWindowTitle("Bild zuschneiden mit Lupenansicht")
         self.setMinimumSize(1000, 750)
 
@@ -1087,6 +1121,7 @@ class CropWidget(QWidget):
         # Noch kein Bild vorhanden
         self.original_pixmap = None
         self.display_pixmap = None
+        self.slidersInitialized = False
 
         # Crop-Werte
         self.crop_left = 0
@@ -1145,8 +1180,7 @@ class CropWidget(QWidget):
         self.enable_sliders(False)
 
         # Hotkey STRG+S zum Speichern
-        self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
-        self.save_shortcut.activated.connect(self.save_cropped_image)
+        #self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
 
     def fileChanged(self):
         # Crop-Werte zurücksetzen
@@ -1154,13 +1188,12 @@ class CropWidget(QWidget):
         self.crop_right = 0
         self.crop_top = 0
         self.crop_bottom = 0
-        # Slider aktivieren und konfigurieren
-        self.update_slider_ranges()
-        self.enable_sliders(True)
+        
+        self.slidersInitialized = False
+        self.enable_sliders(False)
     
     def imageUpdated(self):
-        print("Image updated", flush=True)
-        
+       
         sourcePixmap = self.image_label.getSourcePixmap()
         if sourcePixmap is None or sourcePixmap.isNull():
             raise ValueError("Das Source Image enthält kein gültiges Bild.")
@@ -1175,6 +1208,12 @@ class CropWidget(QWidget):
         self.original_pixmap = pixmap.copy()
         self.display_pixmap = pixmap.copy()
         self.image_label.setPixmap(self.display_pixmap)
+
+        if not self.slidersInitialized:
+            # Slider aktivieren und konfigurieren
+            self.update_slider_ranges()
+            self.enable_sliders(True)
+            self.slidersInitialized = True
 
         self.apply_crop()
 
@@ -1226,6 +1265,8 @@ class CropWidget(QWidget):
         self.slider_top.setMaximum(h // 2)
         self.slider_bottom.setMaximum(h // 2)
 
+        #print("update_slider_ranges=", w // 2, h // 2, flush=True)
+
     def update_crop(self, side, value):
         if not self.original_pixmap:
             return
@@ -1239,23 +1280,76 @@ class CropWidget(QWidget):
         elif side == "bottom":
             self.crop_bottom = value
 
+        #print("update_crop=", self.crop_left, self.crop_right, self.crop_top, self.crop_bottom, flush=True)
+
         self.apply_crop()
         self.update_magnifier()
+        if self.onCropOrTrim:
+            self.onCropOrTrim()
+                
 
-    # ----------- IMAGE UPDATES -----------
+    def darken_outside_area(self, pixmap: QPixmap, clear_rect: QRect, darkness: int = 120) -> QPixmap:
+        """
+        Gibt eine neue QPixmap zurück, bei der der Bereich außerhalb von `clear_rect`
+        mit einer halbtransparenten schwarzen Farbe abgedunkelt wird.
+        :param pixmap: Originalbild als QPixmap (Koordinaten für clear_rect in Pixmap-Koordinaten!)
+        :param clear_rect: Bereich, der unverändert bleiben soll
+        :param darkness: Transparenzwert (0-255), 0 = transparent, 255 = vollständig schwarz
+        :return: Neue QPixmap mit Abdunklung
+        """
+        if pixmap is None or pixmap.isNull():
+            return QPixmap()
+
+        # Beschneide clear_rect auf Bildgrenzen (sicherer)
+        img_rect = pixmap.rect()
+        clear_rect = clear_rect.intersected(img_rect)
+        if clear_rect.isEmpty():
+            # Kein sichtbarer Ausschnitt -> ganzes Bild abdunkeln
+            result = QPixmap(pixmap.size())
+            result.fill(Qt.transparent)
+            p = QPainter(result)
+            p.drawPixmap(0, 0, pixmap)
+            p.fillRect(result.rect(), QColor(0, 0, 0, darkness))
+            p.end()
+            return result
+
+        # 1) Overlay mit Alphakanal erzeugen
+        overlay = QPixmap(pixmap.size())
+        overlay.fill(Qt.transparent)  # Start mit transparentem Hintergrund
+
+        painter = QPainter(overlay)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # 2) Ganze Overlayfläche mit halbtransparentem Schwarz füllen
+        painter.fillRect(overlay.rect(), QColor(0, 0, 0, darkness))
+
+        # 3) "Loch" in das Overlay stanzen (macht Region transparent)
+        painter.setCompositionMode(QPainter.CompositionMode_Clear)
+        painter.fillRect(clear_rect, QColor(0, 0, 0, 0))
+
+        painter.end()
+
+        # 4) Original und Overlay zusammenführen
+        result = QPixmap(pixmap.size())
+        result.fill(Qt.transparent)
+        painter = QPainter(result)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.drawPixmap(0, 0, pixmap)    # Original
+        painter.drawPixmap(0, 0, overlay)   # Overlay oben drauf
+        painter.end()
+
+        return result
+
+
     def apply_crop(self):
         if not self.original_pixmap:
             return
         
         w = self.original_pixmap.width()
         h = self.original_pixmap.height()
-        temp_pixmap = self.original_pixmap.copy()
 
         mx = float(w) / float(self.sourceWidth)
         my = float(h) / float(self.sourceHeight)
-        # Rahmen zeichnen
-        painter = QPainter(temp_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
 
         crop_rect = QRect(
             int(self.crop_left * mx),
@@ -1264,18 +1358,15 @@ class CropWidget(QWidget):
             h - int(self.crop_top * my) - int(self.crop_bottom * my)
         )
 
-        # Abdunkeln außerhalb des Crop-Bereichs
-        #overlay_color = QColor(0, 0, 0, 120)
-        #painter.fillRect(0, 0, w, h, overlay_color)
-        painter.setCompositionMode(QPainter.CompositionMode_Clear)
-        painter.fillRect(crop_rect, QColor(0, 0, 0, 0))
+        temp_pixmap=self.darken_outside_area(self.original_pixmap, crop_rect)
 
         # Rahmen zeichnen
+        painter = QPainter(temp_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
         painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
         pen = QPen(self.frame_color, self.frame_thickness, self.frame_style)
         painter.setPen(pen)
         painter.drawRect(crop_rect)
-
         painter.end()
 
         self.display_pixmap = temp_pixmap
@@ -1307,36 +1398,9 @@ class CropWidget(QWidget):
         self.magnifier.hide()
         super().mouseReleaseEvent(event)
 
-    # ----------- SAVE CROPPED IMAGE -----------
-    def save_cropped_image(self):
-        if not self.original_pixmap:
-            return
-
-        w = self.original_pixmap.width()
-        h = self.original_pixmap.height()
-
-        crop_rect = QRect(
-            self.crop_left,
-            self.crop_top,
-            w - self.crop_left - self.crop_right,
-            h - self.crop_top - self.crop_bottom
-        )
-
-        cropped = self.original_pixmap.copy(crop_rect)
-
-        save_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Zugeschnittenes Bild speichern",
-            "",
-            "PNG-Bild (*.png);;JPEG-Bild (*.jpg *.jpeg)"
-        )
-
-        if save_path:
-            cropped.save(save_path)
-            print(f"Bild gespeichert unter: {save_path}")
-
-
-
+    def registerForUpdate(self, onCropOrTrim):
+        self.onCropOrTrim = onCropOrTrim
+        
 
 def pil2pixmap(im):
     if im.mode == "RGB":
