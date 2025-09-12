@@ -1,9 +1,11 @@
 from PyQt5.QtWidgets import (
 QApplication, QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QDialog, QSizePolicy, QPushButton, QSlider,
-QVBoxLayout, QHBoxLayout, QGridLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox
+QVBoxLayout, QHBoxLayout, QGridLayout, QWidget, QToolBar, QMainWindow, QAction, QAbstractItemView, QMessageBox, QDesktopWidget, QStatusBar, QGroupBox, QFrame,
+QFileDialog, QColorDialog, QComboBox, QShortcut
 )
-from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot, QSize, QBuffer
-from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor, QPainter, QPen, QPaintEvent 
+from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, pyqtSlot, QSize, QBuffer, QRect
+from PyQt5.QtGui import QColor, QBrush, QFont, QPixmap, QIcon, QImage, QCursor, QPainter, QPen, QPaintEvent, QKeySequence
+
 
 import sys
 import os
@@ -803,6 +805,7 @@ class Display(QLabel):
         self.qt_img = self.convert_cv_qt(cv_img)
         geometry=self.size()
         self.setPixmap(self.qt_img.scaled(geometry.width(), geometry.height(), Qt.KeepAspectRatio))
+        self.updateImage()
 
     def convert_cv_qt(self, cv_img):
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
@@ -829,6 +832,9 @@ class Display(QLabel):
         self.filepath = filepath
         cv_img  = cv2.imread(self.filepath)
         self.update_image(cv_img)        
+        
+    def registerForUpdates(self, updateImage):
+        self.updateImage = updateImage
         
     def startVideo(self):
         self.button.clicked.disconnect(self.startVideo)
@@ -968,7 +974,8 @@ class RateAndCutDialog(QDialog):
 
         # Display layout
         self.display_layout = QGridLayout()
-        self.display_layout.addWidget(self.display, 0, 0, 1, 1)
+        self.cropWidget=CropWidget(self.display)
+        self.display_layout.addWidget(self.cropWidget, 0, 0, 1, 1)
 
 
         # Video Tool layout
@@ -1035,6 +1042,275 @@ class RateAndCutDialog(QDialog):
             self.close()
 
 
+
+class CropWidget(QWidget):
+    def __init__(self, display, parent=None):
+        """
+        CropWidget, das erst später angewiesen wird, welches Bild aus einem externen QLabel verwendet werden soll.
+        """
+        super().__init__(parent)
+
+        self.setWindowTitle("Bild zuschneiden mit Lupenansicht")
+        self.setMinimumSize(1000, 750)
+
+        # Internes Label, in dem wir das Bild anzeigen
+        self.image_label = display
+        self.image_label.registerForUpdates(self.imageUpdated)
+        #self.image_label.setAlignment(Qt.AlignCenter)
+        #self.image_label.setFrameStyle(QFrame.Box)
+        #self.image_label.setStyleSheet("background-color: black;")
+
+        # Noch kein Bild vorhanden
+        self.original_pixmap = None
+        self.display_pixmap = None
+
+        # Crop-Werte
+        self.crop_left = 0
+        self.crop_right = 0
+        self.crop_top = 0
+        self.crop_bottom = 0
+
+        # Standard-Rahmen-Einstellungen
+        self.frame_color = QColor(255, 255, 255)  # Weiß
+        self.frame_thickness = 2
+        self.frame_style = Qt.DashLine
+
+        # Slider
+        self.slider_left = self.create_slider(Qt.Vertical)
+        self.slider_right = self.create_slider(Qt.Vertical)
+        self.slider_top = self.create_slider(Qt.Horizontal)
+        self.slider_bottom = self.create_slider(Qt.Horizontal)
+
+        # Lupen-Label
+        self.magnifier = QLabel(self)
+        self.magnifier.setFixedSize(150, 150)
+        self.magnifier.setFrameStyle(QFrame.Box)
+        self.magnifier.setStyleSheet("background-color: white;")
+        self.magnifier.hide()
+
+ 
+        # Layouts
+        main_layout = QVBoxLayout()
+        top_slider_layout = QVBoxLayout()
+        top_slider_layout.addWidget(self.slider_top)
+        main_layout.addLayout(top_slider_layout)
+
+        middle_layout = QHBoxLayout()
+        middle_layout.addWidget(self.slider_left)
+        middle_layout.addWidget(self.image_label, 1)
+        middle_layout.addWidget(self.slider_right)
+        main_layout.addLayout(middle_layout)
+
+        bottom_layout = QVBoxLayout()
+        bottom_layout.addWidget(self.slider_bottom)
+        main_layout.addLayout(bottom_layout)
+
+        # Buttons unten
+        controls_layout = QHBoxLayout()
+        main_layout.addLayout(controls_layout)
+
+        self.setLayout(main_layout)
+
+        # Signale verbinden
+        self.slider_left.valueChanged.connect(lambda val: self.update_crop("left", val))
+        self.slider_right.valueChanged.connect(lambda val: self.update_crop("right", val))
+        self.slider_top.valueChanged.connect(lambda val: self.update_crop("top", val))
+        self.slider_bottom.valueChanged.connect(lambda val: self.update_crop("bottom", val))
+
+        # Slider deaktivieren, bis Bild geladen
+        self.enable_sliders(False)
+
+        # Hotkey STRG+S zum Speichern
+        self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        self.save_shortcut.activated.connect(self.save_cropped_image)
+
+    # ---------------------------
+    # ---------------------------
+    def imageUpdated(self):
+        """Übernimmt das aktuelle Bild aus einem externen QLabel."""
+        pixmap = self.image_label.pixmap()
+        if pixmap is None or pixmap.isNull():
+            raise ValueError("Das übergebene QLabel enthält kein gültiges Bild.")
+
+        # Originalbild speichern
+        self.original_pixmap = pixmap.copy()
+        self.display_pixmap = pixmap.copy()
+        self.image_label.setPixmap(self.display_pixmap)
+
+        # Crop-Werte zurücksetzen
+        self.crop_left = 0
+        self.crop_right = 0
+        self.crop_top = 0
+        self.crop_bottom = 0
+
+        # Slider aktivieren und konfigurieren
+        self.update_slider_ranges()
+        self.enable_sliders(True)
+
+        self.apply_crop()
+
+    def enable_sliders(self, enable: bool):
+        """Aktiviert oder deaktiviert alle Slider."""
+        self.slider_left.setEnabled(enable)
+        self.slider_right.setEnabled(enable)
+        self.slider_top.setEnabled(enable)
+        self.slider_bottom.setEnabled(enable)
+
+    # ----------- FRAME SETTINGS -----------
+    def change_frame_color(self):
+        if not self.original_pixmap:
+            return
+        color = QColorDialog.getColor(self.frame_color, self, "Rahmenfarbe auswählen")
+        if color.isValid():
+            self.frame_color = color
+            self.apply_crop()
+
+    def change_frame_thickness(self, value):
+        if not self.original_pixmap:
+            return
+        self.frame_thickness = value
+        self.apply_crop()
+
+    def change_frame_style(self):
+        if not self.original_pixmap:
+            return
+        self.frame_style = self.style_combo.currentData()
+        self.apply_crop()
+
+    # ----------- SLIDERS -----------
+    def create_slider(self, orientation):
+        slider = QSlider(orientation)
+        slider.setMinimum(0)
+        slider.setSingleStep(1)
+        slider.setTracking(True)
+        return slider
+
+    def update_slider_ranges(self):
+        if not self.original_pixmap:
+            return
+
+        w = self.original_pixmap.width()
+        h = self.original_pixmap.height()
+
+        self.slider_left.setMaximum(w // 2)
+        self.slider_right.setMaximum(w // 2)
+        self.slider_top.setMaximum(h // 2)
+        self.slider_bottom.setMaximum(h // 2)
+
+    def update_crop(self, side, value):
+        if not self.original_pixmap:
+            return
+
+        if side == "left":
+            self.crop_left = value
+        elif side == "right":
+            self.crop_right = value
+        elif side == "top":
+            self.crop_top = value
+        elif side == "bottom":
+            self.crop_bottom = value
+
+        self.apply_crop()
+        self.update_magnifier()
+
+    # ----------- IMAGE UPDATES -----------
+    def apply_crop(self):
+        if not self.original_pixmap:
+            return
+
+        w = self.original_pixmap.width()
+        h = self.original_pixmap.height()
+
+        temp_pixmap = self.original_pixmap.copy()
+
+        # Rahmen zeichnen
+        painter = QPainter(temp_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        crop_rect = QRect(
+            self.crop_left,
+            self.crop_top,
+            w - self.crop_left - self.crop_right,
+            h - self.crop_top - self.crop_bottom
+        )
+
+        # Abdunkeln außerhalb des Crop-Bereichs
+        overlay_color = QColor(0, 0, 0, 120)
+        painter.fillRect(0, 0, w, h, overlay_color)
+        painter.setCompositionMode(QPainter.CompositionMode_Clear)
+        painter.fillRect(crop_rect, QColor(0, 0, 0, 0))
+
+        # Rahmen zeichnen
+        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+        pen = QPen(self.frame_color, self.frame_thickness, self.frame_style)
+        painter.setPen(pen)
+        painter.drawRect(crop_rect)
+
+        painter.end()
+
+        self.display_pixmap = temp_pixmap
+        self.image_label.setPixmap(self.display_pixmap)
+
+    def update_magnifier(self):
+        if not self.original_pixmap:
+            return
+
+        self.magnifier.show()
+
+        zoom_size = 40
+        center_x = self.crop_left + (self.original_pixmap.width() - self.crop_left - self.crop_right) // 2
+        center_y = self.crop_top + (self.original_pixmap.height() - self.crop_top - self.crop_bottom) // 2
+
+        # Sicherheitscheck
+        center_x = max(zoom_size // 2, min(center_x, self.original_pixmap.width() - zoom_size // 2))
+        center_y = max(zoom_size // 2, min(center_y, self.original_pixmap.height() - zoom_size // 2))
+
+        zoom_rect = QRect(center_x - zoom_size // 2, center_y - zoom_size // 2, zoom_size, zoom_size)
+        zoom_pixmap = self.original_pixmap.copy(zoom_rect).scaled(
+            self.magnifier.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
+
+        self.magnifier.setPixmap(zoom_pixmap)
+        self.magnifier.move(self.width() - self.magnifier.width() - 20, 20)
+
+    def mouseReleaseEvent(self, event):
+        self.magnifier.hide()
+        super().mouseReleaseEvent(event)
+
+    # ----------- SAVE CROPPED IMAGE -----------
+    def save_cropped_image(self):
+        if not self.original_pixmap:
+            return
+
+        w = self.original_pixmap.width()
+        h = self.original_pixmap.height()
+
+        crop_rect = QRect(
+            self.crop_left,
+            self.crop_top,
+            w - self.crop_left - self.crop_right,
+            h - self.crop_top - self.crop_bottom
+        )
+
+        cropped = self.original_pixmap.copy(crop_rect)
+
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Zugeschnittenes Bild speichern",
+            "",
+            "PNG-Bild (*.png);;JPEG-Bild (*.jpg *.jpeg)"
+        )
+
+        if save_path:
+            cropped.save(save_path)
+            print(f"Bild gespeichert unter: {save_path}")
+
+
+
+
+
+
+
 def pil2pixmap(im):
     if im.mode == "RGB":
         r, g, b = im.split()
@@ -1050,6 +1326,7 @@ def pil2pixmap(im):
     qim = QImage(data, im.size[0], im.size[1], QImage.Format_ARGB32)
     pixmap = QPixmap.fromImage(qim)
     return pixmap
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 1:
