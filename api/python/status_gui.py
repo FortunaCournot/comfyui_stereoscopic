@@ -22,10 +22,13 @@ import time
 import cv2
 import ntpath
 import io
+from itertools import chain
+
 
 LOGOTIME = 3000
 BREAKFREQ = 120000
 TABLEUPDATEFREQ = 1000
+TOOLBARUPDATEFREQ = 1000
 BREAKTIME = 20000
 status="idle"
 idletime = 0
@@ -160,6 +163,11 @@ class SpreadsheetApp(QMainWindow):
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_table)
 
+        # Timer for updating toolbar actions
+        self.toolbar_timer = QTimer()
+        self.toolbar_timer.timeout.connect(self.update_toolbar)
+        self.toolbar_timer.start(TOOLBARUPDATEFREQ)
+
         self.idlecount_timer = QTimer()
         self.idlecount_timer.timeout.connect(self.update_idlecount)
         self.idlecount_timer.start(1000)  # 1s
@@ -198,21 +206,15 @@ class SpreadsheetApp(QMainWindow):
 
     def check_cutandclone(self, state):
             dialog = RateAndCutDialog(True)
-            #self.button_check_rate_action.setEnabled(False)
             dialog.exec_()
-            #self.button_check_rate_action.setEnabled(True)
 
     def check_rate(self, state):
             dialog = RateAndCutDialog(False)
-            #self.button_check_rate_action.setEnabled(False)
             dialog.exec_()
-            #self.button_check_rate_action.setEnabled(True)
 
     def check_judge(self, state):
-            #dialog = QDialog()
-            self.button_check_judge_action.setEnabled(False)
-            #dialog.exec_()
-            #self.button_check_judge_action.setEnabled(True)
+            dialog = JudgeDialog()
+            dialog.exec_()
 
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
@@ -280,18 +282,29 @@ class SpreadsheetApp(QMainWindow):
         if status=="idle":
             idletime += 1
 
+    def update_toolbar(self):
+        count=0
+        try:
+            checkfiles = next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
+            count+=len(checkfiles)
+        except StopIteration as e:
+            count+=0
+        self.button_check_rate_action.setEnabled(count>0)
+        self.button_check_cutclone_action.setEnabled(count>0)
+    
+        count=0
+        paths = ("../../../../output/vr/check/rate/1", "../../../../output/vr/check/rate/2", "../../../../output/vr/check/rate/3", "../../../../output/vr/check/rate/4", "../../../../output/vr/check/rate/5")
+        for p in paths:
+            try:
+                checkfiles = next(os.walk(os.path.join(path, p)))[2]
+                count+=len(checkfiles)
+            except StopIteration as e:
+                count+=0
+        self.button_check_judge_action.setEnabled(count>0)
 
     def update_table(self):
         global idletime
 
-        # some non-table stuff
-        try:
-            checkfiles = next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
-            self.button_check_rate_action.setEnabled(len(checkfiles)>0)     # will never get executed if 0
-            self.button_check_cutclone_action.setEnabled(len(checkfiles)>0) # will never get executed if 0
-        except StopIteration as e:
-            self.button_check_rate_action.setEnabled(False)
-            self.button_check_cutclone_action.setEnabled(False)
         
         if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
             sys.exit(app.exec_())
@@ -665,6 +678,20 @@ class ActionButton(QPushButton):
         """
         )
         
+class JudgeDialog(QDialog):
+
+    def __init__(self):
+        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+
+        #Set the main layout
+        self.setWindowTitle("VR We Are - Check Files: Judge")
+        self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
+        self.setMaximumSize(QSize(1920,1080))
+        self.setGeometry(150, 150, 1280, 768)
+        self.outer_main_layout = QVBoxLayout()
+        self.setLayout(self.outer_main_layout)
+        self.setStyleSheet("background : black; color: white;")
+
            
 class RateAndCutDialog(QDialog):
 
