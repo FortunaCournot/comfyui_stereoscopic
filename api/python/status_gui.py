@@ -23,6 +23,7 @@ import cv2
 import ntpath
 import io
 from itertools import chain
+        
 
 
 LOGOTIME = 3000
@@ -249,7 +250,7 @@ class SpreadsheetApp(QMainWindow):
         
         self.toolbar.addSeparator()
 
-        self.button_check_cutclone_action = QAction(StyledIcon(os.path.join(path, '../../api/img/cut64.png')), "Cut & Clone")      
+        self.button_check_cutclone_action = QAction(StyledIcon(os.path.join(path, '../../api/img/cut64.png')), "Crop & Trim")      
         self.button_check_cutclone_action.setCheckable(False)
         self.button_check_cutclone_action.setEnabled(False)
         self.button_check_cutclone_action.triggered.connect(self.check_cutandclone)
@@ -261,7 +262,7 @@ class SpreadsheetApp(QMainWindow):
         self.button_check_rate_action.triggered.connect(self.check_rate)
         self.toolbar.addAction(self.button_check_rate_action)    
 
-        self.button_check_judge_action = QAction(StyledIcon(os.path.join(path, '../../api/img/judge64.png')), "Judge")      
+        self.button_check_judge_action = QAction(StyledIcon(os.path.join(path, '../../api/img/judge64.png')), "Release")      
         self.button_check_judge_action.setCheckable(False)
         self.button_check_judge_action.triggered.connect(self.check_judge)
         self.button_check_judge_action.setEnabled(False)
@@ -782,6 +783,10 @@ class RateAndCutDialog(QDialog):
         self.commontool_layout.addWidget(self.button_prev_file)
         if cutMode:
             self.commontool_layout.addWidget(self.button_cutandclone)
+        else:
+            rating_widget = RatingWidget(stars_count=5)
+            self.commontool_layout.addWidget(rating_widget)
+            rating_widget.ratingChanged.connect(self.on_rating_changed)
         self.commontool_layout.addWidget(self.button_next_file)
 
         # Tool layout
@@ -844,6 +849,133 @@ class RateAndCutDialog(QDialog):
                 self.button_snapshot_from_video.setEnabled(False)
         except StopIteration as e:
             self.close()
+
+    def on_rating_changed(self, value):
+        print(f"Rating selected: {value}")
+
+
+class HoverLabel(QLabel):
+    """A QLabel that detects hover and click events."""
+    def __init__(self, index, parent=None):
+        super().__init__(parent)
+        self.index = index
+        self.setMouseTracking(True)
+        self.setCursor(QCursor(Qt.PointingHandCursor))  # Hand cursor on hover
+
+    def enterEvent(self, event):
+        if self.parent():
+            self.parent().on_hover(self.index)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        if self.parent():
+            self.parent().on_leave()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        """When clicked, notify the parent to lock the rating."""
+        if event.button() == Qt.LeftButton and self.parent():
+            self.parent().on_click(self.index)
+        super().mousePressEvent(event)
+
+
+class RatingWidget(QWidget):
+    """Custom rating widget with hover effect, click-to-lock, and signal emission."""
+    
+    # Signal that emits the chosen rating (1-5)
+    ratingChanged = pyqtSignal(int)
+
+    def __init__(self, parent=None, stars_count=5):
+        super().__init__(parent)
+
+        self.stars_count = stars_count
+
+        # Images: Default empty and filled star
+        self.default_image = QPixmap(os.path.join(path, '../../api/img/starn80.png'))
+        self.hover_image = QPixmap(os.path.join(path, '../../api/img/starp80.png'))
+
+        # Optional: Resize star images
+        self.icon_size = QSize(80, 80)
+        self.default_image = self.default_image.scaled(
+            self.icon_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
+        self.hover_image = self.hover_image.scaled(
+            self.icon_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
+
+        # Layout setup
+        layout = QHBoxLayout(self)
+        layout.setSpacing(5)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Create star labels
+        self.labels = []
+        for i in range(self.stars_count):
+            label = HoverLabel(i, self)
+            label.setPixmap(self.default_image)
+            layout.addWidget(label)
+            self.labels.append(label)
+
+        self.setLayout(layout)
+
+        # State variables
+        self.current_hover = -1  # Currently hovered index
+        self.current_rating = -1  # Locked rating (selected by click)
+
+    # -------------------------
+    # Hover Handling
+    # -------------------------
+    def on_hover(self, hover_index):
+        """Update all labels up to hover_index with the hover image."""
+        self.current_hover = hover_index
+        self.update_stars(hover_index)
+
+    def on_leave(self):
+        """When mouse leaves, show locked rating instead of hover."""
+        self.current_hover = -1
+        self.update_stars(self.current_rating)
+
+    # -------------------------
+    # Click Handling
+    # -------------------------
+    def on_click(self, clicked_index):
+        """Lock the rating and emit a signal."""
+        self.current_rating = clicked_index
+        self.update_stars(clicked_index)
+        self.ratingChanged.emit(clicked_index + 1)  # Emit 1-based rating
+
+    # -------------------------
+    # Internal Update Logic
+    # -------------------------
+    def update_stars(self, active_index):
+        """
+        Update all labels based on the active index.
+        If active_index is -1, all stars are empty.
+        """
+        for i, label in enumerate(self.labels):
+            if i <= active_index:
+                label.setPixmap(self.hover_image)
+            else:
+                label.setPixmap(self.default_image)
+
+    # -------------------------
+    # External API
+    # -------------------------
+    def set_rating(self, rating):
+        """
+        Set the rating programmatically.
+        Rating should be between 1 and stars_count.
+        """
+        if 0 <= rating <= self.stars_count:
+            self.current_rating = rating - 1
+            self.update_stars(self.current_rating)
+            self.ratingChanged.emit(rating)
+
+    def clear_rating(self):
+        """Clear the locked rating (all empty stars)."""
+        self.current_rating = -1
+        self.update_stars(-1)
+        self.ratingChanged.emit(0)
 
 
 
