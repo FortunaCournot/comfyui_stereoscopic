@@ -1,5 +1,5 @@
 torch
-opencv-python>=4.7.0.72
+opencv-python>=4.10.0.84
 numpy
 pillow
 googletrans
