@@ -1361,10 +1361,10 @@ class CropWidget(QWidget):
         self.frame_style = Qt.DashLine
 
         # Slider
-        self.slider_left = self.create_slider(Qt.Vertical)
-        self.slider_right = self.create_slider(Qt.Vertical)
-        self.slider_top = self.create_slider(Qt.Horizontal)
-        self.slider_bottom = self.create_slider(Qt.Horizontal)
+        self.slider_left = self.create_slider(Qt.Horizontal, False)
+        self.slider_right = self.create_slider(Qt.Horizontal, True)
+        self.slider_top = self.create_slider(Qt.Vertical, True)
+        self.slider_bottom = self.create_slider(Qt.Vertical, False)
 
         # Lupen-Label
         self.magnifier = QLabel(self)
@@ -1377,17 +1377,17 @@ class CropWidget(QWidget):
         # Layouts
         main_layout = QVBoxLayout()
         top_slider_layout = QVBoxLayout()
-        top_slider_layout.addWidget(self.slider_top)
+        top_slider_layout.addWidget(self.slider_left)
         main_layout.addLayout(top_slider_layout)
 
         middle_layout = QHBoxLayout()
-        middle_layout.addWidget(self.slider_left)
+        middle_layout.addWidget(self.slider_top)
         middle_layout.addWidget(self.image_label, 1)
-        middle_layout.addWidget(self.slider_right)
+        middle_layout.addWidget(self.slider_bottom)
         main_layout.addLayout(middle_layout)
 
         bottom_layout = QVBoxLayout()
-        bottom_layout.addWidget(self.slider_bottom)
+        bottom_layout.addWidget(self.slider_right)
         main_layout.addLayout(bottom_layout)
 
         # Buttons unten
@@ -1472,11 +1472,12 @@ class CropWidget(QWidget):
         self.apply_crop()
 
     # ----------- SLIDERS -----------
-    def create_slider(self, orientation):
+    def create_slider(self, orientation, inverted):
         slider = QSlider(orientation)
         slider.setMinimum(0)
         slider.setSingleStep(1)
         slider.setTracking(True)
+        slider.setInvertedAppearance(inverted)
         return slider
 
     def update_slider_ranges(self):
@@ -1486,10 +1487,10 @@ class CropWidget(QWidget):
         w = self.sourceWidth
         h = self.sourceHeight
 
-        self.slider_left.setMaximum(w // 2)
-        self.slider_right.setMaximum(w // 2)
-        self.slider_top.setMaximum(h // 2)
-        self.slider_bottom.setMaximum(h // 2)
+        self.slider_left.setMaximum(w)
+        self.slider_right.setMaximum(w)
+        self.slider_top.setMaximum(h)
+        self.slider_bottom.setMaximum(h)
 
         #print("update_slider_ranges=", w // 2, h // 2, flush=True)
 
@@ -1499,12 +1500,24 @@ class CropWidget(QWidget):
 
         if side == "left":
             self.crop_left = value
+            if self.crop_left + self.crop_right > self.sourceWidth:
+                self.crop_right = self.sourceWidth - self.crop_left
+                self.slider_right.setValue(self.crop_right)
         elif side == "right":
             self.crop_right = value
+            if self.crop_left + self.crop_right > self.sourceWidth:
+                self.crop_left = self.sourceWidth - self.crop_right
+                self.slider_left.setValue(self.crop_left)
         elif side == "top":
             self.crop_top = value
+            if self.crop_top + self.crop_bottom > self.sourceHeight:
+                self.crop_bottom = self.sourceHeight - self.crop_top
+                self.slider_bottom.setValue(self.crop_bottom)
         elif side == "bottom":
             self.crop_bottom = value
+            if self.crop_top + self.crop_bottom > self.sourceHeight:
+                self.crop_top = self.sourceHeight - self.crop_bottom
+                self.slider_top.setValue(self.crop_top)
 
         #print("update_crop=", self.crop_left, self.crop_right, self.crop_top, self.crop_bottom, flush=True)
 
