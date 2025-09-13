@@ -39,6 +39,8 @@ cleanup() {
 trap cleanup EXIT
 
 
+mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K input/vr/caption input/vr/check/released
+
 ./custom_nodes/comfyui_stereoscopic/api/prerequisites.sh || exit 1
 
 
@@ -80,7 +82,6 @@ then
 	echo "Usage: $0 "
 	echo "E.g.: $0 "
 else
-	mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K input/vr/caption
 	SERVERERROR=
 	
 	if [ -e custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then
@@ -213,6 +214,12 @@ else
 				[ $loglevel -ge 0 ] && echo -ne $"\e[2mWaiting for new files$BLINK\e[0m     \r"
 				sleep 1
 			fi
+			
+			WORKFLOW_FORWARDER_COUNT=`find output/vr/tasks/forwarder -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+			if [[ $WORKFLOW_FORWARDER_COUNT -gt 0 ]] ; then
+				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/forwarder || exit 1 )
+			fi
+			
 		fi
 		
 	done #KILL ME

@@ -150,3 +150,11 @@ forwards:
           to: dubbing/sfx
           conditions:
             - codec_type!=audio
+  - from: tasks/forwarder
+    rules:
+      - rule:
+          to: check/rate
+  - from: check/rate
+    rules:
+      - rule:
+          to: check/released

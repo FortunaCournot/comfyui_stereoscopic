@@ -4,7 +4,7 @@ import re
 path = os.path.dirname(os.path.abspath(__file__))
 
 # define stages
-STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", ]
+STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/rate", "check/released"]
 subfolder = os.path.join(path, "../../../../custom_nodes/comfyui_stereoscopic/config/tasks")
 if os.path.exists(subfolder):
     onlyfiles = next(os.walk(subfolder))[2]
@@ -86,7 +86,7 @@ with open(uml_def, "w") as f:
                 type=""
             typeDef.append(type)
         except Exception as e:
-            typeDef.append(" : error")
+            typeDef.append(" : error (json)")
             if not s in involved:
                 involved.append(s)
         
@@ -136,7 +136,7 @@ with open(uml_def, "w") as f:
                             
                         transitionRules.append("stage" + str(s) + " -"+style+"-> stage" + str(sidx) + options)
                     except Exception as e:
-                        typeDef[s]=" : error"
+                        typeDef[s]=" : error (forward)"
 
     f.write("' Aliases\n")
     #for s in involved:
@@ -176,8 +176,10 @@ with open(uml_def, "w") as f:
                 style="[#04018C]"
             elif type == " : image":
                 style="[#018C08]"
-            elif not type == "":
+            elif not type == " : ":
                 style="[#8C018C]"
+            else:
+                style="[#darkgray]"
             f.write("[*] -" + style + "-> stage" + str(s) + "\n")
     f.write("\n")
 

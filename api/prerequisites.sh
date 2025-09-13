@@ -429,7 +429,6 @@ echo -e $"\e[0m"
 
 
 [ $PIPELINE_AUTOFORWARD -ge 1 ] && echo -e $"Auto-Forwarding \e[32mactive\e[0m" || echo -e $"Auto-Forwarding \e[33mdeactivated\e[0m"
-"$CONFIGPATH"/"rebuild_autoforward.sh"
 if [ ! -e "$CONFIGPATH"/uml/"autoforward.pu" ] || [ "$CONFIGPATH"/uml/"autoforward.pu" -ot "$CONFIGPATH"/"autoforward.yaml" ] ; then
 	rm -f -- "$CONFIGPATH"/uml/*.* 2>/dev/null
 	./custom_nodes/comfyui_stereoscopic/api/uml_build_definition.sh
