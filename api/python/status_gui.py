@@ -38,6 +38,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 COLS = 4
 
+filesToRate = []
 
 STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", ]
 subfolder = os.path.join(path, "../../../../custom_nodes/comfyui_stereoscopic/config/tasks")
@@ -283,11 +284,14 @@ class SpreadsheetApp(QMainWindow):
         if status=="idle":
             idletime += 1
 
+
     def update_toolbar(self):
+        
+        global filesToRate
         count=0
         try:
-            checkfiles = next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
-            count+=len(checkfiles)
+            filesToRate = next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
+            count+=len(filesToRate)
         except StopIteration as e:
             count+=0
         self.button_check_rate_action.setEnabled(count>0)
@@ -682,7 +686,7 @@ class ActionButton(QPushButton):
 class JudgeDialog(QDialog):
 
     def __init__(self):
-        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMaximizeButtonHint)
 
         #Set the main layout
         self.setWindowTitle("VR We Are - Check Files: Judge")
@@ -697,12 +701,13 @@ class JudgeDialog(QDialog):
 class RateAndCutDialog(QDialog):
 
     def __init__(self, cutMode):
-        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMaximizeButtonHint)
 
         self.cutMode=cutMode
         self.qt_img=None
         self.hasCropOrTrim=False
         self.isPaused = False
+        self.currentFile = None
         
         #Set the main layout
         if cutMode:
@@ -710,7 +715,7 @@ class RateAndCutDialog(QDialog):
         else:
             self.setWindowTitle("VR We Are - Check Files: Rating")
         self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
-        self.setMaximumSize(QSize(1920,1080))
+        #self.setMaximumSize(QSize(1920,1080))
         self.setGeometry(150, 150, 1280, 768)
         self.outer_main_layout = QVBoxLayout()
         self.setLayout(self.outer_main_layout)
@@ -736,6 +741,8 @@ class RateAndCutDialog(QDialog):
         self.button_prev_file = ActionButton()
         self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/prevf80.png')))
         self.button_prev_file.setIconSize(QSize(80,80))
+        self.button_prev_file.setEnabled(False)
+        self.button_prev_file.clicked.connect(self.ratePrevious)
 
         if cutMode:
             self.button_cutandclone = ActionButton()
@@ -745,8 +752,9 @@ class RateAndCutDialog(QDialog):
         self.button_next_file = ActionButton()
         self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/nextf80.png')))
         self.button_next_file.setIconSize(QSize(80,80))
-
-
+        self.button_next_file.setEnabled(False)
+        self.button_next_file.clicked.connect(self.rateNext)
+        
         self.sl = FrameSlider(Qt.Horizontal)
         self.sl.setEnabled(False)
         
@@ -814,9 +822,15 @@ class RateAndCutDialog(QDialog):
 
         self.outer_main_layout.addWidget(self.main_group_box)
         
+        # Timer for updating file buttons
+        self.filebutton_timer = QTimer()
+        self.filebutton_timer.timeout.connect(self.update_filebuttons)
+        self.filebutton_timer.start(50)
+        
         self.rateNext()
         
     def closeEvent(self, evnt):
+        self.filebutton_timer.stop()
         self.display.releaseVideo()
         super(QDialog, self).closeEvent(evnt)
             
@@ -828,27 +842,74 @@ class RateAndCutDialog(QDialog):
             self.button_snapshot_from_video.setEnabled(isPaused and self.isVideo)
         self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png') if isPaused else os.path.join(path, '../../api/img/pause80.png') ))
 
+        self.filebutton_timer.timeout.connect(self.update_filebuttons)
+
+
     def onCropOrTrim(self):
         self.hasCropOrTrim=True
         self.button_cutandclone.setEnabled(True)
+
+    def update_filebuttons(self):
+        if self.currentFile:
+            lastIndex=len(filesToRate)-1
+            try:
+                index=filesToRate.index(self.currentFile)
+            except ValueError as ve:
+                index=-1
+        self.button_prev_file.setEnabled(index>0)
+        self.button_next_file.setEnabled(index<lastIndex)
         
     def rateNext(self):
-        try:
-            self.hasCropOrTrim=False
-            folder=os.path.join(path, "../../../../input/vr/check/rate")
-            checkfiles = next(os.walk(folder))[2]
-            self.main_group_box.setTitle(checkfiles[0])
-            self.isVideo=self.display.show(os.path.join(folder, checkfiles[0])) == "video"
-            if self.cutMode:
-                self.button_trima_video.setVisible(self.isVideo)
-                self.button_trimb_video.setVisible(self.isVideo)
-                self.button_trima_video.setEnabled(False)
-                self.button_trimb_video.setEnabled(False)
-                self.button_cutandclone.setEnabled(False)
-                self.button_snapshot_from_video.setVisible(self.isVideo)
-                self.button_snapshot_from_video.setEnabled(False)
-        except StopIteration as e:
+        if len(filesToRate)==0:
             self.close()
+            
+        if not self.currentFile:
+            self.currentFile = filesToRate[0]
+        else:
+            try:
+                index=filesToRate.index(self.currentFile)
+                if len(filesToRate)>index+1:
+                    self.currentFile=filesToRate[index+1]
+                else:
+                    self.currentFile=filesToRate[-1]
+            except ValueError as ve:
+                self.currentFile = filesToRate[0]
+        
+        self.rateCurrentFile()
+
+    def ratePrevious(self):
+        if len(filesToRate)==0:
+            self.close()
+            
+        if not self.currentFile:
+            self.currentFile = filesToRate[0]
+        else:
+            try:
+                index=filesToRate.index(self.currentFile)
+                if len(filesToRate)>index-1 and index>=1:
+                    self.currentFile=filesToRate[index-1]
+                else:
+                    self.currentFile=filesToRate[0]
+            except ValueError as ve:
+                self.currentFile = filesToRate[0]
+        
+        self.rateCurrentFile()
+
+
+    def rateCurrentFile(self):
+        self.hasCropOrTrim=False
+        self.main_group_box.setTitle( self.currentFile )
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        self.isVideo=self.display.showFile( os.path.join(folder, self.currentFile) ) == "video"
+        if self.cutMode:
+            self.button_trima_video.setVisible(self.isVideo)
+            self.button_trimb_video.setVisible(self.isVideo)
+            self.button_trima_video.setEnabled(False)
+            self.button_trimb_video.setEnabled(False)
+            self.button_cutandclone.setEnabled(False)
+            self.button_snapshot_from_video.setVisible(self.isVideo)
+            self.button_snapshot_from_video.setEnabled(False)
+
 
     def on_rating_changed(self, value):
         print(f"Rating selected: {value}")
@@ -993,14 +1054,14 @@ class VideoThread(QThread):
 
     def run(self):
         self._run_flag = True
-        print("open video", self.filepath)
+        #print("open video", self.filepath)
         self.cap = cv2.VideoCapture(self.filepath)
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.a = 0
         self.b = self.frame_count - 1
-        print("frames", self.frame_count)
+        # print("frames", self.frame_count)
         fps = self.cap.get(cv2.CAP_PROP_FPS)
-        print("fps", fps, flush=True)
+        # print("fps", fps, flush=True)
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.frame_count-1)
         self.slider.setValue(0)
@@ -1026,7 +1087,7 @@ class VideoThread(QThread):
                         self.change_pixmap_signal.emit(cv_img)
                         #status.showMessage('frame ...')
                     else:
-                        print("failed to load", self.currentFrame)
+                        print("Error: failed to load", self.currentFrame)
                         self.cap.release()
                         self.cap = cv2.VideoCapture(self.filepath)
                         self.seek(self.a)
@@ -1066,7 +1127,6 @@ class VideoThread(QThread):
         ret, cv_img = self.cap.read()
         if ret:
             self.currentFrame=frame_number
-            print("currentFrame=", self.currentFrame, flush=True)
             self.slider.setValue(self.currentFrame)
             self.change_pixmap_signal.emit(cv_img)
         else:
@@ -1103,6 +1163,7 @@ class Display(QLabel):
         self.onUpdateImage=None
         self.onCropOrTrim = None
         self.sourcePixmap=None
+        self.thread=None
         
         self.display_width = 3840
         self.display_height = 2160
@@ -1138,7 +1199,7 @@ class Display(QLabel):
         return QPixmap.fromImage(p)
 
 
-    def show(self, filepath):
+    def showFile(self, filepath):
         videoExtensions = ['.mp4']
         if filepath.endswith(tuple(videoExtensions)):
             self.setVideo(filepath)
@@ -1170,7 +1231,12 @@ class Display(QLabel):
         self.onCropOrTrim = onCropOrTrim
 
     def startVideo(self):
-        self.button.clicked.disconnect(self.startVideo)
+        if self.thread:
+            self.releaseVideo()
+        try:
+            self.button.clicked.disconnect(self.startVideo)
+        except TypeError:
+            pass        
         self.button.setIcon(QIcon(os.path.join(path, '../../api/img/pause80.png')))
         self.button.setVisible(True)
         self.thread = VideoThread(self.filepath, self.slider, self.updatePaused)
@@ -1183,6 +1249,7 @@ class Display(QLabel):
         self.thread.change_pixmap_signal.disconnect(self.update_image)
         self.button.clicked.disconnect(self.tooglePausePressed)
         self.thread.stop()
+        self.thread=None
 
     def updatePaused(self, isPaused):
         self.update(isPaused)

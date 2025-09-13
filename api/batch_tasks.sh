@@ -74,14 +74,14 @@ else
 			end=`date +%s`
 			startiteration=$start
 
-			jsonblueprint=${INPUTDIR##*/}
-			DISPLAYNAME=$jsonblueprint
+			taskpath=${INPUTDIR##*/}
+			DISPLAYNAME=$taskpath
 			echo "$INDEX/$COUNT $DISPLAYNAME" >input/vr/tasks/BATCHPROGRESS.TXT
 			
-			if [[ $jsonblueprint == "_"* ]] ; then
-				jsonblueprint="user/default/comfyui_stereoscopic/tasks/"${jsonblueprint:1}".json"
+			if [[ $taskpath == "_"* ]] ; then
+				jsonblueprint="user/default/comfyui_stereoscopic/tasks/"${taskpath:1}".json"
 			else
-				jsonblueprint="custom_nodes/comfyui_stereoscopic/config/tasks/"$jsonblueprint".json"
+				jsonblueprint="custom_nodes/comfyui_stereoscopic/config/tasks/"$taskpath".json"
 			fi
 			
 			if [ -e "$jsonblueprint" ] ; then
@@ -97,7 +97,11 @@ else
 					blueprint=${blueprint//\(/_}
 					blueprint=${blueprint//\)/_}
 					scriptpath=$SCRIPTFOLDERPATH/$blueprint".sh"
-					if [ -e $scriptpath ] ; then
+					if [ -z "$blueprint" ] || [ "$blueprint" = "none" ] ; then
+						OUTPUTDIR="output/vr/tasks/""$taskpath"
+						mkdir -p "$OUTPUTDIR"
+						mv -fv -- "$newfn" "$OUTPUTDIR"
+					elif [ -e $scriptpath ] ; then
 						/bin/bash $scriptpath "$jsonblueprint" "$TASKNAME" "$newfn" || exit 1
 					else
 						echo -e $"\e[91mError:\e[0m Invalid blueprint in $jsonblueprint . script missing: $SCRIPTFOLDERPATH/$blueprint"".sh"
