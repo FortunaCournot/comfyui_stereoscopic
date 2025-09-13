@@ -787,7 +787,11 @@ class RateAndCutDialog(QDialog):
         #emptyLeft = QWidget()
         #emptyLeft.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Minimum)
         #self.commontool_layout.addWidget(emptyLeft)
-        self.commontool_layout.addWidget(QLabel())
+        self.fileLabel=QLabel()
+        font = QFont()
+        font.setPointSize(20)
+        self.fileLabel.setFont(font)
+        self.commontool_layout.addWidget(self.fileLabel)
         self.commontool_layout.addWidget(self.button_prev_file)
         if cutMode:
             self.commontool_layout.addWidget(self.button_cutandclone)
@@ -796,6 +800,7 @@ class RateAndCutDialog(QDialog):
             self.commontool_layout.addWidget(rating_widget)
             rating_widget.ratingChanged.connect(self.on_rating_changed)
         self.commontool_layout.addWidget(self.button_next_file)
+        self.commontool_layout.addWidget(QLabel())
 
         # Tool layout
         self.tool_layout = QGridLayout()
@@ -815,7 +820,7 @@ class RateAndCutDialog(QDialog):
 
         #Main group box
         self.main_group_box = QGroupBox()
-        self.main_group_box.setStyleSheet("QGroupBox{font-size: 10px}")
+        self.main_group_box.setStyleSheet("QGroupBox{font-size: 20px}")
         self.main_group_box.setLayout(self.main_layout)
 
         #Outer main layout to accomodate the group box
@@ -858,6 +863,7 @@ class RateAndCutDialog(QDialog):
                 index=-1
         self.button_prev_file.setEnabled(index>0)
         self.button_next_file.setEnabled(index<lastIndex)
+        self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))     
         
     def rateNext(self):
         if len(filesToRate)==0:
@@ -1081,7 +1087,7 @@ class VideoThread(QThread):
                     self.seek(self.a)
                 else:
                     ret, cv_img = self.cap.read()
-                    if ret:
+                    if ret and self._run_flag:
                         self.currentFrame+=1
                         self.slider.setValue(self.currentFrame)
                         self.change_pixmap_signal.emit(cv_img)
@@ -1091,13 +1097,7 @@ class VideoThread(QThread):
                         self.cap.release()
                         self.cap = cv2.VideoCapture(self.filepath)
                         self.seek(self.a)
-                        #ret, cv_img = self.cap.read()
-                        #if ret:
-                        #    #self.currentFrame=0
-                        #    #self.slider.setValue(self.currentFrame)
-                        #    self.change_pixmap_signal.emit(cv_img)
-                        #else:
-                        #    self.cap.release()
+
             time.sleep(1.0/fps)
             
         self.cap.release()
@@ -1125,7 +1125,7 @@ class VideoThread(QThread):
         #if self.pause:
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
         ret, cv_img = self.cap.read()
-        if ret:
+        if ret and self._run_flag:
             self.currentFrame=frame_number
             self.slider.setValue(self.currentFrame)
             self.change_pixmap_signal.emit(cv_img)
@@ -1236,10 +1236,11 @@ class Display(QLabel):
         try:
             self.button.clicked.disconnect(self.startVideo)
         except TypeError:
-            pass        
+            pass
         self.button.setIcon(QIcon(os.path.join(path, '../../api/img/pause80.png')))
         self.button.setVisible(True)
         self.thread = VideoThread(self.filepath, self.slider, self.updatePaused)
+        self.slider.resetAB()
         self.slider.setVisible(True)
         self.thread.change_pixmap_signal.connect(self.update_image)
         self.thread.start()
@@ -1263,7 +1264,7 @@ class Display(QLabel):
         count=self.thread.getFrameCount()
         if count>1:
             self.slider.setA(float(self.thread.getCurrentFrameIndex())/float(count-1))
-            print("A", float(self.thread.getCurrentFrameIndex())/float(count-1), self.thread.getCurrentFrameIndex(), float(count-1), flush=True)
+            #print("A", float(self.thread.getCurrentFrameIndex())/float(count-1), self.thread.getCurrentFrameIndex(), float(count-1), flush=True)
             self.thread.setA(self.thread.getCurrentFrameIndex())
         else:
             self.slider.setA(0.0)
@@ -1275,7 +1276,7 @@ class Display(QLabel):
         count=self.thread.getFrameCount()
         if count>1:
             self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
-            print("B", float(self.thread.getCurrentFrameIndex())/float(count-1), self.thread.getCurrentFrameIndex(), float(count-1), flush=True)
+            #print("B", float(self.thread.getCurrentFrameIndex())/float(count-1), self.thread.getCurrentFrameIndex(), float(count-1), flush=True)
             self.thread.setB(self.thread.getCurrentFrameIndex())
         else:
             self.slider.setB(1.0)
@@ -1414,6 +1415,11 @@ class CropWidget(QWidget):
         self.crop_right = 0
         self.crop_top = 0
         self.crop_bottom = 0
+        
+        self.slider_right.setValue(0)
+        self.slider_left.setValue(0)
+        self.slider_bottom.setValue(0)
+        self.slider_top.setValue(0)
         
         self.slidersInitialized = False
         self.enable_sliders(False)
