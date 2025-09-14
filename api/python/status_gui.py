@@ -955,6 +955,8 @@ class RateAndCutDialog(QDialog):
                 trimB=self.display.trimBFrame
                 out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
                 out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
+                if out_h % 2 == 1:
+                    out_h -= 1
                 x=self.cropWidget.crop_left
                 y=self.cropWidget.crop_top
                 cp = subprocess.run("ffmpeg.exe -y -i " + input + " -vf \"trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ",crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + outputBase + str(fnum) + ".mp4", shell=True)
