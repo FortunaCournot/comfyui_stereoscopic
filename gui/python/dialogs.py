@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 import time
+import traceback
 import urllib.request
 import webbrowser
 from itertools import chain
@@ -261,19 +262,23 @@ class RateAndCutDialog(QDialog):
         self.log("Deleting " + os.path.basename(input), QColor("white"))
         if os.path.isfile(input):
             try:
+                self.display.stopAndBlackout()
+                
                 os.remove(input)
-                self.logn(" done", QColor("yellow"))
 
                 if l<=1:
                     self.closeOnError("no files (deleteAndNext)")
 
-                if index>=l:
-                    index=l-1
+                if index>=l-1:
+                    index=l-2
                     
                 self.currentFile=filesToRate[index]
                 self.rateCurrentFile()
 
+                self.logn(" done", QColor("yellow"))
+                
             except Exception as any_ex:
+                print(traceback.format_exc(), flush=True)                
                 self.logn(" failed", QColor("red"))
         else:
             self.logn(" not found", QColor("red"))
@@ -530,20 +535,29 @@ class VideoThread(QThread):
         self.update(self.pause)
         self.onVideoLoaded = onVideoLoaded
         self.currentFrame=-1
+        self._run_flag = False
 
     def run(self):
         global videoActive
         
+        if not os.path.exists(self.filepath):
+            print("Failed to open", self.filepath, flush=True)
+            return
+            
+        self.cap = cv2.VideoCapture(self.filepath)
+        if not self.cap.isOpened():
+            print("Failed to open", self.filepath, flush=True)
+            return
+
         self._run_flag = True
         videoActive=True
-        #print("open video", self.filepath)
-        self.cap = cv2.VideoCapture(self.filepath)
+            
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.a = 0
         self.b = self.frame_count - 1
         # print("frames", self.frame_count)
         fps = self.cap.get(cv2.CAP_PROP_FPS)
-        # print("fps", fps, flush=True)
+        print("Started video. framecount:", self.frame_count, "fps:", fps, flush=True)
         self.onVideoLoaded()
         
         
@@ -572,7 +586,7 @@ class VideoThread(QThread):
                         self.change_pixmap_signal.emit(cv_img)
                         #status.showMessage('frame ...')
                     else:
-                        print("Error: failed to load", self.currentFrame)
+                        print("Error: failed to load frame", self.currentFrame)
                         self.cap.release()
                         self.cap = cv2.VideoCapture(self.filepath)
                         self.seek(self.a)
@@ -676,7 +690,7 @@ class Display(QLabel):
 
     @pyqtSlot(ndarray)
     def update_image(self, cv_img):
-        if cv_img.size > 0:
+        if cv_img is None or cv_img.size > 0:
             self.qt_img = self.convert_cv_qt(cv_img)
             self.imggeometry=self.size()
             self.setPixmap(self.qt_img.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
