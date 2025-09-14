@@ -36,9 +36,11 @@ path = os.path.dirname(os.path.abspath(__file__))
 if path not in sys.path:
     sys.path.append(path)
 
-
+# Project Global
 filesToRate = []
 
+# File Global
+videoActive=False
 
 class JudgeDialog(QDialog):
 
@@ -221,7 +223,7 @@ class RateAndCutDialog(QDialog):
 
     def closeEvent(self, evnt):
         self.filebutton_timer.stop()
-        self.display.releaseVideo()
+        self.display.stopAndBlackout()
         super(QDialog, self).closeEvent(evnt)
             
     def updatePaused(self, isPaused):
@@ -263,7 +265,7 @@ class RateAndCutDialog(QDialog):
                 self.logn(" done", QColor("yellow"))
 
                 if l<=1:
-                    self.close()
+                    self.closeOnError("no files (deleteAndNext)")
 
                 if index>=l:
                     index=l-1
@@ -280,7 +282,7 @@ class RateAndCutDialog(QDialog):
     def rateNext(self):
         global filesToRate
         if len(filesToRate)==0:
-            self.close()
+            self.closeOnError("no files (rateNext)")
             return
             
         if not self.currentFile:
@@ -299,7 +301,7 @@ class RateAndCutDialog(QDialog):
 
     def ratePrevious(self):
         if len(filesToRate)==0:
-            self.close()
+            self.closeOnError("no files (ratePrevious)")
             
         if not self.currentFile:
             self.currentFile = filesToRate[0]
@@ -527,9 +529,13 @@ class VideoThread(QThread):
         self.pause = False
         self.update(self.pause)
         self.onVideoLoaded = onVideoLoaded
+        self.currentFrame=-1
 
     def run(self):
+        global videoActive
+        
         self._run_flag = True
+        videoActive=True
         #print("open video", self.filepath)
         self.cap = cv2.VideoCapture(self.filepath)
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -574,11 +580,16 @@ class VideoThread(QThread):
             time.sleep(1.0/fps)
             
         self.cap.release()
+        videoActive=False
 
     def stop(self):
+        print("stopping thread...", flush=True)
         self._run_flag=False
-        self.cap.release()        
-
+        self.change_pixmap_signal.emit(np.array([]))
+        while videoActive:
+            pass
+        print("done.", flush=True)
+    
     def getFrameCount(self):
         return self.frame_count
 
@@ -603,7 +614,6 @@ class VideoThread(QThread):
             self.slider.setValue(self.currentFrame)
             self.change_pixmap_signal.emit(cv_img)
         else:
-            self.cap.release()
             self._run_flag = False
                 
     def sliderChanged(self):
@@ -639,11 +649,19 @@ class Display(QLabel):
         self.sourcePixmap=None
         self.thread=None
         self.frame_count=-1
+        self.imggeometry=None
         
         self.display_width = 3840
         self.display_height = 2160
         self.resize(self.display_width, self.display_height)
         self.setAlignment(Qt.AlignCenter)
+        
+        self.closeEvent = self.stopAndBlackout
+        
+    def closeOnError(msg):
+        print(msg, flush=True)
+        self.stopAndBlackout()
+        self.done()
         
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -658,15 +676,22 @@ class Display(QLabel):
 
     @pyqtSlot(ndarray)
     def update_image(self, cv_img):
-        self.qt_img = self.convert_cv_qt(cv_img)
-        geometry=self.size()
-        self.setPixmap(self.qt_img.scaled(geometry.width(), geometry.height(), Qt.KeepAspectRatio))
-        if self.onUpdateImage:
-            if self.thread:
-                self.onUpdateImage( self.thread.getCurrentFrameIndex() )
-            else:
-                self.onUpdateImage( -1 )
-
+        if cv_img.size > 0:
+            self.qt_img = self.convert_cv_qt(cv_img)
+            self.imggeometry=self.size()
+            self.setPixmap(self.qt_img.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
+            if self.onUpdateImage:
+                if self.thread:
+                    self.onUpdateImage( self.thread.getCurrentFrameIndex() )
+                else:
+                    self.onUpdateImage( -1 )
+        else:
+            if self.imggeometry:
+                blackpixmap = QPixmap(16,16)
+                blackpixmap.fill(Qt.black)
+                self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
+                
+                
     def convert_cv_qt(self, cv_img):    # scaled!
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
@@ -679,6 +704,7 @@ class Display(QLabel):
 
 
     def showFile(self, filepath):
+        self.stopAndBlackout()
         videoExtensions = ['.mp4']
         if filepath.endswith(tuple(videoExtensions)):
             self.setVideo(filepath)
@@ -701,6 +727,12 @@ class Display(QLabel):
             self.onUpdateFile()
         cv_img  = cv2.imread(self.filepath)
         self.update_image(cv_img)        
+
+    def stopAndBlackout(self):
+        if self.thread:
+            self.releaseVideo()
+        else:
+            self.update_image(np.array([]))
         
     def registerForUpdates(self, onUpdateImage):
         self.onUpdateImage = onUpdateImage
