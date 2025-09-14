@@ -23,7 +23,7 @@ import cv2
 import ntpath
 import io
 from itertools import chain
-        
+import subprocess
 
 
 LOGOTIME = 3000
@@ -737,6 +737,7 @@ class RateAndCutDialog(QDialog):
             self.button_snapshot_from_video = ActionButton()
             self.button_snapshot_from_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/snapshot80.png')))
             self.button_snapshot_from_video.setIconSize(QSize(80,80))
+            self.button_snapshot_from_video.clicked.connect(self.createSnapshot)
 
         self.button_prev_file = ActionButton()
         self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/prevf80.png')))
@@ -748,6 +749,7 @@ class RateAndCutDialog(QDialog):
             self.button_cutandclone = ActionButton()
             self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../api/img/cutclone80.png')))
             self.button_cutandclone.setIconSize(QSize(80,80))
+            self.button_cutandclone.clicked.connect(self.createTrimedAndCroppedCopy)
 
         self.button_next_file = ActionButton()
         self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/nextf80.png')))
@@ -758,7 +760,7 @@ class RateAndCutDialog(QDialog):
         self.sl = FrameSlider(Qt.Horizontal)
         self.sl.setEnabled(False)
         
-        self.display = Display(self.button_startpause_video, self.sl, self.updatePaused)
+        self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded)
         #self.display.resize(self.display_width, self.display_height)
 
         # Display layout
@@ -815,7 +817,7 @@ class RateAndCutDialog(QDialog):
 
         #Main Layout
         self.main_layout = QVBoxLayout()
-        self.main_layout.addLayout(self.display_layout)
+        self.main_layout.addLayout(self.display_layout, stretch=1)
         self.main_layout.addLayout(self.tool_layout)
 
         #Main group box
@@ -920,7 +922,53 @@ class RateAndCutDialog(QDialog):
     def on_rating_changed(self, value):
         print(f"Rating selected: {value}")
 
+    def createSnapshot(self):
+        self.button_snapshot_from_video.setEnabled(False)
+        self.hasCropOrTrim=False
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, self.currentFile))
+        frameindex=os.path.abspath(str(self.cropWidget.getCurrentFrameIndex()))
+        try:
+            output=input[:input.rindex('.')] + "_" + frameindex + ".png"
+            try:
+                cp = subprocess.run("ffmpeg.exe -y -i " + input + " -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 " + output, shell=True)
+                pass
+            except subprocess.CalledProcessError as se:
+                pass
+        except ValueError as e:
+            pass
+        self.button_snapshot_from_video.setEnabled(True)
 
+    def createTrimedAndCroppedCopy(self):
+        self.button_cutandclone.setEnabled(False)
+        self.hasCropOrTrim=False
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, self.currentFile))
+        frameindex=str(self.cropWidget.getCurrentFrameIndex())
+        try:
+            outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
+            fnum=1
+            while os.path.exists(outputBase + str(fnum) + ".mp4"):
+                fnum+=1
+            try:
+                trimA=self.display.trimAFrame
+                trimB=self.display.trimBFrame
+                out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
+                out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
+                x=self.cropWidget.crop_left
+                y=self.cropWidget.crop_top
+                cp = subprocess.run("ffmpeg.exe -y -i " + input + " -vf \"trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ",crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + outputBase + str(fnum) + ".mp4", shell=True)
+                print("ffmpeg.exe -y -i " + input + " -vf \"trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ",crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + outputBase + str(fnum) + ".mp4", flush=True)
+                pass
+            except subprocess.CalledProcessError as se:
+                pass
+        except ValueError as e:
+            pass
+        self.button_cutandclone.setEnabled(True)
+
+    def onVideoloaded(self):
+        pass
+ 
 class HoverLabel(QLabel):
     """A QLabel that detects hover and click events."""
     def __init__(self, index, parent=None):
@@ -1049,7 +1097,7 @@ class RatingWidget(QWidget):
 class VideoThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
 
-    def __init__(self, filepath, slider, update):
+    def __init__(self, filepath, slider, update, onVideoLoaded):
         super().__init__()
         self.filepath = filepath
         self.slider = slider
@@ -1057,6 +1105,7 @@ class VideoThread(QThread):
         self.cap=None
         self.pause = False
         self.update(self.pause)
+        self.onVideoLoaded = onVideoLoaded
 
     def run(self):
         self._run_flag = True
@@ -1068,6 +1117,9 @@ class VideoThread(QThread):
         # print("frames", self.frame_count)
         fps = self.cap.get(cv2.CAP_PROP_FPS)
         # print("fps", fps, flush=True)
+        self.onVideoLoaded()
+        
+        
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.frame_count-1)
         self.slider.setValue(0)
@@ -1150,7 +1202,7 @@ class VideoThread(QThread):
     
 class Display(QLabel):
 
-    def __init__(self, pushbutton, slider, update):
+    def __init__(self, pushbutton, slider, update, loaded):
         super().__init__()
         self.qt_img=None
         self.setStyleSheet("background : black; color: white;")
@@ -1159,11 +1211,13 @@ class Display(QLabel):
         self.slider = slider
         self.slider.setVisible(False)
         self.update = update
+        self.loaded = loaded
         self.onUpdateFile=None
         self.onUpdateImage=None
         self.onCropOrTrim = None
         self.sourcePixmap=None
         self.thread=None
+        self.frame_count=-1
         
         self.display_width = 3840
         self.display_height = 2160
@@ -1187,7 +1241,10 @@ class Display(QLabel):
         geometry=self.size()
         self.setPixmap(self.qt_img.scaled(geometry.width(), geometry.height(), Qt.KeepAspectRatio))
         if self.onUpdateImage:
-            self.onUpdateImage()
+            if self.thread:
+                self.onUpdateImage( self.thread.getCurrentFrameIndex() )
+            else:
+                self.onUpdateImage( -1 )
 
     def convert_cv_qt(self, cv_img):    # scaled!
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
@@ -1196,6 +1253,7 @@ class Display(QLabel):
         convert_cv_qt = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.sourcePixmap=QPixmap.fromImage(convert_cv_qt)
         p = convert_cv_qt.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
+        self.setMaximumSize(QSize(p.width(), p.height()))
         return QPixmap.fromImage(p)
 
 
@@ -1209,12 +1267,14 @@ class Display(QLabel):
             return "image"
 
     def setVideo(self, filepath):
+        self.frame_count=-1
         self.filepath = filepath
         if self.onUpdateFile:
             self.onUpdateFile()
         self.startVideo()
 
     def setImage(self, filepath):
+        self.frame_count=-1
         self.filepath = filepath
         if self.onUpdateFile:
             self.onUpdateFile()
@@ -1239,7 +1299,9 @@ class Display(QLabel):
             pass
         self.button.setIcon(QIcon(os.path.join(path, '../../api/img/pause80.png')))
         self.button.setVisible(True)
-        self.thread = VideoThread(self.filepath, self.slider, self.updatePaused)
+        self.thread = VideoThread(self.filepath, self.slider, self.updatePaused, self.onVideoLoaded)
+        self.trimAFrame=0
+        self.trimBFrame=0
         self.slider.resetAB()
         self.slider.setVisible(True)
         self.thread.change_pixmap_signal.connect(self.update_image)
@@ -1252,6 +1314,12 @@ class Display(QLabel):
         self.thread.stop()
         self.thread=None
 
+    def onVideoLoaded(self):
+        self.frame_count=self.thread.frame_count
+        self.trimAFrame=0
+        self.trimBFrame=self.frame_count-1
+        self.loaded()
+        
     def updatePaused(self, isPaused):
         self.update(isPaused)
 
@@ -1264,7 +1332,7 @@ class Display(QLabel):
         count=self.thread.getFrameCount()
         if count>1:
             self.slider.setA(float(self.thread.getCurrentFrameIndex())/float(count-1))
-            #print("A", float(self.thread.getCurrentFrameIndex())/float(count-1), self.thread.getCurrentFrameIndex(), float(count-1), flush=True)
+            self.trimAFrame=self.thread.getCurrentFrameIndex()
             self.thread.setA(self.thread.getCurrentFrameIndex())
         else:
             self.slider.setA(0.0)
@@ -1276,7 +1344,7 @@ class Display(QLabel):
         count=self.thread.getFrameCount()
         if count>1:
             self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
-            #print("B", float(self.thread.getCurrentFrameIndex())/float(count-1), self.thread.getCurrentFrameIndex(), float(count-1), flush=True)
+            self.trimBFrame=self.thread.getCurrentFrameIndex()
             self.thread.setB(self.thread.getCurrentFrameIndex())
         else:
             self.slider.setB(1.0)
@@ -1333,9 +1401,11 @@ class CropWidget(QWidget):
         super().__init__(parent)
 
         self.onCropOrTrim = None
+        self.currentFrameIndex = -1
         
-        self.setWindowTitle("Bild zuschneiden mit Lupenansicht")
+        #self.setWindowTitle("Bild zuschneiden mit Lupenansicht")
         self.setMinimumSize(1000, 750)
+
 
         # Internes Label, in dem wir das Bild anzeigen
         self.image_label = display
@@ -1376,24 +1446,22 @@ class CropWidget(QWidget):
 
  
         # Layouts
-        main_layout = QVBoxLayout()
-        top_slider_layout = QVBoxLayout()
-        top_slider_layout.addWidget(self.slider_left)
-        main_layout.addLayout(top_slider_layout)
+        main_layout = QGridLayout()
+        iw=1000
+        cw=1
+        main_layout.addWidget(QLabel(),           0,     0,           cw, cw)
+        main_layout.addWidget(self.slider_left,   0,     cw,          cw, iw,       alignment=Qt.AlignmentFlag.AlignBottom)
 
-        middle_layout = QHBoxLayout()
-        middle_layout.addWidget(self.slider_top)
-        middle_layout.addWidget(self.image_label, 1)
-        middle_layout.addWidget(self.slider_bottom)
-        main_layout.addLayout(middle_layout)
+        main_layout.addWidget(self.slider_top,    cw,    0,           iw, cw,       alignment=Qt.AlignmentFlag.AlignRight)
+        main_layout.addWidget(self.image_label,   cw,    cw,          iw, iw)
+        main_layout.addWidget(self.slider_bottom, cw,    cw+iw,       iw, cw,       alignment=Qt.AlignmentFlag.AlignLeft)
 
-        bottom_layout = QVBoxLayout()
-        bottom_layout.addWidget(self.slider_right)
-        main_layout.addLayout(bottom_layout)
+        main_layout.addWidget(self.slider_right,  cw+iw, cw,          cw, iw,       alignment=Qt.AlignmentFlag.AlignTop)
+        main_layout.addWidget(QLabel(),           cw+iw, cw+iw,       cw, cw)
 
         # Buttons unten
-        controls_layout = QHBoxLayout()
-        main_layout.addLayout(controls_layout)
+        #controls_layout = QHBoxLayout()
+        #main_layout.addLayout(controls_layout, 3, 0, 1, 1002)
 
         self.setLayout(main_layout)
 
@@ -1424,7 +1492,9 @@ class CropWidget(QWidget):
         self.slidersInitialized = False
         self.enable_sliders(False)
     
-    def imageUpdated(self):
+    def imageUpdated(self, currentFrameIndex):
+       
+        self.currentFrameIndex = currentFrameIndex
        
         sourcePixmap = self.image_label.getSourcePixmap()
         if sourcePixmap is None or sourcePixmap.isNull():
@@ -1434,7 +1504,8 @@ class CropWidget(QWidget):
 
         pixmap = self.image_label.pixmap()
         if pixmap is None or pixmap.isNull():
-            raise ValueError("Das übergebene QLabel enthält kein gültiges Bild.")
+            print("Das übergebene QLabel enthält kein gültiges Bild.")
+            return
         
         # Originalbild speichern
         self.original_pixmap = pixmap.copy()
@@ -1646,6 +1717,8 @@ class CropWidget(QWidget):
     def registerForUpdate(self, onCropOrTrim):
         self.onCropOrTrim = onCropOrTrim
         
+    def getCurrentFrameIndex(self):
+        return self.currentFrameIndex
 
 def pil2pixmap(im):
     if im.mode == "RGB":
