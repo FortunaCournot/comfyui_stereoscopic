@@ -19,14 +19,16 @@ from PIL import Image
 from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer,
                           pyqtSignal, pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
-                         QKeySequence, QPainter, QPaintEvent, QPen, QPixmap)
+                         QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
+                         QTextCursor)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QColorDialog, QComboBox, QDesktopWidget, QDialog,
                              QFileDialog, QFrame, QGridLayout, QGroupBox,
                              QHBoxLayout, QHeaderView, QLabel, QMainWindow,
                              QMessageBox, QPushButton, QShortcut, QSizePolicy,
                              QSlider, QStatusBar, QTableWidget,
-                             QTableWidgetItem, QToolBar, QVBoxLayout, QWidget)
+                             QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
+                             QPlainTextEdit, QLayout)
 
 path = os.path.dirname(os.path.abspath(__file__))
 
@@ -70,7 +72,7 @@ class RateAndCutDialog(QDialog):
         else:
             self.setWindowTitle("VR We Are - Check Files: Rating")
         self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
-        #self.setMaximumSize(QSize(1920,1080))
+        self.setMaximumSize(QSize(3840,2160))
         self.setGeometry(150, 150, 1280, 768)
         self.outer_main_layout = QVBoxLayout()
         self.setLayout(self.outer_main_layout)
@@ -112,6 +114,12 @@ class RateAndCutDialog(QDialog):
         self.button_next_file.setEnabled(False)
         self.button_next_file.clicked.connect(self.rateNext)
         
+        self.button_delete_file = ActionButton()
+        self.button_delete_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/trash80.png')))
+        self.button_delete_file.setIconSize(QSize(80,80))
+        self.button_delete_file.setEnabled(True)
+        self.button_delete_file.clicked.connect(self.deleteAndNext)
+        
         self.sl = FrameSlider(Qt.Horizontal)
         self.sl.setEnabled(False)
         
@@ -119,14 +127,14 @@ class RateAndCutDialog(QDialog):
         #self.display.resize(self.display_width, self.display_height)
 
         # Display layout
-        self.display_layout = QGridLayout()
+        self.display_layout = QHBoxLayout()
         self.display.registerForTrimUpdate(self.onCropOrTrim)
         if cutMode:
             self.cropWidget=CropWidget(self.display)
-            self.display_layout.addWidget(self.cropWidget, 0, 0, 1, 1)
+            self.display_layout.addWidget(self.cropWidget)
             self.cropWidget.registerForUpdate(self.onCropOrTrim)
         else:
-            self.display_layout.addWidget(self.display, 0, 0, 1, 1)
+            self.display_layout.addWidget(self.display)
 
 
         # Video Tool layout
@@ -140,30 +148,36 @@ class RateAndCutDialog(QDialog):
             self.videotool_layout.addWidget(self.button_snapshot_from_video)
 
         # Common Tool layout
-        self.commontool_layout = QHBoxLayout()
-        #emptyLeft = QWidget()
-        #emptyLeft.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Minimum)
-        #self.commontool_layout.addWidget(emptyLeft)
+        # QHBoxLayout
+        ew=100
+        self.commontool_layout = QGridLayout()
+        
         self.fileLabel=QLabel()
         font = QFont()
         font.setPointSize(20)
         self.fileLabel.setFont(font)
-        self.commontool_layout.addWidget(self.fileLabel)
-        self.commontool_layout.addWidget(self.button_prev_file)
+        self.fileLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.commontool_layout.addWidget(self.fileLabel, 0, 0, 1, ew)
+
+        self.commontool_layout.addWidget(self.button_prev_file, 0, ew, 1, 1)
+        
         if cutMode:
-            self.commontool_layout.addWidget(self.button_cutandclone)
+            self.commontool_layout.addWidget(self.button_cutandclone, 0, ew+1, 1, 1)
         else:
             rating_widget = RatingWidget(stars_count=5)
-            self.commontool_layout.addWidget(rating_widget)
+            self.commontool_layout.addWidget(rating_widget, 0, ew+1, 1, 1)
             rating_widget.ratingChanged.connect(self.on_rating_changed)
-        self.commontool_layout.addWidget(self.button_next_file)
-        self.commontool_layout.addWidget(QLabel())
-
-        # Tool layout
-        self.tool_layout = QGridLayout()
-        self.tool_layout.addLayout(self.videotool_layout, 0, 0, 1, 3)
-        self.tool_layout.addLayout(self.commontool_layout, 1, 1, 1, 1)
-
+        
+        self.commontool_layout.addWidget(self.button_next_file, 0, ew+2, 1, 1)
+        
+        self.commontool_layout.addWidget(self.button_delete_file, 0, ew+3, 1, 1)
+        
+        self.msgWidget=QPlainTextEdit()
+        self.msgWidget.setReadOnly(True)
+        self.msgWidget.setFrameStyle(QFrame.NoFrame)
+        self.commontool_layout.addWidget(self.msgWidget, 0, ew+4, 1, ew)
+        self.msgWidget.setPlaceholderText("No log entries.")
+        
         self.button_startpause_video.clicked.connect(self.display.startVideo)
         if cutMode:
             self.button_trima_video.clicked.connect(self.display.trimA)
@@ -173,7 +187,8 @@ class RateAndCutDialog(QDialog):
         #Main Layout
         self.main_layout = QVBoxLayout()
         self.main_layout.addLayout(self.display_layout, stretch=1)
-        self.main_layout.addLayout(self.tool_layout)
+        self.main_layout.addLayout(self.videotool_layout)
+        self.main_layout.addLayout(self.commontool_layout)
 
         #Main group box
         self.main_group_box = QGroupBox()
@@ -191,6 +206,19 @@ class RateAndCutDialog(QDialog):
         
         self.rateNext()
         
+    def logn(self, msg, color):
+        self.log(msg, color)
+        self.msgWidget.insertPlainText("\n");
+        
+    def log(self, msg, color):
+        self.msgWidget.moveCursor (QTextCursor.End)
+        old_format = self.msgWidget.currentCharFormat()
+        color_format = self.msgWidget.currentCharFormat()
+        color_format.setForeground(color)
+        self.msgWidget.setCurrentCharFormat(color_format)
+        self.msgWidget.insertPlainText(msg);
+        self.msgWidget.setCurrentCharFormat(old_format)
+
     def closeEvent(self, evnt):
         self.filebutton_timer.stop()
         self.display.releaseVideo()
@@ -221,6 +249,33 @@ class RateAndCutDialog(QDialog):
         self.button_prev_file.setEnabled(index>0)
         self.button_next_file.setEnabled(index<lastIndex)
         self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))     
+        
+    def deleteAndNext(self):
+        l=len(filesToRate)
+        index=filesToRate.index(self.currentFile)
+                    
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, self.currentFile))
+        self.log("Deleting " + os.path.basename(input), QColor("white"))
+        if os.path.isfile(input):
+            try:
+                os.remove(input)
+                self.logn(" done", QColor("yellow"))
+
+                if l<=1:
+                    self.close()
+
+                if index>=l:
+                    index=l-1
+                    
+                self.currentFile=filesToRate[index]
+                self.rateCurrentFile()
+
+            except Exception as any_ex:
+                self.logn(" failed", QColor("red"))
+        else:
+            self.logn(" not found", QColor("red"))
+
         
     def rateNext(self):
         global filesToRate
@@ -286,14 +341,16 @@ class RateAndCutDialog(QDialog):
         input=os.path.abspath(os.path.join(folder, self.currentFile))
         frameindex=str(self.cropWidget.getCurrentFrameIndex())
         try:
-            output=input[:input.rindex('.')] + "_" + frameindex + ".png"
+            newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
+            output=os.path.abspath(os.path.join(folder, newfilename))
+            self.log("Create snapshot "+newfilename, QColor("white"))
+            cmd = "ffmpeg.exe -y -i " + input + " -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 " + output
             try:
-                cmd = "ffmpeg.exe -y -i " + input + " -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 " + output
-                cp = subprocess.run(cmd, shell=True)
-                print(cmd, flush=True)
-                pass
+                cp = subprocess.run(cmd, shell=True, check=True)
+                self.logn(" OK", QColor("green"))
             except subprocess.CalledProcessError as se:
-                pass
+                self.logn(" Failed", QColor("red"))
+                print("Failed: "  + cmd, flush=True)
         except ValueError as e:
             pass
         self.button_snapshot_from_video.setEnabled(True)
@@ -303,27 +360,29 @@ class RateAndCutDialog(QDialog):
         self.hasCropOrTrim=False
         folder=os.path.join(path, "../../../../input/vr/check/rate")
         input=os.path.abspath(os.path.join(folder, self.currentFile))
-        frameindex=str(self.cropWidget.getCurrentFrameIndex())
         try:
             outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
             fnum=1
             while os.path.exists(outputBase + str(fnum) + ".mp4"):
                 fnum+=1
+            newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + ".mp4"
+            output=os.path.abspath(os.path.join(folder, newfilename))
+            trimA=self.display.trimAFrame
+            trimB=self.display.trimBFrame
+            out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
+            out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
+            if out_h % 2 == 1:
+                out_h -= 1
+            x=self.cropWidget.crop_left
+            y=self.cropWidget.crop_top
+            self.log("Create "+newfilename, QColor("white"))
+            cmd = "ffmpeg.exe -y -i " + input + " -vf \"trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ",crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + output
             try:
-                trimA=self.display.trimAFrame
-                trimB=self.display.trimBFrame
-                out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
-                out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
-                if out_h % 2 == 1:
-                    out_h -= 1
-                x=self.cropWidget.crop_left
-                y=self.cropWidget.crop_top
-                cmd = "ffmpeg.exe -y -i " + input + " -vf \"trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ",crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + outputBase + str(fnum) + ".mp4"
-                cp = subprocess.run(cmd, shell=True)
-                print(cmd, flush=True)
-                pass
+                cp = subprocess.run(cmd, shell=True, check=True)
+                self.logn(" OK", QColor("green"))
             except subprocess.CalledProcessError as se:
-                pass
+                self.logn(" Failed", QColor("red"))
+                print("Failed: "  + cmd, flush=True)
         except ValueError as e:
             pass
         self.button_cutandclone.setEnabled(True)
