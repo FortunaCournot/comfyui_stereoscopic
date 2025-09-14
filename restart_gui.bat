@@ -12,6 +12,6 @@ set dirname=%dirname:~0,-1%
 
 echo "Starting gui in git bash shell..."
 echo on
-%dirname%..\git-bash.exe api/restart_gui.sh
+%dirname%..\git-bash.exe gui/restart.sh
 
 

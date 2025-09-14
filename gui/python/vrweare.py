@@ -63,7 +63,7 @@ class SpreadsheetApp(QMainWindow):
         super().__init__()
         self.setWindowTitle("VR we are - Status")
         self.setStyleSheet("background-color: black;")
-        self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
+        self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
         self.setGeometry(100, 100, 640, 600)
         self.move(60, 15)
 
@@ -109,7 +109,7 @@ class SpreadsheetApp(QMainWindow):
         vbox = QVBoxLayout()
         self.logo_container.setLayout(vbox)
         self.logo_image = QLabel()
-        pixmap = QPixmap(os.path.join(path, "../../docs/icon/banner.png"))
+        pixmap = QPixmap(os.path.join(path, "../../gui/img/banner.png"))
         if not pixmap.isNull():
             self.logo_image.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         self.logo_image.setAlignment(Qt.AlignCenter)
@@ -128,7 +128,7 @@ class SpreadsheetApp(QMainWindow):
         vbox = QVBoxLayout()
         self.idle_container.setLayout(vbox)
         self.idle_image = QLabel()
-        pixmap = QPixmap(os.path.join(path, "../../docs/icon/banner.png"))
+        pixmap = QPixmap(os.path.join(path, "../../gui/img/banner.png"))
         if not pixmap.isNull():
             self.idle_image.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         self.idle_image.setAlignment(Qt.AlignCenter)
@@ -231,8 +231,8 @@ class SpreadsheetApp(QMainWindow):
         self.toolbar = QToolBar("Main Toolbar")
         self.addToolBar(self.toolbar)
 
-        self.toggle_stages_expanded_icon_true = QIcon(os.path.join(path, '../../api/img/expanded64.png'))
-        self.toggle_stages_expanded_icon_false = QIcon(os.path.join(path, '../../api/img/collapsed64.png'))
+        self.toggle_stages_expanded_icon_true = QIcon(os.path.join(path, '../../gui/img/expanded64.png'))
+        self.toggle_stages_expanded_icon_false = QIcon(os.path.join(path, '../../gui/img/collapsed64.png'))
 
         # Toggle stage expanded action with icon
         self.toggle_stages_expanded_action = QAction(self.toggle_stages_expanded_icon_true if self.toogle_stages_expanded else self.toggle_stages_expanded_icon_false, "Expanded" if self.toogle_stages_expanded else "Collapsed", self)
@@ -241,7 +241,7 @@ class SpreadsheetApp(QMainWindow):
         self.toggle_stages_expanded_action.triggered.connect(self.toggle_stage_expanded_enabled)
         self.toolbar.addAction(self.toggle_stages_expanded_action)    
         
-        self.button_show_pipeline_action = QAction(QIcon(os.path.join(path, '../../api/img/pipeline64.png')), "Worflow")      
+        self.button_show_pipeline_action = QAction(QIcon(os.path.join(path, '../../gui/img/pipeline64.png')), "Worflow")      
         self.button_show_pipeline_action.setCheckable(False)
         self.button_show_pipeline_action.triggered.connect(self.show_pipeline)
         self.toolbar.addAction(self.button_show_pipeline_action)    
@@ -251,19 +251,19 @@ class SpreadsheetApp(QMainWindow):
         
         self.toolbar.addSeparator()
 
-        self.button_check_cutclone_action = QAction(StyledIcon(os.path.join(path, '../../api/img/cut64.png')), "Crop & Trim")      
+        self.button_check_cutclone_action = QAction(StyledIcon(os.path.join(path, '../../gui/img/cut64.png')), "Crop & Trim")      
         self.button_check_cutclone_action.setCheckable(False)
         self.button_check_cutclone_action.setEnabled(False)
         self.button_check_cutclone_action.triggered.connect(self.check_cutandclone)
         self.toolbar.addAction(self.button_check_cutclone_action)    
                              
-        self.button_check_rate_action = QAction(StyledIcon(os.path.join(path, '../../api/img/rate64.png')), "Rate")      
+        self.button_check_rate_action = QAction(StyledIcon(os.path.join(path, '../../gui/img/rate64.png')), "Rate")      
         self.button_check_rate_action.setCheckable(False)
         self.button_check_rate_action.setEnabled(False)
         self.button_check_rate_action.triggered.connect(self.check_rate)
         self.toolbar.addAction(self.button_check_rate_action)    
 
-        self.button_check_judge_action = QAction(StyledIcon(os.path.join(path, '../../api/img/judge64.png')), "Release")      
+        self.button_check_judge_action = QAction(StyledIcon(os.path.join(path, '../../gui/img/judge64.png')), "Release")      
         self.button_check_judge_action.setCheckable(False)
         self.button_check_judge_action.triggered.connect(self.check_judge)
         self.button_check_judge_action.setEnabled(False)
@@ -273,7 +273,7 @@ class SpreadsheetApp(QMainWindow):
         empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         self.toolbar.addWidget(empty)
 
-        self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../api/img/manual64.png')), "Manual")      
+        self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../gui/img/manual64.png')), "Manual")      
         self.button_show_manual_action.setCheckable(False)
         self.button_show_manual_action.triggered.connect(self.show_manual)
         self.toolbar.addAction(self.button_show_manual_action)    
@@ -690,7 +690,7 @@ class JudgeDialog(QDialog):
 
         #Set the main layout
         self.setWindowTitle("VR We Are - Check Files: Judge")
-        self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
+        self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
         self.setMaximumSize(QSize(1920,1080))
         self.setGeometry(150, 150, 1280, 768)
         self.outer_main_layout = QVBoxLayout()
@@ -714,7 +714,7 @@ class RateAndCutDialog(QDialog):
             self.setWindowTitle("VR We Are - Check Files: Cut and Trim")
         else:
             self.setWindowTitle("VR We Are - Check Files: Rating")
-        self.setWindowIcon(QIcon(os.path.join(path, '../../docs/icon/icon.png')))
+        self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
         #self.setMaximumSize(QSize(1920,1080))
         self.setGeometry(150, 150, 1280, 768)
         self.outer_main_layout = QVBoxLayout()
@@ -722,37 +722,37 @@ class RateAndCutDialog(QDialog):
         self.setStyleSheet("background : black; color: white;")
 
         self.button_startpause_video = ActionButton()
-        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png')))
+        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png')))
         self.button_startpause_video.setIconSize(QSize(80,80))
 
         if cutMode:
             self.button_trima_video = ActionButton()
-            self.button_trima_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trima80.png')))
+            self.button_trima_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/trima80.png')))
             self.button_trima_video.setIconSize(QSize(80,80))
 
             self.button_trimb_video = ActionButton()
-            self.button_trimb_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/trimb80.png')))
+            self.button_trimb_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/trimb80.png')))
             self.button_trimb_video.setIconSize(QSize(80,80))
 
             self.button_snapshot_from_video = ActionButton()
-            self.button_snapshot_from_video.setIcon(StyledIcon(os.path.join(path, '../../api/img/snapshot80.png')))
+            self.button_snapshot_from_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/snapshot80.png')))
             self.button_snapshot_from_video.setIconSize(QSize(80,80))
             self.button_snapshot_from_video.clicked.connect(self.createSnapshot)
 
         self.button_prev_file = ActionButton()
-        self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/prevf80.png')))
+        self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/prevf80.png')))
         self.button_prev_file.setIconSize(QSize(80,80))
         self.button_prev_file.setEnabled(False)
         self.button_prev_file.clicked.connect(self.ratePrevious)
 
         if cutMode:
             self.button_cutandclone = ActionButton()
-            self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../api/img/cutclone80.png')))
+            self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../gui/img/cutclone80.png')))
             self.button_cutandclone.setIconSize(QSize(80,80))
             self.button_cutandclone.clicked.connect(self.createTrimedAndCroppedCopy)
 
         self.button_next_file = ActionButton()
-        self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../api/img/nextf80.png')))
+        self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/nextf80.png')))
         self.button_next_file.setIconSize(QSize(80,80))
         self.button_next_file.setEnabled(False)
         self.button_next_file.clicked.connect(self.rateNext)
@@ -847,7 +847,7 @@ class RateAndCutDialog(QDialog):
             self.button_trima_video.setEnabled(isPaused)
             self.button_trimb_video.setEnabled(isPaused)
             self.button_snapshot_from_video.setEnabled(isPaused and self.isVideo)
-        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../api/img/play80.png') if isPaused else os.path.join(path, '../../api/img/pause80.png') ))
+        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png') if isPaused else os.path.join(path, '../../gui/img/pause80.png') ))
 
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
 
@@ -1008,8 +1008,8 @@ class RatingWidget(QWidget):
         self.stars_count = stars_count
 
         # Images: Default empty and filled star
-        self.default_image = QPixmap(os.path.join(path, '../../api/img/starn80.png'))
-        self.hover_image = QPixmap(os.path.join(path, '../../api/img/starp80.png'))
+        self.default_image = QPixmap(os.path.join(path, '../../gui/img/starn80.png'))
+        self.hover_image = QPixmap(os.path.join(path, '../../gui/img/starp80.png'))
 
         # Optional: Resize star images
         self.icon_size = QSize(80, 80)
@@ -1299,7 +1299,7 @@ class Display(QLabel):
             self.button.clicked.disconnect(self.startVideo)
         except TypeError:
             pass
-        self.button.setIcon(QIcon(os.path.join(path, '../../api/img/pause80.png')))
+        self.button.setIcon(QIcon(os.path.join(path, '../../gui/img/pause80.png')))
         self.button.setVisible(True)
         self.thread = VideoThread(self.filepath, self.slider, self.updatePaused, self.onVideoLoaded)
         self.trimAFrame=0
