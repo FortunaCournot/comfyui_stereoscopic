@@ -776,11 +776,12 @@ class Display(QLabel):
         self.thread=None
         self.frame_count=-1
         self.imggeometry=None
-        
+        self.pos = None
         self.display_width = 3840
         self.display_height = 2160
         self.resize(self.display_width, self.display_height)
         self.setAlignment(Qt.AlignCenter)
+        self.qt_img = None
         
         self.closeEvent = self.stopAndBlackout
         
@@ -792,13 +793,27 @@ class Display(QLabel):
     def getSourcePixmap(self):
         return self.sourcePixmap
         
+    def getScaledPixmap(self):
+        return self.scaledPixmap
+        
     def minimumSizeHint(self):
         return QSize(50, 50)
 
     @pyqtSlot(ndarray)
     def update_image(self, cv_img):
-        if cv_img is None or cv_img.size > 0:
+        if cv_img is None or cv_img.size == 0:
+            self.qt_img = None
+            self.imggeometry=self.size()
+            blackpixmap = QPixmap(16,16)
+            blackpixmap.fill(Qt.black)
+            self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
+        else:
             self.qt_img = self.convert_cv_qt(cv_img)
+            
+            w = self.qt_img.width()
+            h = self.qt_img.height()
+            print("original_pixmap (Display)", w, h, flush=True)
+            
             self.imggeometry=self.size()
             self.setPixmap(self.qt_img.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
             if self.onUpdateImage:
@@ -806,22 +821,19 @@ class Display(QLabel):
                     self.onUpdateImage( self.thread.getCurrentFrameIndex() )
                 else:
                     self.onUpdateImage( -1 )
-        else:
-            if self.imggeometry:
-                blackpixmap = QPixmap(16,16)
-                blackpixmap.fill(Qt.black)
-                self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
                 
-                
+    def getUnscaledPixmap(self, ):
+        return self.sourcePixmap
+         
     def convert_cv_qt(self, cv_img):    # scaled!
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
-        convert_cv_qt = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-        self.sourcePixmap=QPixmap.fromImage(convert_cv_qt)
-        p = convert_cv_qt.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
-        self.setMaximumSize(QSize(p.width(), p.height()))
-        return QPixmap.fromImage(p)
+        convert_cv_qt_img = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        self.sourcePixmap=QPixmap.fromImage(convert_cv_qt_img)
+        self.scaledPixmap=convert_cv_qt_img.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
+        self.setMaximumSize(QSize(self.scaledPixmap.width(), self.scaledPixmap.height()))
+        return QPixmap.fromImage(self.scaledPixmap)
 
 
     def showFile(self, filepath):
@@ -927,6 +939,19 @@ class Display(QLabel):
         if self.onCropOrTrim:
             self.onCropOrTrim()
 
+    def enterEvent(self, event):
+        self.setMouseTracking(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.setMouseTracking(False)
+        self.pos = None
+        super().leaveEvent(event)
+
+    def mouseMoveEvent(self, event):
+        self.pos = event.pos()
+        super().mouseMoveEvent(event)
+
 
 class FrameSlider(QSlider):
     def __init__(self, orientation):
@@ -977,6 +1002,9 @@ class CropWidget(QWidget):
 
         self.onCropOrTrim = None
         self.currentFrameIndex = -1
+        self.zoom_factor = 4
+        self.magsize = 150
+        self.center_x = -1
         
         #self.setWindowTitle("Bild zuschneiden mit Lupenansicht")
         self.setMinimumSize(1000, 750)
@@ -1014,9 +1042,9 @@ class CropWidget(QWidget):
 
         # Lupen-Label
         self.magnifier = QLabel(self)
-        self.magnifier.setFixedSize(150, 150)
+        self.magnifier.setFixedSize(self.magsize, self.magsize)
         self.magnifier.setFrameStyle(QFrame.Box)
-        self.magnifier.setStyleSheet("background-color: white;")
+        self.magnifier.setStyleSheet("background-color: black; border: 2px solid gray;")
         self.magnifier.hide()
 
  
@@ -1074,16 +1102,27 @@ class CropWidget(QWidget):
         sourcePixmap = self.image_label.getSourcePixmap()
         if sourcePixmap is None or sourcePixmap.isNull():
             raise ValueError("Das Source Image enthält kein gültiges Bild.")
+        
         self.sourceWidth=sourcePixmap.width()
         self.sourceHeight=sourcePixmap.height()
+        print("sourcePixmap", self.sourceWidth, self.sourceHeight, flush=True)
+        
+        scaledPixmap = self.image_label.getScaledPixmap()
+        self.scaledWidth=sourcePixmap.width()
+        self.scaledHeight=sourcePixmap.height()
+        print("scaledPixmap", self.scaledWidth, self.scaledHeight, flush=True)
 
-        pixmap = self.image_label.pixmap()
+        pixmap = self.image_label.getUnscaledPixmap()
         if pixmap is None or pixmap.isNull():
             print("Das übergebene QLabel enthält kein gültiges Bild.")
             return
-        
-        # Originalbild speichern
+
         self.original_pixmap = pixmap.copy()
+        w = self.original_pixmap.width()
+        h = self.original_pixmap.height()
+        print("original_pixmap", w, h, flush=True)
+        
+        
         self.display_pixmap = pixmap.copy()
         self.image_label.setPixmap(self.display_pixmap)
 
@@ -1174,7 +1213,6 @@ class CropWidget(QWidget):
         #print("update_crop=", self.crop_left, self.crop_right, self.crop_top, self.crop_bottom, flush=True)
 
         self.apply_crop()
-        self.update_magnifier()
         if self.onCropOrTrim:
             self.onCropOrTrim()
                 
@@ -1235,13 +1273,15 @@ class CropWidget(QWidget):
     def apply_crop(self):
         if not self.original_pixmap:
             return
-        
+
         w = self.original_pixmap.width()
         h = self.original_pixmap.height()
 
         mx = float(w) / float(self.sourceWidth)
         my = float(h) / float(self.sourceHeight)
 
+        #print("whmxy", w, h, mx, my, flush=True)
+        
         crop_rect = QRect(
             int(self.crop_left * mx),
             int(self.crop_top * my),
@@ -1266,27 +1306,78 @@ class CropWidget(QWidget):
     def update_magnifier(self):
         if not self.original_pixmap:
             return
-        return
-        self.magnifier.show()
 
-        zoom_size = 40
-        center_x = self.crop_left + (self.original_pixmap.width() - self.crop_left - self.crop_right) // 2
-        center_y = self.crop_top + (self.original_pixmap.height() - self.crop_top - self.crop_bottom) // 2
+        if self.center_x < 0:
+            return
 
-        # Sicherheitscheck
-        center_x = max(zoom_size // 2, min(center_x, self.original_pixmap.width() - zoom_size // 2))
-        center_y = max(zoom_size // 2, min(center_y, self.original_pixmap.height() - zoom_size // 2))
+        #print( "opix", self.original_pixmap.size() , flush=True)
+        
+        dw=self.image_label.geometry().width()
+        dh=self.image_label.geometry().height()
+        #print("dwdh", dw,dh, flush=True)   # mouse space, Mittelpunkt: dw/2,dh/2
+        #print("scaledPixmap", self.scaledWidth, self.scaledHeight, flush=True)
 
-        zoom_rect = QRect(center_x - zoom_size // 2, center_y - zoom_size // 2, zoom_size, zoom_size)
+        display_scalefactor=min( float(dw) / float(self.scaledWidth), float(dh) / float(self.scaledHeight) )
+        #pad_scalefactor=max( float(dw) / float(self.scaledWidth), float(dh) / float(self.scaledHeight) ) - display_scalefactor
+        offset_x = (dw - self.scaledWidth * display_scalefactor) / 2.0
+        offset_y = (dh - self.scaledHeight * display_scalefactor) / 2.0
+        #print("offset", offset_x,offset_y, flush=True)
+
+        #print("scaling", float(dw) / float(self.scaledWidth), 
+        #                 float(dh) / float(self.scaledHeight),
+        #                 display_scalefactor,
+        #                 flush=True)
+
+        #print("mouse", self.center_x,self.center_y, flush=True)
+        
+        x = float(self.center_x - offset_x) / display_scalefactor 
+        y = float(self.center_y - offset_y) / display_scalefactor 
+        #print("xy", x,y, flush=True)
+        
+        
+
+        #print( "rect", self.center_x - self.zoom_factor // 2, self.center_y - self.zoom_factor // 2, self.zoom_factor, self.zoom_factor , flush=True)
+        img_scalefactor=self.original_pixmap.width() // self.scaledWidth
+        zoom_rect = QRect(int((x - self.magsize / 2) * img_scalefactor) , 
+                          int((y - self.magsize / 2) * img_scalefactor),
+                          int(self.magsize * img_scalefactor),
+                          int(self.magsize * img_scalefactor)
+                         )
         zoom_pixmap = self.original_pixmap.copy(zoom_rect).scaled(
-            self.magnifier.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            self.magnifier.size()*self.zoom_factor, Qt.KeepAspectRatio, Qt.SmoothTransformation
         )
 
         self.magnifier.setPixmap(zoom_pixmap)
-        self.magnifier.move(self.width() - self.magnifier.width() - 20, 20)
+        self.magnifier.move(self.width() - self.magnifier.width() - 36, 30)
+        self.magnifier.show()
+        self.magnifier.raise_()  # <-- Bringt die Lupe in den Vordergrund!
+
+
+
+    def enterEvent(self, event):
+        self.setMouseTracking(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.setMouseTracking(False)
+        self.magnifier.hide()
+        super().leaveEvent(event)
+
+    def mouseMoveEvent(self, event):
+        pos = self.image_label.pos
+        if not pos == None:
+            
+            #print("xy", pos.x(),pos.y(), flush=True)
+            
+            self.center_x = pos.x()
+            self.center_y = pos.y()
+
+            self.update_magnifier()
+
+        super().mouseMoveEvent(event)
+
 
     def mouseReleaseEvent(self, event):
-        self.magnifier.hide()
         super().mouseReleaseEvent(event)
 
     def registerForUpdate(self, onCropOrTrim):
