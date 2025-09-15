@@ -35,7 +35,8 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from dialogs import JudgeDialog, RateAndCutDialog, StyledIcon, pil2pixmap, getFilesToRate
+from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesToRate
+from judge import JudgeDialog
 
 
 # File Global
