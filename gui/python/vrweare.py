@@ -35,9 +35,11 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from dialogs import JudgeDialog, RateAndCutDialog, StyledIcon, pil2pixmap, updateFilesToRate
+from dialogs import JudgeDialog, RateAndCutDialog, StyledIcon, pil2pixmap, getFilesToRate
 
 
+# File Global
+filesToRate = []
 
 LOGOTIME = 3000
 BREAKFREQ = 120000
@@ -298,7 +300,7 @@ class SpreadsheetApp(QMainWindow):
     def update_toolbar(self):
         count=0
         try:
-            filesToRate = updateFilesToRate()
+            filesToRate = getFilesToRate()
             count+=len(filesToRate)
         except StopIteration as e:
             count+=0

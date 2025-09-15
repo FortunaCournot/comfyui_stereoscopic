@@ -37,11 +37,9 @@ path = os.path.dirname(os.path.abspath(__file__))
 if path not in sys.path:
     sys.path.append(path)
 
-# Project Global
-filesToRate = []
-
 # File Global
 videoActive=False
+filesToRate = []
 
 class JudgeDialog(QDialog):
 
@@ -71,7 +69,7 @@ class RateAndCutDialog(QDialog):
         
         #Set the main layout
         if cutMode:
-            self.setWindowTitle("VR We Are - Check Files: Cut and TrimX")
+            self.setWindowTitle("VR We Are - Check Files: Cut and Trim")
         else:
             self.setWindowTitle("VR We Are - Check Files: Rating")
         self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
@@ -98,6 +96,7 @@ class RateAndCutDialog(QDialog):
             self.button_snapshot_from_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/snapshot80.png')))
             self.button_snapshot_from_video.setIconSize(QSize(80,80))
             self.button_snapshot_from_video.clicked.connect(self.createSnapshot)
+
 
         self.button_prev_file = ActionButton()
         self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/prevf80.png')))
@@ -129,6 +128,14 @@ class RateAndCutDialog(QDialog):
         self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded)
         #self.display.resize(self.display_width, self.display_height)
 
+        self.sp1 = QLabel(self)
+        self.sp1.setFixedSize(48, 100)
+        self.sp2 = QLabel(self)
+        self.sp2.setFixedSize(48, 100)
+        self.sp3 = QLabel(self)
+        self.sp3.setFixedSize(48, 100)
+
+
         # Display layout
         self.display_layout = QHBoxLayout()
         self.display.registerForTrimUpdate(self.onCropOrTrim)
@@ -137,17 +144,20 @@ class RateAndCutDialog(QDialog):
             self.display_layout.addWidget(self.cropWidget)
             self.cropWidget.registerForUpdate(self.onCropOrTrim)
         else:
+            self.display.setMinimumSize(1000, 750)
             self.display_layout.addWidget(self.display)
 
 
         # Video Tool layout
         self.videotool_layout = QHBoxLayout()
         self.videotool_layout.addWidget(self.button_startpause_video)
+        self.videotool_layout.addWidget(self.sp1)
         if cutMode:
             self.videotool_layout.addWidget(self.button_trima_video)
         self.videotool_layout.addWidget(self.sl)
         if cutMode:
             self.videotool_layout.addWidget(self.button_trimb_video)
+            self.videotool_layout.addWidget(self.sp2)
             self.videotool_layout.addWidget(self.button_snapshot_from_video)
 
         # Common Tool layout
@@ -167,18 +177,18 @@ class RateAndCutDialog(QDialog):
         if cutMode:
             self.commontool_layout.addWidget(self.button_cutandclone, 0, ew+1, 1, 1)
         else:
-            rating_widget = RatingWidget(stars_count=5)
-            self.commontool_layout.addWidget(rating_widget, 0, ew+1, 1, 1)
-            rating_widget.ratingChanged.connect(self.on_rating_changed)
+            self.rating_widget = RatingWidget(stars_count=5)
+            self.commontool_layout.addWidget(self.rating_widget, 0, ew+1, 1, 1)
+            self.rating_widget.ratingChanged.connect(self.on_rating_changed)
         
         self.commontool_layout.addWidget(self.button_next_file, 0, ew+2, 1, 1)
-        
-        self.commontool_layout.addWidget(self.button_delete_file, 0, ew+3, 1, 1)
+        self.commontool_layout.addWidget(self.sp3, 0, ew+3, 1, 1)
+        self.commontool_layout.addWidget(self.button_delete_file, 0, ew+4, 1, 1)
         
         self.msgWidget=QPlainTextEdit()
         self.msgWidget.setReadOnly(True)
         self.msgWidget.setFrameStyle(QFrame.NoFrame)
-        self.commontool_layout.addWidget(self.msgWidget, 0, ew+4, 1, ew)
+        self.commontool_layout.addWidget(self.msgWidget, 0, ew+5, 1, ew)
         self.msgWidget.setPlaceholderText("No log entries.")
         
         self.button_startpause_video.clicked.connect(self.display.startVideo)
@@ -243,19 +253,100 @@ class RateAndCutDialog(QDialog):
         self.button_cutandclone.setEnabled(True)
 
     def update_filebuttons(self):
-        if self.currentFile:
-            lastIndex=len(filesToRate)-1
-            try:
-                index=filesToRate.index(self.currentFile)
-            except ValueError as ve:
-                index=-1
+        global filesToRate
+        index=-1
+        try:
+            filesToRate = getFilesToRate()
+            if self.currentFile:
+                lastIndex=len(filesToRate)-1
+                try:
+                    index=filesToRate.index(self.currentFile)
+                except ValueError as ve:
+                    pass
+        except StopIteration as e:
+            pass
         self.button_prev_file.setEnabled(index>0)
-        self.button_next_file.setEnabled(index<lastIndex)
-        self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))     
+        self.button_next_file.setEnabled(index>-1 and index<lastIndex)
+        if index>-1:
+            self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))
+        else:
+            self.fileLabel.setText("")
+            self.button_trima_video.setEnabled(False)
+            self.button_trimb_video.setEnabled(False)
+            self.button_snapshot_from_video.setEnabled(False)
+            self.button_cutandclone.setEnabled(False)
+            self.button_delete_file.setEnabled(False)       
+ 
+
+    def on_rating_changed(self, value):
+        print(f"Rating selected: {value}")
+
+        files=getFilesToRate()
+        l=len(files)
+        if l==0:
+            self.closeOnError("no files (on_rating_changed)")
+            return
+
+        if not self.currentFile:
+            self.currentFile = files[0]
+        else:
+            try:
+                index=files.index(self.currentFile)
+                if l>index+1:
+                    self.currentFile=files[index+1]
+                else:
+                    self.currentFile=files[-1]
+            except ValueError as ve:
+                self.currentFile = files[0]
+
+        folder_in=os.path.join(path, "../../../../input/vr/check/rate")
+        folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{value}")
+        os.makedirs(folder_out, exist_ok = True)
+        input=os.path.abspath(os.path.join(folder_in, self.currentFile))
+        output=os.path.abspath(os.path.join(folder_out, self.currentFile))
         
+        self.log(f"Rated {value} on " + self.currentFile, QColor("white"))
+        if os.path.isfile(input):
+            try:
+                self.display.stopAndBlackout()
+                
+                recreated=os.path.isfile(output)
+                if recreated:
+                    os.remove(output)
+                os.rename(input, output)
+                
+                files=getFilesToRate()
+                l=len(files)
+
+                if l==0:    # last file deleted?
+                    self.closeOnError("last file rated (on_rating_changed)")
+
+                global filesToRate
+                filesToRate=files
+
+                if index>=l:
+                    index=l-1
+                    
+                self.rating_widget.clear_rating()
+                    
+                self.currentFile=files[index]
+                self.rateCurrentFile()
+
+                self.logn(" Overwritten" if recreated else " Moved", QColor("green"))
+                
+            except Exception as any_ex:
+                print(traceback.format_exc(), flush=True)                
+                self.logn(" failed", QColor("red"))
+        else:
+            self.logn(" not found", QColor("red"))
+
+
+
+
     def deleteAndNext(self):
-        l=len(filesToRate)
-        index=filesToRate.index(self.currentFile)
+        files=getFilesToRate()
+        l=len(files)
+        index=files.index(self.currentFile)
                     
         folder=os.path.join(path, "../../../../input/vr/check/rate")
         input=os.path.abspath(os.path.join(folder, self.currentFile))
@@ -265,17 +356,23 @@ class RateAndCutDialog(QDialog):
                 self.display.stopAndBlackout()
                 
                 os.remove(input)
+                
+                files=getFilesToRate()
+                l=len(files)
 
-                if l<=1:
-                    self.closeOnError("no files (deleteAndNext)")
+                if l==0:    # last file deleted?
+                    self.closeOnError("last file deleted (deleteAndNext)")
 
-                if index>=l-1:
-                    index=l-2
+                global filesToRate
+                filesToRate=files
+
+                if index>=l:
+                    index=l-1
                     
-                self.currentFile=filesToRate[index]
+                self.currentFile=files[index]
                 self.rateCurrentFile()
 
-                self.logn(" done", QColor("yellow"))
+                self.logn(" done", QColor("green"))
                 
             except Exception as any_ex:
                 print(traceback.format_exc(), flush=True)                
@@ -285,40 +382,41 @@ class RateAndCutDialog(QDialog):
 
         
     def rateNext(self):
-        global filesToRate
-        if len(filesToRate)==0:
+        files=getFilesToRate()
+        if len(files)==0:
             self.closeOnError("no files (rateNext)")
             return
             
         if not self.currentFile:
-            self.currentFile = filesToRate[0]
+            self.currentFile = files[0]
         else:
             try:
-                index=filesToRate.index(self.currentFile)
-                if len(filesToRate)>index+1:
-                    self.currentFile=filesToRate[index+1]
+                index=files.index(self.currentFile)
+                if len(files)>index+1:
+                    self.currentFile=files[index+1]
                 else:
-                    self.currentFile=filesToRate[-1]
+                    self.currentFile=files[-1]
             except ValueError as ve:
-                self.currentFile = filesToRate[0]
+                self.currentFile = files[0]
         
         self.rateCurrentFile()
 
     def ratePrevious(self):
-        if len(filesToRate)==0:
+        files=getFilesToRate()
+        if len(files)==0:
             self.closeOnError("no files (ratePrevious)")
             
         if not self.currentFile:
-            self.currentFile = filesToRate[0]
+            self.currentFile = files[0]
         else:
             try:
-                index=filesToRate.index(self.currentFile)
-                if len(filesToRate)>index-1 and index>=1:
-                    self.currentFile=filesToRate[index-1]
+                index=files.index(self.currentFile)
+                if len(files)>index-1 and index>=1:
+                    self.currentFile=files[index-1]
                 else:
-                    self.currentFile=filesToRate[0]
+                    self.currentFile=files[0]
             except ValueError as ve:
-                self.currentFile = filesToRate[0]
+                self.currentFile = files[0]
         
         self.rateCurrentFile()
 
@@ -328,18 +426,17 @@ class RateAndCutDialog(QDialog):
         self.main_group_box.setTitle( self.currentFile )
         folder=os.path.join(path, "../../../../input/vr/check/rate")
         self.isVideo=self.display.showFile( os.path.join(folder, self.currentFile) ) == "video"
+        self.button_startpause_video.setVisible(self.isVideo)
+        self.sl.setVisible(self.isVideo)
         if self.cutMode:
             self.button_trima_video.setVisible(self.isVideo)
             self.button_trimb_video.setVisible(self.isVideo)
+            self.button_snapshot_from_video.setVisible(self.isVideo)
             self.button_trima_video.setEnabled(False)
             self.button_trimb_video.setEnabled(False)
             self.button_cutandclone.setEnabled(False)
-            self.button_snapshot_from_video.setVisible(self.isVideo)
             self.button_snapshot_from_video.setEnabled(False)
 
-
-    def on_rating_changed(self, value):
-        print(f"Rating selected: {value}")
 
     def createSnapshot(self):
         self.button_snapshot_from_video.setEnabled(False)
@@ -353,8 +450,13 @@ class RateAndCutDialog(QDialog):
             self.log("Create snapshot "+newfilename, QColor("white"))
             cmd = "ffmpeg.exe -y -i " + input + " -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 " + output
             try:
+                recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
-                self.logn(" OK", QColor("green"))
+                self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+
+                files=getFilesToRate()
+                global filesToRate
+                filesToRate=files
             except subprocess.CalledProcessError as se:
                 self.logn(" Failed", QColor("red"))
                 print("Failed: "  + cmd, flush=True)
@@ -385,8 +487,13 @@ class RateAndCutDialog(QDialog):
             self.log("Create "+newfilename, QColor("white"))
             cmd = "ffmpeg.exe -y -i " + input + " -vf \"trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ",crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + output
             try:
+                recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
-                self.logn(" OK", QColor("green"))
+                self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+                
+                files=getFilesToRate()
+                global filesToRate
+                filesToRate=files
             except subprocess.CalledProcessError as se:
                 self.logn(" Failed", QColor("red"))
                 print("Failed: "  + cmd, flush=True)
@@ -397,6 +504,11 @@ class RateAndCutDialog(QDialog):
     def onVideoloaded(self):
         pass
  
+    def closeOnError(self, msg):
+        print(msg, flush=True)
+        self.display.stopAndBlackout()
+        self.done(QDialog.Rejected)
+
 class HoverLabel(QLabel):
     """A QLabel that detects hover and click events."""
     def __init__(self, index, parent=None):
@@ -518,7 +630,7 @@ class RatingWidget(QWidget):
         """Clear the locked rating (all empty stars)."""
         self.current_rating = -1
         self.update_stars(-1)
-        self.ratingChanged.emit(0)
+        #self.ratingChanged.emit(0)
 
 
 
@@ -671,11 +783,6 @@ class Display(QLabel):
         self.setAlignment(Qt.AlignCenter)
         
         self.closeEvent = self.stopAndBlackout
-        
-    def closeOnError(msg):
-        print(msg, flush=True)
-        self.stopAndBlackout()
-        self.done()
         
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1224,9 +1331,12 @@ class StyledIcon(QIcon):
     
 def updateFilesToRate():
     global filesToRate
-    filesToRate = next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
+    filesToRate = getFilesToRate()
     return filesToRate
     
+
+def getFilesToRate():
+    return next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
     
 def pil2pixmap(im):
     if im.mode == "RGB":
