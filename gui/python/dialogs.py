@@ -59,7 +59,8 @@ class JudgeDialog(QDialog):
 class RateAndCutDialog(QDialog):
 
     def __init__(self, cutMode):
-        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMaximizeButtonHint)
+        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint )
+        self.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint )
 
         self.cutMode=cutMode
         self.qt_img=None
@@ -476,8 +477,9 @@ class RateAndCutDialog(QDialog):
                 fnum+=1
             newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + ".mp4"
             output=os.path.abspath(os.path.join(folder, newfilename))
-            trimA=self.display.trimAFrame
-            trimB=self.display.trimBFrame
+            if self.isVideo:
+                trimA=self.display.trimAFrame
+                trimB=self.display.trimBFrame
             out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
             out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
             if out_h % 2 == 1:
@@ -485,7 +487,10 @@ class RateAndCutDialog(QDialog):
             x=self.cropWidget.crop_left
             y=self.cropWidget.crop_top
             self.log("Create "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i " + input + " -vf \"trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ",crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + output
+            cmd = "ffmpeg.exe -y -i " + input + " -vf \""
+            if self.isVideo:
+                cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
+            cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + output
             try:
                 recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
@@ -1169,6 +1174,10 @@ class CropWidget(QWidget):
         slider.setSingleStep(1)
         slider.setTracking(True)
         slider.setInvertedAppearance(inverted)
+        if orientation==Qt.Horizontal:
+            slider.setStyleSheet("QSlider::handle:Horizontal { background-color: black; border: 2px solid white;}")
+        else:
+            slider.setStyleSheet("QSlider::handle:Vertical { background-color: black; border: 2px solid white; }")
         return slider
 
     def update_slider_ranges(self):
@@ -1301,7 +1310,8 @@ class CropWidget(QWidget):
         painter.end()
 
         self.display_pixmap = temp_pixmap
-        self.image_label.setPixmap(self.display_pixmap)
+        #self.image_label.setPixmap(self.display_pixmap)
+        self.image_label.setPixmap(self.display_pixmap.scaled(self.image_label.width(), self.image_label.height(), Qt.KeepAspectRatio))
 
     def update_magnifier(self):
         if not self.original_pixmap:
@@ -1338,7 +1348,7 @@ class CropWidget(QWidget):
 
         #print( "rect", self.center_x - self.zoom_factor // 2, self.center_y - self.zoom_factor // 2, self.zoom_factor, self.zoom_factor , flush=True)
         img_scalefactor=self.original_pixmap.width() // self.scaledWidth
-        zoom_rect = QRect(int((x - self.magsize / 2) * img_scalefactor) , 
+        zoom_rect = QRect(int((x - 0.2 * self.magsize / 2) * img_scalefactor) , 
                           int((y - self.magsize / 2) * img_scalefactor),
                           int(self.magsize * img_scalefactor),
                           int(self.magsize * img_scalefactor)
