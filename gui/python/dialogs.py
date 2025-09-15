@@ -111,6 +111,12 @@ class RateAndCutDialog(QDialog):
             self.button_cutandclone.setIconSize(QSize(80,80))
             self.button_cutandclone.clicked.connect(self.createTrimedAndCroppedCopy)
 
+        self.button_compress = ActionButton()
+        self.button_compress.setIcon(StyledIcon(os.path.join(path, '../../gui/img/compress80.png')))
+        self.button_compress.setIconSize(QSize(80,80))
+        self.button_compress.setEnabled(False)
+        self.button_compress.setVisible(cutMode)
+        
         self.button_next_file = ActionButton()
         self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/nextf80.png')))
         self.button_next_file.setIconSize(QSize(80,80))
@@ -122,6 +128,7 @@ class RateAndCutDialog(QDialog):
         self.button_delete_file.setIconSize(QSize(80,80))
         self.button_delete_file.setEnabled(True)
         self.button_delete_file.clicked.connect(self.deleteAndNext)
+        self.button_delete_file.setFocusPolicy(Qt.ClickFocus)
         
         self.sl = FrameSlider(Qt.Horizontal)
         self.sl.setEnabled(False)
@@ -182,14 +189,16 @@ class RateAndCutDialog(QDialog):
             self.commontool_layout.addWidget(self.rating_widget, 0, ew+1, 1, 1)
             self.rating_widget.ratingChanged.connect(self.on_rating_changed)
         
-        self.commontool_layout.addWidget(self.button_next_file, 0, ew+2, 1, 1)
-        self.commontool_layout.addWidget(self.sp3, 0, ew+3, 1, 1)
-        self.commontool_layout.addWidget(self.button_delete_file, 0, ew+4, 1, 1)
+        self.commontool_layout.addWidget(self.button_compress, 0, ew+2, 1, 1)
+        
+        self.commontool_layout.addWidget(self.button_next_file, 0, ew+3, 1, 1)
+        self.commontool_layout.addWidget(self.sp3, 0, ew+4, 1, 1)
+        self.commontool_layout.addWidget(self.button_delete_file, 0, ew+5, 1, 1)
         
         self.msgWidget=QPlainTextEdit()
         self.msgWidget.setReadOnly(True)
         self.msgWidget.setFrameStyle(QFrame.NoFrame)
-        self.commontool_layout.addWidget(self.msgWidget, 0, ew+5, 1, ew)
+        self.commontool_layout.addWidget(self.msgWidget, 0, ew+6, 1, ew)
         self.msgWidget.setPlaceholderText("No log entries.")
         
         self.button_startpause_video.clicked.connect(self.display.startVideo)
@@ -247,6 +256,7 @@ class RateAndCutDialog(QDialog):
         self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png') if isPaused else os.path.join(path, '../../gui/img/pause80.png') ))
 
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
+        self.button_startpause_video.setFocus()
 
 
     def onCropOrTrim(self):
@@ -345,6 +355,9 @@ class RateAndCutDialog(QDialog):
 
 
     def deleteAndNext(self):
+        self.button_prev_file.setEnabled(False)
+        self.button_next_file.setEnabled(False)
+        
         files=getFilesToRate()
         l=len(files)
         index=files.index(self.currentFile)
@@ -383,6 +396,9 @@ class RateAndCutDialog(QDialog):
 
         
     def rateNext(self):
+        self.button_prev_file.setEnabled(False)
+        self.button_next_file.setEnabled(False)
+
         files=getFilesToRate()
         if len(files)==0:
             self.closeOnError("no files (rateNext)")
@@ -401,8 +417,12 @@ class RateAndCutDialog(QDialog):
                 self.currentFile = files[0]
         
         self.rateCurrentFile()
+        self.button_next_file.setFocus()
 
     def ratePrevious(self):
+        self.button_prev_file.setEnabled(False)
+        self.button_next_file.setEnabled(False)
+
         files=getFilesToRate()
         if len(files)==0:
             self.closeOnError("no files (ratePrevious)")
@@ -420,6 +440,7 @@ class RateAndCutDialog(QDialog):
                 self.currentFile = files[0]
         
         self.rateCurrentFile()
+        self.button_prev_file.setFocus()
 
 
     def rateCurrentFile(self):
@@ -449,7 +470,7 @@ class RateAndCutDialog(QDialog):
             newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
             output=os.path.abspath(os.path.join(folder, newfilename))
             self.log("Create snapshot "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i " + input + " -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 " + output
+            cmd = "ffmpeg.exe -y -i '" + input + "' -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 '" + output + "'"
             try:
                 recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
@@ -463,7 +484,9 @@ class RateAndCutDialog(QDialog):
                 print("Failed: "  + cmd, flush=True)
         except ValueError as e:
             pass
-        self.button_snapshot_from_video.setEnabled(True)
+        self.button_snapshot_from_video.setEnabled(False)
+        self.button_compress.setEnabled(True)        
+        self.button_compress.setFocus()
 
     def createTrimedAndCroppedCopy(self):
         self.button_cutandclone.setEnabled(False)
@@ -487,10 +510,10 @@ class RateAndCutDialog(QDialog):
             x=self.cropWidget.crop_left
             y=self.cropWidget.crop_top
             self.log("Create "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i " + input + " -vf \""
+            cmd = "ffmpeg.exe -y -i '" + input + "' -vf \""
             if self.isVideo:
                 cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
-            cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" " + output
+            cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" '" + output + "'"
             try:
                 recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
@@ -505,10 +528,13 @@ class RateAndCutDialog(QDialog):
         except ValueError as e:
             pass
         self.button_cutandclone.setEnabled(True)
+        self.button_compress.setEnabled(True)        
+        self.button_compress.setFocus()
 
     def onVideoloaded(self):
         pass
- 
+
+
     def closeOnError(self, msg):
         print(msg, flush=True)
         self.display.stopAndBlackout()
@@ -697,21 +723,23 @@ class VideoThread(QThread):
                     self.seek(self.a)
                 else:
                     ret, cv_img = self.cap.read()
-                    if ret and self._run_flag:
-                        self.currentFrame+=1
-                        self.slider.setValue(self.currentFrame)
-                        self.change_pixmap_signal.emit(cv_img)
-                        #status.showMessage('frame ...')
-                    else:
-                        print("Error: failed to load frame", self.currentFrame)
-                        self.cap.release()
-                        self.cap = cv2.VideoCapture(self.filepath)
-                        self.seek(self.a)
+                    if self._run_flag:
+                        if ret:
+                            self.currentFrame+=1
+                            self.slider.setValue(self.currentFrame)
+                            self.change_pixmap_signal.emit(cv_img)
+                            #status.showMessage('frame ...')
+                        else:
+                            print("Error: failed to load frame", self.currentFrame)
+                            self.cap.release()
+                            self.cap = cv2.VideoCapture(self.filepath)
+                            self.seek(self.a)
 
             time.sleep(1.0/fps)
             
         self.cap.release()
         videoActive=False
+        print("Thread ends.", flush=True)
 
     def stop(self):
         print("stopping thread...", flush=True)
@@ -903,46 +931,50 @@ class Display(QLabel):
         if self.thread:
             self.thread.change_pixmap_signal.disconnect(self.update_image)
             self.thread.stop()
-            self.thread=None
             self.button.clicked.disconnect(self.tooglePausePressed)
+            self.thread=None
 
     def onVideoLoaded(self):
-        self.frame_count=self.thread.frame_count
-        self.trimAFrame=0
-        self.trimBFrame=self.frame_count-1
-        self.loaded()
+        if self.thread:
+            self.frame_count=self.thread.frame_count
+            self.trimAFrame=0
+            self.trimBFrame=self.frame_count-1
+            self.loaded()
         
     def updatePaused(self, isPaused):
         self.update(isPaused)
 
     def tooglePausePressed(self):
-        self.button.setEnabled(False)
-        self.thread.tooglePause()
-        self.button.setEnabled(True)
+        if self.thread:
+            self.button.setEnabled(False)
+            self.thread.tooglePause()
+            self.button.setEnabled(True)
 
     def trimA(self):
-        count=self.thread.getFrameCount()
-        if count>1:
-            self.slider.setA(float(self.thread.getCurrentFrameIndex())/float(count-1))
-            self.trimAFrame=self.thread.getCurrentFrameIndex()
-            self.thread.setA(self.thread.getCurrentFrameIndex())
-        else:
-            self.slider.setA(0.0)
-            self.thread.setA(0)
-        if self.onCropOrTrim:
-            self.onCropOrTrim()
+        if self.thread:
+            count=self.thread.getFrameCount()
+            if count>1:
+                self.slider.setA(float(self.thread.getCurrentFrameIndex())/float(count-1))
+                self.trimAFrame=self.thread.getCurrentFrameIndex()
+                self.thread.setA(self.thread.getCurrentFrameIndex())
+            else:
+                self.slider.setA(0.0)
+                self.thread.setA(0)
+            if self.onCropOrTrim:
+                self.onCropOrTrim()
         
     def trimB(self):
-        count=self.thread.getFrameCount()
-        if count>1:
-            self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
-            self.trimBFrame=self.thread.getCurrentFrameIndex()
-            self.thread.setB(self.thread.getCurrentFrameIndex())
-        else:
-            self.slider.setB(1.0)
-            self.thread.setB(count-1)
-        if self.onCropOrTrim:
-            self.onCropOrTrim()
+        if self.thread:
+            count=self.thread.getFrameCount()
+            if count>1:
+                self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
+                self.trimBFrame=self.thread.getCurrentFrameIndex()
+                self.thread.setB(self.thread.getCurrentFrameIndex())
+            else:
+                self.slider.setB(1.0)
+                self.thread.setB(count-1)
+            if self.onCropOrTrim:
+                self.onCropOrTrim()
 
     def enterEvent(self, event):
         self.setMouseTracking(True)
@@ -1033,7 +1065,8 @@ class CropWidget(QWidget):
         self.crop_right = 0
         self.crop_top = 0
         self.crop_bottom = 0
-
+        self.clean = True;
+        
         # Standard-Rahmen-Einstellungen
         self.frame_color = QColor(255, 255, 255)  # Weiß
         self.frame_thickness = 2
@@ -1091,6 +1124,7 @@ class CropWidget(QWidget):
         self.crop_right = 0
         self.crop_top = 0
         self.crop_bottom = 0
+        self.clean = True;
         
         self.slider_right.setValue(0)
         self.slider_left.setValue(0)
@@ -1099,6 +1133,8 @@ class CropWidget(QWidget):
         
         self.slidersInitialized = False
         self.enable_sliders(False)
+
+
     
     def imageUpdated(self, currentFrameIndex):
        
@@ -1198,6 +1234,9 @@ class CropWidget(QWidget):
         if not self.original_pixmap:
             return
 
+        if value>0:
+            self.clean = False;
+
         if side == "left":
             self.crop_left = value
             if self.crop_left + self.crop_right > self.sourceWidth:
@@ -1218,6 +1257,7 @@ class CropWidget(QWidget):
             if self.crop_top + self.crop_bottom > self.sourceHeight:
                 self.crop_top = self.sourceHeight - self.crop_bottom
                 self.slider_top.setValue(self.crop_top)
+
 
         #print("update_crop=", self.crop_left, self.crop_right, self.crop_top, self.crop_bottom, flush=True)
 
@@ -1283,31 +1323,35 @@ class CropWidget(QWidget):
         if not self.original_pixmap:
             return
 
-        w = self.original_pixmap.width()
-        h = self.original_pixmap.height()
+            
+        if not self.clean:
+            w = self.original_pixmap.width()
+            h = self.original_pixmap.height()
 
-        mx = float(w) / float(self.sourceWidth)
-        my = float(h) / float(self.sourceHeight)
+            mx = float(w) / float(self.sourceWidth)
+            my = float(h) / float(self.sourceHeight)
 
-        #print("whmxy", w, h, mx, my, flush=True)
+            #print("whmxy", w, h, mx, my, flush=True)
         
-        crop_rect = QRect(
-            int(self.crop_left * mx),
-            int(self.crop_top * my),
-            w - int(self.crop_left * mx) - int(self.crop_right * mx),
-            h - int(self.crop_top * my) - int(self.crop_bottom * my)
-        )
+            crop_rect = QRect(
+                int(self.crop_left * mx),
+                int(self.crop_top * my),
+                w - int(self.crop_left * mx) - int(self.crop_right * mx),
+                h - int(self.crop_top * my) - int(self.crop_bottom * my)
+            )
 
-        temp_pixmap=self.darken_outside_area(self.original_pixmap, crop_rect)
+            temp_pixmap=self.darken_outside_area(self.original_pixmap, crop_rect)
 
-        # Rahmen zeichnen
-        painter = QPainter(temp_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-        pen = QPen(self.frame_color, self.frame_thickness, self.frame_style)
-        painter.setPen(pen)
-        painter.drawRect(crop_rect)
-        painter.end()
+            # Rahmen zeichnen
+            painter = QPainter(temp_pixmap)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+            pen = QPen(self.frame_color, self.frame_thickness, self.frame_style)
+            painter.setPen(pen)
+            painter.drawRect(crop_rect)
+            painter.end()
+        else:
+            temp_pixmap = self.original_pixmap
 
         self.display_pixmap = temp_pixmap
         #self.image_label.setPixmap(self.display_pixmap)
@@ -1319,6 +1363,11 @@ class CropWidget(QWidget):
 
         if self.center_x < 0:
             return
+
+        if not self.image_label.thread==None:
+            if not self.image_label.thread.pause:
+                self.magnifier.hide()
+                return
 
         #print( "opix", self.original_pixmap.size() , flush=True)
         
