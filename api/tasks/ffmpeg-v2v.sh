@@ -139,6 +139,7 @@ else
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
 	if [ -e "$TARGETPREFIX""$EXTENSION" ] && [ -s "$TARGETPREFIX""$EXTENSION" ] ; then
+		[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$INPUT" -all:all -overwrite_original "$TARGETPREFIX""$EXTENSION" && echo "tags copied."
 		mv -- "$TARGETPREFIX""$EXTENSION" $FINALTARGETFOLDER
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $INPUT input/vr/tasks/$TASKNAME/done

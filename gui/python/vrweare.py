@@ -451,12 +451,15 @@ class SpreadsheetApp(QMainWindow):
                                         color = "yellow"
                                 subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
                                 if os.path.exists(subfolder):
-                                    onlyfiles = next(os.walk(subfolder))[2]
-                                    count = len(onlyfiles)
-                                    if count>0:
-                                        value = value + " " + str(count) + "!"
-                                        color = "red"
-                                        displayRequired=True
+                                    try:
+                                        onlyfiles = next(os.walk(subfolder))[2]
+                                        count = len(onlyfiles)
+                                        if count>0:
+                                            value = value + " " + str(count) + "!"
+                                            color = "red"
+                                            displayRequired=True
+                                    except StopIteration as se:
+                                        pass
                             else:
                                 value = "?"
                                 color = "red"

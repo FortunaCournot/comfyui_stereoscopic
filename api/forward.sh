@@ -10,6 +10,25 @@ LOGRULES=0
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
+cd $COMFYUIPATH
+
+CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+
+if [ -e $CONFIGFILE ] ; then
+	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+	[ $loglevel -ge 2 ] && set -x
+	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
+fi
+
+DEBUG_AUTOFORWARD_RULES=$(awk -F "=" '/DEBUG_AUTOFORWARD_RULES=/ {print $2}' $CONFIGFILE) ; DEBUG_AUTOFORWARD_RULES=${DEBUG_AUTOFORWARD_RULES:-"0"}
+
+# Use Systempath for python by default, but set it explictly for comfyui portable.
+PYTHON_BIN_PATH=
+if [ -d "../python_embeded" ]; then
+  PYTHON_BIN_PATH=../python_embeded/
+fi
+
+
 CheckProbeValue() {
     kopv="$1"
 	file="$2"
@@ -68,17 +87,6 @@ CheckProbeValue() {
 }
 
 
-cd $COMFYUIPATH
-
-CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
-
-if [ -e $CONFIGFILE ] ; then
-	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
-	[ $loglevel -ge 2 ] && set -x
-	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
-fi
-
-DEBUG_AUTOFORWARD_RULES=$(awk -F "=" '/DEBUG_AUTOFORWARD_RULES=/ {print $2}' $CONFIGFILE) ; DEBUG_AUTOFORWARD_RULES=${DEBUG_AUTOFORWARD_RULES:-"0"}
 
 if test $# -ne 1
 then
@@ -87,12 +95,6 @@ then
 	exit 1
 else
 
-	# Use Systempath for python by default, but set it explictly for comfyui portable.
-	PYTHON_BIN_PATH=
-	if [ -d "../python_embeded" ]; then
-	  PYTHON_BIN_PATH=../python_embeded/
-	fi
-	
 	sourcestage=$1
 	
 	if [ -e output/vr/"$sourcestage"/forward.txt ] ; then

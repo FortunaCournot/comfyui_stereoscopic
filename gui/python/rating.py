@@ -40,6 +40,7 @@ if path not in sys.path:
 # File Global
 videoActive=False
 filesToRate = []
+rememberThread=None
 
 class JudgeDialog(QDialog):
 
@@ -269,7 +270,7 @@ class RateAndCutDialog(QDialog):
 
     def onCropOrTrim(self):
         self.hasCropOrTrim=True
-        if cutMode:
+        if self.cutMode:
             self.button_cutandclone.setEnabled(True)
 
     def update_filebuttons(self):
@@ -291,7 +292,7 @@ class RateAndCutDialog(QDialog):
             self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))
         else:
             self.fileLabel.setText("")
-            if cutMode:
+            if self.cutMode:
                 self.button_trima_video.setEnabled(False)
                 self.button_trimb_video.setEnabled(False)
                 self.button_snapshot_from_video.setEnabled(False)
@@ -307,23 +308,29 @@ class RateAndCutDialog(QDialog):
             self.closeOnError("no files (on_rating_changed)")
             return
 
+        name=self.currentFile
         folder_in=os.path.join(path, "../../../../input/vr/check/rate")
         folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
         os.makedirs(folder_out, exist_ok = True)
-        input=os.path.abspath(os.path.join(folder_in, self.currentFile))
-        output=os.path.abspath(os.path.join(folder_out, self.currentFile))
-
+        input=os.path.abspath(os.path.join(folder_in, name))
+        output=os.path.abspath(os.path.join(folder_out, name))
+        
         # prepare next
         try:
             index=files.index(self.currentFile)
-            if l>index+1:
+            if index + 1 < l:
                 self.currentFile=files[index+1]
+            elif index - 1 >= 0:
+                self.currentFile=files[index-1]
+                index=index-1
             else:
-                self.currentFile=files[-1]
+                self.currentFile = None
+                index=-1
         except ValueError as ve:
-            self.currentFile = files[0]
+            self.currentFile = None
+            index=-1
 
-        self.log(f"Rated {rating} on " + self.currentFile, QColor("white"))
+        self.log(f"Rated {rating} on " + name, QColor("white"))
         if os.path.isfile(input):
             try:
                 self.display.stopAndBlackout()
@@ -333,25 +340,18 @@ class RateAndCutDialog(QDialog):
                     os.remove(output)
                 os.rename(input, output)
                 
+                self.rating_widget.clear_rating()
+
                 files=getFilesToRate()
                 l=len(files)
-
                 if l==0:    # last file deleted?
-                    self.closeOnError("last file rated (on_rating_changed)")
+                    index=-1
+                elif index>=l:
+                    index=0
 
                 global filesToRate
                 filesToRate=files
-
-                if index>=l:
-                    index=l-1
-                if index>=len(files) or index<0:
-                    self.closeOnError("last file !? (on_rating_changed)")
-
-                self.rating_widget.clear_rating()
                     
-                self.currentFile=files[index]
-                self.rateCurrentFile()
-
                 self.log(" Overwritten" if recreated else " Moved", QColor("green"))
                 
                 if not self.exifpath is None:
@@ -366,6 +366,13 @@ class RateAndCutDialog(QDialog):
                         print("Failed: "  + cmd, flush=True)
                 else:
                     self.logn(".", QColor("white"))
+
+                if index<0:
+                    self.closeOnError("last file rated (on_rating_changed)")
+                    return
+
+                self.currentFile=files[index]
+                self.rateCurrentFile()
                     
             except Exception as any_ex:
                 print(traceback.format_exc(), flush=True)                
@@ -385,7 +392,7 @@ class RateAndCutDialog(QDialog):
             self.closeOnError("no files (rateNext)")
             return
             
-        if not self.currentFile:
+        if self.currentFile is None:
             self.currentFile = files[0]
         else:
             try:
@@ -408,8 +415,9 @@ class RateAndCutDialog(QDialog):
         files=getFilesToRate()
         if len(files)==0:
             self.closeOnError("no files (ratePrevious)")
+            return
             
-        if not self.currentFile:
+        if self.currentFile is None:
             self.currentFile = files[0]
         else:
             try:
@@ -491,6 +499,7 @@ class RateAndCutDialog(QDialog):
 
                 if l==0:    # last file deleted?
                     self.closeOnError("last file deleted (deleteAndNext)")
+                    return
 
                 global filesToRate
                 filesToRate=files
@@ -514,32 +523,39 @@ class RateAndCutDialog(QDialog):
         self.button_compress.setEnabled(False)
         
         files=getFilesToRate()
-        index=files.index(self.currentFile)
-        
-        folder=os.path.join(path, "../../../../input/vr/check/rate")
-        targetfolder = os.path.join(path, "../../../../input/vr/check/rate/done")
-        os.makedirs(targetfolder, exist_ok=True)
         try:
-            source=os.path.join(folder, self.currentFile)
-            destination=os.path.join(targetfolder, self.currentFile)
-            
+            index=files.index(self.currentFile)
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
+            targetfolder = os.path.join(path, "../../../../input/vr/check/rate/done")
+            os.makedirs(targetfolder, exist_ok=True)
+        except ValueError as ve:
+            index=-1
+
+        try:
             self.display.stopAndBlackout()
-            
-            self.log("Archive "+self.currentFile, QColor("white"))
-            recreated=os.path.exists(destination)
-            os.replace(source, destination)
+
+            if index>=0:
+                source=os.path.join(folder, self.currentFile)
+                destination=os.path.join(targetfolder, self.currentFile)
+                
+                self.log("Archive "+self.currentFile, QColor("white"))
+                recreated=os.path.exists(destination)
+                os.replace(source, destination)
             
             files=getFilesToRate()
             l=len(files)
 
             if l==0:    # last file deleted?
                 self.closeOnError("last file deleted (archiveAndNext)")
+                return
 
             global filesToRate
             filesToRate=files
 
-            if index>=l:
+            if index>=0 and index>=l:
                 index=l-1
+            else:
+                index=0
                 
             self.currentFile=files[index]
             self.rateCurrentFile()
@@ -734,10 +750,11 @@ class RatingWidget(QWidget):
 
 
 class VideoThread(QThread):
-    change_pixmap_signal = pyqtSignal(np.ndarray)
+    change_pixmap_signal = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, filepath, slider, update, onVideoLoaded):
+    def __init__(self, filepath, uid, slider, update, onVideoLoaded):
         super().__init__()
+        self.uid = uid
         self.filepath = filepath
         self.slider = slider
         self.update = update
@@ -747,9 +764,11 @@ class VideoThread(QThread):
         self.onVideoLoaded = onVideoLoaded
         self.currentFrame=-1
         self._run_flag = False
+        #print("Created thread with uid " + str(uid) , flush=True)
 
     def run(self):
         global videoActive
+        global rememberThread
         
         if not os.path.exists(self.filepath):
             print("Failed to open", self.filepath, flush=True)
@@ -771,7 +790,7 @@ class VideoThread(QThread):
         self.b = self.frame_count - 1
         # print("frames", self.frame_count)
         fps = self.cap.get(cv2.CAP_PROP_FPS)
-        print("Started video. framecount:", self.frame_count, "fps:", fps, flush=True)
+        #print("Started video. framecount:", self.frame_count, "fps:", fps, flush=True)
         self.onVideoLoaded()
         
         
@@ -798,7 +817,7 @@ class VideoThread(QThread):
                         if ret:
                             self.currentFrame+=1
                             self.slider.setValue(self.currentFrame)
-                            self.change_pixmap_signal.emit(cv_img)
+                            self.change_pixmap_signal.emit(cv_img, self.uid)
                             #status.showMessage('frame ...')
                         else:
                             print("Error: failed to load frame", self.currentFrame)
@@ -810,15 +829,16 @@ class VideoThread(QThread):
             
         self.cap.release()
         videoActive=False
-        print("Thread ends.", flush=True)
+        #print("Thread ends.", flush=True)
+        #rememberThread=None
 
-    def stop(self):
+    def requestStop(self):
         print("stopping thread...", flush=True)
         self._run_flag=False
-        self.change_pixmap_signal.emit(np.array([]))
+        self.change_pixmap_signal.emit(np.array([]), -1)
         while videoActive:
             pass
-        print("done.", flush=True)
+        #print("done.", flush=True)
     
     def getFrameCount(self):
         return self.frame_count
@@ -842,7 +862,7 @@ class VideoThread(QThread):
         if ret and self._run_flag:
             self.currentFrame=frame_number
             self.slider.setValue(self.currentFrame)
-            self.change_pixmap_signal.emit(cv_img)
+            self.change_pixmap_signal.emit(cv_img, self.uid)
         else:
             self._run_flag = False
                 
@@ -866,6 +886,7 @@ class Display(QLabel):
     def __init__(self, pushbutton, slider, update, loaded):
         super().__init__()
         self.qt_img=None
+        self.displayUid=0
         self.setStyleSheet("background : black; color: white;")
         self.button = pushbutton
         self.button.setVisible(False)
@@ -903,15 +924,21 @@ class Display(QLabel):
     def minimumSizeHint(self):
         return QSize(50, 50)
 
-    @pyqtSlot(ndarray)
-    def update_image(self, cv_img):
+    @pyqtSlot(ndarray, int)
+    def update_image(self, cv_img, uid):
+        #print("update Image", flush=True)
+        if uid!=self.displayUid:
+            #print("update Image - ignored", flush=True)
+            return
         if cv_img is None or cv_img.size == 0:
+            #print("update Image - none", flush=True)
             self.qt_img = None
             self.imggeometry=self.size()
             blackpixmap = QPixmap(16,16)
             blackpixmap.fill(Qt.black)
             self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
         else:
+            #print("update Image - cv", flush=True)
             self.qt_img = self.convert_cv_qt(cv_img)
             
             w = self.qt_img.width()
@@ -953,23 +980,26 @@ class Display(QLabel):
     def setVideo(self, filepath):
         self.frame_count=-1
         self.filepath = filepath
+        self.displayUid+=1
         if self.onUpdateFile:
             self.onUpdateFile()
-        self.startVideo()
+        self.startVideo(self.displayUid)
 
     def setImage(self, filepath):
         self.frame_count=-1
         self.filepath = filepath
+        self.displayUid+=1
         if self.onUpdateFile:
             self.onUpdateFile()
         cv_img  = cv2.imread(self.filepath)
-        self.update_image(cv_img)        
+        #print("setImage from cv2", flush=True)
+        self.update_image(cv_img, self.displayUid)        
 
     def stopAndBlackout(self):
         if self.thread:
             self.releaseVideo()
         else:
-            self.update_image(np.array([]))
+            self.update_image(np.array([]), -1)
         
     def registerForUpdates(self, onUpdateImage):
         self.onUpdateImage = onUpdateImage
@@ -980,7 +1010,7 @@ class Display(QLabel):
     def registerForTrimUpdate(self, onCropOrTrim):
         self.onCropOrTrim = onCropOrTrim
 
-    def startVideo(self):
+    def startVideo(self, uid):
         if self.thread:
             self.releaseVideo()
         try:
@@ -989,7 +1019,9 @@ class Display(QLabel):
             pass
         self.button.setIcon(QIcon(os.path.join(path, '../../gui/img/pause80.png')))
         self.button.setVisible(True)
-        self.thread = VideoThread(self.filepath, self.slider, self.updatePaused, self.onVideoLoaded)
+        self.thread = VideoThread(self.filepath, uid, self.slider, self.updatePaused, self.onVideoLoaded)
+        global rememberThread
+        rememberThread=self.thread
         self.trimAFrame=0
         self.trimBFrame=0
         self.slider.resetAB()
@@ -1000,10 +1032,12 @@ class Display(QLabel):
 
     def releaseVideo(self):
         if self.thread:
-            self.thread.change_pixmap_signal.disconnect(self.update_image)
-            self.thread.stop()
-            self.button.clicked.disconnect(self.tooglePausePressed)
+            t=self.thread
             self.thread=None
+            self.button.clicked.disconnect(self.tooglePausePressed)
+            t.change_pixmap_signal.disconnect(self.update_image)
+            t.requestStop()
+            self.update_image(np.array([]), -1)
 
     def onVideoLoaded(self):
         if self.thread:

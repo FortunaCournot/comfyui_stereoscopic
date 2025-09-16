@@ -154,6 +154,9 @@ else
 		if [ -e "$TARGETPREFIX"".mp4" ] ; then
 			rm -f -- "$TARGETPREFIX"".mkv"
 			mv -vf "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
+			#[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all:all= -overwrite_original "$TARGETPREFIX"".mp4"
+			#[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$INPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$TARGETPREFIX"".mp4" && echo "ItemList tags copied."
+			[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$INPUT" -xmp:rating -SharedUserRating -overwrite_original "$TARGETPREFIX"".mp4" && echo "Rating tags copied."
 			mkdir -p input/vr/scaling/done
 			mv -f -- "$INPUT" input/vr/scaling/done
 			echo -e $"\e[92mdone\e[0m"

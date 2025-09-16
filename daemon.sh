@@ -192,8 +192,8 @@ else
 			if [ $WMECOUNT -gt 0 ] ; then
 				WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL=/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
 				if [[ -z $WATERMARK_LABEL ]] ; then
-					echo -e $"\e[91mError:\e[0m You must configure WATERMARK_LABEL in $CONFIGFILE to encrypt. exiting."
-					exit
+					echo -e $"\e[93mWarning:\e[0m You must configure WATERMARK_LABEL in $CONFIGFILE to encrypt."
+					WMECOUNT=0
 				fi
 			fi
 			

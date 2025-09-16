@@ -47,6 +47,12 @@ forwards:
   - from: scaling
     rules:
       - rule:
+          to: tasks/hlimit-2160
+          conditions:
+            - display_aspect_ratio<800
+            - sbs=false
+            - width>2160
+      - rule:
           to: tasks/vlimit-2160p
           conditions:
             - sbs=false
@@ -60,6 +66,16 @@ forwards:
           to: fullsbs
           conditions:
             - sbs=false
+  - from: tasks/hlimit-2160
+    rules:
+      - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+      - rule:
+          to: watermark/encrypt
+          conditions:
+            - duration<1
   - from: tasks/vlimit-2160p
     rules:
       - rule:
@@ -90,16 +106,6 @@ forwards:
             - width<7681
             - r_frame_rate<31
       - rule:
-          to: tasks/vlimit-720p
-          conditions:
-            - duration<60
-            - tvai=true
-      - rule:
-          to: tasks/vlimit-720p
-          conditions:
-            - duration<60
-            - vram>6
-      - rule:
           to: singleloop
           conditions:
             - codec_type!=audio
@@ -109,9 +115,7 @@ forwards:
           conditions:
             - codec_type!=audio
       - rule:
-          to: tasks/vlimit-2160p
-          conditions:
-            - duration<1
+          to: watermark/encrypt
   - from: tasks/vlimit-720p
     rules:
       - rule:

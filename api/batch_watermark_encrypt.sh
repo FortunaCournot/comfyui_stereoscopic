@@ -82,6 +82,7 @@ else
 	WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL=/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
 	WATERMARK_LABEL="${WATERMARK_LABEL//[^[:alnum:].-]/_}"
 	WATERMARK_LABEL="${WATERMARK_LABEL:0:17}"
+	mkdir -p "./user/default/comfyui_stereoscopic/watermark/$WATERMARK_SECRETKEY"
 	WATERMARK_STOREFOLDER=`realpath ./user/default/comfyui_stereoscopic/watermark/$WATERMARK_SECRETKEY`
 	mkdir -p $WATERMARK_STOREFOLDER
 	
