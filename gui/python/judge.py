@@ -43,16 +43,161 @@ if path not in sys.path:
 class JudgeDialog(QDialog):
 
     def __init__(self):
-        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMaximizeButtonHint)
+        super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
 
         #Set the main layout
         self.setWindowTitle("VR We Are - Check Files: Judge")
         self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
-        self.setMaximumSize(QSize(1920,1080))
-        self.setGeometry(150, 150, 1280, 768)
+        self.setMaximumSize(QSize(640,480))
+        self.setMinimumSize(QSize(640,480))
+        self.setGeometry(150, 150, 640, 480)
         self.outer_main_layout = QVBoxLayout()
         self.setLayout(self.outer_main_layout)
         self.setStyleSheet("background : black; color: white;")
+        self.sw=1
+        
+        # layout in Grid
+        self.display_layout = QGridLayout()
+        self.display_layout.setSizeConstraint(QLayout.SetMinimumSize)
+        self.outer_main_layout.addLayout(self.display_layout)
+        
+        # Make Labels for cells: 0,1-5=catStatusLabels, 1,1-5=catCountLabels, 2-4,1-5 is reserved for actions
+        self.catStatusLabels = []
+        self.catCountLabels = []
+        font = QFont()
+        font.setPointSize(20)
+        pmSpace = QPixmap(os.path.join(path, '../../gui/img/black80.png'))
+        space = QLabel()
+        space.setPixmap(pmSpace)
+        sw=self.sw
+        self.display_layout.addWidget(space, 0, 0, sw, 1)
+        for c in range(5):
+            label = QLabel()
+            self.catStatusLabels.append(label)
+            self.display_layout.addWidget(label, 0, sw+c, 1, 1)
+            self.display_layout.setAlignment(label,  Qt.AlignHCenter | Qt.AlignBottom)
+            label = QLabel()
+            label.setFont(font)
+            self.catCountLabels.append(label)
+            self.display_layout.addWidget(label, 1, sw+c, 1, 1)
+            self.display_layout.setAlignment(label,  Qt.AlignHCenter | Qt.AlignTop)
+        space = QLabel()
+        space.setPixmap(pmSpace)
+        self.display_layout.addWidget(space, 0, sw+5, sw, 1)
 
-           
+        # Action List, Icons for Actions
+        self.actionList = []
+        self.iconActionDelete=QIcon(os.path.join(path, '../../gui/img/trash80.png'))
+        self.iconActionArchive=QIcon(os.path.join(path, '../../gui/img/archive80.png'))
+        self.iconActionForward=QIcon(os.path.join(path, '../../gui/img/ok80.png'))
+
+        # Status Images
+        self.pmStatusNoFiles=QPixmap(os.path.join(path, '../../gui/img/starnnothing80.png'))
+        self.pmStatusArchived=QPixmap(os.path.join(path, '../../gui/img/stararchive80.png'))
+        self.pmStatusDeleted=QPixmap(os.path.join(path, '../../gui/img/stardel80.png'))
+        self.pmStatusForwarded=QPixmap(os.path.join(path, '../../gui/img/starforward80.png'))
+        self.pmStatusToDo=QPixmap(os.path.join(path, '../../gui/img/startodo80.png'))
+
+        # Take rest of layout below at row 5
+        space = QLabel()
+        space.setPixmap(pmSpace)
+        self.display_layout.addWidget(space, 2, 0, 1, 1)
+        space = QLabel()
+        space.setPixmap(pmSpace)
+        self.display_layout.addWidget(space, 3, 0, 1, 1)
+        space = QLabel()
+        space.setPixmap(pmSpace)
+        self.display_layout.addWidget(space, 4, 0, 1, 1)
+        space = QLabel()
+        space.setPixmap(pmSpace)
+        self.display_layout.addWidget(space, 5, 0, sw, 1)
+            
+        self.done = QLabel()
+        self.done.setPixmap(QPixmap(os.path.join(path, '../../gui/img/donedone.png')))
+
+        fileCounts = self.updateContents()
+        for c in range(5):
+            if fileCounts[c]==0:
+                self.catStatusLabels[c].setPixmap(self.pmStatusNoFiles)
+            else:
+                self.catStatusLabels[c].setPixmap(self.pmStatusToDo)
+
+    def removeActions(self):
+        for a in self.actionList:
+            self.display_layout.removeWidget(a)
+        self.actionList = []
+            
+    def updateContents(self):
+        
+        folder = os.path.join(path, "../../../../output/vr/check/rate")
+        fileCounts = []
+        for c in range(5):
+            subfolder = os.path.join(folder, str(c+1))
+            try:
+                files = next(os.walk(subfolder))[2]
+                fileCounts.append((len(files)))
+            except StopIteration as e:
+                fileCounts.append(0)
+
+        for c in range(5):
+            if fileCounts[c]==0:
+                self.catCountLabels[c].setText("")
+            else:
+                self.catCountLabels[c].setText(str(fileCounts[c]))
+
+        self.removeActions()
+
+        highest=-1
+        for c in reversed(range(5)):
+            if fileCounts[c]!=0:
+                highest=c
+                break
+    
+        if highest<0:
+            if self.done!=None:
+                self.display_layout.addWidget(self.done, 2, 0, 4, 5+2*self.sw)
+                self.display_layout.setAlignment(self.done,  Qt.AlignHCenter | Qt.AlignTop)
+                self.done=None
+        else:
+            lowest=-1
+            for c in range(5):
+                if fileCounts[c]!=0:
+                    lowest=c                    
+                    break
+            
+
+            sw = self.sw
+            
+            action = ActionButton(highest)
+            action.setIcon(self.iconActionForward)
+            action.setIconSize(QSize(80,80))
+            #action.clicked.connect(self.mycaction)
+            self.display_layout.addWidget(action, 2, sw+highest, 1, 1)
+            self.display_layout.setAlignment(action,  Qt.AlignHCenter | Qt.AlignVCenter)
+            self.actionList.append(action)
+
+            action = ActionButton(lowest)
+            action.setIcon(self.iconActionArchive)
+            action.setIconSize(QSize(80,80))
+            #action.clicked.connect(self.mycaction)
+            self.display_layout.addWidget(action, 3, sw+lowest, 1, 1)
+            self.display_layout.setAlignment(action,  Qt.AlignHCenter | Qt.AlignVCenter)
+            self.actionList.append(action)
+            
+            action = ActionButton(lowest)
+            action.setIcon(self.iconActionDelete)
+            action.setIconSize(QSize(80,80))
+            #action.clicked.connect(self.mycaction)
+            self.display_layout.addWidget(action, 4, sw+lowest, 1, 1)
+            self.display_layout.setAlignment(action,  Qt.AlignHCenter | Qt.AlignVCenter)
+            self.actionList.append(action)
+
+        return fileCounts
+
+class ActionButton(QPushButton):
+    def __init__(self, catIndex):
+        super().__init__()
+        self.catIndex = catIndex
+        #self.button_prev_file.setStyleSheet("background : black; color: white;")
+        #self.updateStylesheet()
 

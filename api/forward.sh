@@ -245,6 +245,7 @@ else
 										done
 									fi
 									[ -z "$RULEFAILED" ] && mv -fv -- $file input/vr/$destination
+									
 								done
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
