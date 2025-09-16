@@ -116,6 +116,7 @@ class RateAndCutDialog(QDialog):
         self.button_compress.setIconSize(QSize(80,80))
         self.button_compress.setEnabled(False)
         self.button_compress.setVisible(cutMode)
+        self.button_compress.clicked.connect(self.archiveAndNext)
         
         self.button_next_file = ActionButton()
         self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/nextf80.png')))
@@ -352,48 +353,6 @@ class RateAndCutDialog(QDialog):
             self.logn(" not found", QColor("red"))
 
 
-
-
-    def deleteAndNext(self):
-        self.button_prev_file.setEnabled(False)
-        self.button_next_file.setEnabled(False)
-        
-        files=getFilesToRate()
-        l=len(files)
-        index=files.index(self.currentFile)
-                    
-        folder=os.path.join(path, "../../../../input/vr/check/rate")
-        input=os.path.abspath(os.path.join(folder, self.currentFile))
-        self.log("Deleting " + os.path.basename(input), QColor("white"))
-        if os.path.isfile(input):
-            try:
-                self.display.stopAndBlackout()
-                
-                os.remove(input)
-                
-                files=getFilesToRate()
-                l=len(files)
-
-                if l==0:    # last file deleted?
-                    self.closeOnError("last file deleted (deleteAndNext)")
-
-                global filesToRate
-                filesToRate=files
-
-                if index>=l:
-                    index=l-1
-                    
-                self.currentFile=files[index]
-                self.rateCurrentFile()
-
-                self.logn(" done", QColor("green"))
-                
-            except Exception as any_ex:
-                print(traceback.format_exc(), flush=True)                
-                self.logn(" failed", QColor("red"))
-        else:
-            self.logn(" not found", QColor("red"))
-
         
     def rateNext(self):
         self.button_prev_file.setEnabled(False)
@@ -470,7 +429,7 @@ class RateAndCutDialog(QDialog):
             newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
             output=os.path.abspath(os.path.join(folder, newfilename))
             self.log("Create snapshot "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i '" + input + "' -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 '" + output + "'"
+            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 \"" + output + "\""
             try:
                 recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
@@ -488,6 +447,88 @@ class RateAndCutDialog(QDialog):
         self.button_compress.setEnabled(True)        
         self.button_compress.setFocus()
 
+    def deleteAndNext(self):
+        self.button_prev_file.setEnabled(False)
+        self.button_next_file.setEnabled(False)
+        
+        files=getFilesToRate()
+        index=files.index(self.currentFile)
+                    
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, self.currentFile))
+        self.log("Deleting " + os.path.basename(input), QColor("white"))
+        if os.path.isfile(input):
+            try:
+                self.display.stopAndBlackout()
+                
+                os.remove(input)
+                
+                files=getFilesToRate()
+                l=len(files)
+
+                if l==0:    # last file deleted?
+                    self.closeOnError("last file deleted (deleteAndNext)")
+
+                global filesToRate
+                filesToRate=files
+
+                if index>=l:
+                    index=l-1
+                    
+                self.currentFile=files[index]
+                self.rateCurrentFile()
+
+                self.logn(" done", QColor("green"))
+                
+            except Exception as any_ex:
+                print(traceback.format_exc(), flush=True)                
+                self.logn(" failed", QColor("red"))
+        else:
+            self.logn(" not found", QColor("red"))
+
+
+    def archiveAndNext(self):
+        self.button_compress.setEnabled(False)
+        
+        files=getFilesToRate()
+        index=files.index(self.currentFile)
+        
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        targetfolder = os.path.join(path, "../../../../input/vr/check/rate/done")
+        os.makedirs(targetfolder, exist_ok=True)
+        try:
+            source=os.path.join(folder, self.currentFile)
+            destination=os.path.join(targetfolder, self.currentFile)
+            
+            self.display.stopAndBlackout()
+            
+            self.log("Archive "+self.currentFile, QColor("white"))
+            recreated=os.path.exists(destination)
+            os.replace(source, destination)
+            
+            files=getFilesToRate()
+            l=len(files)
+
+            if l==0:    # last file deleted?
+                self.closeOnError("last file deleted (archiveAndNext)")
+
+            global filesToRate
+            filesToRate=files
+
+            if index>=l:
+                index=l-1
+                
+            self.currentFile=files[index]
+            self.rateCurrentFile()
+                
+            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+
+        except Exception as anyex:
+            self.logn(" Failed", QColor("red"))
+            print("Error archiving " + source, flush=True)
+            print(traceback.format_exc(), flush=True)
+
+        
     def createTrimedAndCroppedCopy(self):
         self.button_cutandclone.setEnabled(False)
         self.hasCropOrTrim=False
@@ -510,10 +551,10 @@ class RateAndCutDialog(QDialog):
             x=self.cropWidget.crop_left
             y=self.cropWidget.crop_top
             self.log("Create "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i '" + input + "' -vf \""
+            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \""
             if self.isVideo:
                 cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
-            cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" '" + output + "'"
+            cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
             try:
                 recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
@@ -532,6 +573,9 @@ class RateAndCutDialog(QDialog):
         self.button_compress.setFocus()
 
     def onVideoloaded(self):
+        if self.display.frame_count<0:
+            self.logn("Loading video failed. Archiving forced...", QColor("red"))
+            self.archiveAndNext()
         pass
 
 
@@ -685,11 +729,14 @@ class VideoThread(QThread):
         
         if not os.path.exists(self.filepath):
             print("Failed to open", self.filepath, flush=True)
+            self.onVideoLoaded()
             return
             
         self.cap = cv2.VideoCapture(self.filepath)
         if not self.cap.isOpened():
             print("Failed to open", self.filepath, flush=True)
+            self.cap=None
+            self.onVideoLoaded()
             return
 
         self._run_flag = True
@@ -936,9 +983,16 @@ class Display(QLabel):
 
     def onVideoLoaded(self):
         if self.thread:
-            self.frame_count=self.thread.frame_count
-            self.trimAFrame=0
-            self.trimBFrame=self.frame_count-1
+            if not videoActive:
+                self.button.clicked.disconnect(self.tooglePausePressed)
+                self.thread=None
+                self.frame_count=-1
+                self.trimAFrame=0
+                self.trimBFrame=-1
+            else:
+                self.frame_count=self.thread.frame_count
+                self.trimAFrame=0
+                self.trimBFrame=self.frame_count-1
             self.loaded()
         
     def updatePaused(self, isPaused):
