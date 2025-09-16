@@ -68,9 +68,16 @@ class RateAndCutDialog(QDialog):
         self.isPaused = False
         self.currentFile = None
         
+        exifpath=gitbash_to_windows_path(config("EXIFTOOLBINARY", ""))
+        if len(exifpath)>0 and os.path.exists(exifpath):
+            self.exifpath=exifpath
+        else:
+            self.exifpath=None
+            print("Warning: Exifpath not found.", exifpath, len(exifpath), flush=True)
+        
         #Set the main layout
         if cutMode:
-            self.setWindowTitle("VR We Are - Check Files: Cut and Trim")
+            self.setWindowTitle("VR We Are - Check Files: Edit")
         else:
             self.setWindowTitle("VR We Are - Check Files: Rating")
         self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
@@ -262,7 +269,8 @@ class RateAndCutDialog(QDialog):
 
     def onCropOrTrim(self):
         self.hasCropOrTrim=True
-        self.button_cutandclone.setEnabled(True)
+        if cutMode:
+            self.button_cutandclone.setEnabled(True)
 
     def update_filebuttons(self):
         global filesToRate
@@ -283,15 +291,15 @@ class RateAndCutDialog(QDialog):
             self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))
         else:
             self.fileLabel.setText("")
-            self.button_trima_video.setEnabled(False)
-            self.button_trimb_video.setEnabled(False)
-            self.button_snapshot_from_video.setEnabled(False)
-            self.button_cutandclone.setEnabled(False)
+            if cutMode:
+                self.button_trima_video.setEnabled(False)
+                self.button_trimb_video.setEnabled(False)
+                self.button_snapshot_from_video.setEnabled(False)
+                self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
  
-
-    def on_rating_changed(self, value):
-        print(f"Rating selected: {value}")
+    def on_rating_changed(self, rating):
+        print(f"Rating selected: {rating}")
 
         files=getFilesToRate()
         l=len(files)
@@ -299,25 +307,23 @@ class RateAndCutDialog(QDialog):
             self.closeOnError("no files (on_rating_changed)")
             return
 
-        if not self.currentFile:
-            self.currentFile = files[0]
-        else:
-            try:
-                index=files.index(self.currentFile)
-                if l>index+1:
-                    self.currentFile=files[index+1]
-                else:
-                    self.currentFile=files[-1]
-            except ValueError as ve:
-                self.currentFile = files[0]
-
         folder_in=os.path.join(path, "../../../../input/vr/check/rate")
-        folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{value}")
+        folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
         os.makedirs(folder_out, exist_ok = True)
         input=os.path.abspath(os.path.join(folder_in, self.currentFile))
         output=os.path.abspath(os.path.join(folder_out, self.currentFile))
-        
-        self.log(f"Rated {value} on " + self.currentFile, QColor("white"))
+
+        # prepare next
+        try:
+            index=files.index(self.currentFile)
+            if l>index+1:
+                self.currentFile=files[index+1]
+            else:
+                self.currentFile=files[-1]
+        except ValueError as ve:
+            self.currentFile = files[0]
+
+        self.log(f"Rated {rating} on " + self.currentFile, QColor("white"))
         if os.path.isfile(input):
             try:
                 self.display.stopAndBlackout()
@@ -338,14 +344,29 @@ class RateAndCutDialog(QDialog):
 
                 if index>=l:
                     index=l-1
-                    
+                if index>=len(files) or index<0:
+                    self.closeOnError("last file !? (on_rating_changed)")
+
                 self.rating_widget.clear_rating()
                     
                 self.currentFile=files[index]
                 self.rateCurrentFile()
 
-                self.logn(" Overwritten" if recreated else " Moved", QColor("green"))
+                self.log(" Overwritten" if recreated else " Moved", QColor("green"))
                 
+                if not self.exifpath is None:
+                    # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
+                    rating_percent_values = [0, 1, 25,50, 75, 99]   # mp4
+                    cmd = self.exifpath + f" -xmp:rating={rating} -SharedUserRating={rating_percent_values[rating]}" + " -overwrite_original \"" + output + "\""
+                    try:
+                        cp = subprocess.run(cmd, shell=True, check=True)
+                        self.logn(",Rated.", QColor("green"))
+                    except subprocess.CalledProcessError as se:
+                        self.logn(" Failed", QColor("red"))
+                        print("Failed: "  + cmd, flush=True)
+                else:
+                    self.logn(".", QColor("white"))
+                    
             except Exception as any_ex:
                 print(traceback.format_exc(), flush=True)                
                 self.logn(" failed", QColor("red"))
@@ -357,6 +378,7 @@ class RateAndCutDialog(QDialog):
     def rateNext(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
+        self.button_compress.setEnabled(False)
 
         files=getFilesToRate()
         if len(files)==0:
@@ -381,6 +403,7 @@ class RateAndCutDialog(QDialog):
     def ratePrevious(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
+        self.button_compress.setEnabled(False)
 
         files=getFilesToRate()
         if len(files)==0:
@@ -566,6 +589,7 @@ class RateAndCutDialog(QDialog):
             except subprocess.CalledProcessError as se:
                 self.logn(" Failed", QColor("red"))
                 print("Failed: "  + cmd, flush=True)
+                print(traceback.format_exc(), flush=True)
         except ValueError as e:
             pass
         self.button_cutandclone.setEnabled(True)
@@ -892,7 +916,7 @@ class Display(QLabel):
             
             w = self.qt_img.width()
             h = self.qt_img.height()
-            print("original_pixmap (Display)", w, h, flush=True)
+            #print("original_pixmap (Display)", w, h, flush=True)
             
             self.imggeometry=self.size()
             self.setPixmap(self.qt_img.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
@@ -1200,12 +1224,12 @@ class CropWidget(QWidget):
         
         self.sourceWidth=sourcePixmap.width()
         self.sourceHeight=sourcePixmap.height()
-        print("sourcePixmap", self.sourceWidth, self.sourceHeight, flush=True)
+        #print("sourcePixmap", self.sourceWidth, self.sourceHeight, flush=True)
         
         scaledPixmap = self.image_label.getScaledPixmap()
         self.scaledWidth=sourcePixmap.width()
         self.scaledHeight=sourcePixmap.height()
-        print("scaledPixmap", self.scaledWidth, self.scaledHeight, flush=True)
+        #print("scaledPixmap", self.scaledWidth, self.scaledHeight, flush=True)
 
         pixmap = self.image_label.getUnscaledPixmap()
         if pixmap is None or pixmap.isNull():
@@ -1215,7 +1239,7 @@ class CropWidget(QWidget):
         self.original_pixmap = pixmap.copy()
         w = self.original_pixmap.width()
         h = self.original_pixmap.height()
-        print("original_pixmap", w, h, flush=True)
+        #print("original_pixmap", w, h, flush=True)
         
         
         self.display_pixmap = pixmap.copy()
@@ -1418,7 +1442,7 @@ class CropWidget(QWidget):
         if self.center_x < 0:
             return
 
-        if not self.image_label.thread==None:
+        if not self.image_label.thread is None:
             if not self.image_label.thread.pause:
                 self.magnifier.hide()
                 return
@@ -1558,3 +1582,27 @@ def pil2pixmap(im):
     pixmap = QPixmap.fromImage(qim)
     return pixmap
 
+def config(key, default):
+        cfgFile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")
+        try:
+            if os.path.exists(cfgFile):
+                with open(cfgFile) as file:
+                    cfglines = [line.rstrip() for line in file]
+                    for line in range(len(cfglines)):
+                        inputMatch=re.match(r"^"+key+r"=", cfglines[line])
+                        if inputMatch:
+                            valuepart=cfglines[line][inputMatch.end():]
+                            return valuepart  
+            return default
+        except Exception as e:
+            print(traceback.format_exc(), flush=True)
+            return default
+            
+
+def gitbash_to_windows_path(unix_path: str) -> str:
+    if unix_path.startswith('/') and len(unix_path) > 2 and unix_path[1].isalpha() and unix_path[2] == '/':
+        drive_letter = unix_path[1].upper()
+        rest_of_path = unix_path[3:]
+        return os.path.join(f"{drive_letter}:", *rest_of_path.split('/'))
+    return os.path.join(*unix_path.split('/'))
+    

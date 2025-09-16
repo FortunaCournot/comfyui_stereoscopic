@@ -47,7 +47,7 @@ class JudgeDialog(QDialog):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
 
         #Set the main layout
-        self.setWindowTitle("VR We Are - Check Files: Judge")
+        self.setWindowTitle("VR We Are - Check Files: Release")
         self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
         self.setMaximumSize(QSize(640,480))
         self.setMinimumSize(QSize(640,480))
@@ -127,7 +127,7 @@ class JudgeDialog(QDialog):
     def executeForward(self, catIndex):
         folder = os.path.join(path, "../../../../output/vr/check/rate")
         subfolder = os.path.join(folder, str(catIndex+1))
-        targetfolder = os.path.join(path, "../../../../output/vr/check/judge")
+        targetfolder = os.path.join(path, "../../../../output/vr/check/released")
         os.makedirs(targetfolder, exist_ok=True)
         try:
             files = next(os.walk(subfolder))[2]
@@ -138,6 +138,7 @@ class JudgeDialog(QDialog):
                     os.rename(source, destination)
                 except Exception as anyex:
                     print("Error forwarding " + source, flush=True)
+                    print(traceback.format_exc(), flush=True)
         except StopIteration as e:
             print("Error forwarding " + "StopIteration", flush=True)
         self.catStatusLabels[catIndex].setPixmap(self.pmStatusForwarded)
@@ -146,7 +147,7 @@ class JudgeDialog(QDialog):
     def executeArchive(self, catIndex):
         folder = os.path.join(path, "../../../../output/vr/check/rate")
         subfolder = os.path.join(folder, str(catIndex+1))
-        targetfolder = os.path.join(path, "../../../../input/vr/check/judge/done")
+        targetfolder = os.path.join(path, "../../../../input/vr/check/released/done")
         os.makedirs(targetfolder, exist_ok=True)
         try:
             files = next(os.walk(subfolder))[2]
@@ -157,6 +158,7 @@ class JudgeDialog(QDialog):
                     os.rename(source, destination)
                 except Exception as anyex:
                     print("Error archiving " + source, flush=True)
+                    print(traceback.format_exc(), flush=True)
         except StopIteration as e:
             print("Error archiving " + "StopIteration", flush=True)
         self.catStatusLabels[catIndex].setPixmap(self.pmStatusArchived)
@@ -173,6 +175,7 @@ class JudgeDialog(QDialog):
                     os.remove(source)
                 except Exception as anyex:
                     print("Error deleting " + source, flush=True)
+                    print(traceback.format_exc(), flush=True)
         except StopIteration as e:
             print("Error deleting " + "StopIteration", flush=True)
         self.catStatusLabels[catIndex].setPixmap(self.pmStatusDeleted)
@@ -210,7 +213,7 @@ class JudgeDialog(QDialog):
                 break
     
         if highest<0:
-            if self.done!=None:
+            if not self.done is None:
                 self.display_layout.addWidget(self.done, 2, 0, 4, 5+2*self.sw)
                 self.display_layout.setAlignment(self.done,  Qt.AlignHCenter | Qt.AlignTop)
                 self.done=None
