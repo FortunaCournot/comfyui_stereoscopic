@@ -8,6 +8,7 @@ import time
 import traceback
 import urllib.request
 import webbrowser
+from functools import partial
 from itertools import chain
 from random import randrange
 from urllib.error import HTTPError
@@ -122,6 +123,61 @@ class JudgeDialog(QDialog):
             else:
                 self.catStatusLabels[c].setPixmap(self.pmStatusToDo)
 
+
+    def executeForward(self, catIndex):
+        folder = os.path.join(path, "../../../../output/vr/check/rate")
+        subfolder = os.path.join(folder, str(catIndex+1))
+        targetfolder = os.path.join(path, "../../../../output/vr/check/judge")
+        os.makedirs(targetfolder, exist_ok=True)
+        try:
+            files = next(os.walk(subfolder))[2]
+            for f in files:
+                try:
+                    source=os.path.join(subfolder, f)
+                    destination=os.path.join(targetfolder, f)
+                    os.rename(source, destination)
+                except Exception as anyex:
+                    print("Error forwarding " + source, flush=True)
+        except StopIteration as e:
+            print("Error forwarding " + "StopIteration", flush=True)
+        self.catStatusLabels[catIndex].setPixmap(self.pmStatusForwarded)
+        self.updateContents()
+
+    def executeArchive(self, catIndex):
+        folder = os.path.join(path, "../../../../output/vr/check/rate")
+        subfolder = os.path.join(folder, str(catIndex+1))
+        targetfolder = os.path.join(path, "../../../../input/vr/check/judge/done")
+        os.makedirs(targetfolder, exist_ok=True)
+        try:
+            files = next(os.walk(subfolder))[2]
+            for f in files:
+                try:
+                    source=os.path.join(subfolder, f)
+                    destination=os.path.join(targetfolder, f)
+                    os.rename(source, destination)
+                except Exception as anyex:
+                    print("Error archiving " + source, flush=True)
+        except StopIteration as e:
+            print("Error archiving " + "StopIteration", flush=True)
+        self.catStatusLabels[catIndex].setPixmap(self.pmStatusArchived)
+        self.updateContents()
+
+    def executeDelete(self, catIndex):
+        folder = os.path.join(path, "../../../../output/vr/check/rate")
+        subfolder = os.path.join(folder, str(catIndex+1))
+        try:
+            files = next(os.walk(subfolder))[2]
+            for f in files:
+                try:
+                    source=os.path.join(subfolder, f)
+                    os.remove(source)
+                except Exception as anyex:
+                    print("Error deleting " + source, flush=True)
+        except StopIteration as e:
+            print("Error deleting " + "StopIteration", flush=True)
+        self.catStatusLabels[catIndex].setPixmap(self.pmStatusDeleted)
+        self.updateContents()
+
     def removeActions(self):
         for a in self.actionList:
             self.display_layout.removeWidget(a)
@@ -171,7 +227,7 @@ class JudgeDialog(QDialog):
             action = ActionButton(highest)
             action.setIcon(self.iconActionForward)
             action.setIconSize(QSize(80,80))
-            #action.clicked.connect(self.mycaction)
+            action.clicked.connect(partial(self.executeForward, highest))
             self.display_layout.addWidget(action, 2, sw+highest, 1, 1)
             self.display_layout.setAlignment(action,  Qt.AlignHCenter | Qt.AlignVCenter)
             self.actionList.append(action)
@@ -179,7 +235,7 @@ class JudgeDialog(QDialog):
             action = ActionButton(lowest)
             action.setIcon(self.iconActionArchive)
             action.setIconSize(QSize(80,80))
-            #action.clicked.connect(self.mycaction)
+            action.clicked.connect(partial(self.executeArchive, lowest))
             self.display_layout.addWidget(action, 3, sw+lowest, 1, 1)
             self.display_layout.setAlignment(action,  Qt.AlignHCenter | Qt.AlignVCenter)
             self.actionList.append(action)
@@ -187,8 +243,8 @@ class JudgeDialog(QDialog):
             action = ActionButton(lowest)
             action.setIcon(self.iconActionDelete)
             action.setIconSize(QSize(80,80))
-            #action.clicked.connect(self.mycaction)
-            self.display_layout.addWidget(action, 4, sw+lowest, 1, 1)
+            action.clicked.connect(partial(self.executeDelete, lowest))
+            self.display_layout.addWidget(action, 4, sw+lowest , 1, 1)
             self.display_layout.setAlignment(action,  Qt.AlignHCenter | Qt.AlignVCenter)
             self.actionList.append(action)
 
