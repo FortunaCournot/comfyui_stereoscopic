@@ -220,7 +220,7 @@ else
 											fi
 										done
 									fi
-									[ -z "$RULEFAILED" ] && mv -fv -- $file input/vr/$destination
+									[ -z "$RULEFAILED" ] && [ `stat --format=%Y $file` -le $(( `date +%s` - 60 )) ] && mv -f -- $file input/vr/$destination && echo "Moved $file --> $destination"
 								done
 							elif  [[ $i == "image" ]] ; then
 								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
@@ -246,8 +246,7 @@ else
 											fi
 										done
 									fi
-									[ -z "$RULEFAILED" ] && mv -fv -- $file input/vr/$destination
-									
+									[ -z "$RULEFAILED" ] && [ `stat --format=%Y $file` -le $(( `date +%s` - 60 )) ] && mv -f -- $file input/vr/$destination && echo "Moved $file --> $destination"
 								done
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
