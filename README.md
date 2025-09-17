@@ -21,8 +21,7 @@ VR we are!
 ## Installation
 
 You need to install ComfyUI (Python 3.12), Git Bash (for Windows) and FFmpeg. Installing ComfyUI Desktop is simpler for this task, however, this tool has been developed with ComfyUI Portable.
-
-For more details, please follow the documentation link above.
+The tool has many dependencies and you must follow the installation steps in the documentation to succeed. The documentation link (head) is at top and included in the released packages.
 
 ## Contact
 
