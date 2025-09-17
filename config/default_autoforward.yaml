@@ -162,3 +162,7 @@ forwards:
     rules:
       - rule:
           to: check/released
+  - from: check/released
+    rules:
+      - rule:
+          to: caption
