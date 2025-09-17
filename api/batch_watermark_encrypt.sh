@@ -179,6 +179,7 @@ else
 					exit 0
 				fi
 				
+				queuecount=
 				until [ "$queuecount" = "0" ]
 				do
 					sleep 1
@@ -191,6 +192,7 @@ else
 						echo -e "$INDEX/$COUNT: "$"\e[91mFailed: Source file already in storage!\e[0m ""$WATERMARK_STOREFOLDER/$STORENAME""                      "
 						mkdir -p input/vr/watermark/encrypt/error
 						mv "$newfn" input/vr/watermark/encrypt/error
+						rm -rf $INTERMEDIATEFOLDER
 					else
 						[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$newfn" -all:all -overwrite_original "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" && echo "tags copied."
 						mv -vf "$newfn" "$WATERMARK_STOREFOLDER/$STORENAME"
@@ -208,7 +210,6 @@ else
 		done
 				
 	fi	
-	rm -rf $INTERMEDIATEFOLDER
 	echo "Batch done."
 fi
 exit 0
