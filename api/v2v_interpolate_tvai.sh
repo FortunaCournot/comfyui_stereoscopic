@@ -207,10 +207,15 @@ else
 		mv -f -- "$TARGETPREFIX""-part1.mp4" "$TARGETPREFIX".mp4
 	fi
 
+	[ -e "$EXIFTOOLBINARY" ] &&  nice "$FFMPEGPATHPREFIX"ffmpeg -i "$TARGETPREFIX"".mp4" -vcodec libx264 -crf 18 -qscale:v 2 -acodec aac -ac 2 -async 1 -strict experimental -threads 0 output/vr/interpolate/intermediate/exifinput.mp4
+	[ -e "$EXIFTOOLBINARY" ] &&  mv -f -- output/vr/scaling/interpolate/exifinput.mp4 "$TARGETPREFIX"".mp4"
+	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$INPUT" -xmp:rating -SharedUserRating -overwrite_original "$TARGETPREFIX"".mp4" && echo "Rating tags copied."
+
+
 	mv "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
 	mkdir -p input/vr/interpolate/done
 	# do not overwrite done because it can be self-looped
-	if [ ! -e input/vr/interpolate/done/${INPUT%##*/} ] ; then mv -- "$INPUT" input/vr/interpolate/done ; fi
+	if [ ! -e input/vr/interpolate/done/${INPUT##*/} ] ; then mv -- "$INPUT" input/vr/interpolate/done ; fi
 	rm -rf -- output/vr/interpolate/intermediate 2>/dev/null
 	echo -e $"\e[92mdone\e[0m"
 fi

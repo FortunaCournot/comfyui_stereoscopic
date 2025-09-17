@@ -153,10 +153,12 @@ else
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
 		if [ -e "$TARGETPREFIX"".mp4" ] ; then
 			rm -f -- "$TARGETPREFIX"".mkv"
-			mv -vf "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
 			#[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all:all= -overwrite_original "$TARGETPREFIX"".mp4"
 			#[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$INPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$TARGETPREFIX"".mp4" && echo "ItemList tags copied."
+			[ -e "$EXIFTOOLBINARY" ] &&  nice "$FFMPEGPATHPREFIX"ffmpeg -i "$TARGETPREFIX"".mp4" -vcodec libx264 -crf 18 -qscale:v 2 -acodec aac -ac 2 -async 1 -strict experimental -threads 0 output/vr/scaling/intermediate/exifinput.mp4
+			[ -e "$EXIFTOOLBINARY" ] &&  mv -f -- output/vr/scaling/intermediate/exifinput.mp4 "$TARGETPREFIX"".mp4"
 			[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$INPUT" -xmp:rating -SharedUserRating -overwrite_original "$TARGETPREFIX"".mp4" && echo "Rating tags copied."
+			mv -vf "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
 			mkdir -p input/vr/scaling/done
 			mv -f -- "$INPUT" input/vr/scaling/done
 			echo -e $"\e[92mdone\e[0m"
