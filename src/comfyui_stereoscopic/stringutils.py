@@ -1,4 +1,11 @@
 import re
+from datetime import datetime
+
+class Anything(str):
+    def __eq__(self, _) -> bool:
+        return True
+    def __ne__(self, _) -> bool:
+        return False
 
 class RegexSubstitute():
     @classmethod
@@ -17,7 +24,7 @@ class RegexSubstitute():
 
     RETURN_TYPES = ("STRING",)
     FUNCTION = "execute"
-    CATEGORY = "utils/string"
+    CATEGORY = "utils/string/stereoscopic"
 
     def execute(self, string, regex_pattern, repl, count, case_insensitive, multiline, dotall, **kwargs):
         join_delimiter = "\n"
@@ -37,3 +44,24 @@ class RegexSubstitute():
             result = ""
 
         return result,
+        
+
+class strftime:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "anything": (Anything("*"), {"forceInput": True}),
+                "format": ("STRING", {"default": "%y%m%d%H%M%S", "tooltip": "format string. See https://strftime.org/"}),
+            }
+        }
+
+    RETURN_TYPES = (Anything("*"), "STRING")
+    RETURN_NAME = ("anything", "string", )
+    FUNCTION = "_strftime"
+
+    CATEGORY = "utils/string/stereoscopic"
+
+    def _strftime(self, format, anything):
+        s = datetime.today().strftime(format)
+        return (anything, s)

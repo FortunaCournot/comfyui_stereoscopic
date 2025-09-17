@@ -189,7 +189,7 @@ else
 				if [ -e "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" ]; then
 					if [ -e "$WATERMARK_STOREFOLDER/$STORENAME" ]; then
 						echo -e "$INDEX/$COUNT: "$"\e[91mFailed: Source file already in storage!\e[0m ""$WATERMARK_STOREFOLDER/$STORENAME""                      "
-						mkdir input/vr/watermark/encrypt/error
+						mkdir -p input/vr/watermark/encrypt/error
 						mv "$newfn" input/vr/watermark/encrypt/error
 					else
 						[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$newfn" -all:all -overwrite_original "output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png" && echo "tags copied."
@@ -199,7 +199,7 @@ else
 					fi
 				else
 					echo -e "$INDEX/$COUNT: "$"\e[91mfailed to fetch result at:\e[0m ""output/vr/watermark/encrypt/intermediate/$TARGETPREFIX""_00001_.png""                      "
-					mkdir input/vr/watermark/encrypt/error
+					mkdir -p input/vr/watermark/encrypt/error
 					mv "$newfn" input/vr/watermark/encrypt/error
 				fi
 			else

@@ -1,7 +1,5 @@
 import torch
 
-
-
 class GetResolutionForVR:
     @classmethod
     def INPUT_TYPES(cls):
@@ -19,4 +17,4 @@ class GetResolutionForVR:
     
     def execute(self, base_image):
         return (base_image.shape[2], base_image.shape[1], base_image.shape[0], min(base_image.shape[2], base_image.shape[1]))
-  
+
