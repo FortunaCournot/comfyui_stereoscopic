@@ -123,7 +123,7 @@ else
 		#[ $loglevel -ge 1 ] && echo "forward output rule = $outputrule"
 
 		DELAY=0
-		temp=`grep delaytime $sourcedef`
+		temp=`grep forward_delay $sourcedef`
 		if [ ! -z "$temp" ] ; then
 			temp=${temp#*:}
 			temp="${temp%\"*}"
