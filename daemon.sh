@@ -97,18 +97,11 @@ else
 	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 	if [ ! "$status" = "closed" ]; then
-		queuecount=
-		until [ "$queuecount" = "0" ]
-		do
-			sleep 1
-			curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
-			queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-			[ $loglevel -ge 0 ] && echo -ne "Waiting for old queue to finish. queuecount: $queuecount         \r"
-		done
-		[ $loglevel -ge 0 ] && echo "                                                             "
+		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+		[ $loglevel -ge 0 ] && echo "Info: ComfyUI busy. Queuecount: $queuecount"
 		queuecount=
 	fi
-
 
 	### GET READY ... ###
 	echo ""
