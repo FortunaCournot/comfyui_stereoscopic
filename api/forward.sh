@@ -45,6 +45,22 @@ CheckProbeValue() {
 		if [ -d "$TVAI_BIN_DIR" ] ; then value1="true" ; else value1="false" ; fi
 	elif [ "$key" = "sbs" ] ; then
 		if [[ "$file" = *"_SBS_LR"* ]] ; then value1="true" ; else value1="false" ; fi
+	elif [ "$key" = "calculated_aspect" ] ; then
+		temp=`grep "width" user/default/comfyui_stereoscopic/.tmpprobe.txt`
+		temp=${temp#*:}
+		temp="${temp%,*}"
+		temp="${temp%\"*}"
+		width="${temp#*\"}"
+		temp=`grep "height" user/default/comfyui_stereoscopic/.tmpprobe.txt`
+		temp=${temp#*:}
+		temp="${temp%,*}"
+		temp="${temp%\"*}"
+		height="${temp#*\"}"
+		if [ -z "$width" ] || [ -z "$height" ] ; then
+			value1="1000"
+		else
+			value1="$(( 1000 * $width / $height ))"
+		fi
 	else
 		temp=`grep "$key" user/default/comfyui_stereoscopic/.tmpprobe.txt`
 		temp=${temp#*:}
@@ -53,9 +69,6 @@ CheckProbeValue() {
 		temp="${temp#*\"}"
 		if [ -z "$temp" ] || [[ "$temp" = *[a-zA-Z]* ]]; then
 			value1="$temp"
-		elif [ "$key" = "display_aspect_ratio" ] ; then
-			temp="${temp//:/\/}"
-			value1="$(( 1000 * ${temp%.*} ))"
 		elif [[ $temp = *"."* ]] ; then
 			value1="$(( ${temp%.*} ))"
 		else  # numeric expression
