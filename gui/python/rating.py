@@ -298,90 +298,8 @@ class RateAndCutDialog(QDialog):
                 self.button_snapshot_from_video.setEnabled(False)
                 self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
- 
-    def on_rating_changed(self, rating):
-        print(f"Rating selected: {rating}")
-
-        files=getFilesToRate()
-        l=len(files)
-        if l==0:
-            self.closeOnError("no files (on_rating_changed)")
-            return
-
-        name=self.currentFile
-        folder_in=os.path.join(path, "../../../../input/vr/check/rate")
-        folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
-        os.makedirs(folder_out, exist_ok = True)
-        input=os.path.abspath(os.path.join(folder_in, name))
-        output=os.path.abspath(os.path.join(folder_out, name))
-        
-        # prepare next
-        try:
-            index=files.index(self.currentFile)
-            if index + 1 < l:
-                self.currentFile=files[index+1]
-            elif index - 1 >= 0:
-                self.currentFile=files[index-1]
-                index=index-1
-            else:
-                self.currentFile = None
-                index=-1
-        except ValueError as ve:
-            self.currentFile = None
-            index=-1
-
-        self.log(f"Rated {rating} on " + name, QColor("white"))
-        if os.path.isfile(input):
-            try:
-                self.display.stopAndBlackout()
-                
-                recreated=os.path.isfile(output)
-                if recreated:
-                    os.remove(output)
-                os.rename(input, output)
-                
-                self.rating_widget.clear_rating()
-
-                files=getFilesToRate()
-                l=len(files)
-                if l==0:    # last file deleted?
-                    index=-1
-                elif index>=l:
-                    index=0
-
-                global filesToRate
-                filesToRate=files
-                    
-                self.log(" Overwritten" if recreated else " Moved", QColor("green"))
-                
-                if not self.exifpath is None:
-                    # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
-                    rating_percent_values = [0, 1, 25,50, 75, 99]   # mp4
-                    cmd = self.exifpath + f" -xmp:rating={rating} -SharedUserRating={rating_percent_values[rating]}" + " -overwrite_original \"" + output + "\""
-                    try:
-                        cp = subprocess.run(cmd, shell=True, check=True)
-                        self.logn(",Rated.", QColor("green"))
-                    except subprocess.CalledProcessError as se:
-                        self.logn(" Failed", QColor("red"))
-                        print("Failed: "  + cmd, flush=True)
-                else:
-                    self.logn(".", QColor("white"))
-
-                if index<0:
-                    self.closeOnError("last file rated (on_rating_changed)")
-                    return
-
-                self.currentFile=files[index]
-                self.rateCurrentFile()
-                    
-            except Exception as any_ex:
-                print(traceback.format_exc(), flush=True)                
-                self.logn(" failed", QColor("red"))
-        else:
-            self.logn(" not found", QColor("red"))
 
 
-        
     def rateNext(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
@@ -437,7 +355,12 @@ class RateAndCutDialog(QDialog):
         self.hasCropOrTrim=False
         self.main_group_box.setTitle( self.currentFile )
         folder=os.path.join(path, "../../../../input/vr/check/rate")
-        self.isVideo=self.display.showFile( os.path.join(folder, self.currentFile) ) == "video"
+        file_path=os.path.abspath(os.path.join(folder, self.currentFile))
+        if not os.path.exists(file_path):
+            print("Error: File does not exist: "  + file_path, flush=True)
+            self.rateNext()
+            return
+        self.isVideo=self.display.showFile( file_path ) == "video"
         self.button_startpause_video.setVisible(self.isVideo)
         self.sl.setVisible(self.isVideo)
         if self.cutMode:
@@ -478,18 +401,94 @@ class RateAndCutDialog(QDialog):
         self.button_compress.setEnabled(True)        
         self.button_compress.setFocus()
 
+
+    def on_rating_changed(self, rating):
+        print(f"Rating selected: {rating}", flush=True)
+
+        global filesToRate
+        files=filesToRate
+        try:
+            index=files.index(self.currentFile)
+            name=self.currentFile
+            folder_in=os.path.join(path, "../../../../input/vr/check/rate")
+            folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
+            os.makedirs(folder_out, exist_ok = True)
+            input=os.path.abspath(os.path.join(folder_in, name))
+            output=os.path.abspath(os.path.join(folder_out, name))
+        except ValueError as ve:
+            print(traceback.format_exc(), flush=True)                
+            index=0
+            self.currentFile=files[index]
+            self.rateCurrentFile()
+            return
+        
+        print("index"  , index, self.currentFile, flush=True)
+        
+        if os.path.isfile(input):
+            try:
+                self.display.stopAndBlackout()
+                
+                if index>=0:
+                    self.log(f"Rated {rating} on " + name, QColor("white"))
+                    recreated=os.path.isfile(output)
+                    if recreated:
+                        os.remove(output)
+                    os.rename(input, output)
+                    del filesToRate[index]
+                    files=filesToRate
+                    self.rating_widget.clear_rating()
+                    self.log(" Overwritten" if recreated else " Moved", QColor("green"))
+                    
+                    if not self.exifpath is None:
+                        # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
+                        rating_percent_values = [0, 1, 25,50, 75, 99]   # mp4
+                        cmd = self.exifpath + f" -xmp:rating={rating} -SharedUserRating={rating_percent_values[rating]}" + " -overwrite_original \"" + output + "\""
+                        try:
+                            cp = subprocess.run(cmd, shell=True, check=True)
+                            self.logn(",Rated.", QColor("green"))
+                        except subprocess.CalledProcessError as se:
+                            self.logn(" Failed", QColor("red"))
+                            print("Failed: "  + cmd, flush=True)
+                    else:
+                        self.logn(".", QColor("white"))
+
+                l=len(files)
+
+                if l==0:    # last file?
+                    self.closeOnError("last file rated (on_rating_changed)")
+                    return
+
+                if index>=l:
+                    print("index--", index, l, flush=True)                
+                    index=l-1
+                    
+                self.currentFile=files[index]
+                print("index next"  , index, l, self.currentFile, flush=True)
+                self.rateCurrentFile()
+                    
+            except Exception as any_ex:
+                print(traceback.format_exc(), flush=True)                
+                self.logn(" failed", QColor("red"))
+        else:
+            self.logn(" not found", QColor("red"))
+
+
     def deleteAndNext(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
         
-        
-        files=getFilesToRate()
+        global filesToRate
+        files=filesToRate
         try:
             index=files.index(self.currentFile)
             folder=os.path.join(path, "../../../../input/vr/check/rate")
             input=os.path.abspath(os.path.join(folder, self.currentFile))
         except ValueError as ve:
-            index=-1
+            index=0
+            self.currentFile=files[index]
+            self.rateCurrentFile()
+            print(traceback.format_exc(), flush=True)                
+            return
         
         if os.path.isfile(input):
             try:
@@ -498,16 +497,14 @@ class RateAndCutDialog(QDialog):
                 if index>=0:
                     self.log("Deleting " + os.path.basename(input), QColor("white"))
                     os.remove(input)
+                    del filesToRate[index]
+                    files=filesToRate
                 
-                files=getFilesToRate()
                 l=len(files)
 
                 if l==0:    # last file deleted?
                     self.closeOnError("last file deleted (deleteAndNext)")
                     return
-
-                global filesToRate
-                filesToRate=files
 
                 if index>=l:
                     index=l-1
@@ -527,15 +524,20 @@ class RateAndCutDialog(QDialog):
     def archiveAndNext(self):
         self.button_compress.setEnabled(False)
         
-        files=getFilesToRate()
+        global filesToRate
+        files=filesToRate
         try:
             index=files.index(self.currentFile)
             folder=os.path.join(path, "../../../../input/vr/check/rate")
             targetfolder = os.path.join(path, "../../../../input/vr/check/rate/done")
             os.makedirs(targetfolder, exist_ok=True)
         except ValueError as ve:
-            index=-1
-
+            print(traceback.format_exc(), flush=True)                
+            index=0
+            self.currentFile=files[index]
+            self.rateCurrentFile()
+            return
+            
         try:
             self.display.stopAndBlackout()
 
@@ -546,16 +548,14 @@ class RateAndCutDialog(QDialog):
                 self.log("Archive "+self.currentFile, QColor("white"))
                 recreated=os.path.exists(destination)
                 os.replace(source, destination)
+                del filesToRate[index]
+                files=filesToRate
             
-            files=getFilesToRate()
             l=len(files)
 
             if l==0:    # last file deleted?
                 self.closeOnError("last file deleted (archiveAndNext)")
                 return
-
-            global filesToRate
-            filesToRate=files
 
             if index>=l:
                 index=l-1
