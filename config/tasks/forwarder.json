@@ -4,4 +4,5 @@
   "options": "",
   "input": "",
   "output": "video;image",
+  "delaytime": "60",
 }
