@@ -347,8 +347,8 @@ else
 	mv -f -- "$TARGETPREFIX".mp4 "$FINALTARGETFOLDER"
 	mkdir -p input/vr/interpolate/done
 	# do not overwrite done because it can be self-looped
-	if [ ! -e input/vr/interpolate/done/${INPUT##*/} ] ; then mv -- "$INPUT" input/vr/interpolate/done ; fi
-	
+	if [ ! -e input/vr/interpolate/done/${INPUT##*/} ] ; then mv -- "$INPUT" input/vr/interpolate/done ; else rm -f -- "$INPUT" ; fi
+	rm -rf -- output/vr/interpolate/intermediate 2>/dev/null
 	runtime=$((end-startjob))
 	echo -e $"\e[92mdone\e[0m duration: $runtime""s.                         "
 

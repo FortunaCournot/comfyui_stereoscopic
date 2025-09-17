@@ -49,7 +49,7 @@ forwards:
       - rule:
           to: tasks/hlimit-2160
           conditions:
-            - calculated_aspect<800
+            - calculated_aspect<1000
             - sbs=false
             - width>2160
       - rule:
