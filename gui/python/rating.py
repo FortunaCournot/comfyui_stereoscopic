@@ -482,17 +482,22 @@ class RateAndCutDialog(QDialog):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
         
+        
         files=getFilesToRate()
-        index=files.index(self.currentFile)
-                    
-        folder=os.path.join(path, "../../../../input/vr/check/rate")
-        input=os.path.abspath(os.path.join(folder, self.currentFile))
-        self.log("Deleting " + os.path.basename(input), QColor("white"))
+        try:
+            index=files.index(self.currentFile)
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
+            input=os.path.abspath(os.path.join(folder, self.currentFile))
+        except ValueError as ve:
+            index=-1
+        
         if os.path.isfile(input):
             try:
                 self.display.stopAndBlackout()
                 
-                os.remove(input)
+                if index>=0:
+                    self.log("Deleting " + os.path.basename(input), QColor("white"))
+                    os.remove(input)
                 
                 files=getFilesToRate()
                 l=len(files)
@@ -552,10 +557,8 @@ class RateAndCutDialog(QDialog):
             global filesToRate
             filesToRate=files
 
-            if index>=0 and index>=l:
+            if index>=l:
                 index=l-1
-            else:
-                index=0
                 
             self.currentFile=files[index]
             self.rateCurrentFile()
