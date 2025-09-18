@@ -390,15 +390,19 @@ class RateAndCutDialog(QDialog):
             folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
             os.makedirs(folder_out, exist_ok = True)
             input=os.path.abspath(os.path.join(folder_in, name))
-            output=os.path.abspath(os.path.join(folder_out, name))
         except ValueError as ve:
             print(traceback.format_exc(), flush=True)                
             index=0
             self.currentFile=files[index]
             self.rateCurrentFile()
             return
+        try:
+            idx = name.index('/')
+            output=os.path.abspath(os.path.join(folder_out, name[idx+1:]))
+        except ValueError as ve:                
+            output=os.path.abspath(os.path.join(folder_out, name))
         
-        print("index"  , index, self.currentFile, flush=True)
+        #print("index"  , index, self.currentFile, flush=True)
         
         if os.path.isfile(input):
             try:
