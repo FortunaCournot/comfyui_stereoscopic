@@ -29,7 +29,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QMessageBox, QPushButton, QShortcut, QSizePolicy,
                              QSlider, QStatusBar, QTableWidget,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
-                             QPlainTextEdit, QLayout)
+                             QPlainTextEdit, QLayout, QStyleOptionSlider, QStyle)
 
 path = os.path.dirname(os.path.abspath(__file__))
 
@@ -144,7 +144,6 @@ class RateAndCutDialog(QDialog):
         self.button_delete_file.setFocusPolicy(Qt.ClickFocus)
         
         self.sl = FrameSlider(Qt.Horizontal)
-        self.sl.setEnabled(False)
         
         self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded)
         #self.display.resize(self.display_width, self.display_height)
@@ -814,6 +813,7 @@ class VideoThread(QThread):
         self.slider.setSingleStep(1)        
         self.slider.setPageStep(int(fps))        
         self.slider.valueChanged.connect(self.sliderChanged)
+        self.slider.registerForMouseEvent(self.onSliderMouseClick)
         self.update(self.pause)
 
         self.currentFrame=-1      # before start. first frame will be number 0
@@ -861,12 +861,11 @@ class VideoThread(QThread):
 
     def tooglePause(self):
         self.pause = not self.pause
-        self.slider.setEnabled(self.pause)
+        #self.slider.setEnabled(self.pause)
         self.update(self.pause)
 
 
     def seek(self, frame_number):
-        #if self.pause:
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
         ret, cv_img = self.cap.read()
         if ret and self._run_flag:
@@ -877,8 +876,13 @@ class VideoThread(QThread):
             self._run_flag = False
                 
     def sliderChanged(self):
-        if self.pause:
+        if self.pause:  # do not call while playback
             self.seek(self.sender().value())
+
+    def onSliderMouseClick(self):
+        if not self.pause:
+            self.pause=True
+            self.update(self.pause)
 
     def setA(self, frame_number):
         self.a=frame_number
@@ -1152,6 +1156,36 @@ class FrameSlider(QSlider):
             #painter.drawLine(int(width/4), 0, int(width*3/4), 0);
             #painter.drawPixmap(0, 0, self.pixmap)
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            val = self.pixelPosToRangeValue(event.pos())
+            self.setValue(val)
+            self.onSliderMouseClick()
+        super(FrameSlider, self).mousePressEvent(event)
+
+    def pixelPosToRangeValue(self, pos):
+        opt = QStyleOptionSlider()
+        self.initStyleOption(opt)
+        gr = self.style().subControlRect(QStyle.CC_Slider, opt, QStyle.SC_SliderGroove, self)
+        sr = self.style().subControlRect(QStyle.CC_Slider, opt, QStyle.SC_SliderHandle, self)
+
+        if self.orientation() == Qt.Horizontal:
+            sliderLength = sr.width()
+            sliderMin = gr.x()
+            sliderMax = gr.right() - sliderLength + 1
+        else:
+            sliderLength = sr.height()
+            sliderMin = gr.y()
+            sliderMax = gr.bottom() - sliderLength + 1;
+        pr = pos - sr.center() + sr.topLeft()
+        p = pr.x() if self.orientation() == Qt.Horizontal else pr.y()
+        return QStyle.sliderValueFromPosition(self.minimum(), self.maximum(), p - sliderMin,
+                                               sliderMax - sliderMin, opt.upsideDown)
+
+    def registerForMouseEvent(self, onSliderMouseClick):
+        self.onSliderMouseClick=onSliderMouseClick
+        
+        
 class CropWidget(QWidget):
     def __init__(self, display, parent=None):
         """
