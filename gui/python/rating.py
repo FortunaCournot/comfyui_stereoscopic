@@ -44,6 +44,8 @@ videoActive=False
 filesToRate = []
 rememberThread=None
 cutModeActive=False
+taskActive=False
+
 
 class JudgeDialog(QDialog):
 
@@ -809,8 +811,6 @@ class VideoThread(QThread):
         # print("frames", self.frame_count)
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
         #print("Started video. framecount:", self.frame_count, "fps:", fps, flush=True)
-        self.onVideoLoaded()
-        
         
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.frame_count-1)
@@ -823,6 +823,8 @@ class VideoThread(QThread):
         self.slider.setPageStep(int(self.fps))        
         self.slider.valueChanged.connect(self.sliderChanged)
         self.slider.registerForMouseEvent(self.onSliderMouseClick)
+
+        self.onVideoLoaded()
         self.update(self.pause)
 
         self.currentFrame=-1      # before start. first frame will be number 0
@@ -1095,11 +1097,33 @@ class Display(QLabel):
     def isTrimmed(self):
         return self.trimAFrame > 0 or self.trimBFrame < self.frame_count-1
         
+    def format_timedelta_hundredth(self, td: timedelta) -> str:
+        """
+        Gibt ein timedelta als String auf Hundertstel Sekunden genau aus.
+        
+        Parameter:
+            td (timedelta): Ein timedelta-Objekt
+        
+        Rückgabe:
+            str: Zeit im Format "HH:MM:SS.ss"
+        """
+        # Gesamtdauer in Sekunden als float
+        total_seconds = td.total_seconds()
+        
+        # Stunden, Minuten, Sekunden extrahieren
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = total_seconds % 60  # Sekunden inkl. Bruchteile
+        
+        # Auf zwei Nachkommastellen (Hundertstel) runden
+        return f"{hours:02}:{minutes:02}:{seconds:05.2f}"
+        
     def buildSliderText(self):
         ms=int( 1000.0 * float( self.trimBFrame - self.trimAFrame) / float(self.thread.fps) )
         td = timedelta(milliseconds=ms)
-        text=str(td)
-        return text[:-4]
+        text=self.format_timedelta_hundredth(td)
+        print("td", text, self.format_timedelta_hundredth(td), flush=True)
+        return text
 
     def trimA(self):
         if self.thread:
@@ -1799,4 +1823,10 @@ def gitbash_to_windows_path(unix_path: str) -> str:
         rest_of_path = unix_path[3:]
         return os.path.join(f"{drive_letter}:", *rest_of_path.split('/'))
     return os.path.join(*unix_path.split('/'))
-    
+
+
+def enterTask():
+    taskActive=True
+
+def leaveTask():
+    taskActive=False
