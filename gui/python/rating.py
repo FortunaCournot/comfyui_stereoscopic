@@ -8,6 +8,7 @@ import time
 import traceback
 import urllib.request
 import webbrowser
+from datetime import timedelta
 from itertools import chain
 from random import randrange
 from urllib.error import HTTPError
@@ -17,7 +18,7 @@ import numpy as np
 import requests
 from numpy import ndarray
 from PIL import Image
-from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer,
+from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint,
                           pyqtSignal, pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
@@ -29,7 +30,8 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QMessageBox, QPushButton, QShortcut, QSizePolicy,
                              QSlider, QStatusBar, QTableWidget,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
-                             QPlainTextEdit, QLayout, QStyleOptionSlider, QStyle)
+                             QPlainTextEdit, QLayout, QStyleOptionSlider, QStyle,
+                             QRubberBand)
 
 path = os.path.dirname(os.path.abspath(__file__))
 
@@ -41,7 +43,7 @@ if path not in sys.path:
 videoActive=False
 filesToRate = []
 rememberThread=None
-filterFilesForEdit=False
+cutModeActive=False
 
 class JudgeDialog(QDialog):
 
@@ -64,8 +66,8 @@ class RateAndCutDialog(QDialog):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint )
         self.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint )
 
-        global filterFilesForEdit
-        filterFilesForEdit=cutMode
+        global cutModeActive
+        cutModeActive=cutMode
 
         self.cutMode=cutMode
         self.qt_img=None
@@ -145,7 +147,7 @@ class RateAndCutDialog(QDialog):
         
         self.sl = FrameSlider(Qt.Horizontal)
         
-        self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded)
+        self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded, self.onRectSelected)
         #self.display.resize(self.display_width, self.display_height)
 
         self.sp1 = QLabel(self)
@@ -257,8 +259,8 @@ class RateAndCutDialog(QDialog):
     def closeEvent(self, evnt):
         self.filebutton_timer.stop()
         self.display.stopAndBlackout()
-        global filterFilesForEdit
-        filterFilesForEdit=False
+        global cutModeActive
+        cutModeActive=False
         super(QDialog, self).closeEvent(evnt)
             
     def updatePaused(self, isPaused):
@@ -272,6 +274,9 @@ class RateAndCutDialog(QDialog):
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
         self.button_startpause_video.setFocus()
 
+    def onRectSelected(self, rect):
+        if self.cutMode:
+            self.cropWidget.setSliderValuesToRect(rect)
 
     def onCropOrTrim(self):
         self.hasCropOrTrim=True
@@ -802,7 +807,7 @@ class VideoThread(QThread):
         self.a = 0
         self.b = self.frame_count - 1
         # print("frames", self.frame_count)
-        fps = self.cap.get(cv2.CAP_PROP_FPS)
+        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
         #print("Started video. framecount:", self.frame_count, "fps:", fps, flush=True)
         self.onVideoLoaded()
         
@@ -811,11 +816,11 @@ class VideoThread(QThread):
         self.slider.setMaximum(self.frame_count-1)
         self.slider.setValue(0)
         self.slider.setTickPosition(QSlider.TicksBelow)
-        if fps<1:
-            fps=1
-        self.slider.setTickInterval(int(fps))
+        if self.fps<1:
+            self.fps=1
+        self.slider.setTickInterval(int(self.fps))
         self.slider.setSingleStep(1)        
-        self.slider.setPageStep(int(fps))        
+        self.slider.setPageStep(int(self.fps))        
         self.slider.valueChanged.connect(self.sliderChanged)
         self.slider.registerForMouseEvent(self.onSliderMouseClick)
         self.update(self.pause)
@@ -839,7 +844,7 @@ class VideoThread(QThread):
                             self.cap = cv2.VideoCapture(self.filepath)
                             self.seek(self.a)
 
-            time.sleep(1.0/fps)
+            time.sleep(1.0/float(self.fps))
             
         self.cap.release()
         videoActive=False
@@ -901,7 +906,7 @@ class VideoThread(QThread):
     
 class Display(QLabel):
 
-    def __init__(self, pushbutton, slider, update, loaded):
+    def __init__(self, pushbutton, slider, update, loaded, rectSelected):
         super().__init__()
         self.qt_img=None
         self.displayUid=0
@@ -912,6 +917,7 @@ class Display(QLabel):
         self.slider.setVisible(False)
         self.update = update
         self.loaded = loaded
+        self.rectSelected = rectSelected
         self.onUpdateFile=None
         self.onUpdateImage=None
         self.onCropOrTrim = None
@@ -925,6 +931,10 @@ class Display(QLabel):
         self.resize(self.display_width, self.display_height)
         self.setAlignment(Qt.AlignCenter)
         self.qt_img = None
+        
+        self.rubberBand = QRubberBand(QRubberBand.Line, self)
+        self.origin = QPoint()
+        self.selection_rect = QRect()
         
         self.closeEvent = self.stopAndBlackout
         
@@ -1065,10 +1075,12 @@ class Display(QLabel):
                 self.frame_count=-1
                 self.trimAFrame=0
                 self.trimBFrame=-1
+                self.slider.setText( "", Qt.white )
             else:
                 self.frame_count=self.thread.frame_count
                 self.trimAFrame=0
                 self.trimBFrame=self.frame_count-1
+                self.slider.setText( self.buildSliderText(), Qt.white )
             self.loaded()
         
     def updatePaused(self, isPaused):
@@ -1080,6 +1092,15 @@ class Display(QLabel):
             self.thread.tooglePause()
             self.button.setEnabled(True)
 
+    def isTrimmed(self):
+        return self.trimAFrame > 0 or self.trimBFrame < self.frame_count-1
+        
+    def buildSliderText(self):
+        ms=int( 1000.0 * float( self.trimBFrame - self.trimAFrame) / float(self.thread.fps) )
+        td = timedelta(milliseconds=ms)
+        text=str(td)
+        return text[:-4]
+
     def trimA(self):
         if self.thread:
             count=self.thread.getFrameCount()
@@ -1087,7 +1108,9 @@ class Display(QLabel):
                 self.slider.setA(float(self.thread.getCurrentFrameIndex())/float(count-1))
                 self.trimAFrame=self.thread.getCurrentFrameIndex()
                 self.thread.setA(self.thread.getCurrentFrameIndex())
+                self.slider.setText( self.buildSliderText(), Qt.red if self.isTrimmed() else Qt.white )
             else:
+                self.slider.setText("", Qt.white)
                 self.slider.setA(0.0)
                 self.thread.setA(0)
             if self.onCropOrTrim:
@@ -1100,7 +1123,9 @@ class Display(QLabel):
                 self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
                 self.trimBFrame=self.thread.getCurrentFrameIndex()
                 self.thread.setB(self.thread.getCurrentFrameIndex())
+                self.slider.setText( self.buildSliderText(), Qt.red if self.isTrimmed() else Qt.white )
             else:
+                self.slider.setText("", Qt.white)
                 self.slider.setB(1.0)
                 self.thread.setB(count-1)
             if self.onCropOrTrim:
@@ -1115,15 +1140,74 @@ class Display(QLabel):
         self.pos = None
         super().leaveEvent(event)
 
+    def mousePressEvent(self, event):
+        if cutModeActive:
+            """Startpunkt des Auswahlrechtecks"""
+            if event.button() == Qt.LeftButton and self.underMouse():
+                # start selecting rect
+                self.origin = event.pos()
+                self.rubberBand.setGeometry(QRect(self.origin, QSize()))
+                self.rubberBand.show()
+
     def mouseMoveEvent(self, event):
+        # Für Lupe...
         self.pos = event.pos()
+        
+        if cutModeActive:
+            # update rect while selecting
+            if not self.origin.isNull():
+                current_pos = event.pos()
+                rect = QRect(self.origin, current_pos).normalized()
+                self.rubberBand.setGeometry(rect)
+                
         super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if cutModeActive:
+            # update rect on release and notify observer
+            if event.button() == Qt.LeftButton:
+                self.selection_rect = self.rubberBand.geometry()
+                self.rubberBand.hide()
+                
+                #print("rect", self.selection_rect.x(), self.selection_rect.y(), self.selection_rect.width(), self.selection_rect.height(), flush=True)
+                      
+                w1 = self.size().width()
+                h1 = self.size().height()
+                w2 = self.sourcePixmap.width()
+                h2 = self.sourcePixmap.height()
+                #print("sizes", w1, h1, "-->", w2, h2, flush=True)
+                
+                display_scalefactor=min( float(w1) / float(w2), float(h1) / float(h2) )
+                offset_x1 = (w1 - w2 * display_scalefactor) / 2.0
+                offset_y1 = (h1 - h2 * display_scalefactor) / 2.0
+                #print("offsets", offset_x1, offset_y1, flush=True)
+
+                x0 = self.selection_rect.x() - offset_x1
+                y0 = self.selection_rect.y() - offset_y1
+                w = self.selection_rect.width()
+                h = self.selection_rect.height()
+                #print("trans xywh", x0, y0, w, h, flush=True)
+                
+                xs = int(float(x0) / display_scalefactor)
+                ys = int(float(y0) / display_scalefactor)
+                ws = int(float(w) / display_scalefactor)
+                hs = int(float(h) / display_scalefactor)
+                #print("src xywh", xs, ys, ws, hs, flush=True)
+
+                if xs>=w2 or ys>=h2 or xs+ws<0 or ys+hs<0:
+                    return
+                srcRect=QRect(xs, ys, ws, hs)
+                srcRect = srcRect.intersected(QRect(0, 0, w2-1, h2-1))
+                #print("result", srcRect.x(), srcRect.y(), srcRect.width(), srcRect.height(), flush=True)
+                self.rectSelected(srcRect)
 
 
 class FrameSlider(QSlider):
     def __init__(self, orientation):
         super().__init__(orientation)
         self.resetAB()
+        self.text=""
+        self.textColor=Qt.white
      
     def resetAB(self):
         self.a = 0.0
@@ -1135,6 +1219,11 @@ class FrameSlider(QSlider):
 
     def setB(self, b):
         self.b = min(max(0.0, b), 1.0)
+        self.update()
+
+    def setText(self, text, textColor):
+        self.text = text
+        self.textColor = textColor
         self.update()
 
     def paintEvent(self, event: QPaintEvent):
@@ -1150,15 +1239,21 @@ class FrameSlider(QSlider):
             width = geo.width()
             height = geo.height()
 
-            painter.fillRect(x, y, width, height, QColor(220,0,0));
+            painter.fillRect(x, y, width, height, QColor(220,0,0))
     
-            painter.setPen(QPen(Qt.red, 4, Qt.SolidLine, Qt.RoundCap));
+            painter.setPen(QPen(Qt.red, 4, Qt.SolidLine, Qt.RoundCap))
             if self.a > 0.0:
-                painter.drawLine(0, 0, int(width*self.a), 0);
+                painter.drawLine(0, 0, int(width*self.a), 0)
             if self.b < 1.0:
-                painter.drawLine(int(width*self.b), 0, width, 0);
-            #painter.drawLine(int(width/4), 0, int(width*3/4), 0);
-            #painter.drawPixmap(0, 0, self.pixmap)
+                painter.drawLine(int(width*self.b), 0, width, 0)
+
+            painter.setPen(QPen(self.textColor, 2, Qt.SolidLine, Qt.RoundCap))
+            rct = QRect(0, 0, width, height)
+            font=painter.font()
+            font.setPointSize(10)
+            painter.setFont(font)
+            # QPoint(int(width-1), int(height-1))
+            painter.drawText(rct, (Qt.AlignRight if self.textColor==Qt.white else Qt.AlignCenter) | Qt.AlignBottom, self.text)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -1341,6 +1436,21 @@ class CropWidget(QWidget):
         self.slider_top.setEnabled(enable)
         self.slider_bottom.setEnabled(enable)
 
+    def setSliderValuesToRect(self, rect):
+        x0 = rect.x()
+        x1 = rect.x() + rect.width()
+        y0 = rect.y()
+        y1 = rect.y() + rect.height()
+
+        w = self.sourceWidth
+        h = self.sourceHeight
+
+        self.slider_left.setValue(x0)
+        self.slider_right.setValue(w-x1)
+        self.slider_top.setValue(y0)
+        self.slider_bottom.setValue(h-y1)
+
+
     # ----------- FRAME SETTINGS -----------
     def change_frame_color(self):
         if not self.original_pixmap:
@@ -1381,7 +1491,6 @@ class CropWidget(QWidget):
 
         w = self.sourceWidth
         h = self.sourceHeight
-
         self.slider_left.setMaximum(w)
         self.slider_right.setMaximum(w)
         self.slider_top.setMaximum(h)
@@ -1528,33 +1637,16 @@ class CropWidget(QWidget):
                 self.magnifier.hide()
                 return
 
-        #print( "opix", self.original_pixmap.size() , flush=True)
-        
         dw=self.image_label.geometry().width()
         dh=self.image_label.geometry().height()
-        #print("dwdh", dw,dh, flush=True)   # mouse space, Mittelpunkt: dw/2,dh/2
-        #print("scaledPixmap", self.scaledWidth, self.scaledHeight, flush=True)
 
         display_scalefactor=min( float(dw) / float(self.scaledWidth), float(dh) / float(self.scaledHeight) )
-        #pad_scalefactor=max( float(dw) / float(self.scaledWidth), float(dh) / float(self.scaledHeight) ) - display_scalefactor
         offset_x = (dw - self.scaledWidth * display_scalefactor) / 2.0
         offset_y = (dh - self.scaledHeight * display_scalefactor) / 2.0
-        #print("offset", offset_x,offset_y, flush=True)
-
-        #print("scaling", float(dw) / float(self.scaledWidth), 
-        #                 float(dh) / float(self.scaledHeight),
-        #                 display_scalefactor,
-        #                 flush=True)
-
-        #print("mouse", self.center_x,self.center_y, flush=True)
         
         x = float(self.center_x - offset_x) / display_scalefactor 
         y = float(self.center_y - offset_y) / display_scalefactor 
-        #print("xy", x,y, flush=True)
-        
-        
 
-        #print( "rect", self.center_x - self.zoom_factor // 2, self.center_y - self.zoom_factor // 2, self.zoom_factor, self.zoom_factor , flush=True)
         img_scalefactor=self.original_pixmap.width() // self.scaledWidth
         zoom_rect = QRect(int((x - 0.2 * self.magsize / 2) * img_scalefactor) , 
                           int((y - self.magsize / 2) * img_scalefactor),
@@ -1645,7 +1737,7 @@ def updateFilesToRate():
     
 def getFilesToRate():
     files = getFilesWithoutEdit()
-    if not filterFilesForEdit:
+    if not cutModeActive:
         editedfiles = getFilesOnlyEdit()
         files = editedfiles + files
     return files
