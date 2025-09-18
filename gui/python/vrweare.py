@@ -35,12 +35,9 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesToRate
+from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit
 from judge import JudgeDialog
 
-
-# File Global
-filesToRate = []
 
 LOGOTIME = 3000
 BREAKFREQ = 120000
@@ -84,6 +81,12 @@ class SpreadsheetApp(QMainWindow):
         self.toogle_stages_expanded = False
         # Initialize caches
         self.stageTypes = []
+
+        # prerequisites
+        folder=os.path.join(path, f"../../../../input/vr/check/rate")
+        os.makedirs(folder, exist_ok = True)
+        folder=os.path.join(path, f"../../../../input/vr/check/rate/edit")
+        os.makedirs(folder, exist_ok = True)
         
         # Central widget container
         self.central_widget = QWidget()
@@ -297,26 +300,22 @@ class SpreadsheetApp(QMainWindow):
         if status=="idle":
             idletime += 1
 
-
     def update_toolbar(self):
-        count=0
-        try:
-            filesToRate = getFilesToRate()
-            count+=len(filesToRate)
-        except StopIteration as e:
-            count+=0
-        self.button_check_rate_action.setEnabled(count>0)
-        self.button_check_cutclone_action.setEnabled(count>0)
+        count1=len(getFilesWithoutEdit())
+        count2=len(getFilesOnlyEdit())
+
+        self.button_check_cutclone_action.setEnabled(count1>0)
+        self.button_check_rate_action.setEnabled(count2+count1>0)
     
-        count=0
+        count3=0
         paths = ("../../../../output/vr/check/rate/1", "../../../../output/vr/check/rate/2", "../../../../output/vr/check/rate/3", "../../../../output/vr/check/rate/4", "../../../../output/vr/check/rate/5")
         for p in paths:
             try:
                 checkfiles = next(os.walk(os.path.join(path, p)))[2]
-                count+=len(checkfiles)
+                count3+=len(checkfiles)
             except StopIteration as e:
-                count+=0
-        self.button_check_judge_action.setEnabled(count>0)
+                pass
+        self.button_check_judge_action.setEnabled(count3>0)
 
     def update_table(self):
         global idletime

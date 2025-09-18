@@ -41,6 +41,7 @@ if path not in sys.path:
 videoActive=False
 filesToRate = []
 rememberThread=None
+filterFilesForEdit=False
 
 class JudgeDialog(QDialog):
 
@@ -62,6 +63,9 @@ class RateAndCutDialog(QDialog):
     def __init__(self, cutMode):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint )
         self.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint )
+
+        global filterFilesForEdit
+        filterFilesForEdit=cutMode
 
         self.cutMode=cutMode
         self.qt_img=None
@@ -254,6 +258,8 @@ class RateAndCutDialog(QDialog):
     def closeEvent(self, evnt):
         self.filebutton_timer.stop()
         self.display.stopAndBlackout()
+        global filterFilesForEdit
+        filterFilesForEdit=False
         super(QDialog, self).closeEvent(evnt)
             
     def updatePaused(self, isPaused):
@@ -315,10 +321,11 @@ class RateAndCutDialog(QDialog):
         else:
             try:
                 index=files.index(self.currentFile)
-                if len(files)>index+1:
+                l=len(files)
+                if l>index+1:
                     self.currentFile=files[index+1]
                 else:
-                    self.currentFile=files[-1]
+                    self.currentFile=files[l-1]
             except ValueError as ve:
                 self.currentFile = files[0]
         
@@ -358,7 +365,6 @@ class RateAndCutDialog(QDialog):
         file_path=os.path.abspath(os.path.join(folder, self.currentFile))
         if not os.path.exists(file_path):
             print("Error: File does not exist: "  + file_path, flush=True)
-            self.rateNext()
             return
         self.isVideo=self.display.showFile( file_path ) == "video"
         self.button_startpause_video.setVisible(self.isVideo)
@@ -371,35 +377,6 @@ class RateAndCutDialog(QDialog):
             self.button_trimb_video.setEnabled(False)
             self.button_cutandclone.setEnabled(False)
             self.button_snapshot_from_video.setEnabled(False)
-
-
-    def createSnapshot(self):
-        self.button_snapshot_from_video.setEnabled(False)
-        self.hasCropOrTrim=False
-        folder=os.path.join(path, "../../../../input/vr/check/rate")
-        input=os.path.abspath(os.path.join(folder, self.currentFile))
-        frameindex=str(self.cropWidget.getCurrentFrameIndex())
-        try:
-            newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
-            output=os.path.abspath(os.path.join(folder, newfilename))
-            self.log("Create snapshot "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 \"" + output + "\""
-            try:
-                recreated=os.path.exists(output)
-                cp = subprocess.run(cmd, shell=True, check=True)
-                self.logn(" Overwritten" if recreated else " OK", QColor("green"))
-
-                files=getFilesToRate()
-                global filesToRate
-                filesToRate=files
-            except subprocess.CalledProcessError as se:
-                self.logn(" Failed", QColor("red"))
-                print("Failed: "  + cmd, flush=True)
-        except ValueError as e:
-            pass
-        self.button_snapshot_from_video.setEnabled(False)
-        self.button_compress.setEnabled(True)        
-        self.button_compress.setFocus()
 
 
     def on_rating_changed(self, rating):
@@ -582,7 +559,7 @@ class RateAndCutDialog(QDialog):
             while os.path.exists(outputBase + str(fnum) + ".mp4"):
                 fnum+=1
             newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + ".mp4"
-            output=os.path.abspath(os.path.join(folder, newfilename))
+            output=os.path.abspath(os.path.join(folder+"/edit", newfilename))
             if self.isVideo:
                 trimA=self.display.trimAFrame
                 trimB=self.display.trimBFrame
@@ -614,6 +591,36 @@ class RateAndCutDialog(QDialog):
         self.button_cutandclone.setEnabled(True)
         self.button_compress.setEnabled(True)        
         self.button_compress.setFocus()
+
+
+    def createSnapshot(self):
+        self.button_snapshot_from_video.setEnabled(False)
+        self.hasCropOrTrim=False
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, self.currentFile))
+        frameindex=str(self.cropWidget.getCurrentFrameIndex())
+        try:
+            newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
+            output=os.path.abspath(os.path.join(folder+"/edit", newfilename))
+            self.log("Create snapshot "+newfilename, QColor("white"))
+            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 \"" + output + "\""
+            try:
+                recreated=os.path.exists(output)
+                cp = subprocess.run(cmd, shell=True, check=True)
+                self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+
+                files=getFilesToRate()
+                global filesToRate
+                filesToRate=files
+            except subprocess.CalledProcessError as se:
+                self.logn(" Failed", QColor("red"))
+                print("Failed: "  + cmd, flush=True)
+        except ValueError as e:
+            pass
+        self.button_snapshot_from_video.setEnabled(False)
+        self.button_compress.setEnabled(True)        
+        self.button_compress.setFocus()
+
 
     def onVideoloaded(self):
         if self.display.frame_count<0:
@@ -1249,7 +1256,6 @@ class CropWidget(QWidget):
         self.slidersInitialized = False
         self.enable_sliders(False)
 
-
     
     def imageUpdated(self, currentFrameIndex):
        
@@ -1599,10 +1605,31 @@ def updateFilesToRate():
     filesToRate = getFilesToRate()
     return filesToRate
     
-
 def getFilesToRate():
-    return next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
+    files = getFilesWithoutEdit()
+    if not filterFilesForEdit:
+        editedfiles = getFilesOnlyEdit()
+        files = editedfiles + files
+    return files
+
+def getFilesWithoutEdit():
+    try:
+        files=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
+    except StopIteration as e:
+        files=[]
+    return files
     
+def getFilesOnlyEdit():
+    try:
+        editedfiles=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate/edit")))[2]
+        for i in range(len(editedfiles)):
+            editedfiles[i] = "edit/" + editedfiles[i]
+    except StopIteration as e:
+        editedfiles=[]
+    return editedfiles
+
+
+
 def pil2pixmap(im):
     if im.mode == "RGB":
         r, g, b = im.split()
