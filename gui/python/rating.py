@@ -45,7 +45,7 @@ filesToRate = []
 rememberThread=None
 cutModeActive=False
 taskActive=False
-
+fileDragged=False
 
 class JudgeDialog(QDialog):
 
@@ -188,13 +188,33 @@ class RateAndCutDialog(QDialog):
         # QHBoxLayout
         ew=100
         self.commontool_layout = QGridLayout()
+
+        self.filetool_layout = QGridLayout()
+
+        self.fileSlider=QSlider(Qt.Horizontal)
+        self.fileSlider.setMinimum(1)
+        self.fileSlider.setSingleStep(1)
+        self.fileSlider.setPageStep(10)
+        self.fileSlider.setTracking(True)
+        self.fileSlider.setStyleSheet("QSlider::handle:horizontal { background-color: black; border: 2px solid white; width: 12px; height: 12px; border-radius: 6px; margin: -7px 0;} QSlider::groove:horizontal { height: 0px; border-radius: 0px; } QSlider::sub-page:horizontal { /* Farbe für den gefüllten Bereich links vom Griff */ border: 1px solid #111111; height: 6px; border-radius: 3px; } QSlider::add-page:horizontal { /* Farbe für den Bereich rechts vom Griff */ border: 1px solid #111111; height: 6px; border-radius: 3px;}")
+        self.fileSlider.sliderPressed.connect(self.fileSliderDragStart)
+        self.fileSlider.valueChanged.connect(self.fileSliderDragged)
+        self.fileSlider.sliderReleased.connect(self.fileSliderChanged)
+
+        self.filetool_layout.addWidget(self.fileSlider, 0, 1, 1, ew)
         
         self.fileLabel=QLabel()
+        global fileDragged
+        fileDragged=False
+        self.fileLabel.setStyleSheet("QLabel { background-color : black; color : white; }");
         font = QFont()
         font.setPointSize(20)
         self.fileLabel.setFont(font)
         self.fileLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.commontool_layout.addWidget(self.fileLabel, 0, 0, 1, ew)
+        self.filetool_layout.addWidget(self.fileLabel, 0, ew, 1, 1)
+
+
+        self.commontool_layout.addLayout(self.filetool_layout, 0, 0, 1, ew)
 
         self.commontool_layout.addWidget(self.button_prev_file, 0, ew, 1, 1)
         
@@ -276,6 +296,30 @@ class RateAndCutDialog(QDialog):
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
         self.button_startpause_video.setFocus()
 
+    def fileSliderDragStart(self):
+        global fileDragged
+        fileDragged=True
+        self.fileLabel.setStyleSheet("QLabel { background-color : black; color : grey; }");
+        self.display.stopAndBlackout()
+
+    def fileSliderDragged(self):
+        index=self.sender().value()-1
+        if index!=self.currentIndex and index>=0 and index<len(filesToRate):
+            lastIndex=len(filesToRate)
+            self.fileDragIndex=index
+            self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))
+            self.main_group_box.setTitle(filesToRate[index])
+
+    def fileSliderChanged(self):
+        index=self.fileDragIndex
+        if index!=self.currentIndex and index>=0 and index<len(filesToRate):
+            #print("fileSliderChanged to", str(index+1)+" of "+str(len(filesToRate)), flush=True)
+            self.fileLabel.setStyleSheet("QLabel { background-color : black; color : white; }");
+            self.currentIndex=index
+            self.currentFile=filesToRate[index]
+            self.rateCurrentFile()
+
+
     def onRectSelected(self, rect):
         if self.cutMode:
             self.cropWidget.setSliderValuesToRect(rect)
@@ -289,9 +333,10 @@ class RateAndCutDialog(QDialog):
         global filesToRate
         index=-1
         try:
-            filesToRate = getFilesToRate()
+            filesToRate = getFilesToRate()  # TODO ...
             if self.currentFile:
                 lastIndex=len(filesToRate)-1
+                self.fileSlider.setMaximum(lastIndex+1)
                 try:
                     index=filesToRate.index(self.currentFile)
                 except ValueError as ve:
@@ -301,9 +346,11 @@ class RateAndCutDialog(QDialog):
         self.button_prev_file.setEnabled(index>0)
         self.button_next_file.setEnabled(index>-1 and index<lastIndex)
         if index>-1:
-            self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))
+            if not fileDragged:
+                self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))
         else:
-            self.fileLabel.setText("")
+            if not fileDragged:
+                self.fileLabel.setText("")
             if self.cutMode:
                 self.button_trima_video.setEnabled(False)
                 self.button_trimb_video.setEnabled(False)
@@ -324,15 +371,18 @@ class RateAndCutDialog(QDialog):
             
         if self.currentFile is None:
             self.currentFile = files[0]
+            self.currentIndex=0
         else:
             try:
                 index=files.index(self.currentFile)
+                self.currentIndex=index
                 l=len(files)
                 if l>index+1:
                     self.currentFile=files[index+1]
                 else:
                     self.currentFile=files[l-1]
             except ValueError as ve:
+                self.currentIndex=0
                 self.currentFile = files[0]
         
         self.rateCurrentFile()
@@ -353,11 +403,15 @@ class RateAndCutDialog(QDialog):
         else:
             try:
                 index=files.index(self.currentFile)
+                self.currentIndex=index
                 if len(files)>index-1 and index>=1:
+                    self.currentIndex=index-1
                     self.currentFile=files[index-1]
                 else:
+                    self.currentIndex=0
                     self.currentFile=files[0]
             except ValueError as ve:
+                self.currentIndex=0
                 self.currentFile = files[0]
         
         self.rateCurrentFile()
@@ -365,6 +419,10 @@ class RateAndCutDialog(QDialog):
 
 
     def rateCurrentFile(self):
+        
+        self.fileSlider.setValue(self.currentIndex)
+        global fileDragged
+        fileDragged=False
         self.hasCropOrTrim=False
         self.main_group_box.setTitle( self.currentFile )
         folder=os.path.join(path, "../../../../input/vr/check/rate")
@@ -400,6 +458,7 @@ class RateAndCutDialog(QDialog):
         except ValueError as ve:
             print(traceback.format_exc(), flush=True)                
             index=0
+            self.currentIndex=index
             self.currentFile=files[index]
             self.rateCurrentFile()
             return
@@ -450,7 +509,8 @@ class RateAndCutDialog(QDialog):
                     index=l-1
                     
                 self.currentFile=files[index]
-                print("index next"  , index, l, self.currentFile, flush=True)
+                self.currentIndex=index
+                #print("index next"  , index, l, self.currentFile, flush=True)
                 self.rateCurrentFile()
                     
             except Exception as any_ex:
@@ -472,6 +532,7 @@ class RateAndCutDialog(QDialog):
             input=os.path.abspath(os.path.join(folder, self.currentFile))
         except ValueError as ve:
             index=0
+            self.currentIndex=index
             self.currentFile=files[index]
             self.rateCurrentFile()
             print(traceback.format_exc(), flush=True)                
@@ -497,6 +558,7 @@ class RateAndCutDialog(QDialog):
                     index=l-1
                     
                 self.currentFile=files[index]
+                self.currentIndex=index
                 self.rateCurrentFile()
 
                 self.logn(" done", QColor("green"))
@@ -522,6 +584,7 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True)                
             index=0
             self.currentFile=files[index]
+            self.currentIndex=index
             self.rateCurrentFile()
             return
             
@@ -548,6 +611,7 @@ class RateAndCutDialog(QDialog):
                 index=l-1
                 
             self.currentFile=files[index]
+            self.currentIndex=index
             self.rateCurrentFile()
                 
             self.logn(" Overwritten" if recreated else " OK", QColor("green"))
@@ -774,6 +838,9 @@ class VideoThread(QThread):
 
     def __init__(self, filepath, uid, slider, update, onVideoLoaded):
         super().__init__()
+        global videoActive
+        videoActive=False
+
         self.uid = uid
         self.filepath = filepath
         self.slider = slider
@@ -783,6 +850,8 @@ class VideoThread(QThread):
         self.update(self.pause)
         self.onVideoLoaded = onVideoLoaded
         self.currentFrame=-1
+        self.frame_count=-1
+        self.fps=1
         self._run_flag = False
         #print("Created thread with uid " + str(uid) , flush=True)
 
@@ -802,15 +871,12 @@ class VideoThread(QThread):
             self.onVideoLoaded()
             return
 
-        self._run_flag = True
-        videoActive=True
-            
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.a = 0
         self.b = self.frame_count - 1
-        # print("frames", self.frame_count)
+        print("frames", self.frame_count, flush=True)
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
-        #print("Started video. framecount:", self.frame_count, "fps:", fps, flush=True)
+        print("Started video. framecount:", self.frame_count, "fps:", self.fps, flush=True)
         
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.frame_count-1)
@@ -823,6 +889,9 @@ class VideoThread(QThread):
         self.slider.setPageStep(int(self.fps))        
         self.slider.valueChanged.connect(self.sliderChanged)
         self.slider.registerForMouseEvent(self.onSliderMouseClick)
+
+        self._run_flag = True
+        videoActive=True
 
         self.onVideoLoaded()
         self.update(self.pause)
@@ -958,7 +1027,11 @@ class Display(QLabel):
     def update_image(self, cv_img, uid):
         #print("update Image", flush=True)
         if uid!=self.displayUid:
-            #print("update Image - ignored", flush=True)
+            self.qt_img = None
+            self.imggeometry=self.size()
+            blackpixmap = QPixmap(16,16)
+            blackpixmap.fill(Qt.black)
+            self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
             return
         if cv_img is None or cv_img.size == 0:
             #print("update Image - none", flush=True)
@@ -1028,6 +1101,7 @@ class Display(QLabel):
     def stopAndBlackout(self):
         if self.thread:
             self.releaseVideo()
+            self.update_image(np.array([]), -1)
         else:
             self.update_image(np.array([]), -1)
         
