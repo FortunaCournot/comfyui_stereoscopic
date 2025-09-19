@@ -256,17 +256,9 @@ class SpreadsheetApp(QMainWindow):
         self.toggle_stages_expanded_action.setChecked(self.toogle_stages_expanded)
         self.toggle_stages_expanded_action.triggered.connect(self.toggle_stage_expanded_enabled)
         self.toolbar.addAction(self.toggle_stages_expanded_action)    
-        
-        self.button_show_pipeline_action = QAction(QIcon(os.path.join(path, '../../gui/img/pipeline64.png')), "Worflow")      
-        self.button_show_pipeline_action.setCheckable(False)
-        self.button_show_pipeline_action.triggered.connect(self.show_pipeline)
-        self.toolbar.addAction(self.button_show_pipeline_action)    
-        imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
-        if not os.path.exists(imagepath):
-            self.button_show_pipeline_action.setEnabled(False)
-        
-        self.toolbar.addSeparator()
 
+        self.toolbar.addSeparator()
+        
         self.button_check_cutclone_action = QAction(StyledIcon(os.path.join(path, '../../gui/img/cut64.png')), "Crop & Trim")      
         self.button_check_cutclone_action.setCheckable(False)
         self.button_check_cutclone_action.setEnabled(False)
@@ -288,6 +280,16 @@ class SpreadsheetApp(QMainWindow):
         empty = QWidget()
         empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         self.toolbar.addWidget(empty)
+
+        self.button_show_pipeline_action = QAction(QIcon(os.path.join(path, '../../gui/img/pipeline64.png')), "Worflow")      
+        self.button_show_pipeline_action.setCheckable(False)
+        self.button_show_pipeline_action.triggered.connect(self.show_pipeline)
+        self.toolbar.addAction(self.button_show_pipeline_action)    
+        imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
+        if not os.path.exists(imagepath):
+            self.button_show_pipeline_action.setEnabled(False)
+        
+        self.toolbar.addSeparator()
 
         self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../gui/img/manual64.png')), "Manual")      
         self.button_show_manual_action.setCheckable(False)
