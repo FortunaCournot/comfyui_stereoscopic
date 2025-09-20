@@ -479,7 +479,7 @@ class RateAndCutDialog(QDialog):
                         os.remove(output)
                     os.rename(input, output)
                     del getFilesToRate()[index]
-                    files=getFilesToRate()
+                    files=rescanFilesToRate()
                     self.rating_widget.clear_rating()
                     self.log(" Overwritten" if recreated else " Moved", QColor("green"))
                     
@@ -543,7 +543,7 @@ class RateAndCutDialog(QDialog):
                     self.log("Deleting " + os.path.basename(input), QColor("white"))
                     os.remove(input)
                     del getFilesToRate()[index]
-                    files=getFilesToRate()
+                    files=rescanFilesToRate()
                 
                 l=len(files)
 
@@ -595,7 +595,7 @@ class RateAndCutDialog(QDialog):
                 recreated=os.path.exists(destination)
                 os.replace(source, destination)
                 del getFilesToRate()[index]
-                files=getFilesToRate()
+                files=rescanFilesToRate()
             
             l=len(files)
 
