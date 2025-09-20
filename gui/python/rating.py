@@ -874,9 +874,9 @@ class VideoThread(QThread):
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.a = 0
         self.b = self.frame_count - 1
-        print("frames", self.frame_count, flush=True)
+        #print("frames", self.frame_count, flush=True)
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
-        print("Started video. framecount:", self.frame_count, "fps:", self.fps, flush=True)
+        #print("Started video. framecount:", self.frame_count, "fps:", self.fps, flush=True)
         
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.frame_count-1)
@@ -923,7 +923,7 @@ class VideoThread(QThread):
         #rememberThread=None
 
     def requestStop(self):
-        print("stopping thread...", flush=True)
+        #print("stopping thread...", flush=True)
         self._run_flag=False
         self.change_pixmap_signal.emit(np.array([]), -1)
         while videoActive:
