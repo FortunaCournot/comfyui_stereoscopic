@@ -950,7 +950,8 @@ class VideoThread(QThread):
         ret, cv_img = self.cap.read()
         if ret and self._run_flag:
             self.currentFrame=frame_number
-            self.slider.setValue(self.currentFrame)
+            if (frame_number!=self.slider.value()):
+                self.slider.setValue(self.currentFrame)
             self.change_pixmap_signal.emit(cv_img, self.uid)
         else:
             self._run_flag = False
@@ -963,6 +964,7 @@ class VideoThread(QThread):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
+            self.seek(self.slider.value())
 
     def setA(self, frame_number):
         self.a=frame_number
@@ -1025,7 +1027,6 @@ class Display(QLabel):
 
     @pyqtSlot(ndarray, int)
     def update_image(self, cv_img, uid):
-        #print("update Image", flush=True)
         if uid!=self.displayUid:
             self.qt_img = None
             self.imggeometry=self.size()
@@ -1196,7 +1197,6 @@ class Display(QLabel):
         ms=int( 1000.0 * float( self.trimBFrame - self.trimAFrame) / float(self.thread.fps) )
         td = timedelta(milliseconds=ms)
         text=self.format_timedelta_hundredth(td)
-        print("td", text, self.format_timedelta_hundredth(td), flush=True)
         return text
 
     def trimA(self):
