@@ -41,11 +41,12 @@ if path not in sys.path:
 
 # File Global
 videoActive=False
-filesToRate = []
 rememberThread=None
-cutModeActive=False
 taskActive=False
 fileDragged=False
+
+
+FILESCANTIME = 500
 
 class JudgeDialog(QDialog):
 
@@ -201,7 +202,7 @@ class RateAndCutDialog(QDialog):
         self.fileSlider.valueChanged.connect(self.fileSliderDragged)
         self.fileSlider.sliderReleased.connect(self.fileSliderChanged)
 
-        self.filetool_layout.addWidget(self.fileSlider, 0, 1, 1, ew)
+        self.filetool_layout.addWidget(self.fileSlider, 0, 0, 1, ew)
         
         self.fileLabel=QLabel()
         global fileDragged
@@ -261,7 +262,7 @@ class RateAndCutDialog(QDialog):
         # Timer for updating file buttons
         self.filebutton_timer = QTimer()
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
-        self.filebutton_timer.start(50)
+        self.filebutton_timer.start(FILESCANTIME)
         
         self.rateNext()
         
@@ -303,20 +304,20 @@ class RateAndCutDialog(QDialog):
         self.display.stopAndBlackout()
 
     def fileSliderDragged(self):
-        index=self.sender().value()-1
-        if index!=self.currentIndex and index>=0 and index<len(filesToRate):
-            lastIndex=len(filesToRate)
+        index=self.sender().value()
+        if index!=self.currentIndex and index>=1 and index<=len(getFilesToRate()):
+            lastIndex=len(getFilesToRate())
             self.fileDragIndex=index
-            self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))
-            self.main_group_box.setTitle(filesToRate[index])
+            self.fileLabel.setText(str(index)+" of "+str(lastIndex))
+            self.main_group_box.setTitle(getFilesToRate()[index-1])
 
     def fileSliderChanged(self):
         index=self.fileDragIndex
-        if index!=self.currentIndex and index>=0 and index<len(filesToRate):
-            #print("fileSliderChanged to", str(index+1)+" of "+str(len(filesToRate)), flush=True)
+        if index!=self.currentIndex and index>=1 and index<=len(getFilesToRate()):
+            #print("fileSliderChanged to", str(index+1)+" of "+str(len(getFilesToRate())), flush=True)
             self.fileLabel.setStyleSheet("QLabel { background-color : black; color : white; }");
             self.currentIndex=index
-            self.currentFile=filesToRate[index]
+            self.currentFile=getFilesToRate()[index-1]
             self.rateCurrentFile()
 
 
@@ -330,24 +331,23 @@ class RateAndCutDialog(QDialog):
             self.button_cutandclone.setEnabled(True)
 
     def update_filebuttons(self):
-        global filesToRate
         index=-1
         try:
-            filesToRate = getFilesToRate()  # TODO ...
+            rescanFilesToRate()
             if self.currentFile:
-                lastIndex=len(filesToRate)-1
-                self.fileSlider.setMaximum(lastIndex+1)
+                lastIndex=len(getFilesToRate())
+                self.fileSlider.setMaximum(lastIndex)
                 try:
-                    index=filesToRate.index(self.currentFile)
+                    index=getFilesToRate().index(self.currentFile)+1
                 except ValueError as ve:
                     pass
         except StopIteration as e:
             pass
-        self.button_prev_file.setEnabled(index>0)
-        self.button_next_file.setEnabled(index>-1 and index<lastIndex)
-        if index>-1:
+        self.button_prev_file.setEnabled(index>1)
+        self.button_next_file.setEnabled(index>0 and index<lastIndex)
+        if index>0:
             if not fileDragged:
-                self.fileLabel.setText(str(index+1)+" of "+str(lastIndex+1))
+                self.fileLabel.setText(str(index)+" of "+str(lastIndex))
         else:
             if not fileDragged:
                 self.fileLabel.setText("")
@@ -357,7 +357,6 @@ class RateAndCutDialog(QDialog):
                 self.button_snapshot_from_video.setEnabled(False)
                 self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
-
 
     def rateNext(self):
         self.button_prev_file.setEnabled(False)
@@ -446,8 +445,7 @@ class RateAndCutDialog(QDialog):
     def on_rating_changed(self, rating):
         print(f"Rating selected: {rating}", flush=True)
 
-        global filesToRate
-        files=filesToRate
+        files=getFilesToRate()
         try:
             index=files.index(self.currentFile)
             name=self.currentFile
@@ -480,8 +478,8 @@ class RateAndCutDialog(QDialog):
                     if recreated:
                         os.remove(output)
                     os.rename(input, output)
-                    del filesToRate[index]
-                    files=filesToRate
+                    del getFilesToRate()[index]
+                    files=getFilesToRate()
                     self.rating_widget.clear_rating()
                     self.log(" Overwritten" if recreated else " Moved", QColor("green"))
                     
@@ -524,8 +522,7 @@ class RateAndCutDialog(QDialog):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
         
-        global filesToRate
-        files=filesToRate
+        files=getFilesToRate()
         try:
             index=files.index(self.currentFile)
             folder=os.path.join(path, "../../../../input/vr/check/rate")
@@ -545,8 +542,8 @@ class RateAndCutDialog(QDialog):
                 if index>=0:
                     self.log("Deleting " + os.path.basename(input), QColor("white"))
                     os.remove(input)
-                    del filesToRate[index]
-                    files=filesToRate
+                    del getFilesToRate()[index]
+                    files=getFilesToRate()
                 
                 l=len(files)
 
@@ -573,8 +570,7 @@ class RateAndCutDialog(QDialog):
     def archiveAndNext(self):
         self.button_compress.setEnabled(False)
         
-        global filesToRate
-        files=filesToRate
+        files=getFilesToRate()
         try:
             index=files.index(self.currentFile)
             folder=os.path.join(path, "../../../../input/vr/check/rate")
@@ -598,8 +594,8 @@ class RateAndCutDialog(QDialog):
                 self.log("Archive "+self.currentFile, QColor("white"))
                 recreated=os.path.exists(destination)
                 os.replace(source, destination)
-                del filesToRate[index]
-                files=filesToRate
+                del getFilesToRate()[index]
+                files=getFilesToRate()
             
             l=len(files)
 
@@ -653,9 +649,7 @@ class RateAndCutDialog(QDialog):
                 cp = subprocess.run(cmd, shell=True, check=True)
                 self.logn(" Overwritten" if recreated else " OK", QColor("green"))
                 
-                files=getFilesToRate()
-                global filesToRate
-                filesToRate=files
+                rescanFilesToRate()
             except subprocess.CalledProcessError as se:
                 self.logn(" Failed", QColor("red"))
                 print("Failed: "  + cmd, flush=True)
@@ -683,9 +677,7 @@ class RateAndCutDialog(QDialog):
                 cp = subprocess.run(cmd, shell=True, check=True)
                 self.logn(" Overwritten" if recreated else " OK", QColor("green"))
 
-                files=getFilesToRate()
-                global filesToRate
-                filesToRate=files
+                rescanFilesToRate()
             except subprocess.CalledProcessError as se:
                 self.logn(" Failed", QColor("red"))
                 print("Failed: "  + cmd, flush=True)
@@ -950,21 +942,21 @@ class VideoThread(QThread):
         ret, cv_img = self.cap.read()
         if ret and self._run_flag:
             self.currentFrame=frame_number
-            if (frame_number!=self.slider.value()):
-                self.slider.setValue(self.currentFrame)
+            if (frame_number+1!=self.slider.value()):
+                self.slider.setValue(self.currentFrame+1)
             self.change_pixmap_signal.emit(cv_img, self.uid)
         else:
             self._run_flag = False
                 
     def sliderChanged(self):
         if self.pause:  # do not call while playback
-            self.seek(self.sender().value())
+            self.seek(self.sender().value()-1)
 
     def onSliderMouseClick(self):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
-            self.seek(self.slider.value())
+            self.seek(self.slider.value()-1)
 
     def setA(self, frame_number):
         self.a=frame_number
@@ -1828,26 +1820,26 @@ class StyledIcon(QIcon):
         self.addPixmap( disabled_icon, QIcon.Disabled )
 
     
-def updateFilesToRate():
-    global filesToRate
-    filesToRate = getFilesToRate()
-    return filesToRate
-    
-def getFilesToRate():
-    files = getFilesWithoutEdit()
+def rescanFilesToRate():
+    global _filesWithoutEdit
+    global _editedfiles
+    _filesWithoutEdit = rescanFilesWithoutEdit()
     if not cutModeActive:
-        editedfiles = getFilesOnlyEdit()
-        files = editedfiles + files
+        _editedfiles = rescanFilesOnlyEdit()
+        files = _editedfiles + _filesWithoutEdit
+    else:
+        _editedfiles = []
+        files = _editedfiles
     return files
-
-def getFilesWithoutEdit():
+    
+def rescanFilesWithoutEdit():
     try:
         files=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
     except StopIteration as e:
         files=[]
     return files
     
-def getFilesOnlyEdit():
+def rescanFilesOnlyEdit():
     try:
         editedfiles=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate/edit")))[2]
         for i in range(len(editedfiles)):
@@ -1855,6 +1847,18 @@ def getFilesOnlyEdit():
     except StopIteration as e:
         editedfiles=[]
     return editedfiles
+
+def getFilesToRate():
+    if not cutModeActive:
+        return _editedfiles + _filesWithoutEdit
+    else:
+        return _filesWithoutEdit
+
+def getFilesWithoutEdit():
+    return _filesWithoutEdit
+
+def getFilesOnlyEdit():
+    return _editedfiles
 
 
 
@@ -1904,3 +1908,8 @@ def enterTask():
 
 def leaveTask():
     taskActive=False
+
+# global init
+cutModeActive=False
+rescanFilesToRate()
+
