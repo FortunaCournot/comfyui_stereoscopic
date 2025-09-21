@@ -542,7 +542,6 @@ class RateAndCutDialog(QDialog):
                 if index>=0:
                     self.log("Deleting " + os.path.basename(input), QColor("white"))
                     os.remove(input)
-                    del getFilesToRate()[index]
                     files=rescanFilesToRate()
                 
                 l=len(files)
@@ -594,7 +593,6 @@ class RateAndCutDialog(QDialog):
                 self.log("Archive "+self.currentFile, QColor("white"))
                 recreated=os.path.exists(destination)
                 os.replace(source, destination)
-                del getFilesToRate()[index]
                 files=rescanFilesToRate()
             
             l=len(files)
@@ -671,7 +669,7 @@ class RateAndCutDialog(QDialog):
             newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
             output=os.path.abspath(os.path.join(folder+"/edit", newfilename))
             self.log("Create snapshot "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 \"" + output + "\""
+            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 -update 1 \"" + output + "\""
             try:
                 recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
@@ -1829,7 +1827,7 @@ def rescanFilesToRate():
         files = _editedfiles + _filesWithoutEdit
     else:
         _editedfiles = []
-        files = _editedfiles
+        files = _filesWithoutEdit
     return files
     
 def rescanFilesWithoutEdit():
