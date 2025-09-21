@@ -115,6 +115,13 @@ class RateAndCutDialog(QDialog):
             self.button_snapshot_from_video.setIconSize(QSize(80,80))
             self.button_snapshot_from_video.clicked.connect(self.createSnapshot)
 
+            self.button_startframe = ActionButton()
+            self.button_startframe.setIcon(StyledIcon(os.path.join(path, '../../gui/img/startframe80.png')))
+            self.button_startframe.setIconSize(QSize(80,80))
+
+            self.button_endframe = ActionButton()
+            self.button_endframe.setIcon(StyledIcon(os.path.join(path, '../../gui/img/endframe80.png')))
+            self.button_endframe.setIconSize(QSize(80,80))
 
         self.button_prev_file = ActionButton()
         self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/prevf80.png')))
@@ -176,13 +183,13 @@ class RateAndCutDialog(QDialog):
         # Video Tool layout
         self.videotool_layout = QHBoxLayout()
         self.videotool_layout.addWidget(self.button_startpause_video)
-        self.videotool_layout.addWidget(self.sp1)
         if cutMode:
+            self.videotool_layout.addWidget(self.button_startframe)
             self.videotool_layout.addWidget(self.button_trima_video)
         self.videotool_layout.addWidget(self.sl)
         if cutMode:
             self.videotool_layout.addWidget(self.button_trimb_video)
-            self.videotool_layout.addWidget(self.sp2)
+            self.videotool_layout.addWidget(self.button_endframe)
             self.videotool_layout.addWidget(self.button_snapshot_from_video)
 
         # Common Tool layout
@@ -242,6 +249,8 @@ class RateAndCutDialog(QDialog):
         if cutMode:
             self.button_trima_video.clicked.connect(self.display.trimA)
             self.button_trimb_video.clicked.connect(self.display.trimB)
+            self.button_startframe.clicked.connect(self.display.posA)
+            self.button_endframe.clicked.connect(self.display.posB)
 
 
         #Main Layout
@@ -369,20 +378,22 @@ class RateAndCutDialog(QDialog):
             return
             
         if self.currentFile is None:
-            self.currentFile = files[0]
             self.currentIndex=0
+            self.currentFile=files[self.currentIndex]
         else:
             try:
                 index=files.index(self.currentFile)
                 self.currentIndex=index
                 l=len(files)
                 if l>index+1:
-                    self.currentFile=files[index+1]
+                    self.currentIndex=index+1
+                    self.currentFile=files[self.currentIndex]
                 else:
-                    self.currentFile=files[l-1]
+                    self.currentIndex=l-1
+                    self.currentFile=files[self.currentIndex]
             except ValueError as ve:
                 self.currentIndex=0
-                self.currentFile = files[0]
+                self.currentFile=files[self.currentIndex]
         
         self.rateCurrentFile()
         self.button_next_file.setFocus()
@@ -398,20 +409,22 @@ class RateAndCutDialog(QDialog):
             return
             
         if self.currentFile is None:
-            self.currentFile = files[0]
+            self.currentIndex=0
+            self.currentFile=files[self.currentIndex]
         else:
             try:
                 index=files.index(self.currentFile)
                 self.currentIndex=index
-                if len(files)>index-1 and index>=1:
+                l=len(files)
+                if index>=1:
                     self.currentIndex=index-1
-                    self.currentFile=files[index-1]
+                    self.currentFile=files[self.currentIndex]
                 else:
                     self.currentIndex=0
-                    self.currentFile=files[0]
+                    self.currentFile=files[self.currentIndex]
             except ValueError as ve:
                 self.currentIndex=0
-                self.currentFile = files[0]
+                self.currentFile=files[self.currentIndex]
         
         self.rateCurrentFile()
         self.button_prev_file.setFocus()
@@ -956,6 +969,18 @@ class VideoThread(QThread):
             self.update(self.pause)
             self.seek(self.slider.value()-1)
 
+    def posA(self):
+        if not self.pause:
+            self.pause=True
+            self.update(self.pause)
+        self.seek(self.a-1)
+        
+    def posB(self):
+        if not self.pause:
+            self.pause=True
+            self.update(self.pause)
+        self.seek(self.b-1)
+
     def setA(self, frame_number):
         self.a=frame_number
         if self.a>self.b:
@@ -1218,6 +1243,14 @@ class Display(QLabel):
                 self.thread.setB(count-1)
             if self.onCropOrTrim:
                 self.onCropOrTrim()
+
+    def posA(self):
+        if self.thread:
+            self.thread.posA()
+        
+    def posB(self):
+        if self.thread:
+            self.thread.posB()
 
     def enterEvent(self, event):
         self.setMouseTracking(True)
