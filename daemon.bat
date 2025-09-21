@@ -2,7 +2,7 @@
 :: VR we are - (C)2025 Fortuna Cournot, https://www.3d-gallery.org/
 :: Daemon starter
 ::====================================================================
-ECHO OFF 
+@ECHO OFF 
 :: Windows version check 
 IF NOT "%OS%"=="Windows_NT" GOTO Fail
 :: Keep variable local 
@@ -21,7 +21,7 @@ GOTO Fail
 
 :CheckArch
 reg Query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" > NUL && set OS=32BIT || set OS=64BIT
-if %OS%==32BIT echo This is a 32bit operating system. Not supported.
+if %OS%==32BIT echo [91mThis is a 32bit operating system. Not supported.[0m
 if %OS%==64BIT GOTO CheckGit
 echo OS Architecture %OS%
 GOTO Fail
@@ -37,25 +37,24 @@ for %%k in (HKCU HKLM) do (
         for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wMicrosoft\Windows\CurrentVersion\Uninstall\Git_is1" /v InstallLocation 2^> nul') do (
             for /f "tokens=3" %%z in ("%%a") do (
                 set GIT=%%z:%%b
-                echo Found Git at "!GIT!".
+                ::echo Found Git at "!GIT!".
                 goto FOUND
             )
         )
     )
 )
-goto NOT_FOUND
+ECHO [91mGit not found. Please install from [96m https://git-scm.com/ [0m
+GOTO Fail
 
 :FOUND
 :: Make sure Bash is in PATH (for running scripts).
 SET PATH=%GIT%bin;%PATH%
 git --version
 IF %ERRORLEVEL% == 0 GOTO Start
-ECHO Git version to old. Please update.
+ECHO * [91mGit to old (version is below 2.37), you need to update before using VR we are.[0m
+ECHO   [91mPlease download Git from [96m https://git-scm.com/ [0m
 GOTO Fail
 
-:NOT_FOUND
-ECHO Please install Git version 2.37 or later from https://git-scm.com/
-Goto Fail
 
 :: Execute daemon shell script
 :Start
@@ -64,7 +63,8 @@ ECHO ON
 IF %ERRORLEVEL% == 0 GOTO End
 
 :Fail 
-ECHO Start failed. (%ERRORLEVEL%)
+ECHO [91mDaemon start failed. (%ERRORLEVEL%)[0m
+pause
 GOTO End
 
 :: Done 
