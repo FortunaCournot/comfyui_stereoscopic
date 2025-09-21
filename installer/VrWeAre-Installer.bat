@@ -22,7 +22,7 @@ SET VRWEAREPATH=
 IF %INTERACTIVE% equ 0 GOTO CheckOS
 CLS
 ECHO/
-ECHO [1m=== [92mV[91mR[0m[1m we are - Installation ===[0m
+ECHO [1m=== [92mV[91mR[0m[1m we are %VRWEARE_VERSION% - Installation ===[0m
 ECHO/
 ::pass
 
