@@ -141,13 +141,12 @@ IF %INTERACTIVE% equ 0 GOTO VRWEARE_END_REG_SEARCH
 ECHO/
 ECHO Please choose the installation type:
 ECHO/ 
-ECHO   1 - Keep existing installation and stop.
-ECHO   2 - Create new installation under different path and update registry.
-ECHO   Q - Quit
+ECHO   1 - Create new installation under different path and update registry.
+ECHO   Q - Keep existing installation and stop.
 ECHO/
-CHOICE /C 12Q /M ""
-IF ERRORLEVEL 3 GOTO End
-IF ERRORLEVEL 2 GOTO QueryForInstallationType
+CHOICE /C 1Q /M ""
+IF ERRORLEVEL 2 GOTO End
+IF ERRORLEVEL 1 GOTO QueryForInstallationType
 GOTO End
 
 
@@ -169,15 +168,18 @@ ECHO/
 ECHO Please choose the installation type:
 ECHO/ 
 ECHO   1 - For automatic download and installation of all components.
-ECHO   2 - For a guidance of a manual installation.
+ECHO       - This will ask you for an installation path
+ECHO       - Opens a bash shell to continue the Installation
+ECHO       - Downloads and installs ComfyUI portable, custom nodes, VR we are, models. 
+ECHO       - Complete the installation and update the registry.
+::ECHO   2 - For a guidance of a manual installation.
 ECHO   Q - Quit
 ECHO/
-CHOICE /C 12Q /M ""
-SET INSTALLATIONTYPE=0
-IF ERRORLEVEL 1 SET INSTALLATIONTYPE=1
-IF ERRORLEVEL 2 SET INSTALLATIONTYPE=2
-IF ERRORLEVEL 3 GOTO End
+CHOICE /C 1Q /M ""
+::SET INSTALLATIONTYPE=0
+IF ERRORLEVEL 2 GOTO End
 
+GOTO End
 
 :: Interactive Installation Path handling
 :VRWEARE_PARENT_QUERY
