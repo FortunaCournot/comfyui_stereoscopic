@@ -131,6 +131,16 @@ GOTO VRWEARE_END_REG_SEARCH
 
 :: Found reg entry
 :VRWEARE_FOUND_REG_ENTRY
+IF not exist "%VRWEAREPATH%\*" (
+  echo [93mWarning:[0m Invalid VR we are Registry entry found - Ignored.
+  IF %INTERACTIVE% equ 1 SET InstallFolder=
+  set VRWEAREPATH=
+  GOTO SELECT_INSTALL_PATH
+)
+GOTO QUERY_UPDATE_OR_NEW
+
+
+:QUERY_UPDATE_OR_NEW
 IF %INTERACTIVE% equ 1 SET InstallFolder="%VRWEAREPATH%"\..
 IF %INTERACTIVE% equ 1 echo * Found existing installation of VR we are at [2m%InstallFolder%[0m
 IF %INTERACTIVE% equ 0 echo Found VR we are reg entry at "%VRWEAREPATH%"
@@ -141,23 +151,51 @@ IF %INTERACTIVE% equ 0 GOTO VRWEARE_END_REG_SEARCH
 ECHO/
 ECHO Please choose the installation type:
 ECHO/ 
-ECHO   1 - Create new installation under different path and update registry.
+ECHO   1 - Update current installation.
+ECHO   2 - Create new installation under different path.
 ECHO   Q - Keep existing installation and stop.
 ECHO/
 CHOICE /C 1Q /M ""
-IF ERRORLEVEL 2 GOTO End
+IF ERRORLEVEL 3 GOTO End
+IF ERRORLEVEL 2 GOTO SELECT_INSTALL_PATH
 IF ERRORLEVEL 1 GOTO QueryForInstallationType
 GOTO End
 
 
-
-
 ::continue...
 :VRWEARE_END_REG_SEARCH
-IF not exist "%VRWEAREPATH%\*" (
-  IF %INTERACTIVE% equ 1 SET InstallFolder=
-  set VRWEAREPATH=
+:: No Choice - Create new installation...
+GOTO End
+
+
+
+:SELECT_INSTALL_PATH
+ECHO/
+ECHO Please type the parent path of the installation and press ENTER.
+ECHO/
+ECHO Or alternatively drag ^& drop the folder from Windows
+ECHO Explorer on this console window and press ENTER.
+ECHO/
+
+SET InstallFolder=""
+SET /P "InstallFolder=Path: "
+SET "InstallFolder=%InstallFolder:"=%"
+IF "%InstallFolder%" == "" GOTO VRWEARE_PARENT_QUERY
+SET "InstallFolder=%InstallFolder:/=\%"
+IF "%InstallFolder:~-1%" == "\" SET "InstallFolder=%InstallFolder:~0,-1%"
+IF "%InstallFolder%" == "" GOTO VRWEARE_PARENT_QUERY
+ECHO/
+
+if not exist "%InstallFolder%\*" (
+	ECHO Invalid Path. There is no folder "%InstallFolder%".
+	ECHO/
+	CALL
+	CHOICE /C YN /M "Do you want to enter the path once again "
+	IF ERRORLEVEL 2 GOTO End
+	IF ERRORLEVEL 1 GOTO VRWEARE_PARENT_QUERY
+	GOTO End
 )
+GOTO QueryForInstallationType
 
 
 :: Welcome Screen 
@@ -187,32 +225,9 @@ if not "%VRWEAREPATH%"=="" if exist "%VRWEAREPATH%\*" (
 	echo hmm %InstallFolder%
 )
 
-ECHO/
-ECHO Please type the parent path of the installation and press ENTER.
-ECHO/
-ECHO Or alternatively drag ^& drop the folder from Windows
-ECHO Explorer on this console window and press ENTER.
-ECHO/
-
-SET InstallFolder=""
-SET /P "InstallFolder=Path: "
-SET "InstallFolder=%InstallFolder:"=%"
-IF "%InstallFolder%" == "" GOTO VRWEARE_PARENT_QUERY
-SET "InstallFolder=%InstallFolder:/=\%"
-IF "%InstallFolder:~-1%" == "\" SET "InstallFolder=%InstallFolder:~0,-1%"
-IF "%InstallFolder%" == "" GOTO VRWEARE_PARENT_QUERY
-ECHO/
 
 
-if not exist "%InstallFolder%\*" (
-	ECHO Invalid Path. There is no folder "%InstallFolder%".
-	ECHO/
-	CALL
-	CHOICE /C YN /M "Do you want to enter the path once again "
-	IF ERRORLEVEL 2 GOTO QueryForInstallationType
-	IF ERRORLEVEL 1 GOTO VRWEARE_PARENT_QUERY
-	GOTO VRWEARE_PARENT_QUERY
-)
+
 
 :: Interactive Installation Path handling
 :VRWEARE_PARENT_CHECK
