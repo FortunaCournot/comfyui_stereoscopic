@@ -11,16 +11,24 @@ SETLOCAL enabledelayedexpansion
 SET VRWEARE_VERSION=4.0
 
 SET INTERACTIVE=1
-if [%1]==[] goto CheckOS
+if [%1]==[] goto DoChecks
 SET INSTALLATIONTYPE=1
 SET InstallFolder=%1
+echo Installfolder: %InstallFolder%
 SET INTERACTIVE=0
 SET VRWEAREPATH=
+
+:DoChecks
+IF %INTERACTIVE% equ 0 GOTO CheckOS
+CLS
+ECHO/
+ECHO === VR we are - Installation ===
+ECHO/
 
 :: CheckOS
 :CheckOS
 FOR /f "tokens=4-5 delims=. " %%i IN ('ver') DO SET VERSION=%%i.%%j
-IF "%version%" == "6.3" ECHO Windows 8.1 not supported
+IF "%version%" == "6.3" ECHO Windows 8.1 not supported.
 IF "%version%" == "6.2" ECHO Windows 8 not supported.
 IF "%version%" == "6.1" ECHO Windows 7 not supported.
 IF "%version%" == "6.0" ECHO Windows Vista not supported.
@@ -30,7 +38,7 @@ GOTO Fail
 
 :CheckArch
 reg Query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" > NUL && set OS=32BIT || set OS=64BIT
-if %OS%==32BIT echo This is a 32bit operating system. Not supported.
+if %OS%==32BIT echo [91mThis is a 32bit operating system. Not supported.[0m
 if %OS%==64BIT GOTO QueryForInstallationType
 echo OS Architecture %OS%
 GOTO Fail
@@ -39,20 +47,9 @@ GOTO Fail
 :QueryForInstallationType
 :: Check for existing software in registry ...
 :: ---
-:: Read the VR we are installation path from the Registry.
-for %%k in (HKCU HKLM) do (
-    for %%w in (\ \Wow6432Node\) do (
-        for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wMicrosoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation 2^> nul') do (
-            for /f "tokens=3" %%z in ("%%a") do (
-                set VRWEAREPATH=%%z:%%b
-                ::echo Found VR we are reg entry at "!VRWEAREPATH!".
-                goto VRWEARE_END_REG_SEARCH
-            )
-        )
-    )
-)
-:VRWEARE_END_REG_SEARCH
+
 :: Read the Git for Windows installation path from the Registry.
+::echo Checking for existing Git installation...
 for %%k in (HKCU HKLM) do (
     for %%w in (\ \Wow6432Node\) do (
         for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wMicrosoft\Windows\CurrentVersion\Uninstall\Git_is1" /v InstallLocation 2^> nul') do (
@@ -64,7 +61,85 @@ for %%k in (HKCU HKLM) do (
         )
     )
 )
+ECHO [91mGit not found. Please install from [96m https://git-scm.com/ [0m
+GOTO Fail
 :GIT_END_REG_SEARCH
+
+:CHECK_GIT_PATH
+:: Make sure Bash is in PATH (for running scripts).
+SET PATH=%GITPATH%bin;%PATH%
+git --version >"%temp%"\version.txt 2> nul
+IF %ERRORLEVEL% == 0 GOTO CHECK_GIT_VERSION
+ECHO * [91mGit to old (version is below 2.37), you need to update before installing VR we are.[0m
+ECHO   [91mPlease download Git from [96m https://git-scm.com/ [0m
+Goto Fail
+
+:CHECK_GIT_VERSION
+set /p Version=<"%temp%"\version.txt
+del "%temp%"\version.txt
+echo * %Version%  - [94mRecommended: 2.51[0m
+
+
+:CHECK_FFMPEG_PATH
+ffmpeg -version >"%temp%"\version.txt 2> nul
+IF %ERRORLEVEL% == 0 GOTO CHECK_FFMPEG_VERSION
+echo * [91mffmpeg not found in path, please install from [96m https://www.ffmpeg.org/ [0m
+echo   [91mand add path to environment variable Path.[0m
+echo   [91mE.g. open by calling: [96m"C:\Windows\system32\rundll32.exe" sysdm.cpl,EditEnvironmentVariables[0m
+GOTO Fail
+
+:CHECK_FFMPEG_VERSION
+set /p Version=<"%temp%"\version.txt
+del "%temp%"\version.txt
+echo * %Version%  - [94mRecommended: 8.0[0m
+
+:CHECK_EXIF_PATH
+exiftoolx -ver >"%temp%"\version.txt 2> nul
+IF %ERRORLEVEL% == 0 GOTO CHECK_EXIF_VERSION
+echo * [91mexiftool not found in path, please install from [96m https://exiftool.org/ [0m
+echo   [91mrename binary to exiftool.exe, and add path to environment variable Path.[0m
+echo   [91mE.g. open by calling: [96m"C:\Windows\system32\rundll32.exe" sysdm.cpl,EditEnvironmentVariables[0m
+GOTO Fail
+
+:CHECK_EXIF_VERSION
+set /p Version=<"%temp%"\version.txt
+del "%temp%"\version.txt
+echo * Exiftool %Version% - [94mRecommended: 13.33[0m
+GOTO End
+
+:CHECK_VRWEARE_VERSION
+:: Read the VR we are installation path from the Registry.
+echo Checking for existing VR we are installation...
+for %%k in (HKCU HKLM) do (
+    for %%w in (\ \Wow6432Node\) do (
+        for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wMicrosoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation 2^> nul') do (
+            for /f "tokens=3" %%z in ("%%a") do (
+                set VRWEAREPATH=%%z:%%b
+                goto VRWEARE_FOUND_REG_ENTRY
+            )
+        )
+    )
+
+)
+:: VR we are not installed
+IF %INTERACTIVE% equ 1 SET InstallFolder=
+set VRWEAREPATH=
+GOTO VRWEARE_END_REG_SEARCH
+
+:: Found reg entry
+:VRWEARE_FOUND_REG_ENTRY
+IF %INTERACTIVE% equ 1 SET InstallFolder="%VRWEAREPATH%"\..
+IF %INTERACTIVE% equ 0 echo Found VR we are reg entry at "%VRWEAREPATH%"
+IF %INTERACTIVE% equ 0 echo Removing existing VR we are installation from registry
+IF %INTERACTIVE% equ 0 CALL "%VRWEAREPATH%"\Uninstall.cmd
+
+::continue...
+:VRWEARE_END_REG_SEARCH
+IF not exist "%VRWEAREPATH%\*" (
+  IF %INTERACTIVE% equ 1 SET InstallFolder=
+  set VRWEAREPATH=
+)
+
 
 :: Welcome Screen 
 :QueryForInstallationType
@@ -86,10 +161,9 @@ IF ERRORLEVEL 2 SET INSTALLATIONTYPE=2
 IF ERRORLEVEL 3 GOTO End
 
 
-:: Interactive INstallation Path handling
+:: Interactive Installation Path handling
 :VRWEARE_PARENT_QUERY
 if not "%VRWEAREPATH%"=="" if exist "%VRWEAREPATH%\*" (
-	SET InstallFolder="VRWEAREPATH%"
 	echo hmm %InstallFolder%
 )
 
@@ -122,7 +196,19 @@ if not exist "%InstallFolder%\*" (
 
 :: Interactive Installation Path handling
 :VRWEARE_PARENT_CHECK
-IF not exist "%InstallFolder%\vrweare\*" (
+echo InstallFolder: %InstallFolder%
+IF "%InstallFolder%"=="" (
+	echo Error: Installfolder invalid: '%InstallFolder%'
+	echo It must be an existing folder.
+	GOTO Fail
+)
+IF not exist "%InstallFolder%\*" (
+	echo Error: Installfolder not found: '%InstallFolder%'
+	echo It must be an existing folder.
+	GOTO Fail
+)
+echo VRWEAREPATH: %VRWEAREPATH%
+IF not exist "%VRWEAREPATH%\*" (
 	mkdir "%InstallFolder%"\vrweare
 )
 IF not exist "%InstallFolder%\vrweare\*" (
@@ -131,44 +217,25 @@ IF not exist "%InstallFolder%\vrweare\*" (
 	IF %INTERACTIVE% equ 1 GOTO VRWEARE_PARENT_QUERY
 	GOTO Fail
 )
+CD /D "%InstallFolder%"\vrweare
+SET "VRWEAREPATH=%cd%"
+ECHO VRWEAREPATH: %VRWEAREPATH%
 GOTO REGISTER
-
 
 ::REGISTER
 :REGISTER
+echo reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /f >"%VRWEAREPATH%\\Uninstall.cmd"
+echo Updating registry...
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayName /t REG_SZ /f /d "VR we are"
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayVersion /t REG_SZ /f /d %VRWEARE_VERSION%
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v Publisher /t REG_SZ /f /d "Fortuna Cournot"
-reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%InstallFolder%\\VRweare"
-reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v NoModify /t REG_DWORD /f /d 1
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%VRWEAREPATH%"
+::reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v NoModify /t REG_DWORD /f /d 1
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%VRWEAREPATH%"
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v UninstallString /t REG_SZ /f /d "%VRWEAREPATH%\\Uninstall.cmd"
 
+:: VR we are Path registered.
 GOTO End
-
-
-
-
-
-
-
-
-
-
-
-
-:INSTALLGIT
-:: Make sure Bash is in PATH (for running scripts).
-SET PATH=%GITPATH%bin;%PATH%
-git --version
-IF %ERRORLEVEL% == 0 GOTO Start
-ECHO Git version to old. Please update.
-GOTO Fail
-:: Do something with Git ...
-
-:GIT_NOT_FOUND
-ECHO Please install Git version 2.37 or later from https://git-scm.com/
-Goto Fail
-
-
 
 
 
