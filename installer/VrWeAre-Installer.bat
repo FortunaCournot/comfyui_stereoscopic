@@ -24,6 +24,7 @@ CLS
 ECHO/
 ECHO === VR we are - Installation ===
 ECHO/
+::pass
 
 :: CheckOS
 :CheckOS
@@ -78,6 +79,7 @@ Goto Fail
 set /p Version=<"%temp%"\version.txt
 del "%temp%"\version.txt
 echo * %Version%  - [94mRecommended: 2.51[0m
+::pass
 
 
 :CHECK_FFMPEG_PATH
@@ -92,9 +94,10 @@ GOTO Fail
 set /p Version=<"%temp%"\version.txt
 del "%temp%"\version.txt
 echo * %Version%  - [94mRecommended: 8.0[0m
+::pass
 
 :CHECK_EXIF_PATH
-exiftoolx -ver >"%temp%"\version.txt 2> nul
+exiftool -ver >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_EXIF_VERSION
 echo * [91mexiftool not found in path, please install from [96m https://exiftool.org/ [0m
 echo   [91mrename binary to exiftool.exe, and add path to environment variable Path.[0m
@@ -105,11 +108,11 @@ GOTO Fail
 set /p Version=<"%temp%"\version.txt
 del "%temp%"\version.txt
 echo * Exiftool %Version% - [94mRecommended: 13.33[0m
-GOTO End
+::pass
 
 :CHECK_VRWEARE_VERSION
 :: Read the VR we are installation path from the Registry.
-echo Checking for existing VR we are installation...
+:: echo Checking for existing VR we are installation...
 for %%k in (HKCU HKLM) do (
     for %%w in (\ \Wow6432Node\) do (
         for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wMicrosoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation 2^> nul') do (
@@ -128,10 +131,11 @@ GOTO VRWEARE_END_REG_SEARCH
 
 :: Found reg entry
 :VRWEARE_FOUND_REG_ENTRY
-IF %INTERACTIVE% equ 1 SET InstallFolder="%VRWEAREPATH%"\..
 IF %INTERACTIVE% equ 0 echo Found VR we are reg entry at "%VRWEAREPATH%"
 IF %INTERACTIVE% equ 0 echo Removing existing VR we are installation from registry
 IF %INTERACTIVE% equ 0 CALL "%VRWEAREPATH%"\Uninstall.cmd
+IF %INTERACTIVE% equ 1 SET InstallFolder="%VRWEAREPATH%"\..
+IF %INTERACTIVE% equ 1 echo * Found existing installation of VR we are at [2m%InstallFolder%[0m
 
 ::continue...
 :VRWEARE_END_REG_SEARCH
