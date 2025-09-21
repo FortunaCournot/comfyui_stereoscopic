@@ -87,7 +87,7 @@ ffmpeg -version >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_FFMPEG_VERSION
 echo * [91mffmpeg not found in path, please install from [96m https://www.ffmpeg.org/ [0m
 echo   [91mand add path to environment variable Path.[0m
-echo   [91mE.g. open by calling: [96m"C:\Windows\system32\rundll32.exe" sysdm.cpl,EditEnvironmentVariables[0m
+echo   [91mE.g. call as admin: [96m"C:\Windows\system32\rundll32.exe" sysdm.cpl,EditEnvironmentVariables[0m
 GOTO Fail
 
 :CHECK_FFMPEG_VERSION
@@ -101,7 +101,7 @@ exiftool -ver >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_EXIF_VERSION
 echo * [91mexiftool not found in path, please install from [96m https://exiftool.org/ [0m
 echo   [91mrename binary to exiftool.exe, and add path to environment variable Path.[0m
-echo   [91mE.g. open by calling: [96m"C:\Windows\system32\rundll32.exe" sysdm.cpl,EditEnvironmentVariables[0m
+echo   [91mE.g. call as admin: [96m"C:\Windows\system32\rundll32.exe" sysdm.cpl,EditEnvironmentVariables[0m
 GOTO Fail
 
 :CHECK_EXIF_VERSION
@@ -131,11 +131,27 @@ GOTO VRWEARE_END_REG_SEARCH
 
 :: Found reg entry
 :VRWEARE_FOUND_REG_ENTRY
+IF %INTERACTIVE% equ 1 SET InstallFolder="%VRWEAREPATH%"\..
+IF %INTERACTIVE% equ 1 echo * Found existing installation of VR we are at [2m%InstallFolder%[0m
 IF %INTERACTIVE% equ 0 echo Found VR we are reg entry at "%VRWEAREPATH%"
 IF %INTERACTIVE% equ 0 echo Removing existing VR we are installation from registry
 IF %INTERACTIVE% equ 0 CALL "%VRWEAREPATH%"\Uninstall.cmd
-IF %INTERACTIVE% equ 1 SET InstallFolder="%VRWEAREPATH%"\..
-IF %INTERACTIVE% equ 1 echo * Found existing installation of VR we are at [2m%InstallFolder%[0m
+IF %INTERACTIVE% equ 0 GOTO VRWEARE_END_REG_SEARCH
+:: Interactive: Ask user for new Installation
+ECHO/
+ECHO Please choose the installation type:
+ECHO/ 
+ECHO   1 - Keep existing installation and stop.
+ECHO   2 - Create new installation under different path and update registry.
+ECHO   Q - Quit
+ECHO/
+CHOICE /C 12Q /M ""
+IF ERRORLEVEL 3 GOTO End
+IF ERRORLEVEL 2 GOTO QueryForInstallationType
+GOTO End
+
+
+
 
 ::continue...
 :VRWEARE_END_REG_SEARCH
@@ -149,8 +165,6 @@ IF not exist "%VRWEAREPATH%\*" (
 :QueryForInstallationType
 ::CLS
 IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
-ECHO/
-ECHO === VR we are - Installation ===
 ECHO/
 ECHO Please choose the installation type:
 ECHO/ 
