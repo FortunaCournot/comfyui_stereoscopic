@@ -340,12 +340,14 @@ else
 			if [ ! -e "$DUBBINGDIR/sourcemerge.flac" ]; then echo -e $"\e[91mError:\e[0m failed to create sourcemerge.flac" && exit ; fi
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i $DUBBINGDIR/sourcemerge.flac -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.mp3
 			if [ ! -e "$DUBBINGDIR/padded.mp3" ]; then echo -e $"\e[91mError:\e[0m failed to create padded.mp3" && exit ; fi
-			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$DUBINPUT" -i $DUBBINGDIR/padded.mp3 -map 0:v:0 -c:v libx264  -map 1:a:0 -c:a aac -shortest -fflags +shortest $DUBBINGDIR/dubbed.mp4
+			# in 8.0 problems: -fflags +shortest
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$DUBINPUT" -i $DUBBINGDIR/padded.mp3 -map 0:v:0 -c:v libx264  -map 1:a:0 -c:a aac -shortest  $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create dubbed.mp4 (A)" && exit ; fi
 		else
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f lavfi -t 10 -i anullsrc=channel_layout=stereo:sample_rate=44100 -i "$DUBBINGDIR""/merged.flac" -filter_complex "[1:a][0:a]concat=n=2:v=0:a=1" $DUBBINGDIR/padded.mp3
 			if [ ! -e "$DUBBINGDIR/padded.mp3" ]; then echo -e $"\e[91mError:\e[0m failed to create padded.mp3" && exit ; fi
-			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$DUBINPUT" -i $DUBBINGDIR/padded.mp3 -map 0:v:0 -c:v libx264  -map 1:a:0 -c:a aac -shortest -fflags +shortest $DUBBINGDIR/dubbed.mp4
+			# in 8.0 problems: -fflags +shortest
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$DUBINPUT" -i $DUBBINGDIR/padded.mp3 -map 0:v:0 -c:v libx264  -map 1:a:0 -c:a aac -shortest  $DUBBINGDIR/dubbed.mp4
 			if [ ! -e "$DUBBINGDIR/dubbed.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create dubbed.mp4 (NA)" && exit ; fi
 		fi
 		[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$INPUT" -all:all -overwrite_original $DUBBINGDIR/dubbed.mp4 && echo "tags copied."
