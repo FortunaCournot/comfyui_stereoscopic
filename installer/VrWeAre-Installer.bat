@@ -146,7 +146,7 @@ IF %INTERACTIVE% equ 1 echo * Found existing installation of VR we are at [2m%I
 IF %INTERACTIVE% equ 0 echo Found VR we are reg entry at "%VRWEAREPATH%"
 IF %INTERACTIVE% equ 0 echo Removing existing VR we are installation from registry
 IF %INTERACTIVE% equ 0 CALL "%VRWEAREPATH%"\Uninstall.cmd
-IF %INTERACTIVE% equ 0 GOTO VRWEARE_END_REG_SEARCH
+IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
 :: Interactive: Ask user for new Installation
 ECHO/
 ECHO Please choose the installation type:
@@ -195,7 +195,6 @@ if not exist "%InstallFolder%\*" (
 	IF ERRORLEVEL 1 GOTO VRWEARE_PARENT_QUERY
 	GOTO End
 )
-GOTO QueryForInstallationType
 
 
 :: Welcome Screen 
@@ -214,48 +213,27 @@ ECHO       - Complete the installation and update the registry.
 ECHO   Q - Quit
 ECHO/
 CHOICE /C 1Q /M ""
-::SET INSTALLATIONTYPE=0
 IF ERRORLEVEL 2 GOTO End
-
-GOTO End
-
-:: Interactive Installation Path handling
-:VRWEARE_PARENT_QUERY
-if not "%VRWEAREPATH%"=="" if exist "%VRWEAREPATH%\*" (
-	echo hmm %InstallFolder%
-)
-
-
-
 
 
 :: Interactive Installation Path handling
 :VRWEARE_PARENT_CHECK
-echo InstallFolder: %InstallFolder%
-IF "%InstallFolder%"=="" (
-	echo Error: Installfolder invalid: '%InstallFolder%'
-	echo It must be an existing folder.
-	GOTO Fail
-)
-IF not exist "%InstallFolder%\*" (
-	echo Error: Installfolder not found: '%InstallFolder%'
-	echo It must be an existing folder.
-	GOTO Fail
-)
-echo VRWEAREPATH: %VRWEAREPATH%
-IF not exist "%VRWEAREPATH%\*" (
+IF not exist "%InstallFolder%\vrweare\*" (
 	mkdir "%InstallFolder%"\vrweare
 )
 IF not exist "%InstallFolder%\vrweare\*" (
 	ECHO ERROR: Invalid Install Path. Can't create folder "%InstallFolder%\vrweare".
 	ECHO/
-	IF %INTERACTIVE% equ 1 GOTO VRWEARE_PARENT_QUERY
+	IF %INTERACTIVE% equ 1 GOTO SELECT_INSTALL_PATH
 	GOTO Fail
 )
 CD /D "%InstallFolder%"\vrweare
 SET "VRWEAREPATH=%cd%"
-ECHO VRWEAREPATH: %VRWEAREPATH%
-GOTO REGISTER
+
+:: Write Bash script
+echo echo -e $"\n\e[94m=== PRESS RETURN TO CONTINUE ===\e[0m" >install.sh
+echo read x >>install.sh
+echo exit 1 >>install.sh
 
 ::REGISTER
 :REGISTER
@@ -269,83 +247,18 @@ reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v In
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%VRWEAREPATH%"
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v UninstallString /t REG_SZ /f /d "%VRWEAREPATH%\\Uninstall.cmd"
 
+
+:: Continue installation with bash script
+:CALL_BASH
+ECHO/
+ECHO Continue installation with bash script...
+::"%GITPATH%"git-bash.exe -c 'pwd; echo -e $"\n\e[94m=== PRESS RETURN TO CONTINUE ===\e[0m" ; read x'
+"%GITPATH%"git-bash.exe install.sh'
+GOTO End
+
 :: VR we are Path registered.
 GOTO End
 
-
-
-:: Start Installtion an prompt for ComfyUI base path
-:Start
-Goto PromptForExisting
-
-:ContinueWithShell
-rem CLS
-rem ECHO/
-rem ECHO === VR we are - Installation ===
-ECHO/
-ECHO Downloading Git Installer...
-rem "%GIT%"git-bash.exe -c 'git curl http://some.url --output some.file ; echo -e $"\n\e[94m=== PRESS RETURN TO CONTINUE ===\e[0m" ; read x'
-
-Goto Fail
-
-
-:PromptForParentPath
-ECHO/
-ECHO Please type the parent path of the installation and press ENTER.
-ECHO/
-ECHO Or alternatively drag ^& drop the folder from Windows
-ECHO Explorer on this console window and press ENTER.
-ECHO/
-
-SET "InstallFolder=""
-SET /P "InstallFolder=Path: "
-SET "InstallFolder=%InstallFolder:"=%"
-IF "%InstallFolder%" == "" GOTO PromptForParentPath
-SET "InstallFolder=%InstallFolder:/=\%"
-IF "%InstallFolder:~-1%" == "\" SET "InstallFolder=%InstallFolder:~0,-1%"
-IF "%InstallFolder%" == "" GOTO PromptForParentPath
-ECHO/
-
-echo Folder "%ComfyUIFolder%"
-
-if not exist "%ComfyUIFolder%\custom_nodes\*" (
-    ECHO Invalid Path.
-    ECHO There is no folder "%ComfyUIFolder%".
-    ECHO/
-    CHOICE /C YN /M "Do you want to enter the path once again "
-    IF %ERRORLEVEL% == 2 GOTO QueryForInstallationType
-    GOTO PromptForParentPath
-)
-
-
-:PromptForExisting
-ECHO/
-ECHO Please type the ComfyUI base path and press ENTER.
-ECHO Or alternatively drag ^& drop the folder from Windows
-ECHO Explorer on this console window and press ENTER.
-ECHO/
-
-SET "ComfyUIFolder=""
-SET /P "ComfyUIFolder=Path: "
-SET "ComfyUIFolder=%ComfyUIFolder:"=%"
-IF "%ComfyUIFolder%" == "" GOTO PromptForExisting
-SET "ComfyUIFolder=%ComfyUIFolder:/=\%"
-IF "%ComfyUIFolder:~-1%" == "\" SET "ComfyUIFolder=%ComfyUIFolder:~0,-1%"
-IF "%ComfyUIFolder%" == "" GOTO PromptForExisting
-ECHO/
-
-echo Folder "%ComfyUIFolder%"
-
-if not exist "%ComfyUIFolder%\custom_nodes\*" (
-    ECHO Invalid Path.
-    ECHO There is no folder "%ComfyUIFolder%\custom_nodes".
-    ECHO/
-    CHOICE /C YN /M "Do you want to enter the path once again "
-    IF %ERRORLEVEL% == 2 GOTO QueryForInstallationType
-    GOTO PromptForExisting
-)
-
-GOTO End
 
 :Fail 
 ECHO Installation failed. (%ERRORLEVEL%)
