@@ -141,8 +141,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "">>"$CONFIGFILE"
 	
 	echo "# x2 configuration. x4 models need rescaling">>"$CONFIGFILE"
-	echo "UPSCALEMODELx2=RealESRGAN_x4plus.pth">>"$CONFIGFILE"
-	echo "RESCALEx2=0.5">>"$CONFIGFILE"
+	echo "UPSCALEMODELx2=RealESRGAN_x2plus.pth">>"$CONFIGFILE"
+	echo "RESCALEx2=1.0">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# percentage of Scaled AI image used against original input. Setting it to 1.0 will not use original input.">>"$CONFIGFILE"
@@ -275,29 +275,6 @@ then
 fi
 
 ### CHECK MODELS ###
-
-if [ ! -d custom_nodes/comfyui_controlnet_aux ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfyui_controlnet_aux could not be found. Use Custom Nodes Manager to install v1.1.0."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/comfyui-videohelpersuite ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-videohelpersuite could not be found. Use Custom Nodes Manager to install v1.6.1."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/comfyui-easy-use ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-easy-use could not be found. Use Custom Nodes Manager to install v1.3.1."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/comfyui-custom-scripts ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfyui-custom-scripts could not be found. Use Custom Nodes Manager to install v1.2.5."
-	CONFIGERROR="x"
-fi
-if [ ! -d custom_nodes/comfy-mtb ]; then
-	echo -e $"\e[91mError:\e[0m Custom nodes comfy-mtb could not be found. Use Custom Nodes Manager to install v0.5.4."
-	CONFIGERROR="x"
-fi
-
-### CHECK MODELS ###
 if [ ! -e models/upscale_models/$UPSCALEMODELx4 ]; then
 	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx4 could not be found in models/upscale_models. Use Model Manager to install."
 	CONFIGERROR="x"
@@ -306,14 +283,14 @@ if [ ! -e models/upscale_models/$UPSCALEMODELx2 ]; then
 	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx2 could not be found in models/upscale_models. Use Model Manager to install."
 	CONFIGERROR="x"
 fi
-SEARCHCOUNT_MODEL=`find $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts -name $DEPTH_MODEL_CKPT | wc -l`
-if [[ $SEARCHCOUNT_MODEL -eq 0 ]] ; then
+#SEARCHCOUNT_MODEL=`find $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts -name $DEPTH_MODEL_CKPT | wc -l`
+#if [[ $SEARCHCOUNT_MODEL -eq 0 ]] ; then
 	#if [ "$DEPTH_MODEL_CKPT" != "depth_anything_v2_vitl.pth" ] ; then
 	#	echo -e $"\e[91mError:\e[0m Depth model $DEPTH_MODEL_CKPT could not be found in $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts"
 	#	echo -e $"It must be installed manually. Spoiler: \e[36mhttps://www.reddit.com/r/comfyui/comments/1lchvqw/depth_anything_v2_giant/\e[0m"
 	#	CONFIGERROR="x"
 	#else
-	echo -e $"\e[94mInfo:\e[0m Depth model $DEPTH_MODEL_CKPT not yet downloaded by comfyui_controlnet_aux"
+	#echo -e $"\e[94mInfo:\e[0m Depth model $DEPTH_MODEL_CKPT not yet downloaded by comfyui_controlnet_aux"
 	#fi
 #else
 	#if [ "$DEPTH_MODEL_CKPT" == "depth_anything_v2_vitl.pth" ] ; then
@@ -326,7 +303,7 @@ if [[ $SEARCHCOUNT_MODEL -eq 0 ]] ; then
 	#		[ $loglevel -ge 0 ] && echo -e $"  Spoiler: \e[36mhttps://www.reddit.com/r/comfyui/comments/1lchvqw/depth_anything_v2_giant/\e[0m"
 	#	fi
 	#fi
-fi
+#fi
 
 # CHECK TOOLS
 EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
