@@ -231,40 +231,75 @@ CD /D "%InstallFolder%"\vrweare
 SET "VRWEAREPATH=%cd%"
 
 :: Write Bash script
-echo echo -e $"\n\e[94m=== PRESS RETURN TO CONTINUE ===\e[0m" >install.sh
-echo read x >>install.sh
-echo exit 1 >>install.sh
-
-::REGISTER
-:REGISTER
-echo reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /f >"%VRWEAREPATH%\\Uninstall.cmd"
-echo Updating registry...
-reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayName /t REG_SZ /f /d "VR we are"
-reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayVersion /t REG_SZ /f /d %VRWEARE_VERSION%
-reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v Publisher /t REG_SZ /f /d "Fortuna Cournot"
-reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%VRWEAREPATH%"
-::reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v NoModify /t REG_DWORD /f /d 1
-reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%VRWEAREPATH%"
-reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v UninstallString /t REG_SZ /f /d "%VRWEAREPATH%\\Uninstall.cmd"
+echo #!/bin/bash >install.sh
+echo\ >>install.sh
+echo clear >>install.sh
+echo cleanup() { >>install.sh
+echo  exit_code=$? >>install.sh
+echo  [[ ${exit_code} -eq 0 ]] ^&^& trap - ERR ^&^& echo 0 ^>.installstatus ^&^& exit 0 >>install.sh
+echo  [[ ${exit_code} -ne 0 ]] ^&^& echo -e $"\n\e[91m=== PRESS RETURN TO CONTINUE (${exit_code}) ===\e[0m" >>install.sh
+echo  read x >>install.sh
+echo  echo $exit_code ^>.installstatus >>install.sh
+echo } >>install.sh
+echo trap cleanup EXIT >>install.sh
+echo download() { >>install.sh
+echo    if [ -s "$2" ] ; then >>install.sh
+echo      echo -ne $"\e[94m$2 already exists.\e[0m Validating Check-sum " >>install.sh
+echo      echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[93mfailed\e[0m") >>install.sh
+echo    fi >>install.sh
+echo    if [ ^^! -f "$2" ] ; then >>install.sh
+echo      echo -e $"\e[94mDownloading $1\e[0m" >>install.sh
+echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo      echo -n "Validating Check-sum " >>install.sh
+echo      echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
+echo    fi >>install.sh
+echo    if [ ^^! -f "$2" ] ; then >>install.sh
+echo      echo -e $"\e[91mCheck-sum error. Installation failed.\e[0m" >>install.sh
+echo      exit 1 >>install.sh
+echo    fi >>install.sh
+:: ^| sha256sum -c ^<(echo "$3  -") ^|^| rm -f $2 
+echo } >>install.sh
+echo\ >>install.sh
+:: url destination checksum
+echo mkdir -p install >>install.sh
+echo download "https://github.com/comfyanonymous/ComfyUI/releases/download/v0.3.59/ComfyUI_windows_portable_nvidia.7z" "install/comfyui.7z" "a1cf7b103c075793056a24ec33280bc8bd103f77f55bd9084bcb959456619c1a" >>install.sh
+echo\ >>install.sh
+echo exit 0 >>install.sh
 
 
 :: Continue installation with bash script
 :CALL_BASH
 ECHO/
-ECHO Continue installation with bash script...
+ECHO Continue installation with bash script. Waiting for completion...
 ::"%GITPATH%"git-bash.exe -c 'pwd; echo -e $"\n\e[94m=== PRESS RETURN TO CONTINUE ===\e[0m" ; read x'
 "%GITPATH%"git-bash.exe install.sh'
-GOTO End
+set /p CODE=<.installstatus
+DEL .installstatus
+ECHO Script completed. (%CODE%)
+IF %CODE% equ 0 GOTO REGISTER
+GOTO Fail
 
+::REGISTER
+:REGISTER
+echo reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /f >"%VRWEAREPATH%\\Uninstall.cmd"
+echo Updating registry.
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayName /t REG_SZ /f /d "VR we are" >nul
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayVersion /t REG_SZ /f /d %VRWEARE_VERSION% >nul
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v Publisher /t REG_SZ /f /d "Fortuna Cournot" >nul
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%VRWEAREPATH%" >nul
+::reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v NoModify /t REG_DWORD /f /d 1 >nul
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%VRWEAREPATH%" >nul
+reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v UninstallString /t REG_SZ /f /d "%VRWEAREPATH%\\Uninstall.cmd" >nul
 :: VR we are Path registered.
 GOTO End
 
-
 :Fail 
-ECHO Installation failed. (%ERRORLEVEL%)
+echo [91mInstallation failed.[0m (%ERRORLEVEL%)
+ECHO 
 exit /B 1
 
 :: Done 
 :End
+echo [92mInstallation completed.[0m (%ERRORLEVEL%)
 ENDLOCAL
 exit /B 0
