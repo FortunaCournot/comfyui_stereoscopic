@@ -131,7 +131,7 @@ else
 			else
 				TARGETPREFIX="$TARGETPREFIX""_x2"
 				UPSCALEMODEL=$(awk -F "=" '/UPSCALEMODELx2=/ {print $2}' $CONFIGFILE) ; UPSCALEMODEL=${UPSCALEMODEL:-"RealESRGAN_x4plus.pth"}
-				DOWNSCALE=0.5
+				DOWNSCALE=1.0
 				UPSCALEFACTOR=2
 				[ $loglevel -ge 1 ] && echo "using $UPSCALEFACTOR""x"
 			fi

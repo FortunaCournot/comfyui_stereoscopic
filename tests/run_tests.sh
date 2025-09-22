@@ -9,11 +9,9 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
-rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png input/vr/fullsbs/error/test_image.png output/vr/fullsbs/test_image_SBS_LR.png 2>/dev/null
-rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 input/vr/fullsbs/error/test_video.mp4 output/vr/fullsbs/test_video_SBS_LR.mp4 2>/dev/null
-rm -f -- input/vr/scaling/test_image.png input/vr/scaling/done/test_image.png input/vr/scaling/error/test_image.png output/vr/scaling/test_image_x4_4K.png 2>/dev/null
-rm -f -- input/vr/scaling/test_video.mp4 input/vr/scaling/done/test_video.mp4 input/vr/scaling/error/test_video.mp4 output/vr/scaling/test_video_x4.mp4 2>/dev/null
+rm -f ./output/vr/*/test_video*.mp4
 
+rm -f -- ComfyUI/*put/vr/*/test_*.* ComfyUI/*put/vr/*/*/test_*.* ComfyUI/*put/vr/*/*/*/test_*.*  2>/dev/null
 
 SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`

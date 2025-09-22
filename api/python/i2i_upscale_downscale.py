@@ -43,32 +43,6 @@ prompt_text = """
       "title": "Load Image"
     }
   },
-  "185": {
-    "inputs": {
-      "filename_prefix": [
-        "160",
-        0
-      ],
-      "only_preview": false,
-      "images": [
-        "194",
-        0
-      ]
-    },
-    "class_type": "easy imageSave",
-    "_meta": {
-      "title": "Save Image (Simple)"
-    }
-  },
-  "186": {
-    "inputs": {
-      "value": 0.5000000000000001
-    },
-    "class_type": "easy float",
-    "_meta": {
-      "title": "Downscale factor"
-    }
-  },
   "187": {
     "inputs": {
       "base_image": [
@@ -198,7 +172,7 @@ prompt_text = """
   "220": {
     "inputs": {
       "factor": [
-        "186",
+        "222",
         0
       ],
       "algorithm": "INTER_AREA",
@@ -211,6 +185,31 @@ prompt_text = """
     "class_type": "ScaleByFactor",
     "_meta": {
       "title": "Scale by Factor"
+    }
+  },
+  "221": {
+    "inputs": {
+      "filename_prefix": [
+        "160",
+        0
+      ],
+      "images": [
+        "194",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "222": {
+    "inputs": {
+      "value": 1.0
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Downscale factor"
     }
   }
 }
@@ -226,9 +225,9 @@ def queue_prompt(prompt):
 if len(sys.argv) == 6 + 1:
     prompt = json.loads(prompt_text)
     prompt["183"]["inputs"]["image"] = sys.argv[1]
-    prompt["185"]["inputs"]["filename_prefix"] = sys.argv[2] 
+    prompt["221"]["inputs"]["filename_prefix"] = sys.argv[2] 
     prompt["168"]["inputs"]["model_name"] = sys.argv[3]
-    prompt["186"]["inputs"]["value"] = float(sys.argv[4])
+    prompt["222"]["inputs"]["value"] = float(sys.argv[4])
     prompt["194"]["inputs"]["blend_factor"] = float(sys.argv[5])
     prompt["196"]["inputs"]["value"] = float(sys.argv[6])
     
