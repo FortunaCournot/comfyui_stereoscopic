@@ -14,6 +14,9 @@ IF NOT "%OS%"=="Windows_NT" GOTO Fail
 SETLOCAL enabledelayedexpansion
 
 SET VRWEARE_VERSION=4.0
+SET VRWEARE_TAG=4.0.0-alpha
+SET COMFYUI_TAG=v0.3.59
+SET COMFYUI_SHA=a1cf7b103c075793056a24ec33280bc8bd103f77f55bd9084bcb959456619c1a
 
 SET INTERACTIVE=1
 if [%1]==[] goto DoChecks
@@ -283,6 +286,7 @@ echo THE7ZIPPATH=`echo $THE7ZIPPATH` >>install.sh
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
 echo clear >>install.sh
+echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are 4.0 - Installation ===\e[0m\n" >>install.sh
 echo\ >>install.sh
 echo cleanup() { >>install.sh
 echo  exit_code=$? >>install.sh
@@ -292,7 +296,7 @@ echo  read WAITING_FOR_ENTER >>install.sh
 echo  echo $exit_code ^>.installstatus >>install.sh
 echo } >>install.sh
 echo trap cleanup EXIT >>install.sh
-echo download() { >>install.sh
+echo downloadAndCheck() { >>install.sh
 echo    if [ -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94m$2 already exists.\e[0m Validating Check-sum " >>install.sh
 echo      echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[93mfailed\e[0m") >>install.sh
@@ -309,14 +313,32 @@ echo      exit 1 >>install.sh
 echo    fi >>install.sh
 :: ^| sha256sum -c ^<(echo "$3  -") ^|^| rm -f $2 
 echo } >>install.sh
+echo downloadNoCheck() { >>install.sh
+echo    if [ -s "$2" ] ; then >>install.sh
+echo      echo -ne $"$2 already exists. " >>install.sh
+echo    fi >>install.sh
+echo    if [ ^^! -f "$2" ] ; then >>install.sh
+echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
+echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo    fi >>install.sh
+echo    if [ -s "$2" ] ; then >>install.sh
+echo      echo -e $"\e[92mok\e[0m" >>install.sh
+echo    else >>install.sh
+echo      echo -e $"\e[91mfailed\e[0m" >>install.sh
+echo      exit 1 >>install.sh
+echo    fi >>install.sh
+:: ^| sha256sum -c ^<(echo "$3  -") ^|^| rm -f $2 
+echo } >>install.sh
 echo\ >>install.sh
 :: url destination checksum
 echo mkdir -p install >>install.sh
 echo\ >>install.sh
 :: Going for ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic
+
 echo if [ ^^! -d ComfyUI_windows_portable/ComfyUI/custom_nodes ]; then >>install.sh
 :: Step 1: Download ComfyUI portable
-echo   download "https://github.com/comfyanonymous/ComfyUI/releases/download/v0.3.59/ComfyUI_windows_portable_nvidia.7z" "install/comfyui.7z" "a1cf7b103c075793056a24ec33280bc8bd103f77f55bd9084bcb959456619c1a" >>install.sh
+echo   downloadAndCheck "https://github.com/comfyanonymous/ComfyUI/releases/download/%COMFYUI_TAG%/ComfyUI_windows_portable_nvidia.7z" "install/comfyui.7z" "%COMFYUI_SHA%" >>install.sh
+
 :: Step 2: Uncompress ComfyUI portable
 echo   7z x install/comfyui.7z >>install.sh
 echo   if [ $? -ne 0 ]; then >>install.sh
@@ -324,14 +346,32 @@ echo     echo -e $"\e[91mError while unpacking. Installation failed.\e[0m" >>ins
 echo     exit 1 >>install.sh
 echo   fi >>install.sh
 echo   if [ ^^! -d ComfyUI_windows_portable/ComfyUI/custom_nodes ]; then >>install.sh
-echo     echo -e $"\e[91mError while unpacking. Installation failed.\e[0m" >>install.sh
+echo     echo -e $"\e[91mError while unpacking ComfyUI. Installation failed.\e[0m" >>install.sh
 echo     exit 1 >>install.sh
 echo   fi >>install.sh
 echo else >>install.sh
-echo   echo "ComfyUI already unpacked." >>install.sh
+echo   echo -e $"ComfyUI already unpacked. \e[92mok\e[0m" >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
-echo exit 0 >>install.sh
+
+echo if [ ^^! -f ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then >>install.sh
+:: Step 3: Download VR we are
+echo   downloadNoCheck "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/vrweare.tar.gz"  >>install.sh
+
+:: Step 4: Unpack VR we are
+echo   mkdir -p ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic >>install.sh
+echo   tar xzf install/vrweare.tar.gz -C ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic --strip-components=1 >>install.sh
+echo   if [ ^^! -f ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/pyproject.toml ]; then >>install.sh
+echo     echo -e $"\e[91mError while unpacking VR we are. Installation failed.\e[0m" >>install.sh
+echo     exit 1 >>install.sh
+echo   fi >>install.sh
+echo else >>install.sh
+echo   echo -e $"VR we are already unpacked. \e[92mok\e[0m" >>install.sh
+echo fi >>install.sh
+
+echo\ >>install.sh
+:: Finish Script with success code
+echo exit 1 >>install.sh
 :: END OF BASH SCRIPT
 :: pass
 
@@ -359,6 +399,11 @@ reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v In
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v InstallLocation /t REG_SZ /f /d "%VRWEAREPATH%" >nul
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v UninstallString /t REG_SZ /f /d "%VRWEAREPATH%\\Uninstall.cmd" >nul
 :: VR we are Path registered.
+
+:: Clean-up
+echo Clean-up
+::rmdir /s /q install
+
 GOTO End
 
 :Fail 
