@@ -284,11 +284,11 @@ fi
 
 ### CHECK MODELS ###
 if [ ! -e models/upscale_models/$UPSCALEMODELx4 ]; then
-	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx4 could not be found in models/upscale_models. Use Model Manager to install."
+	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx4 could not be found in models/upscale_models. Use Model Manager to install, or download file manually to models/upscale_models from https://github.com/xinntao/Real-ESRGAN/releases"
 	CONFIGERROR="x"
 fi
 if [ ! -e models/upscale_models/$UPSCALEMODELx2 ]; then
-	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx2 could not be found in models/upscale_models. Use Model Manager to install."
+	echo -e $"\e[91mError:\e[0m Upscale model $UPSCALEMODELx2 could not be found in models/upscale_models. Use Model Manager to install, or download file manually to models/upscale_models from https://github.com/xinntao/Real-ESRGAN/releases"
 	CONFIGERROR="x"
 fi
 #SEARCHCOUNT_MODEL=`find $COMFYUIPATH/custom_nodes/comfyui_controlnet_aux/ckpts -name $DEPTH_MODEL_CKPT | wc -l`
@@ -488,6 +488,7 @@ fi
 
 ### EXIT IF CHECK FAILED ###
 if [[ ! -z $CONFIGERROR ]]; then
+    echo "Configuration errors detected (see above) - stopping."
 	exit 1
 fi
 
