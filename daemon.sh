@@ -36,8 +36,8 @@ cleanup() {
 	done
     exit 0 # exit script after cleanup
 }
-trap cleanup EXIT
 
+trap cleanup EXIT
 
 mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K input/vr/caption input/vr/check/rate input/vr/check/released
 mkdir -p output/vr/check/rate output/vr/check/released

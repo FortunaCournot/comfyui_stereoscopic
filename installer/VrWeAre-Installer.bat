@@ -26,7 +26,7 @@ SET MANAGER_TAG=3.35
 
 :: Files redistributed through released forks:
 SET VRWEARE_TAG=4.0.0-alpha
-SET CONTROLNETAUX_TAG=1.1.2
+SET CONTROLNETAUX_TAG=1.1.2-rev562
 SET CUSTOMSCRIPTS_TAG=1.2.5
 SET MTB_TAG=0.6.0-dev
 SET CRYSTOOLS_TAG=1.27.3
@@ -258,7 +258,7 @@ ECHO   1 - Update current installation.
 ECHO   2 - Create new installation under different path.
 ECHO   Q - Keep existing installation and stop.
 ECHO/
-CHOICE /C 1Q /M ""
+CHOICE /C 12Q /M " "
 IF ERRORLEVEL 3 GOTO End
 IF ERRORLEVEL 2 GOTO SELECT_INSTALL_PATH
 IF ERRORLEVEL 1 GOTO QueryForInstallationType
@@ -315,7 +315,7 @@ ECHO       - Complete the installation and update the registry.
 ::ECHO   2 - For a guidance of a manual installation.
 ECHO   Q - Quit
 ECHO/
-CHOICE /C 1Q /M ""
+CHOICE /C 1Q /M " "
 IF ERRORLEVEL 2 GOTO End
 
 
@@ -359,7 +359,7 @@ echo trap cleanup EXIT >>install.sh
 :: downloadCheck7z(): URL targetfile targetfolder shasum
 echo downloadCheck7z() { >>install.sh
 echo   if [ -s "$2" ] ; then >>install.sh
-echo      echo -ne $"\e[94m$2 already exists.\e[0m Validating Check-sum " >>install.sh
+echo      echo -ne $"\e[94m$2 already exists.\e[0m Validating Check-sum on $2 " >>install.sh
 echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (echo rm -f "$2" ; echo -e $"\e[93mfailed\e[0m") >>install.sh
 echo   fi >>install.sh
 echo   if [ ^^! -f "$2" ] ; then >>install.sh
@@ -388,7 +388,7 @@ echo  if [ ^^! -f $3/pyproject.toml ]; then >>install.sh
 echo    if [ -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94m$2 already exists.\e[0m " >>install.sh
 echo      if [ ^^! -z "$4" ] ; then >>install.sh
-echo     	echo -ne $"Validating Check-sum "   >>install.sh
+echo     	echo -ne $"Validating Check-sum on $2 "   >>install.sh
 echo        echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[93mfailed\e[0m") >>install.sh
 echo      else >>install.sh
 echo      	echo -e $"\e[92mok\e[0m"  >>install.sh
@@ -397,15 +397,16 @@ echo    fi >>install.sh
 echo    if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
 echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
-echo      if [ ^^! -z "$4" ] ; then >>install.sh
-echo        echo -n "Validating Check-sum " >>install.sh
-echo        echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
+echo      if [ -s "$2" ] ; then >>install.sh
+echo        if [ ^^! -z "$4" ] ; then >>install.sh
+echo          echo -n "Validating Check-sum " >>install.sh
+echo          echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
+echo        fi >>install.sh
 echo      fi >>install.sh
 echo    fi >>install.sh
 echo    if [ -s "$2" ] ; then >>install.sh
 echo      echo -e $"\e[92mok\e[0m" >>install.sh
 echo    else >>install.sh
-echo      ls -l "$2" >>install.sh
 echo      echo -e $"\e[91mfailed\e[0m" >>install.sh
 echo      exit 1 >>install.sh
 echo    fi >>install.sh
@@ -421,18 +422,30 @@ echo  fi >>install.sh
 echo } >>install.sh
 :: installFile(): URL targetfile [shasum]
 echo installFile() { >>install.sh
-echo    echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
-echo    curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
-echo    if [ ^^! -z "$3" ] ; then >>install.sh
-echo      echo -n "Validating Check-sum " >>install.sh
-echo      echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
-echo    fi >>install.sh
 echo    if [ -s "$2" ] ; then >>install.sh
-echo      echo -e $"\e[92mok\e[0m" >>install.sh
-echo    else >>install.sh
-echo      ls -l "$2" >>install.sh
-echo      echo -e $"\e[91mfailed\e[0m" >>install.sh
-echo      exit 1 >>install.sh
+echo      if [ ^^! -z "$3" ] ; then >>install.sh
+echo     	echo -ne $"Validating Check-sum on $2 "   >>install.sh
+echo        echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[93mfailed\e[0m") >>install.sh
+echo      else >>install.sh
+echo      	echo -e $"\e[92mok\e[0m"  >>install.sh
+echo      fi >>install.sh
+echo    fi >>install.sh
+echo    if [ ^^! -f "$2" ] ; then >>install.sh
+echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
+echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo      if [ -s "$2" ] ; then >>install.sh
+echo        if [ ^^! -z "$3" ] ; then >>install.sh
+echo          echo -n "Validating Check-sum " >>install.sh
+echo          echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
+echo        fi >>install.sh
+echo      fi >>install.sh
+echo      if [ -s "$2" ] ; then >>install.sh
+echo        echo -e $"\e[92mok\e[0m" >>install.sh
+echo      else >>install.sh
+echo        ls -l "$2" >>install.sh
+echo        echo -e $"\e[91mfailed\e[0m" >>install.sh
+echo        exit 1 >>install.sh
+echo      fi >>install.sh
 echo    fi >>install.sh
 echo } >>install.sh
 echo\ >>install.sh
@@ -467,7 +480,7 @@ echo echo -e $"The license files have been downloaded to "`pwd`":" >>install.sh
 echo ls ./LICENSE*.* >>install.sh
 echo echo -e $" " >>install.sh
 echo while true; do >>install.sh
-echo     read -p "Do you commit to them and wish to install this program? " yn >>install.sh
+echo     read -p "Do you commit to them and wish to install this program (y/n)? " yn >>install.sh
 echo     case $yn in >>install.sh
 echo         [Yy]* ) break;; >>install.sh
 echo         [Nn]* ) exit 1;; >>install.sh
@@ -483,6 +496,9 @@ echo   echo -e $"ComfyUI already unpacked. \e[92mok\e[0m" >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
 
+echo clear >>install.sh
+echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installing... ===\e[0m\n" >>install.sh
+echo echo -e $" " >>install.sh
 
 ::  Download and unpackage comfyui nodes
 echo   installCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
@@ -544,10 +560,6 @@ reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v In
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v UninstallString /t REG_SZ /f /d "%VRWEAREPATH%\\Uninstall.cmd" >nul
 :: VR we are Path registered.
 
-:: Clean-up
-echo 
-::rmdir /s /q install
-
 
 :: Install python requirements
 cd ComfyUI_windows_portable
@@ -580,6 +592,7 @@ echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - Service Daemon.lnk" >> %SCRI
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.WindowStyle = 7 >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" >> %SCRIPT%
+echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\" >> %SCRIPT%
 echo oLink.IconLocation = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\vrweare.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
@@ -591,6 +604,7 @@ echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - App.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.WindowStyle = 7 >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\restart_gui.bat" >> %SCRIPT%
+echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\" >> %SCRIPT%
 echo oLink.IconLocation = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\vrweare.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
@@ -601,6 +615,7 @@ echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
 echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI CPU.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" >> %SCRIPT%
+echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
 echo oLink.IconLocation = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\comfyui.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
@@ -610,17 +625,48 @@ set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
 echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI Nvidea GPU.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
-echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidea_gpu.bat" >> %SCRIPT%
+echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat" >> %SCRIPT%
+echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
 echo oLink.IconLocation = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\comfyui.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
 
 
+:: Start server and service to complete installation
+:Start
+IF %INTERACTIVE% equ 0 GOTO Final
+CLS
+ECHO/
+ECHO [1m=== [92mV[91mR[0m[1m we are %VRWEARE_VERSION% - Start ===[0m
+ECHO/
+ECHO Starting server and service to complete installation...
+start /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" /B CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat"  > NUL
+timeout 1 > NUL
+START "ComfyUI First Start" /D "%VRWEAREPATH%\ComfyUI_windows_portable" /B CMD /K CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat"
+::pass
+
+:: wait for test to finish
+:WAIT_FOR_TEST_FINISH
+if exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.install" (
+	if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.signalfail" (
+		timeout 1 > NUL
+		GOTO WAIT_FOR_TEST_FINISH
+	)
+)
+:: check test success
+if exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.install" (
+    timeout 1 > NUL
+    ECHO [91mTests failed. Fix errors and restart service daemon.[0m Located at:
+    GOTO Fail
+)
 
 
-
-
+:: Clean-up
+:: TODO on fail?
+ECHO Please clear install folder to free space.
+DEL install.sh
+::RMDIR /S /Q install
 GOTO End
 
 :Fail 
@@ -630,18 +676,7 @@ exit /B 1
 
 :: Done 
 :End
-::DEL install.sh
-::RMDIR /S /Q install
-IF %INTERACTIVE% equ 0 GOTO Final
-CLS
-ECHO/
-ECHO [1m=== [92mV[91mR[0m[1m we are %VRWEARE_VERSION% - Configuration ===[0m
-ECHO/
-
-echo TBD.
-
-
-
+echo [92mInstallation succeeded.[0m
 
 :Final
 ENDLOCAL

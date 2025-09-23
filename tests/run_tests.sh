@@ -9,9 +9,15 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
-rm -f ./output/vr/*/test_video*.mp4
+CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+SHORT_CONFIGFILE=$CONFIGFILE
+CONFIGFILE=`realpath "$CONFIGFILE"`
+export CONFIGFILE
+COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 
-rm -f -- ComfyUI/*put/vr/*/test_*.* ComfyUI/*put/vr/*/*/test_*.* ComfyUI/*put/vr/*/*/*/test_*.*  2>/dev/null
+find ./input/vr -name test_* -exec rm -rf -- {} \;  2>/dev/null
+find ./output/vr -name test_* -exec rm -rf -- {} \;  2>/dev/null
 
 SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
 SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
@@ -38,6 +44,15 @@ TESTCOUNT=2
 echo -e $"\e[96m******* RUNNING TESTS FOR $INTERNAL_VERSION ... *******\e[0m"
 echo ""
 
+status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+if [ "$status" = "closed" ]; then
+    echo "Waiting for ComfyUI to start on http://""$COMFYUIHOST"":""$COMFYUIPORT ..."
+    while [ "$status" = "closed" ]; do
+	    sleep 1
+		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+	done
+fi
+echo ""
 
 echo -e $"####### \e[96mTest 1/$TESTCOUNT: SBS converter\e[0m ######"
 	rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png input/vr/fullsbs/error/test_image.png output/vr/fullsbs/test_image_x4_4K.png 2>/dev/null

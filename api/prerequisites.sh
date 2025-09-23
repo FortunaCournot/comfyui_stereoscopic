@@ -8,9 +8,13 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
+rm -f "custom_nodes/comfyui_stereoscopic/.test/.signalfail" >/dev/null
+
 if [ ! -e "custom_nodes/comfyui_stereoscopic/.test" ] ; then
-	echo -e $"\e[91mError:\e[0m Please start ComfyUI and complete installation."
-	exit 1
+	echo -e $"\e[91mError:\e[0m Waiting for ComfyUI to complete installation..."
+	while [ ! -e "custom_nodes/comfyui_stereoscopic/.test" ] ; do
+		sleep 1
+	done
 fi
 
 # Use Systempath for python by default, but set it explictly for comfyui portable.
@@ -432,6 +436,17 @@ for task in $TASKDIR; do
 	fi
 done
 
+
+# CHECK FOR VERSION UPDATE AND RUN TESTS
+if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
+	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
+	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
+		echo -e $"\e[91mError:\e[0m Tests failed."
+		touch "custom_nodes/comfyui_stereoscopic/.test/.signalfail"
+		exit 1
+	fi
+fi
+
 # Do initial auto-forward
 if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
 	echo -e $"\e[2mSearching for files left to forward\e[0m"
@@ -450,15 +465,6 @@ if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
 	done
 else
 	echo -e $"\e[94mInfo:\e[0m Auto-Forward deactivated."
-fi
-
-# CHECK FOR VERSION UPDATE AND RUN TESTS
-if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
-	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
-	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
-		echo -e $"\e[91mError:\e[0m Tests failed."
-		exit 1
-	fi
 fi
 
 POSITIVESFXPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
