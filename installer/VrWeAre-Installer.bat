@@ -685,7 +685,9 @@ exit /B 1
 :: Done 
 :End
 echo [92mInstallation succeeded.[0m
-
+ECHO/ 
+ECHO Don't forget to read the documentation. You can open it in the app toolbar in browser or
+ECHO or at %VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf
 :Final
 ENDLOCAL
 exit /B 0
