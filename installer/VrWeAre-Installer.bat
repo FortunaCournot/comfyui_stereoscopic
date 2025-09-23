@@ -517,13 +517,7 @@ echo\ >>install.sh
 echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl  >>install.sh
 echo E:\SD\ComfyUI_windows_portable\ComfyUI\models\controlnet\sdxl
 echo   installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/control-LoRAs-rank256/control-lora-recolor-rank256.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl/control-lora-recolor-rank256.safetensors" "b0bf3c163b6f578b3a73e9cf61c3e4219ae9c2a06903663205d1251cf2498925" >>install.sh
-
 echo\ >>install.sh
-
-
-:: Finish Script with success code
-echo exit 0 >>install.sh
-:: END OF BASH SCRIPT
 :: pass
 
 :: Continue installation with bash script
@@ -576,8 +570,24 @@ cd ComfyUI_windows_portable
 .\python_embeded\python -m pip install -I opencv-python
 .\python_embeded\python -m pip install -I pynvml
 :: Start ComfyUI and complete installation
-
 cd ..
+::pass
+
+:CREATE_SHORTCUTS
+set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
+echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\VR we are Service.lnk" >> %SCRIPT%
+echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
+echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" >> %SCRIPT%
+echo oLink.Save >> %SCRIPT%
+cscript /nologo %SCRIPT%
+del %SCRIPT%
+
+
+
+
+
+
 GOTO End
 
 :Fail 
