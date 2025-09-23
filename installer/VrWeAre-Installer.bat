@@ -172,6 +172,48 @@ echo * Exiftool %Version% - [94mRecommended: 13.33[0m
 set Version=
 ::pass
 
+:: Search for Topaz Video AI Path in registry to add it to configuration via bash script later
+:: HKEY_LOCAL_MACHINE\SOFTWARE\Topaz Labs LLC\Topaz Video AI     InstallDir   ModelDir
+:: TVAI_BIN_DIR, TVAI_MODEL_DATA_DIR, TVAI_MODEL_DIR
+for %%k in (HKCU HKLM) do (
+    for %%w in (\ \Wow6432Node\) do (
+        for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wTopaz Labs LLC\Topaz Video AI" /v InstallDir 2^> nul') do (
+            for /f "tokens=3" %%z in ("%%a") do (
+                set TVAI_BIN_DIR=%%z:%%b
+            )
+        )
+        for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wTopaz Labs LLC\Topaz Video AI" /v ModelDir 2^> nul') do (
+            for /f "tokens=3" %%z in ("%%a") do (
+                set TVAI_MODEL_DATA_DIR=%%z:%%b
+                set TVAI_MODEL_DIR=%%z:%%b
+            )
+        )
+    )
+)
+echo * Topaz Video AI
+echo   - TVAI_BIN_DIR=[94m%TVAI_BIN_DIR%[0m
+echo   - TVAI_MODEL_DIR=[94m%TVAI_MODEL_DIR%[0m
+SET TVAI_MODELERROR=0
+IF exist "%TVAI_BIN_DIR%\*" (
+ IF exist "%TVAI_MODEL_DIR%\*" (
+  SET MODEL=prob-4
+  IF exist "%TVAI_MODEL_DIR%\!MODEL!.json" (
+       echo     + !MODEL! [92mok[0m
+  ) ELSE (
+       echo     + !MODEL! [91missing[0m Deactivating TVAI.
+	   SET TVAI_MODELERROR=1
+  )
+  SET MODEL=chf-3
+  IF exist "%TVAI_MODEL_DIR%\!MODEL!.json" (
+       echo     + !MODEL! [92mok[0m
+  ) ELSE (
+       echo     + !MODEL! [91missing[0m Deactivating TVAI.
+	   SET TVAI_MODELERROR=1
+  )
+ )
+)
+
+
 :CHECK_VRWEARE_VERSION
 :: Read the VR we are installation path from the Registry.
 :: echo Checking for existing VR we are installation...
@@ -184,7 +226,6 @@ for %%k in (HKCU HKLM) do (
             )
         )
     )
-
 )
 :: VR we are not installed
 IF %INTERACTIVE% equ 1 SET InstallFolder=
@@ -305,7 +346,7 @@ echo THE7ZIPPATH=`echo $THE7ZIPPATH` >>install.sh
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
 echo clear >>install.sh
-echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are 4.0 - Installation ===\e[0m\n" >>install.sh
+echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installation ===\e[0m\n" >>install.sh
 echo\ >>install.sh
 echo cleanup() { >>install.sh
 echo  exit_code=$? >>install.sh
@@ -400,13 +441,48 @@ echo mkdir -p install >>install.sh
 echo\ >>install.sh
 :: Going for ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic
 
+:: Download licenses
+echo  installFile "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/refs/heads/main/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfy_mtb/refs/heads/main/LICENSE" "./LICENSE_comfy_mtb.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Crystools/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Crystools.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Florence2/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Florence2.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-VideoHelperSuite/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-VideoHelperSuite.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Frame-Interpolation/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Frame-Interpolation.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-MMAudio/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-MMAudio.TXT"  >>install.sh
+echo\ >>install.sh
+echo  installFile "https://raw.githubusercontent.com/hkchengrex/MMAudio/refs/heads/main/LICENSE" "./LICENSE_MMAudio.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/refs/heads/master/LICENSE" "./LICENSE_Real-ESRGAN.TXT"  >>install.sh
+echo  installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/LICENSE.MD?download=true" "./LICENSE_STABILITY-AI_CONTROL-LORA.MD"  >>install.sh
+
+:: Ask user for commitment
+echo\ >>install.sh
+echo clear >>install.sh
+echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - LICENSE AGREEMENT ===\e[0m\n" >>install.sh
+echo echo -e $" " >>install.sh
+echo echo -e $"This software is protected by the licenses." >>install.sh
+echo echo -e $"The license files have been downloaded to "`pwd`":" >>install.sh
+echo ls ./LICENSE*.* >>install.sh
+echo echo -e $" " >>install.sh
+echo while true; do >>install.sh
+echo     read -p "Do you commit to them and wish to install this program? " yn >>install.sh
+echo     case $yn in >>install.sh
+echo         [Yy]* ) break;; >>install.sh
+echo         [Nn]* ) exit 1;; >>install.sh
+echo         * ) echo "Please answer yes or no.";; >>install.sh
+echo     esac >>install.sh
+echo done >>install.sh
+
 echo if [ ^^! -d ComfyUI_windows_portable/ComfyUI/custom_nodes ]; then >>install.sh
-:: Download and unpackage ComfyUI portable
+:: Download and unpackage ComfyUI portable - GNU GENERAL PUBLIC LICENSE v3 (c) ComfyUI Code Owners
 echo   downloadCheck7z "https://github.com/comfyanonymous/ComfyUI/releases/download/%COMFYUI_TAG%/ComfyUI_windows_portable_nvidia.7z" "install/comfyui.7z" "ComfyUI_windows_portable/ComfyUI/custom_nodes" "%COMFYUI_SHA%"  >>install.sh
 echo else >>install.sh
 echo   echo -e $"ComfyUI already unpacked. \e[92mok\e[0m" >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
+
 
 ::  Download and unpackage comfyui nodes
 echo   installCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
@@ -421,13 +497,28 @@ echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Frame-Inter
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-MMAudio/archive/refs/tags/%MMAUDIO_TAG%.tar.gz" "install/mmaudio.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
 echo\ >>install.sh
 
-:: Other requirements: Create folders
+:: Other requirements: Install models
+
+:: Audio
 echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/mmaudio  >>install.sh
+:: MMAudio models MIT License - Copyright (c) 2024 Sony Research Inc.
+echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" "d8ad903a79adc2b29bacfeedabfa3d78b03d36d3b4dcb885c0649fe8c5d763cb" >>install.sh
+echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_large_44k_v2_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_large_44k_v2_fp16.safetensors" "a61378951ba4e8bfde2e977c0ad8211a7e02e1e92fd6a5b1c258a6464c1d102f" >>install.sh
+echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_synchformer_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_synchformer_fp16.safetensors" "b8d05128c76da6ee88720a89d25a5f86c603589883d02b53f563c3c66afe3581" >>install.sh
+echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_vae_44k_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_vae_44k_fp16.safetensors" "2598189f081bd10c86975106e5b6e2490168667429a75b52d77671283f245649" >>install.sh
 echo\ >>install.sh
 
-:: Other requirements: Install models
+:: LICENSE_Real-ESRGAN upscaling - BSD 3-Clause License - Copyright (c) 2021, Xintao Wang
 echo   installFile "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth" "ComfyUI_windows_portable/ComfyUI/models/upscale_models/RealESRGAN_x2plus.pth" "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb" >>install.sh
 echo   installFile "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth" "ComfyUI_windows_portable/ComfyUI/models/upscale_models/RealESRGAN_x4plus.pth" "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1" >>install.sh
+echo\ >>install.sh
+
+:: STABILITY AI CONTROL-LORA - COMMUNITY LICENSE AGREEMENT
+echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl  >>install.sh
+echo E:\SD\ComfyUI_windows_portable\ComfyUI\models\controlnet\sdxl
+echo   installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/control-LoRAs-rank256/control-lora-recolor-rank256.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl/control-lora-recolor-rank256.safetensors" "b0bf3c163b6f578b3a73e9cf61c3e4219ae9c2a06903663205d1251cf2498925" >>install.sh
+
+echo\ >>install.sh
 
 
 :: Finish Script with success code
@@ -503,7 +594,12 @@ CLS
 ECHO/
 ECHO [1m=== [92mV[91mR[0m[1m we are %VRWEARE_VERSION% - Configuration ===[0m
 ECHO/
+
 echo TBD.
+
+
+
+
 :Final
 ENDLOCAL
 exit /B 0

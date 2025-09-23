@@ -168,7 +168,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "WATERMARK_SECRETKEY=$NEWSECRETKEY">>"$CONFIGFILE"
 	echo "# --- watermark label, e.g. author name (max. 17 characters, alphanumeric) ---">>"$CONFIGFILE"
 	echo "# stop here --------------------v">>"$CONFIGFILE"
-	echo "WATERMARK_LABEL=">>"$CONFIGFILE"
+	echo "WATERMARK_LABEL=3D-GALLERY.ORG">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
 	echo "# --- metadata config ---">>"$CONFIGFILE"
