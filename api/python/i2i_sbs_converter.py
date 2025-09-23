@@ -18,33 +18,16 @@ prompt_text = """
 {
   "158": {
     "inputs": {
-      "image": "Demo-Image.png"
+      "image": "Teacher_00152_1k.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
       "title": "Load Image"
     }
   },
-  "207": {
-    "inputs": {
-      "ckpt_name": "depth_anything_v2_vitl.pth",
-      "resolution": [
-        "222",
-        3
-      ],
-      "image": [
-        "158",
-        0
-      ]
-    },
-    "class_type": "DepthAnythingV2Preprocessor",
-    "_meta": {
-      "title": "Depth Anything V2 - Relative"
-    }
-  },
   "220": {
     "inputs": {
-      "depth_scale": 1.25,
+      "depth_scale": 1.2000000000000002,
       "depth_offset": 0,
       "switch_sides": false,
       "blur_radius": 19,
@@ -55,25 +38,13 @@ prompt_text = """
         0
       ],
       "depth_image": [
-        "207",
+        "232",
         0
       ]
     },
     "class_type": "ImageVRConverter",
     "_meta": {
       "title": "Convert to VR"
-    }
-  },
-  "222": {
-    "inputs": {
-      "base_image": [
-        "158",
-        0
-      ]
-    },
-    "class_type": "GetResolutionForVR",
-    "_meta": {
-      "title": "Resolution Info"
     }
   },
   "227": {
@@ -87,6 +58,31 @@ prompt_text = """
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
+    }
+  },
+  "232": {
+    "inputs": {
+      "da_model": [
+        "233",
+        0
+      ],
+      "images": [
+        "158",
+        0
+      ]
+    },
+    "class_type": "DepthAnything_V2",
+    "_meta": {
+      "title": "Depth Anything V2"
+    }
+  },
+  "233": {
+    "inputs": {
+      "model": "depth_anything_v2_vitb_fp16.safetensors"
+    },
+    "class_type": "DownloadAndLoadDepthAnythingV2Model",
+    "_meta": {
+      "title": "DownloadAndLoadDepthAnythingV2Model"
     }
   }
 }
@@ -103,7 +99,7 @@ if len(sys.argv) != 6 + 1:
    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset blur_radius InputImagePath OutputPathPrefix")
 else:
     prompt = json.loads(prompt_text)
-    prompt["207"]["inputs"]["ckpt_name"] = sys.argv[1]
+    prompt["233"]["inputs"]["model"] = sys.argv[1]
     prompt["220"]["inputs"]["depth_scale"] = float(sys.argv[2])
     prompt["220"]["inputs"]["depth_offset"] = float(sys.argv[3])
     prompt["220"]["inputs"]["blur_radius"] = int(sys.argv[4])

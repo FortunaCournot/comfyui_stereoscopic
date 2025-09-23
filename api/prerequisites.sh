@@ -8,6 +8,8 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
+CONFIG_VERSION=8
+
 rm -f "custom_nodes/comfyui_stereoscopic/.test/.signalfail" >/dev/null
 
 if [ ! -e "custom_nodes/comfyui_stereoscopic/.test" ] ; then
@@ -62,11 +64,13 @@ done
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 if [ -e $CONFIGFILE ] ; then
 	config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-	if [ $config_version -lt 7 ]; then
+	if [ $config_version -lt $CONFIG_VERSION ]; then
 		mv -f -- $CONFIGFILE $CONFIGFILE-$config_version.bak
 	fi
 fi
-
+if [ -e ./user/default/comfyui_stereoscopic/.installprofile ] ; then
+    source ./user/default/comfyui_stereoscopic/.installprofile
+fi
 if [ ! -e $CONFIGFILE ] ; then
 	mkdir -p ./user/default/comfyui_stereoscopic
 	touch "$CONFIGFILE"
@@ -74,7 +78,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- comfyui_stereoscopic config  ---">>"$CONFIGFILE"
 	echo "# if you delete this file it will be recreated on next start of the daemon."  >>"$CONFIGFILE"
 	echo "# Warning: Simple syntax. inline comments are not supported.">>"$CONFIGFILE"
-	echo "config_version=7">>"$CONFIGFILE"
+	echo "config_version=$CONFIG_VERSION">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# Loglevel is not fully implemented overall yet.  -1 = quiet(very brief, but not silent). 0 = normal(briefer in future). 1 = verbose(like now). 2 = trace(set -x), keep intermediate. ">>"$CONFIGFILE"			
@@ -111,8 +115,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "SBS_DEPTH_BLUR_RADIUS_IMAGE=19">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
-	echo "# Used depth model by comfyui_controlnet_aux">>"$CONFIGFILE"
-	echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitb.pth">>"$CONFIGFILE"
+	echo "# Used depth model by comfyui-depthanythingv2">>"$CONFIGFILE"
+	echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitb_fp16.safetensors">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- video config ---">>"$CONFIGFILE"

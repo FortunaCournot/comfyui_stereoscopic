@@ -37,38 +37,9 @@ prompt_text = """
       "title": "Get Video Components"
     }
   },
-  "174": {
-    "inputs": {
-      "base_image": [
-        "173",
-        0
-      ]
-    },
-    "class_type": "GetResolutionForVR",
-    "_meta": {
-      "title": "Resolution Info"
-    }
-  },
-  "175": {
-    "inputs": {
-      "ckpt_name": "depth_anything_v2_vitl.pth",
-      "resolution": [
-        "174",
-        3
-      ],
-      "image": [
-        "173",
-        0
-      ]
-    },
-    "class_type": "DepthAnythingV2Preprocessor",
-    "_meta": {
-      "title": "Depth Anything V2 - Relative"
-    }
-  },
   "176": {
     "inputs": {
-      "depth_scale": 1.25,
+      "depth_scale": 1.2000000000000002,
       "depth_offset": 0,
       "switch_sides": false,
       "blur_radius": 19,
@@ -79,7 +50,7 @@ prompt_text = """
         0
       ],
       "depth_image": [
-        "175",
+        "185",
         0
       ]
     },
@@ -122,6 +93,31 @@ prompt_text = """
     "_meta": {
       "title": "Create Video"
     }
+  },
+  "185": {
+    "inputs": {
+      "da_model": [
+        "186",
+        0
+      ],
+      "images": [
+        "173",
+        0
+      ]
+    },
+    "class_type": "DepthAnything_V2",
+    "_meta": {
+      "title": "Depth Anything V2"
+    }
+  },
+  "186": {
+    "inputs": {
+      "model": "depth_anything_v2_vitb_fp16.safetensors"
+    },
+    "class_type": "DownloadAndLoadDepthAnythingV2Model",
+    "_meta": {
+      "title": "DownloadAndLoadDepthAnythingV2Model"
+    }
   }
 }
 """
@@ -136,7 +132,7 @@ if len(sys.argv) != 6 + 1:
    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset blur_radius InputVideoPath OutputPathPrefix videoformat videopixfmt videocrf")
 else:
     prompt = json.loads(prompt_text)
-    prompt["175"]["inputs"]["ckpt_name"] = sys.argv[1]
+    prompt["186"]["inputs"]["model"] = sys.argv[1]
     prompt["176"]["inputs"]["depth_scale"] = float(sys.argv[2])
     prompt["176"]["inputs"]["depth_offset"] = float(sys.argv[3])
     prompt["176"]["inputs"]["blur_radius"] = int(sys.argv[4])

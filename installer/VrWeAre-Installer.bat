@@ -26,7 +26,6 @@ SET MANAGER_TAG=3.35
 
 :: Files redistributed through released forks:
 SET VRWEARE_TAG=4.0.0-alpha
-SET CONTROLNETAUX_TAG=1.1.2-rev562
 SET CUSTOMSCRIPTS_TAG=1.2.5
 SET MTB_TAG=0.6.0-dev
 SET CRYSTOOLS_TAG=1.27.3
@@ -34,7 +33,8 @@ SET FLORENCE2_TAG=1.0.6
 SET VHS_TAG=1.7.7
 SET FRAMEINTERPOL_TAG=1.0.7
 SET MMAUDIO_TAG=1.0.3
-
+SET DEPTH_ANYTHING_V2_TAG=1.0.1
+::SET CONTROLNETAUX_TAG=1.1.2-rev562
 
 SET INTERACTIVE=1
 if [%1]==[] goto DoChecks
@@ -503,7 +503,8 @@ echo echo -e $" " >>install.sh
 ::  Download and unpackage comfyui nodes
 echo   installCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
-echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
+echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-DepthAnythingV2/archive/refs/tags/%DEPTH_ANYTHING_V2_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Custom-Scripts/archive/refs/tags/%CUSTOMSCRIPTS_TAG%.tar.gz" "install/customscripts.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-custom-scripts" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/comfy_mtb/archive/refs/tags/%MTB_TAG%.tar.gz" "install/mtb.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfy-mtb" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Crystools/archive/refs/tags/%CRYSTOOLS_TAG%.tar.gz" "install/crystools.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" >>install.sh
@@ -633,6 +634,13 @@ cscript /nologo %SCRIPT%
 del %SCRIPT%
 
 
+::write profile for configuration used when prerequisite script generates configuration
+ECHO # Bash Profile for Configuration Installer > "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
+IF TVAI_MODELERROR == 0 ECHO TVAI_BIN_DIR="%TVAI_BIN_DIR%" >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
+IF TVAI_MODELERROR == 1 ECHO #TVAI_BIN_DIR="%TVAI_BIN_DIR%" >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
+ECHO TVAI_MODEL_DIR="%TVAI_MODEL_DIR%" >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
+
+	   
 :: Start server and service to complete installation
 :Start
 IF %INTERACTIVE% equ 0 GOTO Final
