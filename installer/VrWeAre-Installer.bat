@@ -448,7 +448,18 @@ echo\ >>install.sh
 :: url destination checksum
 echo mkdir -p install >>install.sh
 echo\ >>install.sh
-:: Going for ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic
+
+echo COMFYUIHOST=127.0.0.1 >>install.sh
+echo COMFYUIPORT=8188 >>install.sh
+echo status=`true ^&^>/dev/null ^</dev/tcp/$COMFYUIHOST/$COMFYUIPORT ^&^& echo open ^|^| echo closed` >>install.sh
+echo if [ "$status" = "open" ]; then >>install.sh
+echo     echo -e $"\e[93m\e[1mComfyUI running\e[0m - Waiting for stop on http://""$COMFYUIHOST"":""$COMFYUIPORT ..." >>install.sh
+echo     while [ "$status" = "open" ]; do >>install.sh
+echo 	    sleep 1 >>install.sh
+echo 		status=`true ^&^>/dev/null ^</dev/tcp/$COMFYUIHOST/$COMFYUIPORT ^&^& echo open ^|^| echo closed` >>install.sh
+echo 	done >>install.sh
+echo fi >>install.sh
+echo\ >>install.sh
 
 :: Download licenses . for tags from /tags/... the other from /heads/main/
 echo  installFile "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/refs/heads/main/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
@@ -578,6 +589,7 @@ reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v Un
 
 :: Install python requirements
 cd ComfyUI_windows_portable
+ECHO Install python requirements...
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-manager\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui_stereoscopic\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui_controlnet_aux\requirements.txt
@@ -587,7 +599,8 @@ cd ComfyUI_windows_portable
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-videohelpersuite\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-frame-interpolation\requirements-no-cupy.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-mmaudio\requirements.txt
-
+:: Some fixes
+ECHO Apply python fixes...
 .\python_embeded\python -m pip install -I decorator
 .\python_embeded\python -m pip install -I platformdirs
 .\python_embeded\python -m pip install --upgrade numpy==2.2
@@ -596,12 +609,17 @@ cd ComfyUI_windows_portable
 .\python_embeded\python -m pip install -I matplotlib
 .\python_embeded\python -m pip install -I opencv-python
 .\python_embeded\python -m pip install -I pynvml
-:: Start ComfyUI and complete installation
+::nvidia handling
+SET HAS_NVIDIA_GPU=0
+IF exist "C:\Windows\System32\nvidia-smi.exe" (
+  ECHO [92mGPU detected:[0m
+  C:\Windows\System32\nvidia-smi.exe --query-gpu=gpu_name --format=noheader,nounits
+  SET HAS_NVIDIA_GPU=1
+)
 cd ..
 ::pass
 
 :CREATE_SHORTCUTS
-
 mkdir %VRWEAREPATH%\res
 copy %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\*.ico %VRWEAREPATH%\res
 
@@ -629,17 +647,7 @@ echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
 
-set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
-echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI CPU.lnk" >> %SCRIPT%
-echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
-echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" >> %SCRIPT%
-echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
-echo oLink.IconLocation = "%VRWEAREPATH%\res\comfyui.ico"  >> %SCRIPT%
-echo oLink.Save >> %SCRIPT%
-cscript /nologo %SCRIPT%
-del %SCRIPT%
-
+IF HAS_NVIDIA_GPU == 0 GOTO NO_GPU 
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
 echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI Nvidea GPU.lnk" >> %SCRIPT%
@@ -650,7 +658,20 @@ echo oLink.IconLocation = "%VRWEAREPATH%\res\comfyui.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
+GOTO DESKTOP_LINKS_DONE
 
+:NO_GPU
+set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
+echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI CPU.lnk" >> %SCRIPT%
+echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
+echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" >> %SCRIPT%
+echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
+echo oLink.IconLocation = "%VRWEAREPATH%\res\comfyui.ico"  >> %SCRIPT%
+echo oLink.Save >> %SCRIPT%
+cscript /nologo %SCRIPT%
+del %SCRIPT%
+:DESKTOP_LINKS_DONE
 
 ::write profile for configuration used when prerequisite script generates configuration
 ECHO %TVAI_BIN_DIR% > "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.TVAI_BIN_DIR"

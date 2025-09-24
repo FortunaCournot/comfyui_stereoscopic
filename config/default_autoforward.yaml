@@ -1,4 +1,6 @@
---- # delete this file (in user\default\comfyui_stereoscopic) to reset it to defaults.
+---
+# delete this file (in user\default\comfyui_stereoscopic) to reset it to defaults.
+# After editing you have restart service daemon to apply changes.
 forwards:
   - from: caption
     rules:

@@ -223,28 +223,41 @@ class SpreadsheetApp(QMainWindow):
             dialog = QDialog()
             dialog.setWindowTitle("VR We Are - Pipeline")
             lay = QVBoxLayout(dialog)
+
+            pipeline_toolbar = QToolBar()
+            lay.addWidget(pipeline_toolbar)
+            editAction = QAction("Edit")
+            editAction.setCheckable(False)
+            editAction.triggered.connect(self.edit_pipeline)
+            pipeline_toolbar.addAction(editAction)
+
             label = QLabel()
             lay.addWidget(label)
             pixmap = QPixmap(imagepath)
             label.setPixmap(pixmap)
+            
             self.button_show_pipeline_action.setEnabled(False)
             dialog.exec_()
             self.button_show_pipeline_action.setEnabled(True)
+            
+            
+    def edit_pipeline(self, state):
+        subprocess.Popen(r'notepad "'  + os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml') + '"')
         
     def show_manual(self, state):
-            webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
+        webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
 
     def check_cutandclone(self, state):
-            dialog = RateAndCutDialog(True)
-            dialog.exec_()
+        dialog = RateAndCutDialog(True)
+        dialog.exec_()
 
     def check_rate(self, state):
-            dialog = RateAndCutDialog(False)
-            dialog.exec_()
+        dialog = RateAndCutDialog(False)
+        dialog.exec_()
 
     def check_judge(self, state):
-            dialog = JudgeDialog()
-            dialog.exec_()
+        dialog = JudgeDialog()
+        dialog.exec_()
 
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
