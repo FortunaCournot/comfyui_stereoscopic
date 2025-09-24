@@ -364,7 +364,7 @@ echo   fi >>install.sh
 echo   if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -e $"\e[94mDownloading $1\e[0m" >>install.sh
 echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
-echo      [ ^^! $? = 0 ] (echo rm -f "$2" ; echo -e $"\e[91mError during download.\e[0m") >>install.sh
+echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
 echo      echo -n "Validating Check-sum " >>install.sh
 echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (echo rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
 echo   fi >>install.sh
@@ -397,7 +397,7 @@ echo    fi >>install.sh
 echo    if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
 echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
-echo      [ ^^! $? = 0 ] (echo rm -f "$2" ; echo -e $"\e[91mError during download.\e[0m") >>install.sh
+echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
 echo        if [ ^^! -z "$4" ] ; then >>install.sh
 echo          echo -n "Validating Check-sum " >>install.sh
@@ -434,7 +434,7 @@ echo    fi >>install.sh
 echo    if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
 echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
-echo      [ ^^! $? = 0 ] (echo rm -f "$2" ; echo -e $"\e[91mError during download.\e[0m") >>install.sh
+echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
 echo        if [ ^^! -z "$3" ] ; then >>install.sh
 echo          echo -n "Validating Check-sum " >>install.sh

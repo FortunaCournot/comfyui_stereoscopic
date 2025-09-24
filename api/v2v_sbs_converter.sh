@@ -114,7 +114,8 @@ else
 			TARGETPREFIX=`realpath "$TARGETPREFIX"`
 			SPLITINPUT="$INPUT"
 			EXTENSION="${INPUT##*.}"
-			RECOVERY=X
+			# FEATURE TURNED OFF
+			#RECOVERY=X
 		fi
 	fi
 	
