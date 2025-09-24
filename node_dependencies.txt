@@ -1,7 +1,0 @@
-comfyui-florence2=1.0.6
-comfyui_controlnet_aux=1.1.0
-comfyui-custom-scripts=1.2.5
-comfy-mtb=0.5.4
-comfyui-frame-interpolation=1.0.7
-comfyui-mmaudio=1.0.2
-comfyui-videohelpersuite=1.7.4
