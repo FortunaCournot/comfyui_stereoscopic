@@ -268,8 +268,7 @@ GOTO End
 ::continue...
 :VRWEARE_END_REG_SEARCH
 :: No Choice - Create new installation...
-GOTO End
-
+::pass
 
 
 :SELECT_INSTALL_PATH
@@ -337,7 +336,7 @@ SET "VRWEAREPATH=%cd%"
 echo %THE7ZIPPATH% >.install-the7zippath
 
 :: Write Bash script
-echo #!/bin/bash >install.sh
+echo #^^!/bin/bash >install.sh
 echo\ >>install.sh
 echo THE7ZIPPATH=`cat .install-the7zippath` >>install.sh
 echo rm .install-the7zippath >>install.sh
