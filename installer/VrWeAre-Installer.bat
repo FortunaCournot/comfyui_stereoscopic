@@ -640,11 +640,12 @@ del %SCRIPT%
 
 
 ::write profile for configuration used when prerequisite script generates configuration
+ECHO %TVAI_BIN_DIR% > "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.TVAI_BIN_DIR"
+IF TVAI_MODELERROR == 0 ECHO %TVAI_BIN_DIR% > "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.TVAI_MODEL_DIR"
+IF TVAI_MODELERROR == 1 ECHO %TVAI_BIN_DIR% > "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.TVAI_MODEL_DIR"
 ECHO # Bash Profile for Configuration Installer > "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
-IF TVAI_MODELERROR == 0 ECHO TVAI_BIN_DIR="%TVAI_BIN_DIR%" >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
-IF TVAI_MODELERROR == 1 ECHO #TVAI_BIN_DIR="%TVAI_BIN_DIR%" >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
-ECHO TVAI_MODEL_DIR="%TVAI_MODEL_DIR%" >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
-
+ECHO TVAI_BIN_DIR=`cat ./user/default/comfyui_stereoscopic/.TVAI_BIN_DIR`  >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
+ECHO TVAI_MODEL_DIR=`cat ./user/default/comfyui_stereoscopic/.TVAI_MODEL_DIR`  >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
 	   
 :: Start server and service to complete installation
 :Start
@@ -653,11 +654,15 @@ CLS
 ECHO/
 ECHO [1m=== [92mV[91mR[0m[1m we are %VRWEARE_VERSION% - Start ===[0m
 ECHO/
-ECHO Starting server and service to complete installation...
-echo %VRWEAREPATH%
-START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat"
+ECHO Starting server and service to complete installation... 3 windows get opened:
+ECHO - ComfyUI Server
+ECHO - VR we are - Service Daemon
+ECHO - VR we are - App
+ECHO/
+
+START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" > NUL
 timeout 1 > NUL
-START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat"
+START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" > NUL
 ::pass
 
 :: wait for test to finish
@@ -678,7 +683,7 @@ if exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscop
 
 :: Clean-up
 :: TODO on fail?
-ECHO Please clear install folder to free space.
+ECHO You can clear install folder now to free space.
 DEL install.sh
 ::RMDIR /S /Q install
 GOTO End
