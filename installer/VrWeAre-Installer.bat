@@ -299,23 +299,9 @@ if not exist "%InstallFolder%\*" (
 )
 
 
-:: Welcome Screen 
 :QueryForInstallationType
-::CLS
 IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
-ECHO/
-ECHO Please choose the installation type:
-ECHO/ 
-ECHO   1 - For automatic download and installation of all components.
-ECHO       - This will ask you for an installation path
-ECHO       - Opens a bash shell to continue the Installation
-ECHO       - Downloads and installs ComfyUI portable, custom nodes, VR we are, models. 
-ECHO       - Complete the installation and update the registry.
-::ECHO   2 - For a guidance of a manual installation.
-ECHO   Q - Quit
-ECHO/
-CHOICE /C 1Q /M " "
-IF ERRORLEVEL 2 GOTO End
+:: nothing do do yet - pass
 
 
 :: Interactive Installation Path handling
@@ -339,9 +325,9 @@ echo %THE7ZIPPATH% >.install-the7zippath
 echo #^^!/bin/bash >install.sh
 echo\ >>install.sh
 echo THE7ZIPPATH=`cat .install-the7zippath` >>install.sh
-echo rm .install-the7zippath >>install.sh
-echo THE7ZIPPATH=`realpath "$THE7ZIPPATH"` >>install.sh
+::echo rm .install-the7zippath >>install.sh
 echo THE7ZIPPATH=`echo $THE7ZIPPATH` >>install.sh
+echo echo THE7ZIPPATH=$THE7ZIPPATH
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
 echo clear >>install.sh
@@ -459,7 +445,7 @@ echo\ >>install.sh
 :: Download licenses
 echo  installFile "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/refs/heads/main/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
-#echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
+::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfy_mtb/refs/heads/main/LICENSE" "./LICENSE_comfy_mtb.TXT"  >>install.sh
@@ -507,7 +493,7 @@ echo echo -e $" " >>install.sh
 echo   installCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-DepthAnythingV2/archive/refs/tags/%DEPTH_ANYTHING_V2_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
+echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-DepthAnythingV2/archive/refs/tags/%DEPTH_ANYTHING_V2_TAG%.tar.gz"  "install/depthanythingv2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Custom-Scripts/archive/refs/tags/%CUSTOMSCRIPTS_TAG%.tar.gz" "install/customscripts.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-custom-scripts" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/comfy_mtb/archive/refs/tags/%MTB_TAG%.tar.gz" "install/mtb.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfy-mtb" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Crystools/archive/refs/tags/%CRYSTOOLS_TAG%.tar.gz" "install/crystools.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" >>install.sh
