@@ -559,6 +559,16 @@ GOTO Fail
 ::REGISTER
 :REGISTER
 echo reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /f >"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\install >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\update >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.ci >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.git >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.github >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO DEL /Q %VRWEAREPATH%\ComfyUI_windows_portable\*.bat >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\res >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO DEL %VRWEAREPATH%\Uninstall.cmd >>"%VRWEAREPATH%\\Uninstall.cmd"
 echo Updating registry.
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayName /t REG_SZ /f /d "VR we are" >nul
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayVersion /t REG_SZ /f /d %VRWEARE_VERSION% >nul
@@ -687,14 +697,15 @@ if exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscop
 
 
 :: Clean-up
-:: TODO on fail?
 ECHO You can clear install folder now to free space.
-DEL install.sh
+DEL install\install.sh
+rename install.sh install\install.sh
 ::RMDIR /S /Q install
 GOTO End
 
 :Fail 
-echo [91mInstallation failed.[0m (%ERRORLEVEL%)
+ECHO [91mInstallation failed.[0m (%ERRORLEVEL%)
+ECHO Please remove files manually.
 ECHO/ 
 exit /B 1
 
