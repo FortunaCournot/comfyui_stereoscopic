@@ -458,7 +458,7 @@ echo\ >>install.sh
 echo  installFile "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/refs/heads/main/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
 #echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
-echo echo "cc-by-4.0 Jukka 'Kijai' Seppänen ; https://depth-anything-v2.github.io/" ^>LICENSE_DepthAnythingV2.txt >install.sh
+echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfy_mtb/refs/heads/main/LICENSE" "./LICENSE_comfy_mtb.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Crystools/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Crystools.TXT"  >>install.sh
@@ -588,6 +588,10 @@ cd ..
 ::pass
 
 :CREATE_SHORTCUTS
+
+mkdir %VRWEAREPATH%\res
+copy %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\*.ico %VRWEAREPATH%\res
+
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
 echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - Service Daemon.lnk" >> %SCRIPT%
@@ -595,7 +599,7 @@ echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.WindowStyle = 7 >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" >> %SCRIPT%
 echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\" >> %SCRIPT%
-echo oLink.IconLocation = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\vrweare.ico"  >> %SCRIPT%
+echo oLink.IconLocation = "%VRWEAREPATH%\res\vrweare.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
@@ -607,7 +611,7 @@ echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.WindowStyle = 7 >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\restart_gui.bat" >> %SCRIPT%
 echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\" >> %SCRIPT%
-echo oLink.IconLocation = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\vrweare.ico"  >> %SCRIPT%
+echo oLink.IconLocation = "%VRWEAREPATH%\res\vrweare.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
@@ -618,7 +622,7 @@ echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI CPU.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" >> %SCRIPT%
 echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
-echo oLink.IconLocation = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\comfyui.ico"  >> %SCRIPT%
+echo oLink.IconLocation = "%VRWEAREPATH%\res\comfyui.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
@@ -629,7 +633,7 @@ echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI Nvidea GPU.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat" >> %SCRIPT%
 echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
-echo oLink.IconLocation = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\installer\res\comfyui.ico"  >> %SCRIPT%
+echo oLink.IconLocation = "%VRWEAREPATH%\res\comfyui.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
@@ -650,9 +654,10 @@ ECHO/
 ECHO [1m=== [92mV[91mR[0m[1m we are %VRWEARE_VERSION% - Start ===[0m
 ECHO/
 ECHO Starting server and service to complete installation...
-start /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" /B CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat"  > NUL
+echo %VRWEAREPATH%
+START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat"
 timeout 1 > NUL
-START "ComfyUI First Start" /D "%VRWEAREPATH%\ComfyUI_windows_portable" /B CMD /K CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat"
+START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat"
 ::pass
 
 :: wait for test to finish
@@ -689,7 +694,7 @@ echo [92mInstallation succeeded.[0m
 ECHO/ 
 ECHO [94mDon't forget to read the documentation. You can open it in the app toolbar in browser or[0m
 ECHO [94mor at [96m%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf[0m
-ECHO [95mComfyUI Log:[0m
+
 :Final
 ENDLOCAL
 exit /B 0
