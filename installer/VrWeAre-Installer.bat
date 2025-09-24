@@ -254,16 +254,20 @@ IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
 ECHO/
 ECHO Please choose the installation type:
 ECHO/ 
-ECHO   1 - Update current installation.
+ECHO   1 - Update current installation (deletes existing custom nodes).
 ECHO   2 - Create new installation under different path.
 ECHO   Q - Keep existing installation and stop.
 ECHO/
 CHOICE /C 12Q /M " "
 IF ERRORLEVEL 3 GOTO End
 IF ERRORLEVEL 2 GOTO SELECT_INSTALL_PATH
-IF ERRORLEVEL 1 GOTO QueryForInstallationType
+IF ERRORLEVEL 1 GOTO PREPARE_UPDATE
 GOTO End
 
+
+:PREPARE_UPDATE
+:: nothing yet
+GOTO QueryForInstallationType
 
 ::continue...
 :VRWEARE_END_REG_SEARCH
@@ -481,6 +485,13 @@ echo         * ) echo "Please answer yes or no.";; >>install.sh
 echo     esac >>install.sh
 echo done >>install.sh
 
+echo clear >>install.sh
+echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installing... ===\e[0m\n" >>install.sh
+echo echo -e $" " >>install.sh
+
+::  clear any old custom nodes and flag for reinstallation
+echo   rm -rf  -- ComfyUI_windows_portable/ComfyUI/custom_nodes >>install.sh
+
 echo if [ ^^! -d ComfyUI_windows_portable/ComfyUI/custom_nodes ]; then >>install.sh
 :: Download and unpackage ComfyUI portable - GNU GENERAL PUBLIC LICENSE v3 (c) ComfyUI Code Owners
 echo   downloadCheck7z "https://github.com/comfyanonymous/ComfyUI/releases/download/%COMFYUI_TAG%/ComfyUI_windows_portable_nvidia.7z" "install/comfyui.7z" "ComfyUI_windows_portable/ComfyUI/custom_nodes" "%COMFYUI_SHA%"  >>install.sh
@@ -489,9 +500,6 @@ echo   echo -e $"ComfyUI already unpacked. \e[92mok\e[0m" >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
 
-echo clear >>install.sh
-echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installing... ===\e[0m\n" >>install.sh
-echo echo -e $" " >>install.sh
 
 ::  Download and unpackage comfyui nodes
 echo   installCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
