@@ -457,7 +457,8 @@ echo\ >>install.sh
 :: Download licenses
 echo  installFile "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/refs/heads/main/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
-echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
+#echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
+echo echo "cc-by-4.0 Jukka 'Kijai' Seppänen ; https://depth-anything-v2.github.io/" ^>LICENSE_DepthAnythingV2.txt >install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfy_mtb/refs/heads/main/LICENSE" "./LICENSE_comfy_mtb.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Crystools/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Crystools.TXT"  >>install.sh
@@ -686,8 +687,9 @@ exit /B 1
 :End
 echo [92mInstallation succeeded.[0m
 ECHO/ 
-ECHO Don't forget to read the documentation. You can open it in the app toolbar in browser or
-ECHO or at %VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf
+ECHO [94mDon't forget to read the documentation. You can open it in the app toolbar in browser or[0m
+ECHO [94mor at [96m%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf[0m
+ECHO [95mComfyUI Log:[0m
 :Final
 ENDLOCAL
 exit /B 0
