@@ -517,6 +517,10 @@ echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Frame-Inter
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-MMAudio/archive/refs/tags/%MMAUDIO_TAG%.tar.gz" "install/mmaudio.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
 echo\ >>install.sh
 
+:: Clear git files
+echo   rm -rf ComfyUI_windows_portable/ComfyUI/custom_nodes/*/.github >>install.sh
+echo\ >>install.sh
+
 :: Other requirements: Install models
 
 :: Audio
