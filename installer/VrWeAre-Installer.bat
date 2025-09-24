@@ -327,7 +327,11 @@ echo\ >>install.sh
 echo THE7ZIPPATH=`cat .install-the7zippath` >>install.sh
 ::echo rm .install-the7zippath >>install.sh
 echo THE7ZIPPATH=`echo $THE7ZIPPATH` >>install.sh
-echo echo THE7ZIPPATH=$THE7ZIPPATH  >>install.sh
+echo CWD=`pwd`  >>install.sh
+echo cd "$THE7ZIPPATH"  >>install.sh
+echo THE7ZIPPATH=`pwd`  >>install.sh
+echo cd "$CWD"  >>install.sh
+::echo echo THE7ZIPPATH=$THE7ZIPPATH  >>install.sh
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
 echo clear >>install.sh
