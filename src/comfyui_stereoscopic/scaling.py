@@ -68,7 +68,7 @@ INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood.  "
 
                 newwidth=int( width * factor / round ) * round
                 newheight=int( height * factor / round ) * round
-                print(f"[ScaleByFactor] dimension: {width} x {height} -> {newwidth} x {newheight} ")
+                # print(f"[ScaleByFactor] dimension: {width} x {height} -> {newwidth} x {newheight} ")
                 
                 gpu_mat = cv2.UMat(current_image_np)
                 result_mat = cv2.resize(gpu_mat, dsize=(newwidth, newheight), interpolation=algo)
@@ -156,7 +156,7 @@ INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood.  "
 
                 newwidth=int( width * factor / round ) * round
                 newheight=int( height * factor / round ) * round
-                print(f"[ScaleToResolution] dimension: {width} x {height} -> {newwidth} x {newheight} ")
+                # print(f"[ScaleToResolution] dimension: {width} x {height} -> {newwidth} x {newheight} ")
                 
                 gpu_mat = cv2.UMat(current_image_np)
                 result_mat = cv2.resize(gpu_mat, dsize=(newwidth, newheight), interpolation=algo)

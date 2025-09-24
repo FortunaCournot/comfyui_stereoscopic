@@ -96,16 +96,17 @@ else
 	TARGETPREFIX_SBS=${TARGETPREFIX%.*}"_SBS_LR"
 	TARGETPREFIX_CALL=vr/fullsbs/intermediate/$TARGETPREFIX_SBS
 	TARGETPREFIX=output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS
+	INPUTPREFIX=input/vr/fullsbs/intermediate/$TARGETPREFIX_SBS
 	FINALTARGETFOLDER=`realpath "output/vr/fullsbs"`
 	
 	# RECOVERY : CHECK FOR OLD FILES AND EXTRACT UUID
 	RECOVERY=
 	OLDINTERMEDIATEFOLDERCOUNT=`find output/vr/fullsbs/intermediate -type d -name "$TARGETPREFIX_SBS-"* | wc -l`
 	if [ $OLDINTERMEDIATEFOLDERCOUNT -eq 1 ]; then
-		SEGDIR=`find output/vr/fullsbs/intermediate -type d -name "$TARGETPREFIX_SBS-"*`
+		SEGDIR=`find input/vr/fullsbs/intermediate -type d -name "$TARGETPREFIX_SBS-"*`
 		olduuid=${SEGDIR##*-}
 		olduuid=${olduuid%.tmpseg}
-		if [ -e output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS"-"$olduuid".tmpseg" ] && [ -e output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS".tmpsbs/concat.sh" ] ; then
+		if [ -e input/vr/fullsbs/intermediate/$TARGETPREFIX_SBS"-"$olduuid".tmpseg" ] && [ -e output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS".tmpsbs/concat.sh" ] ; then
 			uuid=$olduuid
 			SEGDIR=`realpath "$SEGDIR"`
 			SBSDIR="$TARGETPREFIX"".tmpsbs"
@@ -118,17 +119,17 @@ else
 	fi
 	
 	if [ -z "$RECOVERY" ]; then
-		mkdir -p "$TARGETPREFIX""-$uuid"".tmpseg"
+		mkdir -p "$INPUTPREFIX""-$uuid"".tmpseg"
 		mkdir -p "$TARGETPREFIX"".tmpsbs"
-		SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
+		SEGDIR=`realpath "$INPUTPREFIX""-$uuid"".tmpseg"`
 		SBSDIR="$TARGETPREFIX"".tmpsbs"
 		SBSDIR_CALL="$TARGETPREFIX_CALL"".tmpsbs"
 		if [ ! -e "$SBSDIR/concat.sh" ]
 		then
 			RECOVERY=
 			touch "$TARGETPREFIX"".tmpsbs"/x
-			touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
-			rm "$TARGETPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpsbs"/*
+			touch "$INPUTPREFIX""-$uuid"".tmpseg"/x
+			rm "$INPUTPREFIX""-$uuid"".tmpseg"/* "$TARGETPREFIX"".tmpsbs"/*
 		fi
 		touch $TARGETPREFIX
 		TARGETPREFIX=`realpath "$TARGETPREFIX"`
