@@ -671,26 +671,29 @@ START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C C
 ::pass
 
 
-ECHO Waiting for tests to complete...
 :: wait for test to start
+ECHO Waiting for tests to start...
 :TESTS
 timeout 1 > NUL
-if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.install" GOTO TESTS
+if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" GOTO TESTS
 
 :: wait for test to complete or fail
+ECHO Waiting for tests to complete...
 :WAIT_FOR_TEST_FINISH
-if exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.install" (
-	if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.signalfail" (
+if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
+	if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.signalfail" (
 		timeout 1 > NUL
 		GOTO WAIT_FOR_TEST_FINISH
 	)
 )
 :: check test success
-if exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.install" (
+if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
     timeout 1 > NUL
     ECHO [91mTests failed. Fix errors and restart service daemon.[0m Located at:
     GOTO Fail
 )
+ECHO [91mTests passed.[0m
+ECHO/
 
 :: Clean-up
 ECHO You can clear install folder now to free space.
@@ -709,7 +712,7 @@ exit /B 1
 echo [92mInstallation completed.[0m - Check the logs of the windows for any errors.
 ECHO/ 
 ECHO [94mDon't forget to read the documentation. You can open it in the app toolbar in browser or[0m
-ECHO [94mor at [96m%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf[0m
+ECHO [94mor at [96m%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf[0m
 IF %INTERACTIVE% equ 1 PAUSE
 
 :Final
