@@ -18,7 +18,7 @@ prompt_text = """
 {
   "158": {
     "inputs": {
-      "image": "Teacher_00152_1k.jpg"
+      "image": "dimtest.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -67,7 +67,7 @@ prompt_text = """
         0
       ],
       "images": [
-        "158",
+        "239",
         0
       ]
     },
@@ -83,6 +83,21 @@ prompt_text = """
     "class_type": "DownloadAndLoadDepthAnythingV2Model",
     "_meta": {
       "title": "DownloadAndLoadDepthAnythingV2Model"
+    }
+  },
+  "239": {
+    "inputs": {
+      "resolution": 1024,
+      "algorithm": "INTER_AREA",
+      "roundexponent": 4,
+      "image": [
+        "158",
+        0
+      ]
+    },
+    "class_type": "ScaleToResolution",
+    "_meta": {
+      "title": "ScaleToResolution"
     }
   }
 }

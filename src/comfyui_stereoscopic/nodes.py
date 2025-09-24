@@ -138,6 +138,24 @@ except ImportError as e:
             return (f"ERROR: {error}",)
 
 try:
+    from scaling import ScaleToResolution
+    print("[comfyui_stereoscopic] Successfully imported ScaleToResolution")
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing ScaleToResolution: {e}")
+
+    # Create a placeholder class
+    class ScaleToResolution:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading ScaleToResolution"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
     from stringutils import RegexSubstitute
     print("[comfyui_stereoscopic] Successfully imported RegexSubstitute")
 except ImportError as e:
@@ -184,6 +202,7 @@ NODE_CLASS_MAPPINGS = {
     "StripXML" : StripXML,
     "SaveStrippedUTF8File" : SaveStrippedUTF8File,
     "ScaleByFactor" : ScaleByFactor,
+    "ScaleToResolution" : ScaleToResolution,
     "RegexSubstitute" : RegexSubstitute,
     "strftime" : strftime,
 }
@@ -197,6 +216,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "StripXML" : "Strip XML",
     "SaveStrippedUTF8File" : "Save Stripped UTF-8 File",
     "ScaleByFactor" : "Scale by Factor",
+    "ScaleToResolution" : "ScaleToResolution",    
     "RegexSubstitute": "Regex Substitute",
     "strftime": "strftime"
 }

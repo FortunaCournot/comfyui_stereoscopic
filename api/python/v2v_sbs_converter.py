@@ -101,7 +101,7 @@ prompt_text = """
         0
       ],
       "images": [
-        "173",
+        "187",
         0
       ]
     },
@@ -117,6 +117,21 @@ prompt_text = """
     "class_type": "DownloadAndLoadDepthAnythingV2Model",
     "_meta": {
       "title": "DownloadAndLoadDepthAnythingV2Model"
+    }
+  },
+  "187": {
+    "inputs": {
+      "resolution": 1024,
+      "algorithm": "INTER_AREA",
+      "roundexponent": 4,
+      "image": [
+        "173",
+        0
+      ]
+    },
+    "class_type": "ScaleToResolution",
+    "_meta": {
+      "title": "ScaleToResolution"
     }
   }
 }
