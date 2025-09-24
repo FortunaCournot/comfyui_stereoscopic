@@ -364,6 +364,7 @@ echo   fi >>install.sh
 echo   if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -e $"\e[94mDownloading $1\e[0m" >>install.sh
 echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo      [ ^^! $? = 0 ] (echo rm -f "$2" ; echo -e $"\e[91mError during download.\e[0m") >>install.sh
 echo      echo -n "Validating Check-sum " >>install.sh
 echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (echo rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
 echo   fi >>install.sh
@@ -396,6 +397,7 @@ echo    fi >>install.sh
 echo    if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
 echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo      [ ^^! $? = 0 ] (echo rm -f "$2" ; echo -e $"\e[91mError during download.\e[0m") >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
 echo        if [ ^^! -z "$4" ] ; then >>install.sh
 echo          echo -n "Validating Check-sum " >>install.sh
@@ -432,6 +434,7 @@ echo    fi >>install.sh
 echo    if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
 echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo      [ ^^! $? = 0 ] (echo rm -f "$2" ; echo -e $"\e[91mError during download.\e[0m") >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
 echo        if [ ^^! -z "$3" ] ; then >>install.sh
 echo          echo -n "Validating Check-sum " >>install.sh
@@ -475,7 +478,7 @@ echo\ >>install.sh
 echo clear >>install.sh
 echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - LICENSE AGREEMENT ===\e[0m\n" >>install.sh
 echo echo -e $" " >>install.sh
-echo echo -e $"This software is protected by the licenses." >>install.sh
+echo echo -e $"This software depends on other software. It's protected by licenses." >>install.sh
 echo echo -e $"The license files have been downloaded to "`pwd`":" >>install.sh
 echo ls ./LICENSE*.* >>install.sh
 echo echo -e $" " >>install.sh
@@ -697,6 +700,7 @@ echo [92mInstallation completed.[0m - Check the logs of the windows for any er
 ECHO/ 
 ECHO [94mDon't forget to read the documentation. You can open it in the app toolbar in browser or[0m
 ECHO [94mor at [96m%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf[0m
+IF %INTERACTIVE% equ 1 PAUSE
 
 :Final
 ENDLOCAL
