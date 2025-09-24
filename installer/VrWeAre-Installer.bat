@@ -665,11 +665,19 @@ ECHO - VR we are - Service Daemon
 ECHO - VR we are - App
 ECHO/
 
+RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test"
 START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" /MIN CMD /K CALL "%GITPATH%"git-bash.exe daemon.sh >NUL
 START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" > NUL
 ::pass
 
-:: wait for test to finish
+
+ECHO Waiting for tests to complete...
+:: wait for test to start
+:TESTS
+timeout 1 > NUL
+if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.install" GOTO TESTS
+
+:: wait for test to complete or fail
 :WAIT_FOR_TEST_FINISH
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.install" (
 	if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\.test\.signalfail" (
@@ -684,11 +692,9 @@ if exist "%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscop
     GOTO Fail
 )
 
-
 :: Clean-up
 ECHO You can clear install folder now to free space.
-DEL install\install.sh
-rename install.sh install\install.sh
+rename install.sh install\install.bak
 ::RMDIR /S /Q install
 GOTO End
 
