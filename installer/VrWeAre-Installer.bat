@@ -327,7 +327,7 @@ echo\ >>install.sh
 echo THE7ZIPPATH=`cat .install-the7zippath` >>install.sh
 ::echo rm .install-the7zippath >>install.sh
 echo THE7ZIPPATH=`echo $THE7ZIPPATH` >>install.sh
-echo echo THE7ZIPPATH=$THE7ZIPPATH
+echo echo THE7ZIPPATH=$THE7ZIPPATH  >>install.sh
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
 echo clear >>install.sh
@@ -525,7 +525,6 @@ echo\ >>install.sh
 
 :: STABILITY AI CONTROL-LORA - COMMUNITY LICENSE AGREEMENT
 echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl  >>install.sh
-echo E:\SD\ComfyUI_windows_portable\ComfyUI\models\controlnet\sdxl
 echo   installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/control-LoRAs-rank256/control-lora-recolor-rank256.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl/control-lora-recolor-rank256.safetensors" "b0bf3c163b6f578b3a73e9cf61c3e4219ae9c2a06903663205d1251cf2498925" >>install.sh
 echo\ >>install.sh
 :: pass
