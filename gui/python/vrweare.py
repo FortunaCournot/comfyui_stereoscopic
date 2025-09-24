@@ -66,7 +66,7 @@ if os.path.exists(subfolder):
         if fl.endswith(".json"):
             STAGES.append("tasks/_" + fl[:-5])
 ROWS = 1 + len(STAGES)
-            
+ROW2STAGE= []
 
 class SpreadsheetApp(QMainWindow):
     def __init__(self):
@@ -94,12 +94,13 @@ class SpreadsheetApp(QMainWindow):
         self.layout = QVBoxLayout(self.central_widget)
 
         # Spreadsheet widget
-        self.table = QTableWidget(ROWS, COLS)
+        self.table = HoverTableWidget(ROWS, COLS, self.isCellClickable, self.onCellClick)
         self.table.setStyleSheet("background-color: black; color: black; gridline-color: black")
         self.table.setShowGrid(False)
         self.table.setFrameStyle(0)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.table.setFocusPolicy(Qt.NoFocus)
+        #self.table.itemChanged.connect(self.itemChanged)
         
         # Configure headers
         self.table.horizontalHeader().setVisible(False)
@@ -203,7 +204,18 @@ class SpreadsheetApp(QMainWindow):
                     self.imagecache.append(None)
         except HTTPError as err:
             print("Notice: Can't fetch image list.", flush=True)
+        except Exception:
+            pass
 
+
+    def itemChanged(self, item):
+        # QTableWidgetItem
+        #table->blockSignals(true);
+        #item->setBackgroundColor(Qt::red);
+        #item->setText(item->text() + " edited");
+        #table->blockSignals(false);        
+        #print("itemChanged", item.row(), item.column(), flush=True)
+        pass
 
     def show_pipeline(self, state):
         imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
@@ -363,17 +375,17 @@ class SpreadsheetApp(QMainWindow):
             COL_IDX_STAGENAME=0        
             header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
             COLNAMES.append("")
-            COL_IDX_IN_TYPES=1
-            header.setSectionResizeMode(COL_IDX_IN_TYPES, QHeaderView.ResizeToContents)
+            self.COL_IDX_IN_TYPES=1
+            header.setSectionResizeMode(self.COL_IDX_IN_TYPES, QHeaderView.ResizeToContents)
             COLNAMES.append("type")
-            COL_IDX_IN=2
-            #header.setSectionResizeMode(COL_IDX_IN, QHeaderView.ResizeToContents)
+            self.COL_IDX_IN=2
+            #header.setSectionResizeMode(self.COL_IDX_IN, QHeaderView.ResizeToContents)
             COLNAMES.append("input (done)")
             COL_IDX_PROCESSING=3
             #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
             COLNAMES.append("processing")
-            COL_IDX_OUT=4
-            header.setSectionResizeMode(COL_IDX_OUT, QHeaderView.Stretch)
+            self.COL_IDX_OUT=4
+            header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
             COLNAMES.append("output")
         else:
             COLS=4
@@ -383,18 +395,19 @@ class SpreadsheetApp(QMainWindow):
             COL_IDX_STAGENAME=0        
             header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
             COLNAMES.append("")
-            COL_IDX_IN=1
-            #header.setSectionResizeMode(COL_IDX_IN, QHeaderView.ResizeToContents)
+            self.COL_IDX_IN=1
+            #header.setSectionResizeMode(self.COL_IDX_IN, QHeaderView.ResizeToContents)
             COLNAMES.append("input (done)")
             COL_IDX_PROCESSING=2
             #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
             COLNAMES.append("processing")
-            COL_IDX_OUT=3
-            header.setSectionResizeMode(COL_IDX_OUT, QHeaderView.Stretch)
+            self.COL_IDX_OUT=3
+            header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
             COLNAMES.append("output")
         
         skippedrows=0
         self.table.clear()
+        ROW2STAGE.clear()
         for r in range(ROWS):
             displayRequired=False
             currentRowItems = []
@@ -422,7 +435,7 @@ class SpreadsheetApp(QMainWindow):
                         value = COLNAMES[c]
                         color = "gray"
                     else:
-                        if c==COL_IDX_IN:
+                        if c==self.COL_IDX_IN:
                             folder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
                             if os.path.exists(folder):
                                 onlyfiles = next(os.walk(folder))[2]
@@ -465,7 +478,7 @@ class SpreadsheetApp(QMainWindow):
                                 value = "?"
                                 color = "red"
                                 displayRequired=True
-                        elif c==COL_IDX_OUT:
+                        elif c==self.COL_IDX_OUT:
                             folder =  os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
                             if os.path.exists(folder):
                                 onlyfiles = next(os.walk(folder))[2]
@@ -498,7 +511,7 @@ class SpreadsheetApp(QMainWindow):
                                     color="yellow"
                                     displayRequired=True
                         elif self.toogle_stages_expanded:
-                            if c==COL_IDX_IN_TYPES:
+                            if c==self.COL_IDX_IN_TYPES:
                                 if len(self.stageTypes)+1==ROWS:  # use cache
                                     value = self.stageTypes[r-1]
                                     color = "#5E271F" # need also to set below
@@ -548,6 +561,8 @@ class SpreadsheetApp(QMainWindow):
                             value = "?"
                             color = "red"
                             displayRequired=True
+                    if value=="":
+                        value="  "
                     item = QTableWidgetItem(value)
                     if r==0:
                         item.setFont(fontR0)
@@ -560,6 +575,8 @@ class SpreadsheetApp(QMainWindow):
             if displayRequired or self.toogle_stages_expanded:
                 for c in range(len(currentRowItems)):
                     self.table.setItem(r-skippedrows, c, currentRowItems[c])
+                    if r>0 and c==0:
+                        ROW2STAGE.append(r-1)
             else:
                 skippedrows+=1
                 
@@ -646,6 +663,30 @@ class SpreadsheetApp(QMainWindow):
         self.switch_timer.start(BREAKTIME)
         self.idle_container_active = True
 
+    def isCellClickable(self, row, col):
+        if row>0:
+            if col == self.COL_IDX_IN:
+                return True
+            if col == self.COL_IDX_OUT:
+                return True
+        return False
+
+    def onCellClick(self, row, col):
+        try:
+            idx = ROW2STAGE[row-1]
+            
+            if col == self.COL_IDX_IN:
+                folder =  os.path.abspath( os.path.join(path, "../../../../input/vr/" + STAGES[idx]) )
+                subprocess.Popen(r'explorer "'  + folder + '"')
+            if col == self.COL_IDX_OUT:
+                folder =  os.path.abspath( os.path.join(path, "../../../../output/vr/" + STAGES[idx]) )
+                subprocess.Popen(r'explorer "'  + folder + '"')
+            
+        except Exception:
+            print(f"Error on cell click: row={row}, col={col}", ROW2STAGE, flush=True)
+            pass
+        
+
    
     def closeEvent(self,event):
         try:
@@ -653,6 +694,87 @@ class SpreadsheetApp(QMainWindow):
         except OSError as e:
             print("Error: %s - %s." % (e.filename, e.strerror))
         event.accept()
+
+class HoverTableWidget(QTableWidget):
+    def __init__(self, rows, cols, isCellClickable, onCellClick, parent=None):
+        super().__init__(rows, cols, parent)
+        self.setEditTriggers(QTableWidget.NoEditTriggers)  # Nur-Lese-Modus
+        self.setMouseTracking(True)  # Mausbewegungen ohne Klick erfassen
+        self.current_hover = None
+        self.isCellClickable=isCellClickable
+        self.onCellClick=onCellClick
+
+        # Tabelle mit Beispielwerten füllen
+        #for row in range(rows):
+        #    for col in range(cols):
+        #        item = QTableWidgetItem(f"Zelle {row},{col}")
+        #        self.setItem(row, col, item)
+
+        # Signal verbinden, wenn eine Zelle angeklickt wird
+        self.cellClicked.connect(self.on_cell_clicked)
+
+        # Signal verbinden, wenn Daten geändert werden
+        self.itemChanged.connect(self.on_item_changed)
+
+    def mouseMoveEvent(self, event):
+        """Wird aufgerufen, wenn die Maus bewegt wird."""
+        index = self.indexAt(event.pos())
+
+        if index.isValid():
+            row, col = index.row(), index.column()
+            # Nur aktualisieren, wenn sich die Zelle geändert hat
+            if self.current_hover != (row, col):
+                self.reset_hover_style()
+                self.current_hover = (row, col)
+                self.apply_hover_style(row, col)
+        else:
+            # Maus außerhalb der Tabelle -> Reset
+            self.reset_hover_style()
+            self.current_hover = None
+
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        """Wenn die Maus den TableWidget-Bereich verlässt."""
+        self.reset_hover_style()
+        self.current_hover = None
+        super().leaveEvent(event)
+
+    def apply_hover_style(self, row, col):
+        if self.isCellClickable(row, col):
+            """Setzt den Text der Zelle auf unterstrichen."""
+            item = self.item(row, col)
+            if item:
+                font = item.font()
+                font.setUnderline(True)
+                item.setFont(font)
+
+    def reset_hover_style(self):
+        if self.current_hover:
+            row, col = self.current_hover
+            if self.isCellClickable(row, col):
+                """Entfernt die Unterstreichung von der aktuell gehighlighteten Zelle."""
+                item = self.item(row, col)
+                if item:
+                    font = item.font()
+                    font.setUnderline(False)
+                    item.setFont(font)
+
+    def on_cell_clicked(self, row, col):
+        if self.isCellClickable(row, col):
+            """Wird aufgerufen, wenn auf eine Zelle geklickt wird."""
+            self.onCellClick(row, col)
+
+    def on_item_changed(self, item):
+        """
+        Wird aufgerufen, wenn eine Zelle aktualisiert wurde.
+        Wenn die aktuell gehighlightete Zelle geändert wird,
+        erneuern wir den Unterstreichungsstil.
+        """
+        if self.current_hover:
+            current_row, current_col = self.current_hover
+            if item.row() == current_row and item.column() == current_col:
+                self.apply_hover_style(current_row, current_col)
 
 
 class ClickableLabel(QLabel):
