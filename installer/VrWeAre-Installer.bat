@@ -543,7 +543,7 @@ echo\ >>install.sh
 ECHO/
 ECHO Continue installation with bash script. Waiting for completion...
 ::"%GITPATH%"git-bash.exe -c 'pwd; echo -e $"\n\e[94m=== PRESS RETURN TO CONTINUE ===\e[0m" ; read x'
-"%GITPATH%"git-bash.exe install.sh'
+"%GITPATH%"git-bash.exe install.sh
 set /p CODE=<.installstatus
 DEL .installstatus
 ECHO Script completed. (%CODE%)
@@ -660,8 +660,7 @@ ECHO - VR we are - Service Daemon
 ECHO - VR we are - App
 ECHO/
 
-START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" > NUL
-timeout 1 > NUL
+START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" /MIN CMD /K CALL "%GITPATH%"git-bash.exe daemon.sh >NUL
 START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" > NUL
 ::pass
 
@@ -695,7 +694,7 @@ exit /B 1
 
 :: Done 
 :End
-echo [92mInstallation succeeded.[0m
+echo [92mInstallation completed.[0m - Check the logs of the windows for any errors.
 ECHO/ 
 ECHO [94mDon't forget to read the documentation. You can open it in the app toolbar in browser or[0m
 ECHO [94mor at [96m%VRWEAREPATH%\ComfyUI_windows_portable\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf[0m
