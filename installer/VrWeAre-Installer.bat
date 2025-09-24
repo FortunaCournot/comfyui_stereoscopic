@@ -450,9 +450,9 @@ echo mkdir -p install >>install.sh
 echo\ >>install.sh
 :: Going for ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic
 
-:: Download licenses
+:: Download licenses . for tags from /tags/... the other from /heads/main/
 echo  installFile "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/refs/heads/main/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
-echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/tags/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
 ::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
