@@ -692,13 +692,13 @@ if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_st
     ECHO [91mTests failed. Fix errors and restart service daemon.[0m Located at:
     GOTO Fail
 )
-ECHO [91mTests passed.[0m
+ECHO [92mTests passed.[0m
 ECHO/
 
 :: Clean-up
-ECHO You can clear install folder now to free space.
+::ECHO You can clear install folder now to free space.
 rename install.sh install\install.bak
-::RMDIR /S /Q install
+RMDIR /S /Q install
 GOTO End
 
 :Fail 
