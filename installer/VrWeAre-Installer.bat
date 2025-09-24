@@ -705,7 +705,7 @@ ECHO/
 
 :: Clean-up
 ::ECHO You can clear install folder now to free space.
-rename install.sh install\install.bak
+DEL install.sh
 RMDIR /S /Q install
 GOTO End
 
