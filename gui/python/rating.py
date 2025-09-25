@@ -1,3 +1,4 @@
+import bisect
 import io
 import ntpath
 import os
@@ -11,6 +12,7 @@ import webbrowser
 from datetime import timedelta
 from itertools import chain
 from random import randrange
+from typing import List, Tuple
 from urllib.error import HTTPError
 
 import cv2
@@ -46,7 +48,7 @@ taskActive=False
 fileDragged=False
 
 
-FILESCANTIME = 5000
+FILESCANTIME = 500
 
 class JudgeDialog(QDialog):
 
@@ -367,7 +369,6 @@ class RateAndCutDialog(QDialog):
     def update_filebuttons(self):
         index=-1
         try:
-            rescanFilesToRate()
             if self.currentFile:
                 lastIndex=len(getFilesToRate())
                 self.fileSlider.setMaximum(lastIndex)
@@ -1917,24 +1918,41 @@ class StyledIcon(QIcon):
         disabled_icon=pil2pixmap(convolved)
         self.addPixmap( disabled_icon, QIcon.Disabled )
 
-    
-def rescanFilesToRate():
-    #print("rescanFilesToRate", flush=True)
-    global _filesWithoutEdit, _editedfiles, _readyfiles
-    _filesWithoutEdit = rescanFilesWithoutEdit()
+
+def scanFilesToRate():
+    print("scanFilesToRate", flush=True)
+    global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut
+    _filesWithoutEdit = get_initial_file_list("../../../../input/vr/check/rate")
+    _editedfiles = get_initial_file_list("../../../../input/vr/check/rate/edit")
+    _readyfiles = get_initial_file_list("../../../../input/vr/check/rate/ready")
+    filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
+    filesCut = buildList(_filesWithoutEdit, None)
     if not cutModeActive:
-        _editedfiles = rescanFilesOnlyEdit()
-        _readyfiles = rescanFilesOnlyReady()
-        files = _editedfiles + _readyfiles + _filesWithoutEdit
+        files = filesNoCut
     else:
-        _editedfiles = []
-        _readyfiles = []
-        files = _filesWithoutEdit
+        files = filesCut
         
     return files
 
- 
+    
+def rescanFilesToRate():
+    print("rescanFilesToRate", flush=True)
+    global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut
+    update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
+    if not cutModeActive:
+        update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
+        update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
+        filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
+        files = filesNoCut
+    else:
+        filesCut = buildList(_filesWithoutEdit, None)
+        files = filesCut
+        
+    return files
+
+''' 
 def rescanFilesWithoutEdit():
+    print(" - rescanFilesWithoutEdit", flush=True)
     try:
         files=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
         #files = sorted(files, key=lambda f: os.path.getmtime(os.path.join( os.path.join(path, "../../../../input/vr/check/rate"), f)), reverse=False)
@@ -1961,22 +1979,83 @@ def rescanFilesOnlyReady():
     except StopIteration as e:
         readyfiles=[]
     return readyfiles
+'''
 
 def getFilesToRate():
     if not cutModeActive:
-        return _editedfiles + _readyfiles + _filesWithoutEdit
+        return filesCut
     else:
-        return _filesWithoutEdit
+        return filesNoCut
 
 def getFilesWithoutEdit():
-    return _filesWithoutEdit
+    return buildList(_filesWithoutEdit, None)
 
 def getFilesOnlyEdit():
-    return _editedfiles
+    return buildList(_editedfiles, "edit/")
 
 def getFilesOnlyReady():
-    return _readyfiles
+    return buildList(_readyfiles, "ready/")
 
+def buildList(files, subpath):
+    newList=[]
+    for i in range(len(files)):
+        tuple=files[i]
+        if subpath is None:
+            newList.append( tuple[0] )
+        else:
+            newList.append( subpath + tuple[0] )
+    return newList
+
+def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
+    """
+    Erstellt eine sortierte Liste mit Tupeln (Dateiname, Modifikationsdatum).
+    Sortiert nach Modifikationsdatum aufsteigend (alte zuerst).
+    """
+    bpath = os.path.abspath(os.path.join(path, base_path))
+    files = [
+        (f, os.path.getmtime(os.path.join(bpath, f)))
+        for f in os.listdir(bpath)
+            if os.path.isfile(os.path.join(bpath, f))
+    ]
+    return sorted(files, key=lambda x: x[1], reverse=False)
+
+
+def update_file_list(base_path: str, file_list: List[Tuple[str, float]]):
+    """
+    Aktualisiert die bestehende Datei-Liste:
+      - Entfernt nicht mehr existierende Dateien
+      - Fügt neue Dateien ein (holt mtime nur für neue Dateien)
+      - Behält die Sortierung bei, ohne vollständige Neusortierung
+    """
+    # Aktuell vorhandene Dateien NUR als Menge laden (kein mtime!)
+    bpath = os.path.abspath(os.path.join(path, base_path))
+    current_files = {
+        f for f in os.listdir(bpath)
+        if os.path.isfile(os.path.join(bpath, f))
+    }
+
+    # ---- 1. Entferne Dateien, die nicht mehr existieren ----
+    existing_names_in_list = {fname for fname, _ in file_list}
+    file_list[:] = [(fname, mtime) for fname, mtime in file_list if fname in current_files]
+
+    # ---- 2. Finde neue Dateien (die noch nicht in der Liste sind) ----
+    new_files = current_files - existing_names_in_list
+
+    # ---- 3. Füge neue Dateien mit mtime ein (nur hier wird getmtime aufgerufen) ----
+    for fname in new_files:
+        full_path = os.path.join(bpath, fname)
+        mtime = os.path.getmtime(bpath)  # Nur für neue Dateien aufrufen
+        insert_sorted(file_list, (fname, mtime))
+
+
+def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float]):
+    """
+    Fügt ein neues Element (Dateiname, Modifikationsdatum) an der richtigen Stelle in eine
+    absteigend sortierte Liste ein, ohne komplette Neusortierung.
+    """
+    times = [mtime for _, mtime in file_list]
+    pos = bisect.bisect_left(times, -new_item[1])
+    file_list.insert(pos, new_item)
 
 
 def pil2pixmap(im):
@@ -2028,5 +2107,5 @@ def leaveTask():
 
 # global init
 cutModeActive=False
-rescanFilesToRate()
+scanFilesToRate()
 
