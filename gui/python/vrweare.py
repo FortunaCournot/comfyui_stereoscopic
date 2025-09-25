@@ -82,14 +82,23 @@ def updatePipeline():
             screen_width = screen.width()
             max_width = min(pixmap.width(), screen_width - 50)
             pipelinedialog.resize(max_width, pixmap.height() + 70)
+            
     else:
         labelPipeline.clear()
-        deactivatePipeline("No pipeline defined.")
+        hidePipelineShowText("No pipeline defined.")
 
-def deactivatePipeline(text):
+def hidePipelineShowText(text):
     labelPipeline.clear()
     labelPipeline.setText(text)
     
+def setPipelineErrorText(text):
+    if text is None:
+        pipelineErrors.setVisible(False)
+        pipelineErrors.setText("")
+    else:
+        pipelineErrors.setText(text)
+        pipelineErrors.setVisible(True)
+
 
 class SpreadsheetApp(QMainWindow):
     def __init__(self):
@@ -698,7 +707,7 @@ class SpreadsheetApp(QMainWindow):
 
     def show_pipeline(self, state):
         
-        global pipelinedialog
+        global pipelinedialog, lay
         pipelinedialog = QDialog()
         pipelinedialog.setWindowTitle("VR We Are - Pipeline")
         lay = QVBoxLayout(pipelinedialog)
@@ -716,7 +725,17 @@ class SpreadsheetApp(QMainWindow):
         editAction.triggered.connect(self.edit_pipeline)
         pipeline_toolbar.addAction(editAction)
 
-        global labelPipeline
+        global pipelineErrors
+        pipelineErrors=QLabel("Error")
+        pipelineErrors.setStyleSheet("color: red; background-color: darkgrey;")
+        error_font = QFont()
+        error_font.setPointSize(12)
+        error_font.setBold(False)
+        pipelineErrors.setFont(error_font)
+        pipelineErrors.setVisible(False)
+        lay.addWidget(pipelineErrors)
+        
+        global labelPipeline, scroll_area
         labelPipeline = QLabel()
         w, h = 4096, 2160
         pixmap = QPixmap(w, h)
@@ -750,16 +769,17 @@ class SpreadsheetApp(QMainWindow):
         pipelineModified=False
         editActive=True
         editAction.setEnabled(False)
-        editthread = PipelineEditThread()
+        editthread = PipelineEditThread(window)
         editthread.start()
 
 class PipelineEditThread(QThread):
-    def __init__(self):
+    def __init__(self, parent):
         super().__init__()
+        self.parent = parent
 
     def run(self):
 
-        watchthread = PipelineWatchThread()
+        watchthread = PipelineWatchThread(self.parent)
         watchthread.start()
 
         configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
@@ -776,8 +796,9 @@ class PipelineEditThread(QThread):
         editAction.setEnabled(True)
         
 class PipelineWatchThread(QThread):
-    def __init__(self):
+    def __init__(self, parent):
         super().__init__()
+        self.parent = parent
 
     def run(self):
         configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
@@ -792,27 +813,40 @@ class PipelineWatchThread(QThread):
             if not mtime == os.path.getmtime(configFile):
                 mtime=os.path.getmtime(configFile)
                 print("changed", flush=True)
-                deactivatePipeline("Rebuilding forward files")
+                setPipelineErrorText(None)
+                hidePipelineShowText("Rebuilding forward files")
                 
-                exit_code = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_forwards + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                exit_code, rebuildMsg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_forwards + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                if not rebuildMsg == "":
+                    setPipelineErrorText(rebuildMsg)
+
+                
                 print("forwards", exit_code, flush=True)
-                deactivatePipeline("Prepare rendering...")
-                exit_code = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_definition + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                hidePipelineShowText("Prepare rendering...")
+                exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_definition + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
                 print("prepare rendering", exit_code, flush=True)
-                deactivatePipeline("Updating image...")
-                exit_code = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_generate_image + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                hidePipelineShowText("Generate new image...")
+                exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_generate_image + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
                 print("rendered", exit_code, flush=True)
+                hidePipelineShowText("Updating new image...")
                 updatePipeline()
                 pipelineModified=True
+
                 
     def waitOnSubprocess(self, process):
-        #streamdata = process.communicate()[0]   # for fetching rc later
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        msgboxtext=""
         while True:
             line = process.stdout.readline()
             if not line:
                 break
-            print(line.rstrip(), flush=True)        
-        return process.wait()
+            line = line.rstrip()
+            print(line, flush=True)
+            if "Error:" in line:
+                msgboxtext = msgboxtext + ansi_escape.sub('', line) + "\n"
+        
+        rc = process.wait()
+        return (rc, msgboxtext)
 
 class HoverTableWidget(QTableWidget):
     def __init__(self, rows, cols, isCellClickable, onCellClick, parent=None):
@@ -906,11 +940,11 @@ class ClickableLabel(QLabel):
             webbrowser.open(self.url)
 
 
-
 if __name__ == "__main__":
     if len(sys.argv) != 1:
        print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " ")
     elif os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
+        global window
         app = QApplication(sys.argv)
         window = SpreadsheetApp()
         window.show()

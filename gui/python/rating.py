@@ -73,7 +73,9 @@ class RateAndCutDialog(QDialog):
 
         global cutModeActive
         cutModeActive=cutMode
-
+        
+        rescanFilesToRate()
+        
         self.cutMode=cutMode
         self.qt_img=None
         self.hasCropOrTrim=False
@@ -1925,12 +1927,12 @@ def scanFilesToRate():
     _filesWithoutEdit = get_initial_file_list("../../../../input/vr/check/rate")
     _editedfiles = get_initial_file_list("../../../../input/vr/check/rate/edit")
     _readyfiles = get_initial_file_list("../../../../input/vr/check/rate/ready")
-    filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
     filesCut = buildList(_filesWithoutEdit, None)
-    if not cutModeActive:
-        files = filesNoCut
-    else:
+    filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
+    if cutModeActive:
         files = filesCut
+    else:
+        files = filesNoCut
         
     return files
 
@@ -1939,20 +1941,20 @@ def rescanFilesToRate():
     print("rescanFilesToRate", flush=True)
     global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut
     _filesWithoutEdit = update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
-    if not cutModeActive:
-        _editedfiles = update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
-        _readyfiles = update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
-        filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
-        files = filesNoCut
-    else:
+    _editedfiles = update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
+    _readyfiles = update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
+    if cutModeActive:
         filesCut = buildList(_filesWithoutEdit, None)
         files = filesCut
+    else:
+        filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
+        files = filesNoCut
         
     return files
 
 
 def getFilesToRate():
-    if not cutModeActive:
+    if cutModeActive:
         return filesCut
     else:
         return filesNoCut
