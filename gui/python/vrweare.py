@@ -53,7 +53,7 @@ idletime = 0
 COLS = 4
 
 
-STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/released"]
+STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/rate", "check/released"]
 subfolder = os.path.join(path, "../../../../custom_nodes/comfyui_stereoscopic/config/tasks")
 if os.path.exists(subfolder):
     onlyfiles = next(os.walk(subfolder))[2]
