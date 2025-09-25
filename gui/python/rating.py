@@ -46,7 +46,7 @@ taskActive=False
 fileDragged=False
 
 
-FILESCANTIME = 500
+FILESCANTIME = 5000
 
 class JudgeDialog(QDialog):
 
@@ -1919,6 +1919,7 @@ class StyledIcon(QIcon):
 
     
 def rescanFilesToRate():
+    #print("rescanFilesToRate", flush=True)
     global _filesWithoutEdit, _editedfiles, _readyfiles
     _filesWithoutEdit = rescanFilesWithoutEdit()
     if not cutModeActive:
@@ -1929,11 +1930,14 @@ def rescanFilesToRate():
         _editedfiles = []
         _readyfiles = []
         files = _filesWithoutEdit
+        
     return files
-    
+
+ 
 def rescanFilesWithoutEdit():
     try:
         files=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
+        #files = sorted(files, key=lambda f: os.path.getmtime(os.path.join( os.path.join(path, "../../../../input/vr/check/rate"), f)), reverse=False)
     except StopIteration as e:
         files=[]
     return files
@@ -1941,6 +1945,7 @@ def rescanFilesWithoutEdit():
 def rescanFilesOnlyEdit():
     try:
         editedfiles=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate/edit")))[2]
+        #editedfiles = sorted(editedfiles, key=lambda f: os.path.getmtime(os.path.join( os.path.join(path, "../../../../input/vr/check/rate/edit"), f)), reverse=False)
         for i in range(len(editedfiles)):
             editedfiles[i] = "edit/" + editedfiles[i]
     except StopIteration as e:
@@ -1950,6 +1955,7 @@ def rescanFilesOnlyEdit():
 def rescanFilesOnlyReady():
     try:
         readyfiles=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate/ready")))[2]
+        #readyfiles = sorted(readyfiles, key=lambda f: os.path.getmtime(os.path.join( os.path.join(path, "../../../../input/vr/check/rate/ready"), f)), reverse=False)
         for i in range(len(readyfiles)):
             readyfiles[i] = "ready/" + readyfiles[i]
     except StopIteration as e:
