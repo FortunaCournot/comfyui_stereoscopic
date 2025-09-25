@@ -47,14 +47,12 @@ for dependency in $node_dependencies ; do
 				else
 					echo -e $"\e[91mError:\e[0m Custom nodes $nodes version ($current_version) to low. Please upgrade to $minimum_version."
 					rm -f user/default/comfyui_stereoscopic/.daemonactive
-					sleep 30
 					exit 1
 				fi
 			else
 				echo ""
 				echo -e $"\e[91mError:\e[0m Custom nodes $nodes not found. Please install version $minimum_version."
 				rm -f user/default/comfyui_stereoscopic/.daemonactive
-				sleep 30
 				exit 1
 			fi
 	fi
@@ -406,8 +404,8 @@ if [ ! -e "$CONFIGPATH"/"autoforward.yaml" ] ; then
 fi
 echo -e $"\e[2mRebuild forward rules with \e[36m$CONFIGPATH""/autoforward.yaml\e[0m"
 # Clear forward definitions and rebuild.
-rm -f -- output/vr/*/forward.txt output/vr/*/*/forward.txt 2>/dev/null
-rm -f -- output/vr/*/forward.tmp output/vr/*/*/forward.tmp 2>/dev/null
+#rm -f -- output/vr/*/forward.txt output/vr/*/*/forward.txt 2>/dev/null
+#rm -f -- output/vr/*/forward.tmp output/vr/*/*/forward.tmp 2>/dev/null
 echo -ne $"\e[91m"
 "$PYTHON_BIN_PATH"python.exe ./custom_nodes/comfyui_stereoscopic/api/python/rebuild_autoforward.py 2>/dev/null
 echo -e $"\e[0m"

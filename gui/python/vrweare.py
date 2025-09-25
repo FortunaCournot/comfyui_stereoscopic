@@ -9,6 +9,7 @@ import urllib.request
 import webbrowser
 from itertools import chain
 from random import randrange
+from threading import Thread
 from urllib.error import HTTPError
 
 import cv2
@@ -19,14 +20,16 @@ from PIL import Image
 from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer,
                           pyqtSignal, pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
-                         QKeySequence, QPainter, QPaintEvent, QPen, QPixmap)
+                         QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
+                         QPalette)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QColorDialog, QComboBox, QDesktopWidget, QDialog,
                              QFileDialog, QFrame, QGridLayout, QGroupBox,
                              QHBoxLayout, QHeaderView, QLabel, QMainWindow,
                              QMessageBox, QPushButton, QShortcut, QSizePolicy,
                              QSlider, QStatusBar, QTableWidget,
-                             QTableWidgetItem, QToolBar, QVBoxLayout, QWidget)
+                             QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
+                             QScrollArea)
 
 path = os.path.dirname(os.path.abspath(__file__))
 
@@ -68,6 +71,26 @@ if os.path.exists(subfolder):
 ROWS = 1 + len(STAGES)
 ROW2STAGE= []
 
+def updatePipeline():
+    imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
+    if os.path.exists(imagepath):
+        pixmap = QPixmap(imagepath)
+        labelPipeline.clear()
+        labelPipeline.setPixmap(pixmap)
+        if pipelinedialog:
+            screen = QDesktopWidget().availableGeometry()
+            screen_width = screen.width()
+            max_width = min(pixmap.width(), screen_width - 50)
+            pipelinedialog.resize(max_width, pixmap.height() + 70)
+    else:
+        labelPipeline.clear()
+        deactivatePipeline("No pipeline defined.")
+
+def deactivatePipeline(text):
+    labelPipeline.clear()
+    labelPipeline.setText(text)
+    
+
 class SpreadsheetApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -81,6 +104,8 @@ class SpreadsheetApp(QMainWindow):
         self.toogle_stages_expanded = False
         # Initialize caches
         self.stageTypes = []
+
+        self.pipelinedialog=None
 
         # prerequisites
         folder=os.path.join(path, f"../../../../input/vr/check/rate")
@@ -206,43 +231,6 @@ class SpreadsheetApp(QMainWindow):
             print("Notice: Can't fetch image list.", flush=True)
         except Exception:
             pass
-
-
-    def itemChanged(self, item):
-        # QTableWidgetItem
-        #table->blockSignals(true);
-        #item->setBackgroundColor(Qt::red);
-        #item->setText(item->text() + " edited");
-        #table->blockSignals(false);        
-        #print("itemChanged", item.row(), item.column(), flush=True)
-        pass
-
-    def show_pipeline(self, state):
-        imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
-        if os.path.exists(imagepath):
-            dialog = QDialog()
-            dialog.setWindowTitle("VR We Are - Pipeline")
-            lay = QVBoxLayout(dialog)
-
-            pipeline_toolbar = QToolBar("Pipeline Actions")
-            lay.addWidget(pipeline_toolbar)
-            editAction = QAction("Edit")
-            editAction.setCheckable(False)
-            editAction.triggered.connect(self.edit_pipeline)
-            pipeline_toolbar.addAction(editAction)
-
-            label = QLabel()
-            lay.addWidget(label)
-            pixmap = QPixmap(imagepath)
-            label.setPixmap(pixmap)
-            
-            self.button_show_pipeline_action.setEnabled(False)
-            dialog.exec_()
-            self.button_show_pipeline_action.setEnabled(True)
-            
-            
-    def edit_pipeline(self, state):
-        subprocess.Popen(r'notepad "'  + os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml') + '"')
         
     def show_manual(self, state):
         webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
@@ -707,6 +695,124 @@ class SpreadsheetApp(QMainWindow):
         except OSError as e:
             print("Error: %s - %s." % (e.filename, e.strerror))
         event.accept()
+
+    def show_pipeline(self, state):
+        
+        global pipelinedialog
+        pipelinedialog = QDialog()
+        pipelinedialog.setWindowTitle("VR We Are - Pipeline")
+        lay = QVBoxLayout(pipelinedialog)
+        pal=QPalette()
+        bgcolor = QColor("gray") # usally not visible
+        role = QPalette.Background
+        pal.setColor(role, bgcolor)
+        self.setPalette(pal)
+
+        pipeline_toolbar = QToolBar("Pipeline Actions")
+        lay.addWidget(pipeline_toolbar)
+        global editAction
+        editAction = QAction("Edit")
+        editAction.setCheckable(False)
+        editAction.triggered.connect(self.edit_pipeline)
+        pipeline_toolbar.addAction(editAction)
+
+        global labelPipeline
+        labelPipeline = QLabel()
+        w, h = 4096, 2160
+        pixmap = QPixmap(w, h)
+        pixmap.fill(bgcolor)
+        p = QPainter(pixmap)
+        p.drawText(pixmap.rect(), Qt.AlignCenter, "No pipeline")
+        p.end()
+        labelPipeline.setPixmap(pixmap)
+        labelPipeline.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        labelPipeline.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        
+        # ScrollArea für horizontales Scrollen
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(False)  # Keine Skalierung des Inhalts
+        scroll_area.setBackgroundRole(QPalette.Dark)  # Used on right side
+        scroll_area.setWidget(labelPipeline)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        lay.addWidget(scroll_area)
+        updatePipeline()
+        
+        self.button_show_pipeline_action.setEnabled(False)
+        pipelinedialog.exec_()
+        pipelinedialog=None
+        self.button_show_pipeline_action.setEnabled(True)
+            
+    def edit_pipeline(self, state):
+        configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
+        global editActive, pipelineModified, editthread
+        pipelineModified=False
+        editActive=True
+        editAction.setEnabled(False)
+        editthread = PipelineEditThread()
+        editthread.start()
+
+class PipelineEditThread(QThread):
+    def __init__(self):
+        super().__init__()
+
+    def run(self):
+
+        watchthread = PipelineWatchThread()
+        watchthread.start()
+
+        configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
+        subprocess.Popen(r'notepad "'  + configFile + '"').wait()
+
+        global editActive, pipelineModified, editthread
+
+        #if pipelineModified:
+        #    softkillFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\.daemonactive')
+        #    os.remove(softkillFile)
+            
+        editActive=False
+        editthread=None
+        editAction.setEnabled(True)
+        
+class PipelineWatchThread(QThread):
+    def __init__(self):
+        super().__init__()
+
+    def run(self):
+        configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
+        pythonExe=os.path.join(path, r'..\..\..\..\..\python_embeded\python.exe')
+        uml_build_forwards=os.path.join(path, r'..\..\api\python\rebuild_autoforward.py')
+        uml_build_definition=os.path.join(path, r'..\..\api\python\uml_build_definition.py')
+        uml_generate_image=os.path.join(path, r'..\..\api\python\uml_generate_image.py')
+
+        mtime=os.path.getmtime(configFile)
+        while editActive:
+            time.sleep(1)
+            if not mtime == os.path.getmtime(configFile):
+                mtime=os.path.getmtime(configFile)
+                print("changed", flush=True)
+                deactivatePipeline("Rebuilding forward files")
+                
+                exit_code = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_forwards + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                print("forwards", exit_code, flush=True)
+                deactivatePipeline("Prepare rendering...")
+                exit_code = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_definition + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                print("prepare rendering", exit_code, flush=True)
+                deactivatePipeline("Updating image...")
+                exit_code = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_generate_image + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                print("rendered", exit_code, flush=True)
+                updatePipeline()
+                pipelineModified=True
+                
+    def waitOnSubprocess(self, process):
+        #streamdata = process.communicate()[0]   # for fetching rc later
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            print(line.rstrip(), flush=True)        
+        return process.wait()
 
 class HoverTableWidget(QTableWidget):
     def __init__(self, rows, cols, isCellClickable, onCellClick, parent=None):

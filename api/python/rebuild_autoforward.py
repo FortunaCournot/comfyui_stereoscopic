@@ -1,8 +1,18 @@
+import glob
 import os
 import yaml
 
-
 path = os.path.dirname(os.path.abspath(__file__))
+
+def purge(dir, pattern):
+    #print ( "Deleting forward files in " + dir, flush=True) 
+    for p in pattern:
+        [os.remove(x) for x in glob.iglob(dir + '/**/' + p, recursive=True)]
+   
+      
+# Clear forward definitions and rebuild.
+pattern = ['forward.txt', 'forward.tmp']
+purge( os.path.join(path, "../../../../output/vr"), pattern )
 
 # generate forward files
 config_folder = os.path.join(path, "../../../../user/default/comfyui_stereoscopic")
@@ -40,17 +50,20 @@ with open(yaml_def) as stream:
                                     conditions=None
                                 f.write(targetStage+"\n")
                             else:
-                                print("Error: Invalid forward target stage '"+targetStage+"' defined for source stage '"+sourceStage+"'")
+                                print("\x1b[91m\x1b[1mError:\x1b[0m\x1b[91m Invalid forward target stage '"+targetStage+"' defined for source stage '"+sourceStage+"'\x1b[0m")
                                 f.write("# Error: "+targetStage+" does not exist. Edit "+os.path.abspath(yaml_def)+"\n")
                                 errors+=1
                     forward_final = os.path.join(source_output_folder, "forward.txt")
-                    os.rename(forward_tmp,forward_final)
+                    os.rename(forward_tmp, forward_final)
                 else:
-                    print("Error: Invalid forward source stage '"+sourceStage+"'")
+                    print("\x1b[91m\x1b[1mError:\x1b[0m\x1b[91m Invalid forward source stage '"+sourceStage+"'\x1b[0m")
                     errors+=1
         if errors>0:
             print(str(errors)+" error found! Fix them in "+os.path.abspath(yaml_def))
+        exit(errors)
         
     except yaml.YAMLError as exc:
         print(exc)
         
+
+      

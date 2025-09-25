@@ -129,6 +129,11 @@ else
 	INITIALRUN=TRUE
 	while true;
 	do
+		# Check for external soft-kill signal
+		if [ ! -e user/default/comfyui_stereoscopic/.daemonactive ]; then
+			break
+		fi
+	
 		# happens every iteration since daemon is responsibe to initially create config and detect comfyui changes
 		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}

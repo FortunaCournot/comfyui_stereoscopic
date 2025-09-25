@@ -449,6 +449,9 @@ echo\ >>install.sh
 echo mkdir -p install >>install.sh
 echo\ >>install.sh
 
+echo rm -f -- ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.daemonactive ^>/dev/null >>install.sh
+echo\ >>install.sh
+
 echo COMFYUIHOST=127.0.0.1 >>install.sh
 echo COMFYUIPORT=8188 >>install.sh
 echo status=`true ^&^>/dev/null ^</dev/tcp/$COMFYUIHOST/$COMFYUIPORT ^&^& echo open ^|^| echo closed` >>install.sh
