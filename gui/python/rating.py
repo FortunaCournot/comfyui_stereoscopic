@@ -966,7 +966,7 @@ class VideoThread(QThread):
         ret, cv_img = self.cap.read()
         if ret and self._run_flag:
             self.currentFrame=frame_number
-            if (frame_number+1!=self.slider.value()):
+            if (frame_number!=self.slider.value()):
                 self.slider.setValue(self.currentFrame+1)
             self.change_pixmap_signal.emit(cv_img, self.uid)
         else:
@@ -974,13 +974,15 @@ class VideoThread(QThread):
                 
     def sliderChanged(self):
         if self.pause:  # do not call while playback
-            self.seek(self.sender().value()-1)
+            #print("sliderChanged. seek", self.sender().value(), flush=True)
+            self.seek(self.sender().value())
 
     def onSliderMouseClick(self):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
-            self.seek(self.slider.value()-1)
+            #print("onSliderMouseClick. seek", self.slider.value(), flush=True)
+            self.seek(self.slider.value())
 
     def posA(self):
         if not self.pause:
@@ -1071,7 +1073,7 @@ class Display(QLabel):
             blackpixmap.fill(Qt.black)
             self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
         else:
-            print("update Image - cv", flush=True)
+            #print("update Image - cv", flush=True)
             self.qt_img = self.convert_cv_qt(cv_img)
             
             w = self.qt_img.width()
@@ -1162,7 +1164,7 @@ class Display(QLabel):
         global rememberThread
         rememberThread=self.thread
         self.trimAFrame=0
-        self.trimBFrame=0
+        self.trimBFrame=-1
         self.slider.resetAB()
         self.slider.setVisible(True)
         self.thread.change_pixmap_signal.connect(self.update_image)
@@ -1253,6 +1255,7 @@ class Display(QLabel):
             count=self.thread.getFrameCount()
             if count>1:
                 self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
+                print("setB", float(self.thread.getCurrentFrameIndex()), float(count-1), flush=True)
                 self.trimBFrame=self.thread.getCurrentFrameIndex()
                 self.thread.setB(self.thread.getCurrentFrameIndex())
                 self.slider.setText( self.buildSliderText(), Qt.red if self.isTrimmed() else Qt.white )
