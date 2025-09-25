@@ -252,9 +252,23 @@ class RateAndCutDialog(QDialog):
             self.button_startframe.clicked.connect(self.display.posA)
             self.button_endframe.clicked.connect(self.display.posB)
 
+        self.dialog_toolbar = QToolBar("Dialog Actions")
+        '''
+        self.azAction = QAction( QIcon(os.path.join(path, '../../gui/img/expanded64.png')), "Sort by name")
+        self.azAction.setCheckable(True)
+        self.azAction.setChecked(True)
+        #self.azAction.triggered.connect(self.sortAZ)
+        self.dialog_toolbar.addAction(self.azAction)
+        self.tsortAction = QAction( QIcon(os.path.join(path, '../../gui/img/expanded64.png')), "Sort by modification time")
+        self.tsortAction.setCheckable(True)
+        self.azAction.setChecked(False)
+        #self.tsortAction.triggered.connect(self.tsort)
+        self.dialog_toolbar.addAction(self.tsortAction)
+        '''
 
         #Main Layout
         self.main_layout = QVBoxLayout()
+        #self.main_layout.addLayout(toolbarLayout)
         self.main_layout.addLayout(self.display_layout, stretch=1)
         self.main_layout.addLayout(self.videotool_layout)
         self.main_layout.addLayout(self.commontool_layout)
@@ -265,9 +279,9 @@ class RateAndCutDialog(QDialog):
         self.main_group_box.setLayout(self.main_layout)
 
         #Outer main layout to accomodate the group box
-
+        self.outer_main_layout.addWidget(self.dialog_toolbar)
         self.outer_main_layout.addWidget(self.main_group_box)
-        
+
         # Timer for updating file buttons
         self.filebutton_timer = QTimer()
         self.filebutton_timer.timeout.connect(self.update_filebuttons)

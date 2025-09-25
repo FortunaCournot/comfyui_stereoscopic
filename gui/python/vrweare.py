@@ -224,7 +224,7 @@ class SpreadsheetApp(QMainWindow):
             dialog.setWindowTitle("VR We Are - Pipeline")
             lay = QVBoxLayout(dialog)
 
-            pipeline_toolbar = QToolBar()
+            pipeline_toolbar = QToolBar("Pipeline Actions")
             lay.addWidget(pipeline_toolbar)
             editAction = QAction("Edit")
             editAction.setCheckable(False)
