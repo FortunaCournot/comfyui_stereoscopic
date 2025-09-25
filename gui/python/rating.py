@@ -102,12 +102,16 @@ class RateAndCutDialog(QDialog):
         self.button_startpause_video.setIconSize(QSize(80,80))
 
         if cutMode:
+            self.iconTrimA = StyledIcon(os.path.join(path, '../../gui/img/trima80.png'))
+            self.iconTrimB = StyledIcon(os.path.join(path, '../../gui/img/trimb80.png'))
+            self.iconClear = StyledIcon(os.path.join(path, '../../gui/img/clear80.png'))
+
             self.button_trima_video = ActionButton()
-            self.button_trima_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/trima80.png')))
+            self.button_trima_video.setIcon(self.iconTrimA)
             self.button_trima_video.setIconSize(QSize(80,80))
 
             self.button_trimb_video = ActionButton()
-            self.button_trimb_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/trimb80.png')))
+            self.button_trimb_video.setIcon(self.iconTrimB)
             self.button_trimb_video.setIconSize(QSize(80,80))
 
             self.button_snapshot_from_video = ActionButton()
@@ -135,12 +139,15 @@ class RateAndCutDialog(QDialog):
             self.button_cutandclone.setIconSize(QSize(80,80))
             self.button_cutandclone.clicked.connect(self.createTrimedAndCroppedCopy)
 
-        self.button_compress = ActionButton()
-        self.button_compress.setIcon(StyledIcon(os.path.join(path, '../../gui/img/compress80.png')))
-        self.button_compress.setIconSize(QSize(80,80))
-        self.button_compress.setEnabled(False)
-        self.button_compress.setVisible(cutMode)
-        self.button_compress.clicked.connect(self.archiveAndNext)
+            self.icon_compress = StyledIcon(os.path.join(path, '../../gui/img/compress80.png'))
+            self.icon_justrate = StyledIcon(os.path.join(path, '../../gui/img/justrate80.png'))
+            self.button_justrate_compress = ActionButton()
+            self.button_justrate_compress.setIcon(self.icon_justrate)
+            self.button_justrate_compress.setIconSize(QSize(80,80))
+            self.button_justrate_compress.setEnabled(True)
+            self.button_justrate_compress.setVisible(cutMode)
+            self.button_justrate_compress.clicked.connect(self.rateOrArchiveAndNext)
+            self.justRate=True
         
         self.button_next_file = ActionButton()
         self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/nextf80.png')))
@@ -166,6 +173,8 @@ class RateAndCutDialog(QDialog):
         self.sp2.setFixedSize(48, 100)
         self.sp3 = QLabel(self)
         self.sp3.setFixedSize(48, 100)
+        self.sp4 = QLabel(self)
+        self.sp4.setFixedSize(8, 100)
 
 
         # Display layout
@@ -182,6 +191,7 @@ class RateAndCutDialog(QDialog):
 
         # Video Tool layout
         self.videotool_layout = QHBoxLayout()
+        self.videotool_layout.addWidget(self.sp4)
         self.videotool_layout.addWidget(self.button_startpause_video)
         if cutMode:
             self.videotool_layout.addWidget(self.button_startframe)
@@ -213,6 +223,7 @@ class RateAndCutDialog(QDialog):
         
         self.fileLabel=QLabel()
         global fileDragged
+        self.fileDragIndex=-1
         fileDragged=False
         self.fileLabel.setStyleSheet("QLabel { background-color : black; color : white; }");
         font = QFont()
@@ -228,12 +239,12 @@ class RateAndCutDialog(QDialog):
         
         if cutMode:
             self.commontool_layout.addWidget(self.button_cutandclone, 0, ew+1, 1, 1)
+            self.commontool_layout.addWidget(self.button_justrate_compress, 0, ew+2, 1, 1)
         else:
             self.rating_widget = RatingWidget(stars_count=5)
             self.commontool_layout.addWidget(self.rating_widget, 0, ew+1, 1, 1)
             self.rating_widget.ratingChanged.connect(self.on_rating_changed)
         
-        self.commontool_layout.addWidget(self.button_compress, 0, ew+2, 1, 1)
         
         self.commontool_layout.addWidget(self.button_next_file, 0, ew+3, 1, 1)
         self.commontool_layout.addWidget(self.sp3, 0, ew+4, 1, 1)
@@ -384,7 +395,10 @@ class RateAndCutDialog(QDialog):
     def rateNext(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
-        self.button_compress.setEnabled(False)
+        if self.cutMode:
+            self.button_justrate_compress.setEnabled(True)
+            self.button_justrate_compress.setIcon(self.icon_justrate)
+            self.justRate=True
 
         files=getFilesToRate()
         if len(files)==0:
@@ -406,7 +420,7 @@ class RateAndCutDialog(QDialog):
                     self.currentIndex=l-1
                     self.currentFile=files[self.currentIndex]
             except ValueError as ve:
-                self.currentIndex=0
+                self.currentIndex=len[files]-1
                 self.currentFile=files[self.currentIndex]
         
         self.rateCurrentFile()
@@ -415,8 +429,11 @@ class RateAndCutDialog(QDialog):
     def ratePrevious(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
-        self.button_compress.setEnabled(False)
-
+        if self.cutMode:
+            self.button_justrate_compress.setEnabled(True)
+            self.button_justrate_compress.setIcon(self.icon_justrate)
+            self.justRate=True
+        
         files=getFilesToRate()
         if len(files)==0:
             self.closeOnError("no files (ratePrevious)")
@@ -467,7 +484,9 @@ class RateAndCutDialog(QDialog):
             self.button_trimb_video.setEnabled(False)
             self.button_cutandclone.setEnabled(False)
             self.button_snapshot_from_video.setEnabled(False)
-
+            self.button_justrate_compress.setEnabled(True)
+            self.button_justrate_compress.setIcon(self.icon_justrate)
+            self.justRate=True
 
     def on_rating_changed(self, rating):
         print(f"Rating selected: {rating}", flush=True)
@@ -593,14 +612,15 @@ class RateAndCutDialog(QDialog):
             self.logn(" not found", QColor("red"))
 
 
-    def archiveAndNext(self):
-        self.button_compress.setEnabled(False)
+    def rateOrArchiveAndNext(self):
+        if self.cutMode:
+            self.button_justrate_compress.setEnabled(False)
         
         files=getFilesToRate()
         try:
             index=files.index(self.currentFile)
             folder=os.path.join(path, "../../../../input/vr/check/rate")
-            targetfolder = os.path.join(path, "../../../../input/vr/check/rate/done")
+            targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
             os.makedirs(targetfolder, exist_ok=True)
         except ValueError as ve:
             print(traceback.format_exc(), flush=True)                
@@ -617,7 +637,7 @@ class RateAndCutDialog(QDialog):
                 source=os.path.join(folder, self.currentFile)
                 destination=os.path.join(targetfolder, self.currentFile)
                 
-                self.log("Archive "+self.currentFile, QColor("white"))
+                self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
                 recreated=os.path.exists(destination)
                 os.replace(source, destination)
                 files=rescanFilesToRate()
@@ -625,7 +645,7 @@ class RateAndCutDialog(QDialog):
             l=len(files)
 
             if l==0:    # last file deleted?
-                self.closeOnError("last file deleted (archiveAndNext)")
+                self.closeOnError("last file deleted (rateOrArchiveAndNext)")
                 return
 
             if index>=l:
@@ -639,7 +659,7 @@ class RateAndCutDialog(QDialog):
 
         except Exception as anyex:
             self.logn(" Failed", QColor("red"))
-            print("Error archiving " + source, flush=True)
+            print("Error archiving/forwarding " + source, flush=True)
             print(traceback.format_exc(), flush=True)
 
         
@@ -681,8 +701,11 @@ class RateAndCutDialog(QDialog):
                 print(traceback.format_exc(), flush=True)
         except ValueError as e:
             pass
-        self.button_compress.setEnabled(True)        
-        self.button_compress.setFocus()
+        if self.cutMode:
+            self.button_justrate_compress.setEnabled(True)        
+            self.button_justrate_compress.setIcon(self.icon_compress)
+            self.justRate=False
+            self.button_justrate_compress.setFocus()
 
 
     def createSnapshot(self):
@@ -708,14 +731,17 @@ class RateAndCutDialog(QDialog):
         except ValueError as e:
             pass
         self.button_snapshot_from_video.setEnabled(False)
-        self.button_compress.setEnabled(True)        
-        self.button_compress.setFocus()
+        self.button_justrate_compress.setEnabled(True)
+        self.button_justrate_compress.setIcon(self.icon_compress)
+        self.justRate=False
+        self.button_justrate_compress.setFocus()
 
 
     def onVideoloaded(self):
         if self.display.frame_count<0:
             self.logn("Loading video failed. Archiving forced...", QColor("red"))
-            self.archiveAndNext()
+            self.justRate=False
+            self.rateOrArchiveAndNext()
         pass
 
 
@@ -1009,7 +1035,7 @@ class VideoThread(QThread):
     
 class Display(QLabel):
 
-    def __init__(self, pushbutton, slider, update, loaded, rectSelected):
+    def __init__(self, pushbutton, slider, updatePaused, loaded, rectSelected):
         super().__init__()
         self.qt_img=None
         self.displayUid=0
@@ -1018,7 +1044,7 @@ class Display(QLabel):
         self.button.setVisible(False)
         self.slider = slider
         self.slider.setVisible(False)
-        self.update = update
+        self.updatePaused = updatePaused
         self.loaded = loaded
         self.rectSelected = rectSelected
         self.onUpdateFile=None
@@ -1291,6 +1317,7 @@ class Display(QLabel):
                 self.origin = event.pos()
                 self.rubberBand.setGeometry(QRect(self.origin, QSize()))
                 self.rubberBand.show()
+                #print("show!", flush=True)
 
     def mouseMoveEvent(self, event):
         # Für Lupe...
@@ -1298,19 +1325,23 @@ class Display(QLabel):
         
         if cutModeActive:
             # update rect while selecting
-            if not self.origin.isNull():
+            if not self.origin == None and not self.origin.isNull():
                 current_pos = event.pos()
                 rect = QRect(self.origin, current_pos).normalized()
                 self.rubberBand.setGeometry(rect)
+                #print("setGeometry!", flush=True)
                 
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        self.origin=None
         if cutModeActive:
             # update rect on release and notify observer
             if event.button() == Qt.LeftButton:
                 self.selection_rect = self.rubberBand.geometry()
                 self.rubberBand.hide()
+                #print("hide!", flush=True)
+
                 
                 #print("rect", self.selection_rect.x(), self.selection_rect.y(), self.selection_rect.width(), self.selection_rect.height(), flush=True)
                       
@@ -1330,6 +1361,12 @@ class Display(QLabel):
                 w = self.selection_rect.width()
                 h = self.selection_rect.height()
                 #print("trans xywh", x0, y0, w, h, flush=True)
+                if w<8 or h<8:
+                    x0=0
+                    y0=0
+                    w=w1
+                    h=h1
+                    
                 
                 xs = int(float(x0) / display_scalefactor)
                 ys = int(float(y0) / display_scalefactor)
@@ -1340,7 +1377,12 @@ class Display(QLabel):
                 if xs>=w2 or ys>=h2 or xs+ws<0 or ys+hs<0:
                     return
                 srcRect=QRect(xs, ys, ws, hs)
-                srcRect = srcRect.intersected(QRect(0, 0, w2-1, h2-1))
+                srcRect = srcRect.intersected(QRect(0, 0, w2, h2))
+                #print("srcRect w2 h2", srcRect.width(), w2, srcRect.height(), h2, flush=True)
+                #if srcRect.width()==w2 and srcRect.height()==h2:
+                    #print("small!", flush=True)
+                    #self.rubberBand.setGeometry(QRect(0,0,0,0))
+                    
                 #print("result", srcRect.x(), srcRect.y(), srcRect.width(), srcRect.height(), flush=True)
                 self.rectSelected(srcRect)
 
@@ -1734,8 +1776,11 @@ class CropWidget(QWidget):
         if not self.original_pixmap:
             return
 
+        if self.crop_left == 0 and self.crop_right == 0 and self.crop_top == 0 and self.crop_bottom == 0:
+            self.clean = True
             
         if not self.clean:
+            
             w = self.original_pixmap.width()
             h = self.original_pixmap.height()
 
@@ -1874,14 +1919,15 @@ class StyledIcon(QIcon):
 
     
 def rescanFilesToRate():
-    global _filesWithoutEdit
-    global _editedfiles
+    global _filesWithoutEdit, _editedfiles, _readyfiles
     _filesWithoutEdit = rescanFilesWithoutEdit()
     if not cutModeActive:
         _editedfiles = rescanFilesOnlyEdit()
-        files = _editedfiles + _filesWithoutEdit
+        _readyfiles = rescanFilesOnlyReady()
+        files = _editedfiles + _readyfiles + _filesWithoutEdit
     else:
         _editedfiles = []
+        _readyfiles = []
         files = _filesWithoutEdit
     return files
     
@@ -1901,9 +1947,18 @@ def rescanFilesOnlyEdit():
         editedfiles=[]
     return editedfiles
 
+def rescanFilesOnlyReady():
+    try:
+        readyfiles=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate/ready")))[2]
+        for i in range(len(readyfiles)):
+            readyfiles[i] = "ready/" + readyfiles[i]
+    except StopIteration as e:
+        readyfiles=[]
+    return readyfiles
+
 def getFilesToRate():
     if not cutModeActive:
-        return _editedfiles + _filesWithoutEdit
+        return _editedfiles + _readyfiles + _filesWithoutEdit
     else:
         return _filesWithoutEdit
 
@@ -1912,6 +1967,9 @@ def getFilesWithoutEdit():
 
 def getFilesOnlyEdit():
     return _editedfiles
+
+def getFilesOnlyReady():
+    return _readyfiles
 
 
 
