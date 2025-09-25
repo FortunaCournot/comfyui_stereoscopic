@@ -681,7 +681,6 @@ class RateAndCutDialog(QDialog):
                 print(traceback.format_exc(), flush=True)
         except ValueError as e:
             pass
-        self.button_cutandclone.setEnabled(True)
         self.button_compress.setEnabled(True)        
         self.button_compress.setFocus()
 
@@ -921,7 +920,7 @@ class VideoThread(QThread):
                 else:
                     ret, cv_img = self.cap.read()
                     if self._run_flag:
-                        if ret:
+                        if ret and not cv_img is None:
                             self.currentFrame+=1
                             self.slider.setValue(self.currentFrame)
                             self.change_pixmap_signal.emit(cv_img, self.uid)
@@ -1056,6 +1055,7 @@ class Display(QLabel):
 
     @pyqtSlot(ndarray, int)
     def update_image(self, cv_img, uid):
+        
         if uid!=self.displayUid:
             self.qt_img = None
             self.imggeometry=self.size()
@@ -1071,7 +1071,7 @@ class Display(QLabel):
             blackpixmap.fill(Qt.black)
             self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
         else:
-            #print("update Image - cv", flush=True)
+            print("update Image - cv", flush=True)
             self.qt_img = self.convert_cv_qt(cv_img)
             
             w = self.qt_img.width()
@@ -1095,9 +1095,14 @@ class Display(QLabel):
         bytes_per_line = ch * w
         convert_cv_qt_img = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.sourcePixmap=QPixmap.fromImage(convert_cv_qt_img)
-        self.scaledPixmap=convert_cv_qt_img.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
-        self.setMaximumSize(QSize(self.scaledPixmap.width(), self.scaledPixmap.height()))
-        return QPixmap.fromImage(self.scaledPixmap)
+
+        h = self.display_height
+        if h % 2 == 1:
+            h -= 1
+        self.scaledPixmap=convert_cv_qt_img.scaled(self.display_width, h, Qt.KeepAspectRatio)
+        #self.setMaximumSize(QSize(self.scaledPixmap.width(), self.scaledPixmap.height()))
+        pix = QPixmap.fromImage(self.scaledPixmap)
+        return pix
 
 
     def showFile(self, filepath):
