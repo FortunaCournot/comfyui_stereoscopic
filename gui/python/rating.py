@@ -1938,10 +1938,10 @@ def scanFilesToRate():
 def rescanFilesToRate():
     print("rescanFilesToRate", flush=True)
     global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut
-    update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
+    _filesWithoutEdit = update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
     if not cutModeActive:
-        update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
-        update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
+        _editedfiles = update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
+        _readyfiles = update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
         filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
         files = filesNoCut
     else:
@@ -1950,36 +1950,6 @@ def rescanFilesToRate():
         
     return files
 
-''' 
-def rescanFilesWithoutEdit():
-    print(" - rescanFilesWithoutEdit", flush=True)
-    try:
-        files=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate")))[2]
-        #files = sorted(files, key=lambda f: os.path.getmtime(os.path.join( os.path.join(path, "../../../../input/vr/check/rate"), f)), reverse=False)
-    except StopIteration as e:
-        files=[]
-    return files
-    
-def rescanFilesOnlyEdit():
-    try:
-        editedfiles=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate/edit")))[2]
-        #editedfiles = sorted(editedfiles, key=lambda f: os.path.getmtime(os.path.join( os.path.join(path, "../../../../input/vr/check/rate/edit"), f)), reverse=False)
-        for i in range(len(editedfiles)):
-            editedfiles[i] = "edit/" + editedfiles[i]
-    except StopIteration as e:
-        editedfiles=[]
-    return editedfiles
-
-def rescanFilesOnlyReady():
-    try:
-        readyfiles=next(os.walk(os.path.join(path, "../../../../input/vr/check/rate/ready")))[2]
-        #readyfiles = sorted(readyfiles, key=lambda f: os.path.getmtime(os.path.join( os.path.join(path, "../../../../input/vr/check/rate/ready"), f)), reverse=False)
-        for i in range(len(readyfiles)):
-            readyfiles[i] = "ready/" + readyfiles[i]
-    except StopIteration as e:
-        readyfiles=[]
-    return readyfiles
-'''
 
 def getFilesToRate():
     if not cutModeActive:
@@ -2020,7 +1990,7 @@ def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
     return sorted(files, key=lambda x: x[1], reverse=False)
 
 
-def update_file_list(base_path: str, file_list: List[Tuple[str, float]]):
+def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
     """
     Aktualisiert die bestehende Datei-Liste:
       - Entfernt nicht mehr existierende Dateien
@@ -2047,6 +2017,7 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]):
         mtime = os.path.getmtime(bpath)  # Nur für neue Dateien aufrufen
         insert_sorted(file_list, (fname, mtime))
 
+    return file_list
 
 def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float]):
     """
