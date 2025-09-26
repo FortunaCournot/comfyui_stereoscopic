@@ -55,8 +55,8 @@ fi
 echo ""
 
 echo -e $"####### \e[96mTest 1/$TESTCOUNT: SBS converter\e[0m ######"
-	rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png input/vr/fullsbs/error/test_image.png output/vr/fullsbs/test_image_x4_4K.png 2>/dev/null
-	rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 input/vr/fullsbs/error/test_video.mp4 output/vr/fullsbs/test_video_x4.mp4 2>/dev/null
+rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png input/vr/fullsbs/error/test_image.png output/vr/fullsbs/test_image_x4_4K.png 2>/dev/null
+rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 input/vr/fullsbs/error/test_video.mp4 output/vr/fullsbs/test_video_x4.mp4 2>/dev/null
 cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_image.png ./input/vr/fullsbs
 cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_video.mp4 ./input/vr/fullsbs
 ./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.0 0.0

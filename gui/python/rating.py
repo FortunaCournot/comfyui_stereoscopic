@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import shutil
 import time
 import traceback
 import urllib.request
@@ -14,6 +15,7 @@ from itertools import chain
 from random import randrange
 from typing import List, Tuple
 from urllib.error import HTTPError
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -71,12 +73,13 @@ class RateAndCutDialog(QDialog):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint )
         self.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint )
 
-        global cutModeActive
+        global cutModeActive, cutModeFolderOverrideActive
         cutModeActive=cutMode
+        self.cutMode=cutMode
+        cutModeFolderOverrideActive=False
         
         rescanFilesToRate()
         
-        self.cutMode=cutMode
         self.qt_img=None
         self.hasCropOrTrim=False
         self.isPaused = False
@@ -99,7 +102,18 @@ class RateAndCutDialog(QDialog):
         self.setGeometry(150, 150, 1280, 768)
         self.outer_main_layout = QVBoxLayout()
         self.setLayout(self.outer_main_layout)
-        self.setStyleSheet("background : black; color: white;")
+        self.setStyleSheet("background-color : black;")
+
+        if cutMode:
+            self.cutMode_toolbar = QToolBar(self)
+            self.cutMode_toolbar.setVisible(True)
+            self.iconFolderAction = StyledIcon(os.path.join(path, '../../gui/img/folder64.png'))
+            self.folderAction = QAction(self.iconFolderAction, "Select Custom Folder")
+            self.folderAction.setCheckable(True)
+            self.folderAction.setVisible(True)
+            self.folderAction.triggered.connect(self.onSelectFolder)
+            self.cutMode_toolbar.addAction(self.folderAction)
+            self.outer_main_layout.addWidget(self.cutMode_toolbar)
 
         self.button_startpause_video = ActionButton()
         self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png')))
@@ -171,15 +185,10 @@ class RateAndCutDialog(QDialog):
         self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded, self.onRectSelected)
         #self.display.resize(self.display_width, self.display_height)
 
-        self.sp1 = QLabel(self)
-        self.sp1.setFixedSize(48, 100)
-        self.sp2 = QLabel(self)
-        self.sp2.setFixedSize(48, 100)
         self.sp3 = QLabel(self)
         self.sp3.setFixedSize(48, 100)
         self.sp4 = QLabel(self)
         self.sp4.setFixedSize(8, 100)
-
 
         # Display layout
         self.display_layout = QHBoxLayout()
@@ -267,34 +276,19 @@ class RateAndCutDialog(QDialog):
             self.button_startframe.clicked.connect(self.display.posA)
             self.button_endframe.clicked.connect(self.display.posB)
 
-        self.dialog_toolbar = QToolBar("Dialog Actions")
-        '''
-        self.azAction = QAction( QIcon(os.path.join(path, '../../gui/img/expanded64.png')), "Sort by name")
-        self.azAction.setCheckable(True)
-        self.azAction.setChecked(True)
-        #self.azAction.triggered.connect(self.sortAZ)
-        self.dialog_toolbar.addAction(self.azAction)
-        self.tsortAction = QAction( QIcon(os.path.join(path, '../../gui/img/expanded64.png')), "Sort by modification time")
-        self.tsortAction.setCheckable(True)
-        self.azAction.setChecked(False)
-        #self.tsortAction.triggered.connect(self.tsort)
-        self.dialog_toolbar.addAction(self.tsortAction)
-        '''
-
         #Main Layout
         self.main_layout = QVBoxLayout()
-        #self.main_layout.addLayout(toolbarLayout)
         self.main_layout.addLayout(self.display_layout, stretch=1)
         self.main_layout.addLayout(self.videotool_layout)
         self.main_layout.addLayout(self.commontool_layout)
 
         #Main group box
         self.main_group_box = QGroupBox()
-        self.main_group_box.setStyleSheet("QGroupBox{font-size: 20px}")
+        self.main_group_box.setStyleSheet("QGroupBox{font-size: 20px; background-color : black; color: white;}")
+
         self.main_group_box.setLayout(self.main_layout)
 
         #Outer main layout to accomodate the group box
-        self.outer_main_layout.addWidget(self.dialog_toolbar)
         self.outer_main_layout.addWidget(self.main_group_box)
 
         # Timer for updating file buttons
@@ -303,7 +297,36 @@ class RateAndCutDialog(QDialog):
         self.filebutton_timer.start(FILESCANTIME)
         
         self.rateNext()
+
+    def onSelectFolder(self, state):
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         
+        self.display.stopAndBlackout()
+        
+        if cutModeFolderOverrideActive: # and not state:
+            cutModeFolderOverrideActive=False
+            scanFilesToRate()
+            files=getFilesToRate()
+            self.currentIndex=0
+            self.currentFile=files[self.currentIndex]
+
+        if state:
+            dirpath = str(QFileDialog.getExistingDirectory(self, "Select Directory", cutModeFolderOverridePath, QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+            if not os.path.isdir(dirpath):
+                self.folderAction.setChecked(False)
+            else:
+                cutModeFolderOverridePath=dirpath
+                cutModeFolderOverrideActive=True
+                scanFilesToRate()
+                if len(_cutModeFolderOverrideFiles)>0:
+                    files=getFilesToRate()
+                    self.currentIndex=0
+                    self.currentFile=files[self.currentIndex]
+                else:
+                    self.folderAction.setChecked(False)
+            
+        self.rateCurrentFile()
+
     def logn(self, msg, color):
         self.log(msg, color)
         self.msgWidget.insertPlainText("\n");
@@ -471,7 +494,10 @@ class RateAndCutDialog(QDialog):
         fileDragged=False
         self.hasCropOrTrim=False
         self.main_group_box.setTitle( self.currentFile )
-        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        if cutModeFolderOverrideActive:
+            folder=os.path.join(path, cutModeFolderOverridePath)
+        else:
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
         file_path=os.path.abspath(os.path.join(folder, self.currentFile))
         if not os.path.exists(file_path):
             print("Error: File does not exist: "  + file_path, flush=True)
@@ -574,7 +600,10 @@ class RateAndCutDialog(QDialog):
         files=getFilesToRate()
         try:
             index=files.index(self.currentFile)
-            folder=os.path.join(path, "../../../../input/vr/check/rate")
+            if cutModeFolderOverrideActive:
+                folder=cutModeFolderOverridePath
+            else:
+                folder=os.path.join(path, "../../../../input/vr/check/rate")
             input=os.path.abspath(os.path.join(folder, self.currentFile))
         except ValueError as ve:
             index=0
@@ -622,7 +651,10 @@ class RateAndCutDialog(QDialog):
         files=getFilesToRate()
         try:
             index=files.index(self.currentFile)
-            folder=os.path.join(path, "../../../../input/vr/check/rate")
+            if cutModeFolderOverrideActive:
+                folder=cutModeFolderOverridePath
+            else:
+                folder=os.path.join(path, "../../../../input/vr/check/rate")
             targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
             os.makedirs(targetfolder, exist_ok=True)
         except ValueError as ve:
@@ -642,7 +674,8 @@ class RateAndCutDialog(QDialog):
                 
                 self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
                 recreated=os.path.exists(destination)
-                os.replace(source, destination)
+                #os.replace(source, destination)
+                shutil.move(source, destination)
                 files=rescanFilesToRate()
             
             l=len(files)
@@ -669,7 +702,11 @@ class RateAndCutDialog(QDialog):
     def createTrimedAndCroppedCopy(self):
         self.button_cutandclone.setEnabled(False)
         self.hasCropOrTrim=False
-        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        rfolder=os.path.join(path, "../../../../input/vr/check/rate")
+        if cutModeFolderOverrideActive:
+            folder=cutModeFolderOverridePath
+        else:
+            folder=rfolder
         input=os.path.abspath(os.path.join(folder, self.currentFile))
         try:
             outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
@@ -677,7 +714,7 @@ class RateAndCutDialog(QDialog):
             while os.path.exists(outputBase + str(fnum) + ".mp4"):
                 fnum+=1
             newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + ".mp4"
-            output=os.path.abspath(os.path.join(folder+"/edit", newfilename))
+            output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
             if self.isVideo:
                 trimA=self.display.trimAFrame
                 trimB=self.display.trimBFrame
@@ -714,12 +751,16 @@ class RateAndCutDialog(QDialog):
     def createSnapshot(self):
         self.button_snapshot_from_video.setEnabled(False)
         self.hasCropOrTrim=False
-        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        rfolder=os.path.join(path, "../../../../input/vr/check/rate")
+        if cutModeFolderOverrideActive:
+            folder=cutModeFolderOverridePath
+        else:
+            folder=rfolder
         input=os.path.abspath(os.path.join(folder, self.currentFile))
         frameindex=str(self.cropWidget.getCurrentFrameIndex())
         try:
             newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
-            output=os.path.abspath(os.path.join(folder+"/edit", newfilename))
+            output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
             self.log("Create snapshot "+newfilename, QColor("white"))
             cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 -update 1 \"" + output + "\""
             try:
@@ -1919,16 +1960,40 @@ class StyledIcon(QIcon):
         convolved = Image.fromarray(np.uint8(255 * image_arr), 'RGB') 
         disabled_icon=pil2pixmap(convolved)
         self.addPixmap( disabled_icon, QIcon.Disabled )
+        
+        self.addPixmap( enabled_icon, QIcon.Normal, QIcon.Off)
+
+        p = QPainter()
+        pen = QPen()
+        pen.setWidth(10)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        pen.setColor(QColor("green"))
+        pixm= QPixmap(path)
+        h=pixm.height()
+        w=pixm.width()
+        y=h-1
+        p.begin(pixm)
+        p.setRenderHints(QPainter.RenderHint.Antialiasing, True)
+        p.setPen(pen)
+        p.drawLine(QPoint(0,y), QPoint(w,y))
+        p.end()
+        self.addPixmap( pixm, QIcon.Normal, QIcon.On)
 
 
 def scanFilesToRate():
-    print("scanFilesToRate", flush=True)
-    global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut
+    #print("scanFilesToRate", flush=True)
+    global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
     _filesWithoutEdit = get_initial_file_list("../../../../input/vr/check/rate")
     _editedfiles = get_initial_file_list("../../../../input/vr/check/rate/edit")
     _readyfiles = get_initial_file_list("../../../../input/vr/check/rate/ready")
-    filesCut = buildList(_filesWithoutEdit, None)
     filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
+    if cutModeFolderOverrideActive:
+        _cutModeFolderOverrideFiles = get_initial_file_list(cutModeFolderOverridePath)
+        filesCut = buildList(_cutModeFolderOverrideFiles, None)
+    else:
+        filesCut = buildList(_filesWithoutEdit, None)
+
     if cutModeActive:
         files = filesCut
     else:
@@ -1938,13 +2003,17 @@ def scanFilesToRate():
 
     
 def rescanFilesToRate():
-    print("rescanFilesToRate", flush=True)
-    global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut
+    #print("rescanFilesToRate", flush=True)
+    global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
     _filesWithoutEdit = update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
     _editedfiles = update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
     _readyfiles = update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
     if cutModeActive:
-        filesCut = buildList(_filesWithoutEdit, None)
+        if cutModeFolderOverrideActive:
+            _cutModeFolderOverrideFiles = update_file_list(cutModeFolderOverridePath, _cutModeFolderOverrideFiles)
+            filesCut = buildList(_cutModeFolderOverrideFiles, None)
+        else:
+            filesCut = buildList(_filesWithoutEdit, None)
         files = filesCut
     else:
         filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
@@ -2080,5 +2149,7 @@ def leaveTask():
 
 # global init
 cutModeActive=False
+cutModeFolderOverrideActive=False
+cutModeFolderOverridePath=str(Path.home())
 scanFilesToRate()
 
