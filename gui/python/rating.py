@@ -155,7 +155,7 @@ class RateAndCutDialog(QDialog):
             self.button_cutandclone = ActionButton()
             self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../gui/img/cutclone80.png')))
             self.button_cutandclone.setIconSize(QSize(80,80))
-            self.button_cutandclone.clicked.connect(self.createTrimedAndCroppedCopy)
+            self.button_cutandclone.clicked.connect(self.createTrimmedAndCroppedCopy)
 
             self.icon_compress = StyledIcon(os.path.join(path, '../../gui/img/compress80.png'))
             self.icon_justrate = StyledIcon(os.path.join(path, '../../gui/img/justrate80.png'))
@@ -390,6 +390,7 @@ class RateAndCutDialog(QDialog):
         self.hasCropOrTrim=True
         if self.cutMode:
             self.button_cutandclone.setEnabled(True)
+            self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
 
     def update_filebuttons(self):
         index=-1
@@ -699,7 +700,7 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True)
 
         
-    def createTrimedAndCroppedCopy(self):
+    def createTrimmedAndCroppedCopy(self):
         self.button_cutandclone.setEnabled(False)
         self.hasCropOrTrim=False
         rfolder=os.path.join(path, "../../../../input/vr/check/rate")
@@ -729,6 +730,7 @@ class RateAndCutDialog(QDialog):
             if self.isVideo:
                 cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
             cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
+            print("Executing "  + cmd, flush=True)
             try:
                 recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
@@ -737,7 +739,6 @@ class RateAndCutDialog(QDialog):
                 rescanFilesToRate()
             except subprocess.CalledProcessError as se:
                 self.logn(" Failed", QColor("red"))
-                print("Failed: "  + cmd, flush=True)
                 print(traceback.format_exc(), flush=True)
         except ValueError as e:
             pass
@@ -761,8 +762,16 @@ class RateAndCutDialog(QDialog):
         try:
             newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
             output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
+            out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
+            out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
+            if out_h % 2 == 1:
+                out_h -= 1
+            x=self.cropWidget.crop_left
+            y=self.cropWidget.crop_top
             self.log("Create snapshot "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 -update 1 \"" + output + "\""
+            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")" + ","  
+            cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" -vframes 1 -update 1 \"" + output + "\""
+            print("Executing "  + cmd, flush=True)
             try:
                 recreated=os.path.exists(output)
                 cp = subprocess.run(cmd, shell=True, check=True)
@@ -771,7 +780,6 @@ class RateAndCutDialog(QDialog):
                 rescanFilesToRate()
             except subprocess.CalledProcessError as se:
                 self.logn(" Failed", QColor("red"))
-                print("Failed: "  + cmd, flush=True)
         except ValueError as e:
             pass
         self.button_snapshot_from_video.setEnabled(False)
