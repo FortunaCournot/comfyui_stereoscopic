@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 import time
+import traceback
 import urllib.request
 import webbrowser
 from itertools import chain
@@ -17,7 +18,7 @@ import numpy as np
 import requests
 from numpy import ndarray
 from PIL import Image
-from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer,
+from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint,
                           pyqtSignal, pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
@@ -649,7 +650,6 @@ class SpreadsheetApp(QMainWindow):
                     self.idle_container.setLayout(vbox)
                     if self.linkurls[newindex] != "":
                         self.idle_image = ClickableLabel(self.linkurls[newindex])
-                        self.idle_image.setCursor(QCursor(Qt.PointingHandCursor))  
                     else:
                         self.idle_image = QLabel()
                     self.idle_image.setPixmap(pixmap.scaled(512, 512, Qt.KeepAspectRatio, Qt.SmoothTransformation))
@@ -933,11 +933,75 @@ class HoverTableWidget(QTableWidget):
 class ClickableLabel(QLabel):
     def __init__(self, url, parent=None):
         super().__init__(parent)
-        self.url = url
+        try:
+            self.url = url
+            self.setMouseTracking(True)
+            self.closeCursor=QCursor(Qt.PointingHandCursor)
+            self.linkCursor=QCursor(Qt.WhatsThisCursor)
+        except Exception:
+            print(traceback.format_exc())
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        
+        pm=self.pixmap()
+        if not pm is None:
+            gl=self.geometry()
+            gp=pm.rect()
+            x0=int((gl.width()-gp.width())/2)
+            y0=int((gl.height()-gp.height())/2)
+            w=gp.width()
+            h=gp.height()
+            qp = QPainter(self)
+            qp.setPen(QColor(Qt.white))
+            qp.fillRect(x0+w-16, y0, 16, 16, QColor("black") )
+            qp.drawRect(x0+w-16, y0, 16, 16)
+            qp.drawLine(x0+w-16, y0+16, x0+w, y0)
+            qp.drawLine(x0+w-16, y0, x0+w, y0+16)
+            #qp.setFont(QFont('Arial', 20))
+            #qp.drawText(40, 40, "X")
+            qp.end()        
+     
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            webbrowser.open(self.url)
+        pm=self.pixmap()
+        if not pm is None:
+            x = event.pos().x()
+            y = event.pos().y()
+            gl=self.geometry()
+            gp=pm.rect()
+            x0=int((gl.width()-gp.width())/2)
+            y0=int((gl.height()-gp.height())/2)
+            w=gp.width()
+            h=gp.height()
+            closeRect=QRect(x0+w-16, y0, 16, 16)
+            if event.button() == Qt.LeftButton:
+                if closeRect.contains(x, y, True):
+                    global idletime
+                    idletime=0
+                else:
+                    webbrowser.open(self.url)
+            #self.update()
+
+    def mouseMoveEvent(self, event):
+        self.end = event.pos()
+        #self.update()
+
+        pm=self.pixmap()
+        if not pm is None:
+            x = event.pos().x()
+            y = event.pos().y()
+            gl=self.geometry()
+            gp=pm.rect()
+            x0=int((gl.width()-gp.width())/2)
+            y0=int((gl.height()-gp.height())/2)
+            w=gp.width()
+            h=gp.height()
+            closeRect=QRect(x0+w-16, y0, 16, 16)
+            if closeRect.contains(x, y, True):
+                self.setCursor(self.closeCursor)  
+            else:
+                self.setCursor(self.linkCursor)  
 
 
 if __name__ == "__main__":
