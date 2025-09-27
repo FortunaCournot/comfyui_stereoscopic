@@ -8,10 +8,11 @@ import sys
 import shutil
 import time
 import traceback
+import threading
 import urllib.request
 import webbrowser
 from datetime import timedelta
-from functools import wraps
+from functools import wraps, partial
 from itertools import chain
 from random import randrange
 from typing import List, Tuple
@@ -51,21 +52,40 @@ fileDragged=False
 FILESCANTIME = 500
 
 # ---- Tasks ----
-taskActive=0
+taskCounterUI=0
+taskCounterAsync=0
 
 
-def isTaskActive():
-    return taskActive>0
+def isUITaskActive():
+    return taskCounterUI>0
 
-def enterTask():
-    global taskActive
-    taskActive+=1
-    print(f"enterTask {taskActive}", flush=True)
+def enterUITask():
+    global taskCounterUI, taskStartUI
+    if taskCounterUI==0:
+        taskStartUI=time.time()
+    taskCounterUI+=1
+    #print(f"enterTask {taskCounterUI}", flush=True)
 
-def leaveTask():
-    global taskActive
-    print(f"leaveTask {taskActive}", flush=True)
-    taskActive-=1
+def leaveUITask():
+    global taskCounterUI, taskStartUI
+    #print(f"leaveTask {taskCounterUI}", flush=True)
+    taskCounterUI-=1
+    if taskCounterUI==0:
+        print(f"UI Task executed in { int((time.time()-taskStartUI)*1000) }ms", flush=True)
+        
+def startAsyncTask():
+    global taskCounterAsync, taskStartAsyc
+    if taskCounterAsync==0:
+        taskStartAsyc=time.time()
+    taskCounterAsync+=1
+    #print(f"enterTask {taskCounterAsync}", flush=True)
+
+def endAsyncTask():
+    global taskCounterAsync, taskStartAsyc
+    #print(f"leaveTask {taskCounterAsync}", flush=True)
+    taskCounterAsync-=1
+    if taskCounterAsync==0:
+        print(f"Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms", flush=True)
 
 # --------
 
@@ -437,7 +457,7 @@ class RateAndCutDialog(QDialog):
             self.button_delete_file.setEnabled(False)       
 
     def rateNext(self):
-        enterTask()
+        enterUITask()
         try:
 
             if self.cutMode:
@@ -472,10 +492,11 @@ class RateAndCutDialog(QDialog):
         
         except Exception:
             pass
-        leaveTask()
-
+        finally:
+            leaveUITask()
+            
     def ratePrevious(self):
-        enterTask()
+        enterUITask()
         try:
             if self.cutMode:
                 self.button_justrate_compress.setEnabled(True)
@@ -484,7 +505,8 @@ class RateAndCutDialog(QDialog):
             
             files=getFilesToRate()
             if len(files)==0:
-                self.closeOnError("no files (ratePrevious)")
+                self.currentIndex=0
+                self.display.stopAndBlackout()
                 return
                 
             if self.currentFile is None:
@@ -509,11 +531,12 @@ class RateAndCutDialog(QDialog):
             self.button_prev_file.setFocus()
         except Exception:
             pass
-        leaveTask()
+        finally:
+            leaveUITask()
 
         
     def rateCurrentFile(self):
-        enterTask()
+        enterUITask()
         try:
             self.fileSlider.setValue(self.currentIndex)
             global fileDragged
@@ -546,10 +569,11 @@ class RateAndCutDialog(QDialog):
                 self.justRate=True
         except Exception:
             pass
-        leaveTask()
-
+        finally:
+            leaveUITask()
+            
     def on_rating_changed(self, rating):
-        enterTask()
+        enterUITask()
         try:
             print(f"Rating selected: {rating}", flush=True)
 
@@ -593,14 +617,15 @@ class RateAndCutDialog(QDialog):
                         
                         if not self.exifpath is None:
                             # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
+                            
                             rating_percent_values = [0, 1, 25,50, 75, 99]   # mp4
                             cmd = self.exifpath + f" -xmp:rating={rating} -SharedUserRating={rating_percent_values[rating]}" + " -overwrite_original \"" + output + "\""
-                            try:
-                                cp = subprocess.run(cmd, shell=True, check=True)
-                                self.logn(",Rated.", QColor("green"))
-                            except subprocess.CalledProcessError as se:
-                                self.logn(" Failed", QColor("red"))
-                                print("Failed: "  + cmd, flush=True)
+                            thread = threading.Thread(
+                                target=self.changeRating_worker,
+                                args=(cmd,),
+                                daemon=True
+                            )                            
+                            thread.start()
                         else:
                             self.logn(".", QColor("white"))
 
@@ -627,11 +652,37 @@ class RateAndCutDialog(QDialog):
 
         except Exception:
             pass
-        leaveTask()
+        finally:
+            leaveUITask()
 
 
+    def changeRating_worker(self, cmd):
+        startAsyncTask()
+        try:
+            cp = subprocess.run(cmd, shell=True, check=True)
+
+            QTimer.singleShot(0, partial(self.changeRating_updater))
+        except subprocess.CalledProcessError as se:
+            self.logn(" Failed", QColor("red"))
+            print("Failed: "  + cmd, flush=True)
+            endAsyncTask()
+        except Exception:
+            print(traceback.format_exc(), flush=True)                
+            endAsyncTask()
+
+
+    def changeRating_updater(self):
+        try:
+            self.logn(",Rated.", QColor("green"))
+        except Exception:
+            self.logn(" Failed", QColor("red"))
+            print("Failed.", flush=True)
+            print(traceback.format_exc(), flush=True) 
+        finally:
+            endAsyncTask()
+    
     def deleteAndNext(self):
-        enterTask()
+        enterUITask()
         try:
             
             files=getFilesToRate()
@@ -681,11 +732,11 @@ class RateAndCutDialog(QDialog):
                 self.logn(" not found", QColor("red"))
         except Exception:
             pass
-        leaveTask()
-
+        finally:
+            leaveUITask()
 
     def rateOrArchiveAndNext(self):
-        enterTask()
+        enterUITask()
         try:
             if self.cutMode:
                 self.button_justrate_compress.setEnabled(False)
@@ -741,11 +792,11 @@ class RateAndCutDialog(QDialog):
                 print(traceback.format_exc(), flush=True)
         except Exception:
             pass
-        leaveTask()
-
+        finally:
+            leaveUITask()
         
     def createTrimmedAndCroppedCopy(self):
-        enterTask()
+        enterUITask()
         try:
             self.hasCropOrTrim=False
             rfolder=os.path.join(path, "../../../../input/vr/check/rate")
@@ -794,11 +845,11 @@ class RateAndCutDialog(QDialog):
                 self.button_justrate_compress.setFocus()
         except Exception:
             pass
-        leaveTask()
-
+        finally:
+            leaveUITask()
 
     def createSnapshot(self):
-        enterTask()
+        enterUITask()
         try:
             self.button_snapshot_from_video.setEnabled(False)
             self.hasCropOrTrim=False
@@ -839,8 +890,8 @@ class RateAndCutDialog(QDialog):
             self.button_justrate_compress.setFocus()
         except Exception:
             pass
-        leaveTask()
-
+        finally:
+            leaveUITask()
 
     def onVideoloaded(self):
         if self.display.frame_count<0:
@@ -1293,7 +1344,7 @@ class Display(QLabel):
 
 
     def startVideo(self, uid):
-        enterTask()
+        enterUITask()
         try:
             if self.thread:
                 self.releaseVideo()
@@ -1315,8 +1366,10 @@ class Display(QLabel):
             self.button.clicked.connect(self.tooglePausePressed)
         except Exception:
             pass
-        leaveTask()
-
+        finally:
+            leaveUITask()
+            
+            
     def releaseVideo(self):
         if self.thread:
             t=self.thread
