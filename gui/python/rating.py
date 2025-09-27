@@ -336,33 +336,69 @@ class RateAndCutDialog(QDialog):
         self.rateNext()
 
     def onSelectFolder(self, state):
-        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
-        
-        self.display.stopAndBlackout()
-        
-        if cutModeFolderOverrideActive: # and not state:
-            cutModeFolderOverrideActive=False
-            scanFilesToRate()
-            files=getFilesToRate()
-            self.currentIndex=0
-            self.currentFile=files[self.currentIndex]
-
-        if state:
-            dirpath = str(QFileDialog.getExistingDirectory(self, "Select Directory", cutModeFolderOverridePath, QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
-            if not os.path.isdir(dirpath):
-                self.folderAction.setChecked(False)
-            else:
-                cutModeFolderOverridePath=dirpath
-                cutModeFolderOverrideActive=True
-                scanFilesToRate()
-                if len(_cutModeFolderOverrideFiles)>0:
-                    files=getFilesToRate()
+        enterUITask()
+        try:
+            global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+            
+            self.display.stopAndBlackout()
+            
+            if cutModeFolderOverrideActive: # and not state:
+                cutModeFolderOverrideActive=False
+                rescanFilesToRate()
+                files=getFilesToRate()
+                if len(files)>0:
                     self.currentIndex=0
                     self.currentFile=files[self.currentIndex]
                 else:
+                    self.currentIndex=-1
+                    self.currentFile=""
+
+            if state:
+                dirpath = str(QFileDialog.getExistingDirectory(self, "Select Directory", cutModeFolderOverridePath, QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+                if not os.path.isdir(dirpath):
                     self.folderAction.setChecked(False)
-            
-        self.rateCurrentFile()
+                else:
+                    thread = threading.Thread(
+                        target=self.customfolder_worker,
+                        args=( dirpath, ),
+                        daemon=True
+                    )
+                    thread.start()
+            else:
+                self.rateCurrentFile()
+        except Exception:
+            pass
+        finally:
+            leaveUITask()
+
+    def customfolder_worker(self, dirpath):
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        startAsyncTask()
+        try:
+            cutModeFolderOverridePath=dirpath
+            cutModeFolderOverrideActive=True
+            scanFilesToRate()
+
+            QTimer.singleShot(0, partial(self.customfolder_updater))
+        except Exception:
+            print(traceback.format_exc(), flush=True) 
+
+    def customfolder_updater(self):
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        try:
+            if len(_cutModeFolderOverrideFiles)>0:
+                files=getFilesToRate()
+                self.currentIndex=0
+                self.currentFile=files[self.currentIndex]
+            else:
+                self.folderAction.setChecked(False)
+            self.rateCurrentFile()
+        except Exception:
+            print(traceback.format_exc(), flush=True) 
+        finally:
+            endAsyncTask()
+
+
 
     def logn(self, msg, color):
         self.log(msg, color)
