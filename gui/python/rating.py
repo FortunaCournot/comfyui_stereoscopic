@@ -538,9 +538,9 @@ class RateAndCutDialog(QDialog):
             return
         try:
             idx = name.index('/')
-            output=os.path.abspath(os.path.join(folder_out, name[idx+1:]))
+            output=os.path.abspath(os.path.join(folder_out, name[idx+1:].replace(' ', '_')))
         except ValueError as ve:                
-            output=os.path.abspath(os.path.join(folder_out, name))
+            output=os.path.abspath(os.path.join(folder_out, name.replace(' ', '_')))
         
         #print("index"  , index, self.currentFile, flush=True)
         
@@ -671,7 +671,7 @@ class RateAndCutDialog(QDialog):
 
             if index>=0:
                 source=os.path.join(folder, self.currentFile)
-                destination=os.path.join(targetfolder, self.currentFile)
+                destination=os.path.join(targetfolder, self.currentFile.replace(' ', '_'))
                 
                 self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
                 recreated=os.path.exists(destination)
@@ -708,7 +708,7 @@ class RateAndCutDialog(QDialog):
             folder=cutModeFolderOverridePath
         else:
             folder=rfolder
-        input=os.path.abspath(os.path.join(folder, self.currentFile))
+        input=os.path.abspath(os.path.join(folder, self.currentFile.replace(' ', '_')))
         try:
             outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
             fnum=1
@@ -760,7 +760,7 @@ class RateAndCutDialog(QDialog):
         input=os.path.abspath(os.path.join(folder, self.currentFile))
         frameindex=str(self.cropWidget.getCurrentFrameIndex())
         try:
-            newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + frameindex + ".png"
+            newfilename=self.currentFile[:self.currentFile.rindex('.')].replace(' ', '_') + "_" + frameindex + ".png"
             output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
             out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
             out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
