@@ -11,6 +11,7 @@ import traceback
 import urllib.request
 import webbrowser
 from datetime import timedelta
+from functools import wraps
 from itertools import chain
 from random import randrange
 from typing import List, Tuple
@@ -23,7 +24,7 @@ import requests
 from numpy import ndarray
 from PIL import Image
 from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint,
-                          pyqtSignal, pyqtSlot)
+                          pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QObject)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
                          QTextCursor)
@@ -46,11 +47,109 @@ if path not in sys.path:
 # File Global
 videoActive=False
 rememberThread=None
-taskActive=False
 fileDragged=False
-
-
 FILESCANTIME = 500
+
+# ---- Tasks ----
+taskActive=0
+
+
+def InterfaceTask(func):
+    return func
+
+
+def InterfaceTask2(func):
+    @wraps(func)
+    def wrapper(self, **kwargs):
+        try:
+            enterTask()
+            func(self, **kwargs)
+        except Exception:
+            print(traceback.format_exc(), flush=True)                
+        leaveTask()
+
+    return wrapper
+
+
+class Worker(QObject):
+    finished = pyqtSignal(object)  # Ergebnis oder None
+
+    def __init__(self, func, *args, **kwargs):
+        super().__init__()
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        print("Worker init", flush=True)
+        
+    def run(self):
+        try:
+            print("Worker run", self.func, flush=True)
+            result = self.func(*self.args, **self.kwargs)
+            print("Worker done", flush=True)
+            leaveTask()
+            self.finished.emit(result)
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+            self.finished.emit(None)
+
+
+# TODO Better handling of background tasks required. direct wrapping makes no sense anymore. 
+def InterfaceTaskTODO(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            print("InterfaceTask", isTaskActive(), *args, **kwargs, flush=True)
+            #if isTaskActive():
+            #    enterTask()
+            #    func(self, *args, **kwargs)
+            #    leaveTask()
+            #else:
+            enterTask()
+            worker = Worker(func, self, *args, **kwargs)
+            workerthread = QThread()
+            workerthread.started.connect(worker.run)
+            workerthread.finished.connect(workerthread.deleteLater)
+            worker.finished.connect(workerthread.quit)
+            worker.finished.connect(worker.deleteLater)
+            worker.moveToThread(workerthread)
+            
+            def cleanup():
+                print("Thread aufgeräumt")
+                # Entfernt den Thread aus der Liste
+                self._threads.remove(workerthread)
+                worker.deleteLater()
+                workerthread.deleteLater()
+            
+            worker.finished.connect(cleanup)
+            if not hasattr(self, "_threads"):
+                self._threads = []
+            self._threads.append(workerthread)
+
+            print("Worker starting...", flush=True)
+            QTimer.singleShot(0, o.workerthread.start)
+            print("Worker started?", flush=True)
+            return o.worker.finished
+
+        except Exception:
+            print(traceback.format_exc(), flush=True)                
+
+    return wrapper
+
+
+def isTaskActive():
+    return taskActive>0
+
+def enterTask():
+    global taskActive
+    taskActive+=1
+    print(f"enterTask {taskActive}", flush=True)
+
+def leaveTask():
+    global taskActive
+    print(f"leaveTask {taskActive}", flush=True)
+    taskActive-=1
+
+# --------
 
 class JudgeDialog(QDialog):
 
@@ -298,6 +397,7 @@ class RateAndCutDialog(QDialog):
         
         self.rateNext()
 
+    @InterfaceTask
     def onSelectFolder(self, state):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         
@@ -419,6 +519,7 @@ class RateAndCutDialog(QDialog):
                 self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
 
+    @InterfaceTask
     def rateNext(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
@@ -453,6 +554,7 @@ class RateAndCutDialog(QDialog):
         self.rateCurrentFile()
         self.button_next_file.setFocus()
 
+    @InterfaceTask
     def ratePrevious(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
@@ -488,8 +590,9 @@ class RateAndCutDialog(QDialog):
         self.button_prev_file.setFocus()
 
 
-    def rateCurrentFile(self):
         
+    @InterfaceTask
+    def rateCurrentFile(self):
         self.fileSlider.setValue(self.currentIndex)
         global fileDragged
         fileDragged=False
@@ -520,6 +623,7 @@ class RateAndCutDialog(QDialog):
             self.button_justrate_compress.setIcon(self.icon_justrate)
             self.justRate=True
 
+    @InterfaceTask
     def on_rating_changed(self, rating):
         print(f"Rating selected: {rating}", flush=True)
 
@@ -596,6 +700,8 @@ class RateAndCutDialog(QDialog):
             self.logn(" not found", QColor("red"))
 
 
+
+    @InterfaceTask
     def deleteAndNext(self):
         self.button_prev_file.setEnabled(False)
         self.button_next_file.setEnabled(False)
@@ -647,6 +753,7 @@ class RateAndCutDialog(QDialog):
             self.logn(" not found", QColor("red"))
 
 
+    @InterfaceTask
     def rateOrArchiveAndNext(self):
         if self.cutMode:
             self.button_justrate_compress.setEnabled(False)
@@ -702,6 +809,7 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True)
 
         
+    @InterfaceTask
     def createTrimmedAndCroppedCopy(self):
         self.button_cutandclone.setEnabled(False)
         self.hasCropOrTrim=False
@@ -751,6 +859,7 @@ class RateAndCutDialog(QDialog):
             self.button_justrate_compress.setFocus()
 
 
+    @InterfaceTask
     def createSnapshot(self):
         self.button_snapshot_from_video.setEnabled(False)
         self.hasCropOrTrim=False
@@ -1240,6 +1349,8 @@ class Display(QLabel):
     def registerForTrimUpdate(self, onCropOrTrim):
         self.onCropOrTrim = onCropOrTrim
 
+
+    @InterfaceTask
     def startVideo(self, uid):
         if self.thread:
             self.releaseVideo()
@@ -2198,12 +2309,6 @@ def format_timedelta_hundredth(td: timedelta) -> str:
     # Auf zwei Nachkommastellen (Hundertstel) runden
     return f"{hours:02}:{minutes:02}:{seconds:05.2f}"
 
-
-def enterTask():
-    taskActive=True
-
-def leaveTask():
-    taskActive=False
 
 # global init
 cutModeActive=False
