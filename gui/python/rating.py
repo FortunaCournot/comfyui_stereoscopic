@@ -209,7 +209,7 @@ class RateAndCutDialog(QDialog):
         if cutMode:
             self.videotool_layout.addWidget(self.button_startframe)
             self.videotool_layout.addWidget(self.button_trima_video)
-        self.videotool_layout.addWidget(self.sl)
+        self.videotool_layout.addWidget(self.sl, alignment =  Qt.AlignVCenter)
         if cutMode:
             self.videotool_layout.addWidget(self.button_trimb_video)
             self.videotool_layout.addWidget(self.button_endframe)
@@ -975,10 +975,19 @@ class VideoThread(QThread):
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.frame_count-1)
         self.slider.setValue(0)
-        self.slider.setTickPosition(QSlider.TicksBelow)
         if self.fps<1:
             self.fps=1
-        self.slider.setTickInterval(int(self.fps))
+        interval=int(self.fps)
+        vlength = (self.frame_count-1) / self.fps
+        if vlength > 7200:
+            self.slider.setTickPosition(QSlider.TicksBothSides)
+            interval=3600*interval
+        elif vlength > 120:
+            self.slider.setTickPosition(QSlider.TicksAbove)
+            interval=60*interval
+        else:
+            self.slider.setTickPosition(QSlider.TicksBelow)
+        self.slider.setTickInterval(interval)
         self.slider.setSingleStep(1)        
         self.slider.setPageStep(int(self.fps))        
         self.slider.valueChanged.connect(self.sliderChanged)
@@ -1267,11 +1276,13 @@ class Display(QLabel):
                 self.trimAFrame=0
                 self.trimBFrame=-1
                 self.slider.setText( "", Qt.white )
+                self.slider.setPosTextValues( -1.0, -1)
             else:
                 self.frame_count=self.thread.frame_count
                 self.trimAFrame=0
                 self.trimBFrame=self.frame_count-1
                 self.slider.setText( self.buildSliderText(), Qt.white )
+                self.slider.setPosTextValues( self.thread.fps, self.frame_count)
             self.loaded()
         
     def updatePaused(self, isPaused):
@@ -1286,31 +1297,10 @@ class Display(QLabel):
     def isTrimmed(self):
         return self.trimAFrame > 0 or self.trimBFrame < self.frame_count-1
         
-    def format_timedelta_hundredth(self, td: timedelta) -> str:
-        """
-        Gibt ein timedelta als String auf Hundertstel Sekunden genau aus.
-        
-        Parameter:
-            td (timedelta): Ein timedelta-Objekt
-        
-        Rückgabe:
-            str: Zeit im Format "HH:MM:SS.ss"
-        """
-        # Gesamtdauer in Sekunden als float
-        total_seconds = td.total_seconds()
-        
-        # Stunden, Minuten, Sekunden extrahieren
-        hours = int(total_seconds // 3600)
-        minutes = int((total_seconds % 3600) // 60)
-        seconds = total_seconds % 60  # Sekunden inkl. Bruchteile
-        
-        # Auf zwei Nachkommastellen (Hundertstel) runden
-        return f"{hours:02}:{minutes:02}:{seconds:05.2f}"
-        
     def buildSliderText(self):
         ms=int( 1000.0 * float( self.trimBFrame - self.trimAFrame) / float(self.thread.fps) )
         td = timedelta(milliseconds=ms)
-        text=self.format_timedelta_hundredth(td)
+        text=format_timedelta_hundredth(td)
         return text
 
     def trimA(self):
@@ -1444,7 +1434,15 @@ class FrameSlider(QSlider):
         super().__init__(orientation)
         self.resetAB()
         self.text=""
+        self.postext = ""
+        self.postextColor = Qt.blue
         self.textColor=Qt.white
+        self.fps=-1.0
+        self.frame_count=-1
+        self.setMinimumHeight(42)
+        self.sliderMoved.connect(self.onSliderMoved)
+        self.sliderReleased.connect(self.onSliderReleased)
+        self.setTracking(True)
      
     def resetAB(self):
         self.a = 0.0
@@ -1458,9 +1456,19 @@ class FrameSlider(QSlider):
         self.b = min(max(0.0, b), 1.0)
         self.update()
 
-    def setText(self, text, textColor):
+    def setText(self, text, textColor=Qt.white):
         self.text = text
         self.textColor = textColor
+        self.update()
+
+    def setPosTextValues(self, fps, frame_count):
+        self.fps=fps
+        self.frame_count=frame_count
+
+    def _setTempPositioningText(self, sliderpos, text, textColor):
+        self.postext = text
+        self.postextColor = textColor
+        self.sliderpos = sliderpos
         self.update()
 
     def paintEvent(self, event: QPaintEvent):
@@ -1484,14 +1492,31 @@ class FrameSlider(QSlider):
             if self.b < 1.0:
                 painter.drawLine(int(width*self.b), 0, width, 0)
 
-            painter.setPen(QPen(self.textColor, 2, Qt.SolidLine, Qt.RoundCap))
+            painter.setPen(QPen(self.textColor if self.postext == "" else self.postextColor, 2, Qt.SolidLine, Qt.RoundCap))
             rct = QRect(0, 0, width, height)
             font=painter.font()
             font.setPointSize(10)
             painter.setFont(font)
             # QPoint(int(width-1), int(height-1))
-            painter.drawText(rct, (Qt.AlignRight if self.textColor==Qt.white else Qt.AlignCenter) | Qt.AlignBottom, self.text)
+            if self.postext == "":
+                painter.drawText(rct, (Qt.AlignRight if self.textColor==Qt.white else Qt.AlignCenter) | Qt.AlignBottom, self.text)
+            else:
+                rct = QRect(0, 0, width, height)
+                painter.drawText(rct, Qt.AlignCenter | Qt.AlignBottom, self.postext)
 
+    def buildPosSliderText(self, sliderpos):
+        ms=int( 1000.0 * sliderpos * (self.frame_count) / float(self.fps) )
+        td = timedelta(milliseconds=ms)
+        text=format_timedelta_hundredth(td)
+        return text
+
+    def onSliderReleased(self):
+        self._setTempPositioningText(0.5, "", Qt.blue)
+        
+    def onSliderMoved(self, value):
+        sliderpos = value / (self.maximum()+1)
+        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
+        
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             val = self.pixelPosToRangeValue(event.pos())
@@ -2147,6 +2172,27 @@ def gitbash_to_windows_path(unix_path: str) -> str:
         rest_of_path = unix_path[3:]
         return os.path.join(f"{drive_letter}:", *rest_of_path.split('/'))
     return os.path.join(*unix_path.split('/'))
+
+def format_timedelta_hundredth(td: timedelta) -> str:
+    """
+    Gibt ein timedelta als String auf Hundertstel Sekunden genau aus.
+    
+    Parameter:
+        td (timedelta): Ein timedelta-Objekt
+    
+    Rückgabe:
+        str: Zeit im Format "HH:MM:SS.ss"
+    """
+    # Gesamtdauer in Sekunden als float
+    total_seconds = td.total_seconds()
+    
+    # Stunden, Minuten, Sekunden extrahieren
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = total_seconds % 60  # Sekunden inkl. Bruchteile
+    
+    # Auf zwei Nachkommastellen (Hundertstel) runden
+    return f"{hours:02}:{minutes:02}:{seconds:05.2f}"
 
 
 def enterTask():

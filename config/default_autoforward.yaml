@@ -106,7 +106,7 @@ forwards:
             - duration<60
             - tvai=true
             - width<7681
-            - r_frame_rate<31
+            - r_frame_rate<24
       - rule:
           to: singleloop
           conditions:
@@ -125,7 +125,7 @@ forwards:
           conditions:
             - duration<20
             - vram>6
-            - r_frame_rate<31
+            - r_frame_rate<24
       - rule:
           to: singleloop
           conditions:
@@ -140,7 +140,7 @@ forwards:
       - rule:
           to: interpolate
           conditions:
-            - r_frame_rate<31
+            - r_frame_rate<24
       - rule:
           to: singleloop
           conditions:
