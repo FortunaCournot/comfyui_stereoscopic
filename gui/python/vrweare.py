@@ -1014,10 +1014,13 @@ if __name__ == "__main__":
     if len(sys.argv) != 1:
        print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " ")
     elif os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
-        global window
-        app = QApplication(sys.argv)
-        window = SpreadsheetApp()
-        window.show()
-        sys.exit(app.exec_())
+        try:
+            global window
+            app = QApplication(sys.argv)
+            window = SpreadsheetApp()
+            window.show()
+            sys.exit(app.exec_())
+        except:
+            print(traceback.format_exc(), flush=True)                
     else:
         print("no lock.", os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive"))
