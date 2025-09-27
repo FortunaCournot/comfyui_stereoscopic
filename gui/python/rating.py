@@ -509,6 +509,8 @@ class RateAndCutDialog(QDialog):
         if self.cutMode:
             self.button_trima_video.setVisible(self.isVideo)
             self.button_trimb_video.setVisible(self.isVideo)
+            self.button_startframe.setVisible(self.isVideo)
+            self.button_endframe.setVisible(self.isVideo)
             self.button_snapshot_from_video.setVisible(self.isVideo)
             self.button_trima_video.setEnabled(False)
             self.button_trimb_video.setEnabled(False)
