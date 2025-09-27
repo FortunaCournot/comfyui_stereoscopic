@@ -538,9 +538,9 @@ class RateAndCutDialog(QDialog):
             return
         try:
             idx = name.index('/')
-            output=os.path.abspath(os.path.join(folder_out, name[idx+1:].replace(' ', '_')))
+            output=os.path.abspath(os.path.join(folder_out, replaceSomeChars(name[idx+1:])))
         except ValueError as ve:                
-            output=os.path.abspath(os.path.join(folder_out, name.replace(' ', '_')))
+            output=os.path.abspath(os.path.join(folder_out, replaceSomeChars(name)))
         
         #print("index"  , index, self.currentFile, flush=True)
         
@@ -671,7 +671,7 @@ class RateAndCutDialog(QDialog):
 
             if index>=0:
                 source=os.path.join(folder, self.currentFile)
-                destination=os.path.join(targetfolder, self.currentFile.replace(' ', '_'))
+                destination=os.path.join(targetfolder, replaceSomeChars(self.currentFile))
                 
                 self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
                 recreated=os.path.exists(destination)
@@ -708,7 +708,7 @@ class RateAndCutDialog(QDialog):
             folder=cutModeFolderOverridePath
         else:
             folder=rfolder
-        input=os.path.abspath(os.path.join(folder, self.currentFile.replace(' ', '_')))
+        input=os.path.abspath(os.path.join(folder, replaceSomeChars(self.currentFile)))
         try:
             outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
             fnum=1
@@ -760,7 +760,7 @@ class RateAndCutDialog(QDialog):
         input=os.path.abspath(os.path.join(folder, self.currentFile))
         frameindex=str(self.cropWidget.getCurrentFrameIndex())
         try:
-            newfilename=self.currentFile[:self.currentFile.rindex('.')].replace(' ', '_') + "_" + frameindex + ".png"
+            newfilename=replaceSomeChars(self.currentFile[:self.currentFile.rindex('.')]) + "_" + frameindex + ".png"
             output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
             out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
             out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
@@ -2165,6 +2165,8 @@ def config(key, default):
             print(traceback.format_exc(), flush=True)
             return default
             
+def replaceSomeChars(path: str) -> str:
+    return path.replace(' ', '_')
 
 def gitbash_to_windows_path(unix_path: str) -> str:
     if unix_path.startswith('/') and len(unix_path) > 2 and unix_path[1].isalpha() and unix_path[2] == '/':
