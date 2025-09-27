@@ -54,88 +54,6 @@ FILESCANTIME = 500
 taskActive=0
 
 
-def InterfaceTask(func):
-    return func
-
-
-def InterfaceTask2(func):
-    @wraps(func)
-    def wrapper(self, **kwargs):
-        try:
-            enterTask()
-            func(self, **kwargs)
-        except Exception:
-            print(traceback.format_exc(), flush=True)                
-        leaveTask()
-
-    return wrapper
-
-
-class Worker(QObject):
-    finished = pyqtSignal(object)  # Ergebnis oder None
-
-    def __init__(self, func, *args, **kwargs):
-        super().__init__()
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-        print("Worker init", flush=True)
-        
-    def run(self):
-        try:
-            print("Worker run", self.func, flush=True)
-            result = self.func(*self.args, **self.kwargs)
-            print("Worker done", flush=True)
-            leaveTask()
-            self.finished.emit(result)
-        except Exception:
-            print(traceback.format_exc(), flush=True)
-            self.finished.emit(None)
-
-
-# TODO Better handling of background tasks required. direct wrapping makes no sense anymore. 
-def InterfaceTaskTODO(func):
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        try:
-            print("InterfaceTask", isTaskActive(), *args, **kwargs, flush=True)
-            #if isTaskActive():
-            #    enterTask()
-            #    func(self, *args, **kwargs)
-            #    leaveTask()
-            #else:
-            enterTask()
-            worker = Worker(func, self, *args, **kwargs)
-            workerthread = QThread()
-            workerthread.started.connect(worker.run)
-            workerthread.finished.connect(workerthread.deleteLater)
-            worker.finished.connect(workerthread.quit)
-            worker.finished.connect(worker.deleteLater)
-            worker.moveToThread(workerthread)
-            
-            def cleanup():
-                print("Thread aufgeräumt")
-                # Entfernt den Thread aus der Liste
-                self._threads.remove(workerthread)
-                worker.deleteLater()
-                workerthread.deleteLater()
-            
-            worker.finished.connect(cleanup)
-            if not hasattr(self, "_threads"):
-                self._threads = []
-            self._threads.append(workerthread)
-
-            print("Worker starting...", flush=True)
-            QTimer.singleShot(0, o.workerthread.start)
-            print("Worker started?", flush=True)
-            return o.worker.finished
-
-        except Exception:
-            print(traceback.format_exc(), flush=True)                
-
-    return wrapper
-
-
 def isTaskActive():
     return taskActive>0
 
@@ -397,7 +315,6 @@ class RateAndCutDialog(QDialog):
         
         self.rateNext()
 
-    @InterfaceTask
     def onSelectFolder(self, state):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         
@@ -519,222 +436,294 @@ class RateAndCutDialog(QDialog):
                 self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
 
-    @InterfaceTask
     def rateNext(self):
-        self.button_prev_file.setEnabled(False)
-        self.button_next_file.setEnabled(False)
-        if self.cutMode:
-            self.button_justrate_compress.setEnabled(True)
-            self.button_justrate_compress.setIcon(self.icon_justrate)
-            self.justRate=True
+        enterTask()
+        try:
 
-        files=getFilesToRate()
-        if len(files)==0:
-            self.closeOnError("no files (rateNext)")
-            return
-            
-        if self.currentFile is None:
-            self.currentIndex=0
-            self.currentFile=files[self.currentIndex]
-        else:
-            try:
-                index=files.index(self.currentFile)
-                self.currentIndex=index
-                l=len(files)
-                if l>index+1:
-                    self.currentIndex=index+1
-                    self.currentFile=files[self.currentIndex]
-                else:
-                    self.currentIndex=l-1
-                    self.currentFile=files[self.currentIndex]
-            except ValueError as ve:
-                self.currentIndex=len[files]-1
-                self.currentFile=files[self.currentIndex]
-        
-        self.rateCurrentFile()
-        self.button_next_file.setFocus()
+            if self.cutMode:
+                self.button_justrate_compress.setEnabled(True)
+                self.button_justrate_compress.setIcon(self.icon_justrate)
+                self.justRate=True
 
-    @InterfaceTask
-    def ratePrevious(self):
-        self.button_prev_file.setEnabled(False)
-        self.button_next_file.setEnabled(False)
-        if self.cutMode:
-            self.button_justrate_compress.setEnabled(True)
-            self.button_justrate_compress.setIcon(self.icon_justrate)
-            self.justRate=True
-        
-        files=getFilesToRate()
-        if len(files)==0:
-            self.closeOnError("no files (ratePrevious)")
-            return
-            
-        if self.currentFile is None:
-            self.currentIndex=0
-            self.currentFile=files[self.currentIndex]
-        else:
-            try:
-                index=files.index(self.currentFile)
-                self.currentIndex=index
-                l=len(files)
-                if index>=1:
-                    self.currentIndex=index-1
-                    self.currentFile=files[self.currentIndex]
-                else:
-                    self.currentIndex=0
-                    self.currentFile=files[self.currentIndex]
-            except ValueError as ve:
+            files=getFilesToRate()
+            if len(files)==0:
+                self.closeOnError("no files (rateNext)")
+                return
+                
+            if self.currentFile is None:
                 self.currentIndex=0
                 self.currentFile=files[self.currentIndex]
-        
-        self.rateCurrentFile()
-        self.button_prev_file.setFocus()
-
-
-        
-    @InterfaceTask
-    def rateCurrentFile(self):
-        self.fileSlider.setValue(self.currentIndex)
-        global fileDragged
-        fileDragged=False
-        self.hasCropOrTrim=False
-        self.main_group_box.setTitle( self.currentFile )
-        if cutModeFolderOverrideActive:
-            folder=os.path.join(path, cutModeFolderOverridePath)
-        else:
-            folder=os.path.join(path, "../../../../input/vr/check/rate")
-        file_path=os.path.abspath(os.path.join(folder, self.currentFile))
-        if not os.path.exists(file_path):
-            print("Error: File does not exist: "  + file_path, flush=True)
-            return
-        self.isVideo=self.display.showFile( file_path ) == "video"
-        self.button_startpause_video.setVisible(self.isVideo)
-        self.sl.setVisible(self.isVideo)
-        if self.cutMode:
-            self.button_trima_video.setVisible(self.isVideo)
-            self.button_trimb_video.setVisible(self.isVideo)
-            self.button_startframe.setVisible(self.isVideo)
-            self.button_endframe.setVisible(self.isVideo)
-            self.button_snapshot_from_video.setVisible(self.isVideo)
-            self.button_trima_video.setEnabled(False)
-            self.button_trimb_video.setEnabled(False)
-            self.button_cutandclone.setEnabled(False)
-            self.button_snapshot_from_video.setEnabled(False)
-            self.button_justrate_compress.setEnabled(True)
-            self.button_justrate_compress.setIcon(self.icon_justrate)
-            self.justRate=True
-
-    @InterfaceTask
-    def on_rating_changed(self, rating):
-        print(f"Rating selected: {rating}", flush=True)
-
-        files=getFilesToRate()
-        try:
-            index=files.index(self.currentFile)
-            name=self.currentFile
-            folder_in=os.path.join(path, "../../../../input/vr/check/rate")
-            folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
-            os.makedirs(folder_out, exist_ok = True)
-            input=os.path.abspath(os.path.join(folder_in, name))
-        except ValueError as ve:
-            print(traceback.format_exc(), flush=True)                
-            index=0
-            self.currentIndex=index
-            self.currentFile=files[index]
-            self.rateCurrentFile()
-            return
-        try:
-            idx = name.index('/')
-            output=os.path.abspath(os.path.join(folder_out, replaceSomeChars(name[idx+1:])))
-        except ValueError as ve:                
-            output=os.path.abspath(os.path.join(folder_out, replaceSomeChars(name)))
-        
-        #print("index"  , index, self.currentFile, flush=True)
-        
-        if os.path.isfile(input):
-            try:
-                self.display.stopAndBlackout()
-                
-                if index>=0:
-                    self.log(f"Rated {rating} on " + name, QColor("white"))
-                    recreated=os.path.isfile(output)
-                    if recreated:
-                        os.remove(output)
-                    os.rename(input, output)
-                    del getFilesToRate()[index]
-                    files=rescanFilesToRate()
-                    self.rating_widget.clear_rating()
-                    self.log(" Overwritten" if recreated else " Moved", QColor("green"))
-                    
-                    if not self.exifpath is None:
-                        # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
-                        rating_percent_values = [0, 1, 25,50, 75, 99]   # mp4
-                        cmd = self.exifpath + f" -xmp:rating={rating} -SharedUserRating={rating_percent_values[rating]}" + " -overwrite_original \"" + output + "\""
-                        try:
-                            cp = subprocess.run(cmd, shell=True, check=True)
-                            self.logn(",Rated.", QColor("green"))
-                        except subprocess.CalledProcessError as se:
-                            self.logn(" Failed", QColor("red"))
-                            print("Failed: "  + cmd, flush=True)
+            else:
+                try:
+                    index=files.index(self.currentFile)
+                    self.currentIndex=index
+                    l=len(files)
+                    if l>index+1:
+                        self.currentIndex=index+1
+                        self.currentFile=files[self.currentIndex]
                     else:
-                        self.logn(".", QColor("white"))
-
-                l=len(files)
-
-                if l==0:    # last file?
-                    self.closeOnError("last file rated (on_rating_changed)")
-                    return
-
-                if index>=l:
-                    print("index--", index, l, flush=True)                
-                    index=l-1
-                    
-                self.currentFile=files[index]
-                self.currentIndex=index
-                #print("index next"  , index, l, self.currentFile, flush=True)
-                self.rateCurrentFile()
-                    
-            except Exception as any_ex:
-                print(traceback.format_exc(), flush=True)                
-                self.logn(" failed", QColor("red"))
-        else:
-            self.logn(" not found", QColor("red"))
-
-
-
-    @InterfaceTask
-    def deleteAndNext(self):
-        self.button_prev_file.setEnabled(False)
-        self.button_next_file.setEnabled(False)
+                        self.currentIndex=l-1
+                        self.currentFile=files[self.currentIndex]
+                except ValueError as ve:
+                    self.currentIndex=len[files]-1
+                    self.currentFile=files[self.currentIndex]
+            
+            self.rateCurrentFile()
         
-        files=getFilesToRate()
+        except Exception:
+            pass
+        leaveTask()
+
+    def ratePrevious(self):
+        enterTask()
         try:
-            index=files.index(self.currentFile)
+            if self.cutMode:
+                self.button_justrate_compress.setEnabled(True)
+                self.button_justrate_compress.setIcon(self.icon_justrate)
+                self.justRate=True
+            
+            files=getFilesToRate()
+            if len(files)==0:
+                self.closeOnError("no files (ratePrevious)")
+                return
+                
+            if self.currentFile is None:
+                self.currentIndex=0
+                self.currentFile=files[self.currentIndex]
+            else:
+                try:
+                    index=files.index(self.currentFile)
+                    self.currentIndex=index
+                    l=len(files)
+                    if index>=1:
+                        self.currentIndex=index-1
+                        self.currentFile=files[self.currentIndex]
+                    else:
+                        self.currentIndex=0
+                        self.currentFile=files[self.currentIndex]
+                except ValueError as ve:
+                    self.currentIndex=0
+                    self.currentFile=files[self.currentIndex]
+            
+            self.rateCurrentFile()
+            self.button_prev_file.setFocus()
+        except Exception:
+            pass
+        leaveTask()
+
+        
+    def rateCurrentFile(self):
+        enterTask()
+        try:
+            self.fileSlider.setValue(self.currentIndex)
+            global fileDragged
+            fileDragged=False
+            self.hasCropOrTrim=False
+            self.main_group_box.setTitle( self.currentFile )
             if cutModeFolderOverrideActive:
-                folder=cutModeFolderOverridePath
+                folder=os.path.join(path, cutModeFolderOverridePath)
             else:
                 folder=os.path.join(path, "../../../../input/vr/check/rate")
-            input=os.path.abspath(os.path.join(folder, self.currentFile))
-        except ValueError as ve:
-            index=0
-            self.currentIndex=index
-            self.currentFile=files[index]
-            self.rateCurrentFile()
-            print(traceback.format_exc(), flush=True)                
-            return
-        
-        if os.path.isfile(input):
+            file_path=os.path.abspath(os.path.join(folder, self.currentFile))
+            if not os.path.exists(file_path):
+                print("Error: File does not exist: "  + file_path, flush=True)
+                return
+            self.isVideo=self.display.showFile( file_path ) == "video"
+            self.button_startpause_video.setVisible(self.isVideo)
+            self.sl.setVisible(self.isVideo)
+            if self.cutMode:
+                self.button_trima_video.setVisible(self.isVideo)
+                self.button_trimb_video.setVisible(self.isVideo)
+                self.button_startframe.setVisible(self.isVideo)
+                self.button_endframe.setVisible(self.isVideo)
+                self.button_snapshot_from_video.setVisible(self.isVideo)
+                self.button_trima_video.setEnabled(False)
+                self.button_trimb_video.setEnabled(False)
+                self.button_cutandclone.setEnabled(False)
+                self.button_snapshot_from_video.setEnabled(False)
+                self.button_justrate_compress.setEnabled(True)
+                self.button_justrate_compress.setIcon(self.icon_justrate)
+                self.justRate=True
+        except Exception:
+            pass
+        leaveTask()
+
+    def on_rating_changed(self, rating):
+        enterTask()
+        try:
+            print(f"Rating selected: {rating}", flush=True)
+
+            files=getFilesToRate()
+            try:
+                index=files.index(self.currentFile)
+                name=self.currentFile
+                folder_in=os.path.join(path, "../../../../input/vr/check/rate")
+                folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
+                os.makedirs(folder_out, exist_ok = True)
+                input=os.path.abspath(os.path.join(folder_in, name))
+            except ValueError as ve:
+                print(traceback.format_exc(), flush=True)                
+                index=0
+                self.currentIndex=index
+                self.currentFile=files[index]
+                self.rateCurrentFile()
+                return
+            try:
+                idx = name.index('/')
+                output=os.path.abspath(os.path.join(folder_out, replaceSomeChars(name[idx+1:])))
+            except ValueError as ve:                
+                output=os.path.abspath(os.path.join(folder_out, replaceSomeChars(name)))
+            
+            #print("index"  , index, self.currentFile, flush=True)
+            
+            if os.path.isfile(input):
+                try:
+                    self.display.stopAndBlackout()
+                    
+                    if index>=0:
+                        self.log(f"Rated {rating} on " + name, QColor("white"))
+                        recreated=os.path.isfile(output)
+                        if recreated:
+                            os.remove(output)
+                        os.rename(input, output)
+                        del getFilesToRate()[index]
+                        files=rescanFilesToRate()
+                        self.rating_widget.clear_rating()
+                        self.log(" Overwritten" if recreated else " Moved", QColor("green"))
+                        
+                        if not self.exifpath is None:
+                            # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
+                            rating_percent_values = [0, 1, 25,50, 75, 99]   # mp4
+                            cmd = self.exifpath + f" -xmp:rating={rating} -SharedUserRating={rating_percent_values[rating]}" + " -overwrite_original \"" + output + "\""
+                            try:
+                                cp = subprocess.run(cmd, shell=True, check=True)
+                                self.logn(",Rated.", QColor("green"))
+                            except subprocess.CalledProcessError as se:
+                                self.logn(" Failed", QColor("red"))
+                                print("Failed: "  + cmd, flush=True)
+                        else:
+                            self.logn(".", QColor("white"))
+
+                    l=len(files)
+
+                    if l==0:    # last file?
+                        self.closeOnError("last file rated (on_rating_changed)")
+                        return
+
+                    if index>=l:
+                        print("index--", index, l, flush=True)                
+                        index=l-1
+                        
+                    self.currentFile=files[index]
+                    self.currentIndex=index
+                    #print("index next"  , index, l, self.currentFile, flush=True)
+                    self.rateCurrentFile()
+                        
+                except Exception as any_ex:
+                    print(traceback.format_exc(), flush=True)                
+                    self.logn(" failed", QColor("red"))
+            else:
+                self.logn(" not found", QColor("red"))
+
+        except Exception:
+            pass
+        leaveTask()
+
+
+    def deleteAndNext(self):
+        enterTask()
+        try:
+            
+            files=getFilesToRate()
+            try:
+                index=files.index(self.currentFile)
+                if cutModeFolderOverrideActive:
+                    folder=cutModeFolderOverridePath
+                else:
+                    folder=os.path.join(path, "../../../../input/vr/check/rate")
+                input=os.path.abspath(os.path.join(folder, self.currentFile))
+            except ValueError as ve:
+                index=0
+                self.currentIndex=index
+                self.currentFile=files[index]
+                self.rateCurrentFile()
+                print(traceback.format_exc(), flush=True)                
+                return
+            
+            if os.path.isfile(input):
+                try:
+                    self.display.stopAndBlackout()
+                    
+                    if index>=0:
+                        self.log("Deleting " + os.path.basename(input), QColor("white"))
+                        os.remove(input)
+                        files=rescanFilesToRate()
+                    
+                    l=len(files)
+
+                    if l==0:    # last file deleted?
+                        self.closeOnError("last file deleted (deleteAndNext)")
+                        return
+
+                    if index>=l:
+                        index=l-1
+                        
+                    self.currentFile=files[index]
+                    self.currentIndex=index
+                    self.rateCurrentFile()
+
+                    self.logn(" done", QColor("green"))
+                    
+                except Exception as any_ex:
+                    print(traceback.format_exc(), flush=True)                
+                    self.logn(" failed", QColor("red"))
+            else:
+                self.logn(" not found", QColor("red"))
+        except Exception:
+            pass
+        leaveTask()
+
+
+    def rateOrArchiveAndNext(self):
+        enterTask()
+        try:
+            if self.cutMode:
+                self.button_justrate_compress.setEnabled(False)
+            
+            files=getFilesToRate()
+            try:
+                index=files.index(self.currentFile)
+                if cutModeFolderOverrideActive:
+                    folder=cutModeFolderOverridePath
+                else:
+                    folder=os.path.join(path, "../../../../input/vr/check/rate")
+                targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
+                os.makedirs(targetfolder, exist_ok=True)
+            except ValueError as ve:
+                print(traceback.format_exc(), flush=True)                
+                index=0
+                self.currentFile=files[index]
+                self.currentIndex=index
+                self.rateCurrentFile()
+                return
+                
             try:
                 self.display.stopAndBlackout()
-                
+
                 if index>=0:
-                    self.log("Deleting " + os.path.basename(input), QColor("white"))
-                    os.remove(input)
+                    source=os.path.join(folder, self.currentFile)
+                    destination=os.path.join(targetfolder, replaceSomeChars(self.currentFile))
+                    
+                    self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
+                    recreated=os.path.exists(destination)
+                    #os.replace(source, destination)
+                    shutil.move(source, destination)
                     files=rescanFilesToRate()
                 
                 l=len(files)
 
                 if l==0:    # last file deleted?
-                    self.closeOnError("last file deleted (deleteAndNext)")
+                    self.closeOnError("last file deleted (rateOrArchiveAndNext)")
                     return
 
                 if index>=l:
@@ -743,161 +732,114 @@ class RateAndCutDialog(QDialog):
                 self.currentFile=files[index]
                 self.currentIndex=index
                 self.rateCurrentFile()
+                    
+                self.logn(" Overwritten" if recreated else " OK", QColor("green"))
 
-                self.logn(" done", QColor("green"))
-                
-            except Exception as any_ex:
-                print(traceback.format_exc(), flush=True)                
-                self.logn(" failed", QColor("red"))
-        else:
-            self.logn(" not found", QColor("red"))
+            except Exception as anyex:
+                self.logn(" Failed", QColor("red"))
+                print("Error archiving/forwarding " + source, flush=True)
+                print(traceback.format_exc(), flush=True)
+        except Exception:
+            pass
+        leaveTask()
 
-
-    @InterfaceTask
-    def rateOrArchiveAndNext(self):
-        if self.cutMode:
-            self.button_justrate_compress.setEnabled(False)
         
-        files=getFilesToRate()
+    def createTrimmedAndCroppedCopy(self):
+        enterTask()
         try:
-            index=files.index(self.currentFile)
+            self.hasCropOrTrim=False
+            rfolder=os.path.join(path, "../../../../input/vr/check/rate")
             if cutModeFolderOverrideActive:
                 folder=cutModeFolderOverridePath
             else:
-                folder=os.path.join(path, "../../../../input/vr/check/rate")
-            targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
-            os.makedirs(targetfolder, exist_ok=True)
-        except ValueError as ve:
-            print(traceback.format_exc(), flush=True)                
-            index=0
-            self.currentFile=files[index]
-            self.currentIndex=index
-            self.rateCurrentFile()
-            return
-            
-        try:
-            self.display.stopAndBlackout()
-
-            if index>=0:
-                source=os.path.join(folder, self.currentFile)
-                destination=os.path.join(targetfolder, replaceSomeChars(self.currentFile))
-                
-                self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
-                recreated=os.path.exists(destination)
-                #os.replace(source, destination)
-                shutil.move(source, destination)
-                files=rescanFilesToRate()
-            
-            l=len(files)
-
-            if l==0:    # last file deleted?
-                self.closeOnError("last file deleted (rateOrArchiveAndNext)")
-                return
-
-            if index>=l:
-                index=l-1
-                
-            self.currentFile=files[index]
-            self.currentIndex=index
-            self.rateCurrentFile()
-                
-            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
-
-        except Exception as anyex:
-            self.logn(" Failed", QColor("red"))
-            print("Error archiving/forwarding " + source, flush=True)
-            print(traceback.format_exc(), flush=True)
-
-        
-    @InterfaceTask
-    def createTrimmedAndCroppedCopy(self):
-        self.button_cutandclone.setEnabled(False)
-        self.hasCropOrTrim=False
-        rfolder=os.path.join(path, "../../../../input/vr/check/rate")
-        if cutModeFolderOverrideActive:
-            folder=cutModeFolderOverridePath
-        else:
-            folder=rfolder
-        input=os.path.abspath(os.path.join(folder, replaceSomeChars(self.currentFile)))
-        try:
-            outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
-            fnum=1
-            while os.path.exists(outputBase + str(fnum) + ".mp4"):
-                fnum+=1
-            newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + ".mp4"
-            output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
-            if self.isVideo:
-                trimA=self.display.trimAFrame
-                trimB=self.display.trimBFrame
-            out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
-            out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
-            if out_h % 2 == 1:
-                out_h -= 1
-            x=self.cropWidget.crop_left
-            y=self.cropWidget.crop_top
-            self.log("Create "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \""
-            if self.isVideo:
-                cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
-            cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
-            print("Executing "  + cmd, flush=True)
+                folder=rfolder
+            input=os.path.abspath(os.path.join(folder, replaceSomeChars(self.currentFile)))
             try:
-                recreated=os.path.exists(output)
-                cp = subprocess.run(cmd, shell=True, check=True)
-                self.logn(" Overwritten" if recreated else " OK", QColor("green"))
-                
-                rescanFilesToRate()
-            except subprocess.CalledProcessError as se:
-                self.logn(" Failed", QColor("red"))
-                print(traceback.format_exc(), flush=True)
-        except ValueError as e:
+                outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
+                fnum=1
+                while os.path.exists(outputBase + str(fnum) + ".mp4"):
+                    fnum+=1
+                newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + ".mp4"
+                output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
+                if self.isVideo:
+                    trimA=self.display.trimAFrame
+                    trimB=self.display.trimBFrame
+                out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
+                out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
+                if out_h % 2 == 1:
+                    out_h -= 1
+                x=self.cropWidget.crop_left
+                y=self.cropWidget.crop_top
+                self.log("Create "+newfilename, QColor("white"))
+                cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \""
+                if self.isVideo:
+                    cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
+                cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
+                print("Executing "  + cmd, flush=True)
+                try:
+                    recreated=os.path.exists(output)
+                    cp = subprocess.run(cmd, shell=True, check=True)
+                    self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+                    
+                    rescanFilesToRate()
+                except subprocess.CalledProcessError as se:
+                    self.logn(" Failed", QColor("red"))
+                    print(traceback.format_exc(), flush=True)
+            except ValueError as e:
+                pass
+            if self.cutMode:
+                self.button_justrate_compress.setEnabled(True)        
+                self.button_justrate_compress.setIcon(self.icon_compress)
+                self.justRate=False
+                self.button_justrate_compress.setFocus()
+        except Exception:
             pass
-        if self.cutMode:
-            self.button_justrate_compress.setEnabled(True)        
+        leaveTask()
+
+
+    def createSnapshot(self):
+        enterTask()
+        try:
+            self.button_snapshot_from_video.setEnabled(False)
+            self.hasCropOrTrim=False
+            rfolder=os.path.join(path, "../../../../input/vr/check/rate")
+            if cutModeFolderOverrideActive:
+                folder=cutModeFolderOverridePath
+            else:
+                folder=rfolder
+            input=os.path.abspath(os.path.join(folder, self.currentFile))
+            frameindex=str(self.cropWidget.getCurrentFrameIndex())
+            try:
+                newfilename=replaceSomeChars(self.currentFile[:self.currentFile.rindex('.')]) + "_" + frameindex + ".png"
+                output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
+                out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
+                out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
+                if out_h % 2 == 1:
+                    out_h -= 1
+                x=self.cropWidget.crop_left
+                y=self.cropWidget.crop_top
+                self.log("Create snapshot "+newfilename, QColor("white"))
+                cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")" + ","  
+                cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" -vframes 1 -update 1 \"" + output + "\""
+                print("Executing "  + cmd, flush=True)
+                try:
+                    recreated=os.path.exists(output)
+                    cp = subprocess.run(cmd, shell=True, check=True)
+                    self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+
+                    rescanFilesToRate()
+                except subprocess.CalledProcessError as se:
+                    self.logn(" Failed", QColor("red"))
+            except ValueError as e:
+                pass
+            self.button_snapshot_from_video.setEnabled(False)
+            self.button_justrate_compress.setEnabled(True)
             self.button_justrate_compress.setIcon(self.icon_compress)
             self.justRate=False
             self.button_justrate_compress.setFocus()
-
-
-    @InterfaceTask
-    def createSnapshot(self):
-        self.button_snapshot_from_video.setEnabled(False)
-        self.hasCropOrTrim=False
-        rfolder=os.path.join(path, "../../../../input/vr/check/rate")
-        if cutModeFolderOverrideActive:
-            folder=cutModeFolderOverridePath
-        else:
-            folder=rfolder
-        input=os.path.abspath(os.path.join(folder, self.currentFile))
-        frameindex=str(self.cropWidget.getCurrentFrameIndex())
-        try:
-            newfilename=replaceSomeChars(self.currentFile[:self.currentFile.rindex('.')]) + "_" + frameindex + ".png"
-            output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
-            out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
-            out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
-            if out_h % 2 == 1:
-                out_h -= 1
-            x=self.cropWidget.crop_left
-            y=self.cropWidget.crop_top
-            self.log("Create snapshot "+newfilename, QColor("white"))
-            cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")" + ","  
-            cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" -vframes 1 -update 1 \"" + output + "\""
-            print("Executing "  + cmd, flush=True)
-            try:
-                recreated=os.path.exists(output)
-                cp = subprocess.run(cmd, shell=True, check=True)
-                self.logn(" Overwritten" if recreated else " OK", QColor("green"))
-
-                rescanFilesToRate()
-            except subprocess.CalledProcessError as se:
-                self.logn(" Failed", QColor("red"))
-        except ValueError as e:
+        except Exception:
             pass
-        self.button_snapshot_from_video.setEnabled(False)
-        self.button_justrate_compress.setEnabled(True)
-        self.button_justrate_compress.setIcon(self.icon_compress)
-        self.justRate=False
-        self.button_justrate_compress.setFocus()
+        leaveTask()
 
 
     def onVideoloaded(self):
@@ -1350,26 +1292,30 @@ class Display(QLabel):
         self.onCropOrTrim = onCropOrTrim
 
 
-    @InterfaceTask
     def startVideo(self, uid):
-        if self.thread:
-            self.releaseVideo()
+        enterTask()
         try:
-            self.button.clicked.disconnect(self.startVideo)
-        except TypeError:
+            if self.thread:
+                self.releaseVideo()
+            try:
+                self.button.clicked.disconnect(self.startVideo)
+            except TypeError:
+                pass
+            self.button.setIcon(QIcon(os.path.join(path, '../../gui/img/pause80.png')))
+            self.button.setVisible(True)
+            self.thread = VideoThread(self.filepath, uid, self.slider, self.updatePaused, self.onVideoLoaded)
+            global rememberThread
+            rememberThread=self.thread
+            self.trimAFrame=0
+            self.trimBFrame=-1
+            self.slider.resetAB()
+            self.slider.setVisible(True)
+            self.thread.change_pixmap_signal.connect(self.update_image)
+            self.thread.start()
+            self.button.clicked.connect(self.tooglePausePressed)
+        except Exception:
             pass
-        self.button.setIcon(QIcon(os.path.join(path, '../../gui/img/pause80.png')))
-        self.button.setVisible(True)
-        self.thread = VideoThread(self.filepath, uid, self.slider, self.updatePaused, self.onVideoLoaded)
-        global rememberThread
-        rememberThread=self.thread
-        self.trimAFrame=0
-        self.trimBFrame=-1
-        self.slider.resetAB()
-        self.slider.setVisible(True)
-        self.thread.change_pixmap_signal.connect(self.update_image)
-        self.thread.start()
-        self.button.clicked.connect(self.tooglePausePressed)
+        leaveTask()
 
     def releaseVideo(self):
         if self.thread:
