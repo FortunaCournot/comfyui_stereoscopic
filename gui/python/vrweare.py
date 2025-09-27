@@ -39,7 +39,7 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit
+from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, rescanFilesToRate
 from judge import JudgeDialog
 
 
@@ -48,6 +48,7 @@ BREAKFREQ = 120000
 TABLEUPDATEFREQ = 1000
 TOOLBARUPDATEFREQ = 1000
 BREAKTIME = 20000
+FILESCANTIME = 2000
 status="idle"
 idletime = 0
 
@@ -226,6 +227,11 @@ class SpreadsheetApp(QMainWindow):
         self.idlecount_timer.timeout.connect(self.update_idlecount)
         self.idlecount_timer.start(1000)  # 1s
 
+        # Timer for updating file buttons
+        self.fileRescan_timer = QTimer()
+        self.fileRescan_timer.timeout.connect(rescanFilesToRate)
+        self.fileRescan_timer.start(FILESCANTIME)
+
         self.imageurls = []
         self.linkurls = []
         self.imagecache = []
@@ -329,7 +335,7 @@ class SpreadsheetApp(QMainWindow):
         count1=len(getFilesWithoutEdit())
         count2=len(getFilesOnlyEdit())
 
-        self.button_check_cutclone_action.setEnabled(count1>0)
+        self.button_check_cutclone_action.setEnabled(True)
         self.button_check_rate_action.setEnabled(count2+count1>0)
     
         count3=0
