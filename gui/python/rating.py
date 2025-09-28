@@ -994,7 +994,7 @@ class RateAndCutDialog(QDialog):
                 
                 thread = threading.Thread(
                             target=self.takeSnapshot_worker,
-                            args=(cmd1, cmd2, recreated, ),
+                            args=(cmd1, cmd2, recreated, tempfile, ),
                             daemon=True
                         )
                 thread.start()
@@ -1006,7 +1006,7 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
 
-    def takeSnapshot_worker(self, cmd1, cmd2, recreated):
+    def takeSnapshot_worker(self, cmd1, cmd2, recreated, temporaryfile):
         startAsyncTask()
         try:
             try:
@@ -1014,6 +1014,7 @@ class RateAndCutDialog(QDialog):
                 cp = subprocess.run(cmd1, shell=True, check=True)
                 print("Executing "  + cmd2, flush=True)
                 cp = subprocess.run(cmd2, shell=True, check=True)
+                os.remove(temporaryfile)
                 QTimer.singleShot(0, partial(self.takeSnapshot_updater, True, recreated))
             except subprocess.CalledProcessError as se:
                 QTimer.singleShot(0, partial(self.takeSnapshot_updater, False, recreated))
