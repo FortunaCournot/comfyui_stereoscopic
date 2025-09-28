@@ -2197,6 +2197,7 @@ def scanFilesToRate():
         _cutModeFolderOverrideFiles = get_initial_file_list(cutModeFolderOverridePath)
         filesCut = buildList(_cutModeFolderOverrideFiles, None)
     else:
+        _cutModeFolderOverrideFiles = _filesWithoutEdit
         filesCut = buildList(_filesWithoutEdit, None)
 
     if cutModeActive:
