@@ -797,30 +797,19 @@ class RateAndCutDialog(QDialog):
             try:
                 self.display.stopAndBlackout()
 
-                if index>=0:
-                    source=os.path.join(folder, self.currentFile)
-                    destination=os.path.join(targetfolder, replaceSomeChars(self.currentFile))
-                    
-                    self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
-                    recreated=os.path.exists(destination)
-                    #os.replace(source, destination)
-                    shutil.move(source, destination)
-                    files=rescanFilesToRate()
+                source=os.path.join(folder, self.currentFile)
+                destination=os.path.join(targetfolder, replaceSomeChars(self.currentFile))
                 
-                l=len(files)
+                self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
+                recreated=os.path.exists(destination)
 
-                if l==0:    # last file deleted?
-                    self.closeOnError("last file deleted (rateOrArchiveAndNext)")
-                    return
+                thread = threading.Thread(
+                    target=self.move_worker,
+                    args=(source, destination, index, recreated),
+                    daemon=True
+                )
+                thread.start()
 
-                if index>=l:
-                    index=l-1
-                    
-                self.currentFile=files[index]
-                self.currentIndex=index
-                self.rateCurrentFile()
-                    
-                self.logn(" Overwritten" if recreated else " OK", QColor("green"))
 
             except Exception as anyex:
                 self.logn(" Failed", QColor("red"))
@@ -831,6 +820,41 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
         
+
+    def move_worker(self, source, destination, index, recreated):
+        startAsyncTask()
+        try:
+            shutil.move(source, destination)
+
+            QTimer.singleShot(0, partial(self.move_updater, index, recreated))
+        except Exception:
+            print(traceback.format_exc(), flush=True) 
+
+    def move_updater(self, index, recreated):
+        try:
+            files=rescanFilesToRate()
+            
+            l=len(files)
+
+            if l==0:    # last file deleted?
+                self.closeOnError("last file deleted (rateOrArchiveAndNext)")
+                return
+
+            if index>=l:
+                index=l-1
+                
+            self.currentFile=files[index]
+            self.currentIndex=index
+
+            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+            
+            self.rateCurrentFile()
+        except Exception:
+            print(traceback.format_exc(), flush=True) 
+        finally:
+            endAsyncTask()
+
+
     def createTrimmedAndCroppedCopy(self):
         enterUITask()
         try:
