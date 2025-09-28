@@ -696,26 +696,22 @@ class RateAndCutDialog(QDialog):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True)
-
-            QTimer.singleShot(0, partial(self.changeRating_updater))
+            QTimer.singleShot(0, partial(self.changeRating_updater, True, cmd))
         except subprocess.CalledProcessError as se:
-            self.logn(" Failed", QColor("red"))
-            print("Failed: "  + cmd, flush=True)
-            endAsyncTask()
+            print(traceback.format_exc(), flush=True) 
+            QTimer.singleShot(0, partial(self.changeRating_updater, False, cmd))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
 
 
-    def changeRating_updater(self):
-        try:
+    def changeRating_updater(self, success, cmd):
+        if success:
             self.logn(",Rated.", QColor("green"))
-        except:
+        else:
             self.logn(" Failed", QColor("red"))
-            print("Failed.", flush=True)
-            print(traceback.format_exc(), flush=True) 
-        finally:
-            endAsyncTask()
+            print("Failed: "  + cmd, flush=True)
+        endAsyncTask()
     
     def deleteAndNext(self):
         enterUITask()
@@ -825,12 +821,17 @@ class RateAndCutDialog(QDialog):
         startAsyncTask()
         try:
             shutil.move(source, destination)
-
-            QTimer.singleShot(0, partial(self.move_updater, index, recreated))
-        except Exception:
+            QTimer.singleShot(0, partial(self.move_updater, index, recreated, True))
+        except:
             print(traceback.format_exc(), flush=True) 
+            QTimer.singleShot(0, partial(self.move_updater, index, recreated, False))
 
-    def move_updater(self, index, recreated):
+    def move_updater(self, index, recreated, success):
+        if success:
+            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+        else:
+            self.logn(" Failed", QColor("red"))
+            
         try:
             files=rescanFilesToRate()
             
@@ -845,9 +846,6 @@ class RateAndCutDialog(QDialog):
                 
             self.currentFile=files[index]
             self.currentIndex=index
-
-            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
-            
             self.rateCurrentFile()
         except Exception:
             print(traceback.format_exc(), flush=True) 
@@ -887,15 +885,15 @@ class RateAndCutDialog(QDialog):
                     cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
                 cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
                 print("Executing "  + cmd, flush=True)
-                try:
-                    recreated=os.path.exists(output)
-                    cp = subprocess.run(cmd, shell=True, check=True)
-                    self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+                
+                recreated=os.path.exists(output)
+                thread = threading.Thread(
+                    target=self.trimAndCrop_worker,
+                    args=(cmd, recreated, ),
+                    daemon=True
+                )
+                thread.start()
                     
-                    rescanFilesToRate()
-                except subprocess.CalledProcessError as se:
-                    self.logn(" Failed", QColor("red"))
-                    print(traceback.format_exc(), flush=True)
             except ValueError as e:
                 pass
             if self.cutMode:
@@ -907,6 +905,29 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
+
+
+    def trimAndCrop_worker(self, cmd, recreated):
+        startAsyncTask()
+        try:
+            cp = subprocess.run(cmd, shell=True, check=True)
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, True))
+
+        except subprocess.CalledProcessError as se:
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, False))
+        except:
+            print(traceback.format_exc(), flush=True)                
+            endAsyncTask()
+
+
+    def trimAndCrop_updater(self, cmd, recreated, success):
+        if success:
+            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+        else:
+            self.logn(" Failed", QColor("red"))
+
+        endAsyncTask()
+
 
     def createSnapshot(self):
         enterUITask()
