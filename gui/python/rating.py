@@ -115,6 +115,8 @@ class RateAndCutDialog(QDialog):
 
     def __init__(self, cutMode):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint )
+        
+        self.setModal(True)
         self.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint )
 
         global cutModeActive, cutModeFolderOverrideActive
@@ -340,7 +342,8 @@ class RateAndCutDialog(QDialog):
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
         self.filebutton_timer.start(FILESCANTIME)
         
-        # Timer for updating file buttons
+        # Timer for updating tasks
+        self._blocker = None
         self.uiBlocking=isTaskActive()
         self.uiBlockingTask_timer = QTimer()
         self.uiBlockingTask_timer.timeout.connect(self.uiBlockHandling)
@@ -354,10 +357,15 @@ class RateAndCutDialog(QDialog):
             self.uiBlocking = isTaskActive()
             if self.uiBlocking:
                 QApplication.setOverrideCursor(Qt.WaitCursor)
-                self.setEnabled(False)
+                #self.setEnabled(False)
+                if self._blocker is None:
+                    self._blocker = InputBlocker(self)                
             else:
                 QApplication.restoreOverrideCursor()
                 self.setEnabled(True)
+                if self._blocker:
+                    self._blocker.deleteLater()
+                    self._blocker = None
         if timeAsyncTaskIsActive()>1000:
             pass
 
@@ -2271,6 +2279,19 @@ class StyledIcon(QIcon):
         p.end()
         self.addPixmap( pixm, QIcon.Normal, QIcon.On)
 
+class InputBlocker(QWidget):
+    """Transparente Sperr-Schicht über dem Dialog."""
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)  # Wichtig: Events abfangen!
+        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setStyleSheet("background: transparent;")  # Unsichtbar
+        self.setGeometry(parent.rect())
+        self.show()
+
+    def resizeEvent(self, event):
+        """Overlay immer an Fenstergröße anpassen."""
+        self.setGeometry(self.parent().rect())
 
 def scanFilesToRate():
     #print("scanFilesToRate", flush=True)

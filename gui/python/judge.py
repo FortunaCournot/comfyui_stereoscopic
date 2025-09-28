@@ -46,6 +46,8 @@ class JudgeDialog(QDialog):
     def __init__(self):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
 
+        self.setModal(True)
+
         #Set the main layout
         self.setWindowTitle("VR We Are - Check Files: Release")
         self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))

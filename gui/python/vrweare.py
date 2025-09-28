@@ -249,21 +249,34 @@ class SpreadsheetApp(QMainWindow):
         except Exception:
             pass
         
-        
+    def mousePressEvent(self, event):
+        """Wenn auf das MainWindow geklickt wird und der Dialog offen ist → bringe Dialog nach vorne"""
+        if self.dialog and self.dialog.isVisible():
+            self.dialog.raise_()
+            self.dialog.activateWindow()
+        else:
+            super().mousePressEvent(event)
+            
     def show_manual(self, state):
         webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
 
     def check_cutandclone(self, state):
         dialog = RateAndCutDialog(True)
-        dialog.exec_()
+        self.dialog = dialog
+        dialog.show()
+        self.dialog = None
 
     def check_rate(self, state):
         dialog = RateAndCutDialog(False)
-        dialog.exec_()
+        self.dialog = dialog
+        dialog.show()
+        self.dialog = None
 
     def check_judge(self, state):
         dialog = JudgeDialog()
-        dialog.exec_()
+        self.dialog = dialog
+        dialog.show()
+        self.dialog = None
 
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
@@ -718,6 +731,8 @@ class SpreadsheetApp(QMainWindow):
         global pipelinedialog, lay
         pipelinedialog = QDialog()
         pipelinedialog.setWindowTitle("VR We Are - Pipeline")
+        pipelinedialog.setModal(True)
+        #pipelinedialog.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         lay = QVBoxLayout(pipelinedialog)
         pal=QPalette()
         bgcolor = QColor("gray") # usally not visible
@@ -767,8 +782,9 @@ class SpreadsheetApp(QMainWindow):
         updatePipeline()
         
         self.button_show_pipeline_action.setEnabled(False)
-        pipelinedialog.exec_()
-        pipelinedialog=None
+        self.dialog = pipelinedialog
+        pipelinedialog.show()
+        self.dialog = None
         self.button_show_pipeline_action.setEnabled(True)
             
     def edit_pipeline(self, state):
