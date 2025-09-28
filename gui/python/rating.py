@@ -366,8 +366,8 @@ class RateAndCutDialog(QDialog):
                     thread.start()
             else:
                 self.rateCurrentFile()
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
 
@@ -380,7 +380,7 @@ class RateAndCutDialog(QDialog):
             scanFilesToRate()
 
             QTimer.singleShot(0, partial(self.customfolder_updater))
-        except Exception:
+        except:
             print(traceback.format_exc(), flush=True) 
 
     def customfolder_updater(self):
@@ -393,7 +393,7 @@ class RateAndCutDialog(QDialog):
             else:
                 self.folderAction.setChecked(False)
             self.rateCurrentFile()
-        except Exception:
+        except:
             print(traceback.format_exc(), flush=True) 
         finally:
             endAsyncTask()
@@ -526,8 +526,8 @@ class RateAndCutDialog(QDialog):
             
             self.rateCurrentFile()
         
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
             
@@ -565,8 +565,8 @@ class RateAndCutDialog(QDialog):
             
             self.rateCurrentFile()
             self.button_prev_file.setFocus()
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
 
@@ -603,8 +603,8 @@ class RateAndCutDialog(QDialog):
                 self.button_justrate_compress.setEnabled(True)
                 self.button_justrate_compress.setIcon(self.icon_justrate)
                 self.justRate=True
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
             
@@ -686,8 +686,8 @@ class RateAndCutDialog(QDialog):
             else:
                 self.logn(" not found", QColor("red"))
 
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
 
@@ -702,7 +702,7 @@ class RateAndCutDialog(QDialog):
             self.logn(" Failed", QColor("red"))
             print("Failed: "  + cmd, flush=True)
             endAsyncTask()
-        except Exception:
+        except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
 
@@ -710,7 +710,7 @@ class RateAndCutDialog(QDialog):
     def changeRating_updater(self):
         try:
             self.logn(",Rated.", QColor("green"))
-        except Exception:
+        except:
             self.logn(" Failed", QColor("red"))
             print("Failed.", flush=True)
             print(traceback.format_exc(), flush=True) 
@@ -766,8 +766,8 @@ class RateAndCutDialog(QDialog):
                     self.logn(" failed", QColor("red"))
             else:
                 self.logn(" not found", QColor("red"))
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
 
@@ -826,8 +826,8 @@ class RateAndCutDialog(QDialog):
                 self.logn(" Failed", QColor("red"))
                 print("Error archiving/forwarding " + source, flush=True)
                 print(traceback.format_exc(), flush=True)
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
         
@@ -879,8 +879,8 @@ class RateAndCutDialog(QDialog):
                 self.button_justrate_compress.setIcon(self.icon_compress)
                 self.justRate=False
                 self.button_justrate_compress.setFocus()
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
 
@@ -924,8 +924,8 @@ class RateAndCutDialog(QDialog):
             self.button_justrate_compress.setIcon(self.icon_compress)
             self.justRate=False
             self.button_justrate_compress.setFocus()
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
 
@@ -1400,8 +1400,8 @@ class Display(QLabel):
             self.thread.change_pixmap_signal.connect(self.update_image)
             self.thread.start()
             self.button.clicked.connect(self.tooglePausePressed)
-        except Exception:
-            pass
+        except:
+            print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
             
