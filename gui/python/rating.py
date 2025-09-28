@@ -896,11 +896,6 @@ class RateAndCutDialog(QDialog):
                     
             except ValueError as e:
                 pass
-            if self.cutMode:
-                self.button_justrate_compress.setEnabled(True)        
-                self.button_justrate_compress.setIcon(self.icon_compress)
-                self.justRate=False
-                self.button_justrate_compress.setFocus()
         except:
             print(traceback.format_exc(), flush=True)
         finally:
@@ -926,6 +921,12 @@ class RateAndCutDialog(QDialog):
         else:
             self.logn(" Failed", QColor("red"))
 
+        if self.cutMode:
+            self.button_justrate_compress.setEnabled(True)        
+            self.button_justrate_compress.setIcon(self.icon_compress)
+            self.justRate=False
+            self.button_justrate_compress.setFocus()
+
         endAsyncTask()
 
 
@@ -943,7 +944,9 @@ class RateAndCutDialog(QDialog):
             frameindex=str(self.cropWidget.getCurrentFrameIndex())
             try:
                 newfilename=replaceSomeChars(self.currentFile[:self.currentFile.rindex('.')]) + "_" + frameindex + ".png"
+                tmpfilename=replaceSomeChars(self.currentFile[:self.currentFile.rindex('.')]) + "_" + frameindex + "_tmp.png"
                 output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
+                tempfile=os.path.abspath(os.path.join(rfolder+"/edit", tmpfilename))
                 out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
                 out_h=self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
                 if out_h % 2 == 1:
@@ -951,35 +954,67 @@ class RateAndCutDialog(QDialog):
                 x=self.cropWidget.crop_left
                 y=self.cropWidget.crop_top
                 self.log("Create snapshot "+newfilename, QColor("white"))
-                cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")" + ","  
-                cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" -vframes 1 -update 1 \"" + output + "\""
-                print("Executing "  + cmd, flush=True)
-                try:
-                    recreated=os.path.exists(output)
-                    cp = subprocess.run(cmd, shell=True, check=True)
-                    self.logn(" Overwritten" if recreated else " OK", QColor("green"))
-
-                    rescanFilesToRate()
-                except subprocess.CalledProcessError as se:
-                    self.logn(" Failed", QColor("red"))
+                cmd1 = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 -update 1 \"" + tempfile + "\""
+                cmd2 = "ffmpeg.exe -y -i \"" + tempfile + "\" -vf \"crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" \"" + output + "\""
+                recreated=os.path.exists(output)
+                
+                thread = threading.Thread(
+                            target=self.takeSnapshot_worker,
+                            args=(cmd1, cmd2, recreated, ),
+                            daemon=True
+                        )
+                thread.start()
+                
             except ValueError as e:
                 pass
+        except:
+            print(traceback.format_exc(), flush=True)
+        finally:
+            leaveUITask()
+
+    def takeSnapshot_worker(self, cmd1, cmd2, recreated):
+        startAsyncTask()
+        try:
+            try:
+                print("Executing "  + cmd1, flush=True)
+                cp = subprocess.run(cmd1, shell=True, check=True)
+                print("Executing "  + cmd2, flush=True)
+                cp = subprocess.run(cmd2, shell=True, check=True)
+                QTimer.singleShot(0, partial(self.takeSnapshot_updater, True, recreated))
+            except subprocess.CalledProcessError as se:
+                QTimer.singleShot(0, partial(self.takeSnapshot_updater, False, recreated))
+
+        except Exception:
+            print(traceback.format_exc(), flush=True) 
+
+    def takeSnapshot_updater(self, success, recreated):
+        if success:
+            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+        else:
+            self.logn(" Failed", QColor("red"))
+            
+        try:
+            rescanFilesToRate()
             self.button_snapshot_from_video.setEnabled(False)
             self.button_justrate_compress.setEnabled(True)
             self.button_justrate_compress.setIcon(self.icon_compress)
             self.justRate=False
             self.button_justrate_compress.setFocus()
         except:
-            print(traceback.format_exc(), flush=True)
+            print(traceback.format_exc(), flush=True) 
         finally:
-            leaveUITask()
+            endAsyncTask()
+
+
 
     def onVideoloaded(self):
-        if self.display.frame_count<0:
-            self.logn("Loading video failed. Archiving forced...", QColor("red"))
-            self.justRate=False
-            self.rateOrArchiveAndNext()
-        pass
+        if cutModeFolderOverrideActive:
+            pass
+        else:
+            if self.display.frame_count<0:
+                self.logn("Loading video failed. Archiving forced...", QColor("red"))
+                self.justRate=False
+                self.rateOrArchiveAndNext()
 
 
     def closeOnError(self, msg):
