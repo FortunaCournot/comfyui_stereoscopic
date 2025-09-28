@@ -49,6 +49,7 @@ TABLEUPDATEFREQ = 1000
 TOOLBARUPDATEFREQ = 1000
 BREAKTIME = 20000
 FILESCANTIME = 2000
+
 status="idle"
 idletime = 0
 
@@ -247,6 +248,7 @@ class SpreadsheetApp(QMainWindow):
             print("Notice: Can't fetch image list.", flush=True)
         except Exception:
             pass
+        
         
     def show_manual(self, state):
         webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")

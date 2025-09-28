@@ -50,14 +50,21 @@ videoActive=False
 rememberThread=None
 fileDragged=False
 FILESCANTIME = 500
+TASKCHECKTIME = 20
 
 # ---- Tasks ----
 taskCounterUI=0
 taskCounterAsync=0
 
 
-def isUITaskActive():
-    return taskCounterUI>0
+def isTaskActive():
+    return taskCounterUI + taskCounterAsync > 0
+
+def timeAsyncTaskIsActive():
+    if taskCounterAsync > 0:
+        return int((time.time()-taskStartAsyc)*1000)
+    else:
+        return 0
 
 def enterUITask():
     global taskCounterUI, taskStartUI
@@ -333,7 +340,26 @@ class RateAndCutDialog(QDialog):
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
         self.filebutton_timer.start(FILESCANTIME)
         
+        # Timer for updating file buttons
+        self.uiBlocking=isTaskActive()
+        self.uiBlockingTask_timer = QTimer()
+        self.uiBlockingTask_timer.timeout.connect(self.uiBlockHandling)
+        self.uiBlockingTask_timer.start(TASKCHECKTIME)
+        
         self.rateNext()
+
+
+    def uiBlockHandling(self):
+        if not self.uiBlocking == isTaskActive():
+            self.uiBlocking = isTaskActive()
+            if self.uiBlocking:
+                QApplication.setOverrideCursor(Qt.WaitCursor)
+                self.setEnabled(False)
+            else:
+                QApplication.restoreOverrideCursor()
+                self.setEnabled(True)
+        if timeAsyncTaskIsActive()>1000:
+            pass
 
     def onSelectFolder(self, state):
         enterUITask()
@@ -1170,6 +1196,8 @@ class VideoThread(QThread):
         #print("Created thread with uid " + str(uid) , flush=True)
 
     def run(self):
+        startAsyncTask()
+        
         global videoActive
         global rememberThread
         
@@ -1215,6 +1243,8 @@ class VideoThread(QThread):
 
         self._run_flag = True
         videoActive=True
+
+        endAsyncTask()
 
         self.onVideoLoaded()
         self.update(self.pause)
