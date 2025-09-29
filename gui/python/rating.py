@@ -1326,7 +1326,7 @@ class VideoThread(QThread):
         while self._run_flag:
             if not self.pause:
                 if self.currentFrame+1>self.b or self.currentFrame+1<self.a:
-                    print("replay", flush=True)
+                    #print("replay", flush=True)
                     self.seek(self.a)
                 else:
                     ret, cv_img = self.cap.read()
@@ -1377,7 +1377,7 @@ class VideoThread(QThread):
         ret, cv_img = self.cap.read()
         if ret and self._run_flag:
             self.currentFrame=frame_number
-            print("seek", frame_number, self.slider.value(), flush=True)
+            #print("seek", frame_number, self.slider.value(), flush=True)
             if (frame_number!=self.slider.value()):
                 self.slider.setValue(self.currentFrame)
             self.change_pixmap_signal.emit(cv_img, self.uid)
@@ -1461,6 +1461,8 @@ class Display(QLabel):
         super().resizeEvent(event)
         if self.qt_img:
             self.setPixmap(self.qt_img.scaled(event.size().width(), event.size().height(), Qt.KeepAspectRatio))
+            #self.scaledPixmap=self.qt_img.scaled(event.size().width(), event.size().height(), Qt.KeepAspectRatio)
+            #self.setPixmap(self.scaledPixmap)
         
     def getSourcePixmap(self):
         return self.sourcePixmap
@@ -1919,6 +1921,9 @@ class CropWidget(QWidget):
         self.original_pixmap = None
         self.display_pixmap = None
         self.slidersInitialized = False
+        self.currentW=0
+        self.currentH=0
+
 
         # Crop-Werte
         self.crop_left = 0
@@ -1950,15 +1955,21 @@ class CropWidget(QWidget):
         main_layout = QGridLayout()
         iw=1000
         cw=1
-        main_layout.addWidget(QLabel(),           0,     0,           cw, cw)
-        main_layout.addWidget(self.slider_left,   0,     cw,          cw, iw,       alignment=Qt.AlignmentFlag.AlignBottom)
+        
+        self.sp1=QLabel()
+        self.sp2=QLabel()
+        self.sp1.setMinimumHeight(32)
+        self.sp2.setMinimumHeight(32)
+        
+        main_layout.addWidget(self.sp1,           0,     0,           cw, cw)
+        main_layout.addWidget(self.slider_left,   0,     cw,          cw, iw,       alignment=Qt.AlignmentFlag.AlignBottom|Qt.AlignmentFlag.AlignHCenter)
 
-        main_layout.addWidget(self.slider_top,    cw,    0,           iw, cw,       alignment=Qt.AlignmentFlag.AlignRight)
+        main_layout.addWidget(self.slider_top,    cw,    0,           iw, cw,       alignment=Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
         main_layout.addWidget(self.image_label,   cw,    cw,          iw, iw)
-        main_layout.addWidget(self.slider_bottom, cw,    cw+iw,       iw, cw,       alignment=Qt.AlignmentFlag.AlignLeft)
+        main_layout.addWidget(self.slider_bottom, cw,    cw+iw,       iw, cw,       alignment=Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter)
 
-        main_layout.addWidget(self.slider_right,  cw+iw, cw,          cw, iw,       alignment=Qt.AlignmentFlag.AlignTop)
-        main_layout.addWidget(QLabel(),           cw+iw, cw+iw,       cw, cw)
+        main_layout.addWidget(self.slider_right,  cw+iw, cw,          cw, iw,       alignment=Qt.AlignmentFlag.AlignTop|Qt.AlignmentFlag.AlignHCenter)
+        main_layout.addWidget(self.sp2,           cw+iw, cw+iw,       cw, cw)
 
         # Buttons unten
         #controls_layout = QHBoxLayout()
@@ -1971,12 +1982,14 @@ class CropWidget(QWidget):
         self.slider_right.valueChanged.connect(lambda val: self.update_crop("right", val))
         self.slider_top.valueChanged.connect(lambda val: self.update_crop("top", val))
         self.slider_bottom.valueChanged.connect(lambda val: self.update_crop("bottom", val))
-
+        
         # Slider deaktivieren, bis Bild geladen
         self.enable_sliders(False)
 
         # Hotkey STRG+S zum Speichern
         #self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        
+        self.resizeEvent(None)
 
     def fileChanged(self):
         # Crop-Werte zurücksetzen
@@ -1993,8 +2006,49 @@ class CropWidget(QWidget):
         
         self.slidersInitialized = False
         self.enable_sliders(False)
+        
+        self.resizeEvent(None)
 
-    
+    def resizeEvent(self, newSize):
+        sourcePixmap = self.image_label.getSourcePixmap()
+        if sourcePixmap is None or sourcePixmap.isNull():
+            return
+
+        #print("resizeEvent", newSize, flush=True)
+        w1 = self.image_label.size().width()
+        h1 = self.image_label.size().height()
+
+        if w1==self.currentW or h1==self.currentH:
+            return
+           
+        self.currentW=w1
+        self.currentH=h1
+
+        #self.sp1.setMinimumHeight(32)
+        #self.sp2.setMinimumHeight(32)
+            
+        w2 = sourcePixmap.width()
+        h2 = sourcePixmap.height()
+        #print("sizes", w1, h1, "-->", w2, h2, flush=True)
+        
+        display_scalefactor=min( float(w1) / float(w2), float(h1) / float(h2) )
+        pad_x = (w1 - w2 * display_scalefactor) 
+        pad_y = (h1 - h2 * display_scalefactor) 
+        #print("padding", pad_x, pad_y, flush=True)
+
+        w  = int(w1 - pad_x)
+        h  = int(h1 - pad_y)
+        #print("w/h", w, h, flush=True)
+
+        self.slider_left.setMinimumWidth(w)
+        self.slider_left.setMaximumWidth(w)
+        self.slider_right.setMinimumWidth(w)
+        self.slider_right.setMaximumWidth(w)
+        self.slider_top.setMinimumHeight(h)
+        self.slider_top.setMaximumHeight(h)
+        self.slider_bottom.setMinimumHeight(h)
+        self.slider_bottom.setMaximumHeight(h)
+
     def imageUpdated(self, currentFrameIndex):
        
         self.currentFrameIndex = currentFrameIndex
@@ -2011,6 +2065,7 @@ class CropWidget(QWidget):
         self.scaledWidth=sourcePixmap.width()
         self.scaledHeight=sourcePixmap.height()
         #print("scaledPixmap", self.scaledWidth, self.scaledHeight, flush=True)
+
 
         pixmap = self.image_label.getUnscaledPixmap()
         if pixmap is None or pixmap.isNull():
@@ -2033,6 +2088,8 @@ class CropWidget(QWidget):
             self.slidersInitialized = True
 
         self.apply_crop()
+        
+        self.resizeEvent(None)
 
     def enable_sliders(self, enable: bool):
         """Aktiviert oder deaktiviert alle Slider."""
@@ -2086,8 +2143,10 @@ class CropWidget(QWidget):
         slider.setInvertedAppearance(inverted)
         if orientation==Qt.Horizontal:
             slider.setStyleSheet("QSlider::handle:Horizontal { background-color: black; border: 2px solid white;}")
+            slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
         else:
             slider.setStyleSheet("QSlider::handle:Vertical { background-color: black; border: 2px solid white; }")
+            slider.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         return slider
 
     def update_slider_ranges(self):
