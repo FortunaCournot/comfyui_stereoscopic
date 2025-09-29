@@ -184,6 +184,7 @@ class RateAndCutDialog(QDialog):
                 self.folderAction.setVisible(True)
                 self.folderAction.triggered.connect(self.onSelectFolder)
                 self.cutMode_toolbar.addAction(self.folderAction)
+                self.cutMode_toolbar.widgetForAction(self.folderAction).setCursor(Qt.PointingHandCursor)
                 self.outer_main_layout.addWidget(self.cutMode_toolbar)
                 self.cutMode_toolbar.setContentsMargins(0,0,0,0)
 
@@ -260,7 +261,7 @@ class RateAndCutDialog(QDialog):
             
             self.sl = FrameSlider(Qt.Horizontal)
             
-            self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded, self.onRectSelected)
+            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded, self.onRectSelected)
             #self.display.resize(self.display_width, self.display_height)
 
             self.sp3 = QLabel(self)
@@ -1395,7 +1396,7 @@ class VideoThread(QThread):
     
 class Display(QLabel):
 
-    def __init__(self, pushbutton, slider, updatePaused, loaded, rectSelected):
+    def __init__(self, cutMode, pushbutton, slider, updatePaused, loaded, rectSelected):
         super().__init__()
         self.qt_img=None
         self.displayUid=0
@@ -1420,6 +1421,8 @@ class Display(QLabel):
         self.resize(self.display_width, self.display_height)
         self.setAlignment(Qt.AlignCenter)
         self.qt_img = None
+        if cutMode:
+            self.setCursor(Qt.CrossCursor)
         
         self.rubberBand = QRubberBand(QRubberBand.Line, self)
         self.origin = QPoint()
@@ -1750,6 +1753,8 @@ class FrameSlider(QSlider):
         self.sliderMoved.connect(self.onSliderMoved)
         self.sliderReleased.connect(self.onSliderReleased)
         self.setTracking(True)
+        self.setCursor(Qt.PointingHandCursor)
+
      
     def resetAB(self):
         self.a = 0.0
@@ -1819,6 +1824,7 @@ class FrameSlider(QSlider):
 
     def onSliderReleased(self):
         self._setTempPositioningText(0.5, "", Qt.blue)
+        self.setCursor(Qt.PointingHandCursor)
         
     def onSliderMoved(self, value):
         sliderpos = value / (self.maximum()+1)
@@ -1829,6 +1835,7 @@ class FrameSlider(QSlider):
             val = self.pixelPosToRangeValue(event.pos())
             self.setValue(val)
             self.onSliderMouseClick()
+            self.setCursor(Qt.SizeHorCursor)
         super(FrameSlider, self).mousePressEvent(event)
 
     def pixelPosToRangeValue(self, pos):
@@ -2273,6 +2280,7 @@ class ActionButton(QPushButton):
         super().__init__()
         #self.button_prev_file.setStyleSheet("background : black; color: white;")
         self.updateStylesheet()
+        self.setCursor(Qt.PointingHandCursor)
 
     def updateStylesheet(self):
 

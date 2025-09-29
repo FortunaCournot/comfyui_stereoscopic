@@ -299,6 +299,7 @@ class SpreadsheetApp(QMainWindow):
         self.toggle_stages_expanded_action.setChecked(self.toogle_stages_expanded)
         self.toggle_stages_expanded_action.triggered.connect(self.toggle_stage_expanded_enabled)
         self.toolbar.addAction(self.toggle_stages_expanded_action)    
+        self.toolbar.widgetForAction(self.toggle_stages_expanded_action).setCursor(Qt.PointingHandCursor)
 
         self.toolbar.addSeparator()
         
@@ -307,18 +308,21 @@ class SpreadsheetApp(QMainWindow):
         self.button_check_cutclone_action.setEnabled(False)
         self.button_check_cutclone_action.triggered.connect(self.check_cutandclone)
         self.toolbar.addAction(self.button_check_cutclone_action)    
+        self.toolbar.widgetForAction(self.button_check_cutclone_action).setCursor(Qt.PointingHandCursor)
                              
         self.button_check_rate_action = QAction(StyledIcon(os.path.join(path, '../../gui/img/rate64.png')), "Rate")      
         self.button_check_rate_action.setCheckable(False)
         self.button_check_rate_action.setEnabled(False)
         self.button_check_rate_action.triggered.connect(self.check_rate)
         self.toolbar.addAction(self.button_check_rate_action)    
+        self.toolbar.widgetForAction(self.button_check_rate_action).setCursor(Qt.PointingHandCursor)
 
         self.button_check_judge_action = QAction(StyledIcon(os.path.join(path, '../../gui/img/judge64.png')), "Release")      
         self.button_check_judge_action.setCheckable(False)
         self.button_check_judge_action.triggered.connect(self.check_judge)
         self.button_check_judge_action.setEnabled(False)
         self.toolbar.addAction(self.button_check_judge_action)    
+        self.toolbar.widgetForAction(self.button_check_judge_action).setCursor(Qt.PointingHandCursor)
         
         empty = QWidget()
         empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
@@ -328,6 +332,7 @@ class SpreadsheetApp(QMainWindow):
         self.button_show_pipeline_action.setCheckable(False)
         self.button_show_pipeline_action.triggered.connect(self.show_pipeline)
         self.toolbar.addAction(self.button_show_pipeline_action)    
+        self.toolbar.widgetForAction(self.button_show_pipeline_action).setCursor(Qt.PointingHandCursor)
         imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
         if not os.path.exists(imagepath):
             self.button_show_pipeline_action.setEnabled(False)
@@ -338,6 +343,7 @@ class SpreadsheetApp(QMainWindow):
         self.button_show_manual_action.setCheckable(False)
         self.button_show_manual_action.triggered.connect(self.show_manual)
         self.toolbar.addAction(self.button_show_manual_action)    
+        self.toolbar.widgetForAction(self.button_show_manual_action).setCursor(Qt.PointingHandCursor)
         
 
     def update_idlecount(self):
@@ -754,6 +760,7 @@ class SpreadsheetApp(QMainWindow):
         lay.addWidget(pipeline_toolbar)
         global editAction
         editAction = QAction("Edit")
+        editAction.setCursor(Qt.PointingHandCursor)
         editAction.setCheckable(False)
         editAction.triggered.connect(self.edit_pipeline)
         pipeline_toolbar.addAction(editAction)
@@ -913,11 +920,16 @@ class HoverTableWidget(QTableWidget):
                 self.reset_hover_style()
                 self.current_hover = (row, col)
                 self.apply_hover_style(row, col)
+                if self.isCellClickable(row, col):
+                    self.setCursor(Qt.PointingHandCursor)
+                else:
+                    self.setCursor(Qt.ArrowCursor)
         else:
             # Maus außerhalb der Tabelle -> Reset
             self.reset_hover_style()
             self.current_hover = None
-
+            self.setCursor(Qt.ArrowCursor)
+            
         super().mouseMoveEvent(event)
 
     def leaveEvent(self, event):
