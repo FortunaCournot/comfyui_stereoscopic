@@ -396,6 +396,20 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True)
 
+    def keyPressEvent(self, event):
+        if not self.cutMode:
+            if event.key() == Qt.Key_1:
+                self.rating_widget.rate(1)
+            elif event.key() == Qt.Key_2:
+                self.rating_widget.rate(2)
+            elif event.key() == Qt.Key_3:
+                self.rating_widget.rate(3)
+            elif event.key() == Qt.Key_4:
+                self.rating_widget.rate(4)
+            elif event.key() == Qt.Key_5:
+                self.rating_widget.rate(5)
+        event.accept()
+
     def uiBlockHandling(self):
         try:
             if not self.uiBlocking == isTaskActive():
@@ -843,7 +857,7 @@ class RateAndCutDialog(QDialog):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True)
-            QTimer.singleShot(0, partial(self.changeRating_updater, True, cmd))
+            QTimer.singleShot(0, partial(self.updateExif_updater, True, cmd))
         except subprocess.CalledProcessError as se:
             print(traceback.format_exc(), flush=True) 
             QTimer.singleShot(0, partial(self.updateExif_updater, False, cmd))
@@ -1163,6 +1177,7 @@ class RatingWidget(QWidget):
             label.setPixmap(self.default_image)
             layout.addWidget(label)
             self.labels.append(label)
+            
 
         self.setLayout(layout)
 
@@ -1170,6 +1185,13 @@ class RatingWidget(QWidget):
         self.current_hover = -1  # Currently hovered index
         self.current_rating = -1  # Locked rating (selected by click)
 
+    def rate(self, value):
+        """Lock the rating and emit a signal."""
+        self.current_rating = value-1
+        self.update_stars(value-1)
+        self.ratingChanged.emit(value)  # Emit 1-based rating
+        
+        
     # -------------------------
     # Hover Handling
     # -------------------------
@@ -1187,10 +1209,7 @@ class RatingWidget(QWidget):
     # Click Handling
     # -------------------------
     def on_click(self, clicked_index):
-        """Lock the rating and emit a signal."""
-        self.current_rating = clicked_index
-        self.update_stars(clicked_index)
-        self.ratingChanged.emit(clicked_index + 1)  # Emit 1-based rating
+        self.rate(clicked_index + 1)
 
     # -------------------------
     # Internal Update Logic
