@@ -184,6 +184,13 @@ class RateAndCutDialog(QDialog):
             self.folderAction.triggered.connect(self.onSelectFolder)
             self.cutMode_toolbar.addAction(self.folderAction)
             self.outer_main_layout.addWidget(self.cutMode_toolbar)
+            self.cutMode_toolbar.setContentsMargins(0,0,0,0)
+
+            self.dirlabel=QLabel("")
+            self.dirlabel.setStyleSheet("QLabel { background-color : black; color : white; }");
+            self.outer_main_layout.addWidget(self.dirlabel)
+            self.outer_main_layout.setAlignment(self.dirlabel, Qt.AlignLeft )
+            self.dirlabel.setContentsMargins(8,0,0,0)
 
         self.button_startpause_video = ActionButton()
         self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png')))
@@ -360,7 +367,8 @@ class RateAndCutDialog(QDialog):
 
         #Outer main layout to accomodate the group box
         self.outer_main_layout.addWidget(self.main_group_box)
-
+        self.main_group_box.setContentsMargins(0,0,0,0)
+        
         # Timer for updating file buttons
         self.filebutton_timer = QTimer()
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
@@ -444,14 +452,17 @@ class RateAndCutDialog(QDialog):
                     print(f"not a directory: {dirpath}", flush=True)
                     override=False
                     cutModeFolderOverrideActive=False   # cancel
-
+                    dirpath=""                    
+            else:
+                dirpath=""
+                
             scanFilesToRate()   # can block on some drives
 
-            QTimer.singleShot(0, partial(self.customfolder_updater, override))
+            QTimer.singleShot(0, partial(self.customfolder_updater, override, dirpath))
         except:
             print(traceback.format_exc(), flush=True) 
 
-    def customfolder_updater(self, override):
+    def customfolder_updater(self, override, path):
 
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         try:
@@ -468,6 +479,7 @@ class RateAndCutDialog(QDialog):
         finally:
             self.folderAction.setChecked(override)
             self.folderAction.setEnabled(True)
+            self.dirlabel.setText(path)
             endAsyncTask()
 
 
