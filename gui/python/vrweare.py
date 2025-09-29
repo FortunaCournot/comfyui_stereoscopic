@@ -266,19 +266,16 @@ class SpreadsheetApp(QMainWindow):
         dialog = RateAndCutDialog(True)
         self.dialog = dialog
         dialog.show()
-        self.dialog = None
 
     def check_rate(self, state):
         dialog = RateAndCutDialog(False)
         self.dialog = dialog
         dialog.show()
-        self.dialog = None
 
     def check_judge(self, state):
         dialog = JudgeDialog()
         self.dialog = dialog
         dialog.show()
-        self.dialog = None
 
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
@@ -791,7 +788,6 @@ class SpreadsheetApp(QMainWindow):
         self.button_show_pipeline_action.setEnabled(False)
         self.dialog = pipelinedialog
         pipelinedialog.show()
-        self.dialog = None
         self.button_show_pipeline_action.setEnabled(True)
             
     def edit_pipeline(self, state):
