@@ -51,49 +51,72 @@ rememberThread=None
 fileDragged=False
 FILESCANTIME = 500
 TASKCHECKTIME = 20
+WAIT_DIALOG_THRESHOLD_TIME=2000
 
 # ---- Tasks ----
 taskCounterUI=0
 taskCounterAsync=0
-
+showWaitDialog=False
 
 def isTaskActive():
     return taskCounterUI + taskCounterAsync > 0
 
-def timeAsyncTaskIsActive():
-    if taskCounterAsync > 0:
-        return int((time.time()-taskStartAsyc)*1000)
-    else:
-        return 0
+def needsWaitDialog():
+    global showWaitDialog
+    
+    t=int((time.time()-taskStartAsyc)*1000)
+    
+    if taskCounterAsync > 0 and t > WAIT_DIALOG_THRESHOLD_TIME:
+        showWaitDialog=True
+
+    return showWaitDialog
 
 def enterUITask():
     global taskCounterUI, taskStartUI
     if taskCounterUI==0:
         taskStartUI=time.time()
     taskCounterUI+=1
-    #print(f"enterTask {taskCounterUI}", flush=True)
 
 def leaveUITask():
     global taskCounterUI, taskStartUI
-    #print(f"leaveTask {taskCounterUI}", flush=True)
     taskCounterUI-=1
-    if taskCounterUI==0:
-        print(f"UI Task executed in { int((time.time()-taskStartUI)*1000) }ms", flush=True)
+    #if taskCounterUI==0:
+    #    print(f"UI Task executed in { int((time.time()-taskStartUI)*1000) }ms", flush=True)
         
 def startAsyncTask():
-    global taskCounterAsync, taskStartAsyc
+    global taskCounterAsync, taskStartAsyc, showWaitDialog
+
     if taskCounterAsync==0:
         taskStartAsyc=time.time()
+        showWaitDialog=False
     taskCounterAsync+=1
-    #print(f"enterTask {taskCounterAsync}", flush=True)
 
 def endAsyncTask():
     global taskCounterAsync, taskStartAsyc
-    #print(f"leaveTask {taskCounterAsync}", flush=True)
     taskCounterAsync-=1
     if taskCounterAsync==0:
-        print(f"Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms", flush=True)
-
+        showWaitDialog=False
+        # print(f"Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms", flush=True)
+            
+   
+class WaitDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.FramelessWindowHint)
+        self.setModal(True)  # <-- Blockiert den Eltern-Dialog
+        layout = QHBoxLayout()
+        label=QLabel("processing ...")
+        self.setStyleSheet("QDialog { border: 1px solid white; }");
+        label.setStyleSheet("QLabel { background-color : black; color : white; }");
+        layout.setContentsMargins(0,0,0,0)
+        layout.addWidget(label)
+        layout.setAlignment(label, Qt.AlignHCenter | Qt.AlignVCenter )
+        self.setLayout(layout)
+        self.setFixedSize(130, 36)
+        #self.setWindowFlags(self.windowFlags() )  #| Qt.WindowStaysOnTopHint
+        
+    def reject(self):
+        pass
+        
 # --------
 
 class JudgeDialog(QDialog):
@@ -123,6 +146,7 @@ class RateAndCutDialog(QDialog):
         cutModeActive=cutMode
         self.cutMode=cutMode
         cutModeFolderOverrideActive=False
+        self.wait_dialog = None
         
         rescanFilesToRate()
         
@@ -366,8 +390,12 @@ class RateAndCutDialog(QDialog):
                 if self._blocker:
                     self._blocker.deleteLater()
                     self._blocker = None
-        if timeAsyncTaskIsActive()>1000:
-            pass
+        if needsWaitDialog() and self.wait_dialog is None:
+            self.wait_dialog = WaitDialog(self)
+            self.wait_dialog.show()
+        elif not needsWaitDialog() and not self.wait_dialog is None:
+            self.wait_dialog.accept()  
+            self.wait_dialog = None
 
     def onSelectFolder(self, state):
         enterUITask()
@@ -378,6 +406,7 @@ class RateAndCutDialog(QDialog):
             self.display.stopAndBlackout()
             
             if cutModeFolderOverrideActive:
+                dirpath=""
                 cutModeFolderOverrideActive=False
                 rescanFilesToRate()
                 files=getFilesToRate()
@@ -408,10 +437,11 @@ class RateAndCutDialog(QDialog):
         startAsyncTask()
         try:
             if override:
-                if not os.path.isdir(dirpath):
+                if os.path.isdir(dirpath):
                     cutModeFolderOverridePath=dirpath
                     cutModeFolderOverrideActive=True
                 else:
+                    print(f"not a directory: {dirpath}", flush=True)
                     override=False
                     cutModeFolderOverrideActive=False   # cancel
 
@@ -436,7 +466,7 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True) 
             endAsyncTask()
         finally:
-            self.folderAction.setChecked(False)
+            self.folderAction.setChecked(override)
             self.folderAction.setEnabled(True)
             endAsyncTask()
 

@@ -118,7 +118,8 @@ class SpreadsheetApp(QMainWindow):
         self.stageTypes = []
 
         self.pipelinedialog=None
-
+        self.dialog=None
+        
         # prerequisites
         folder=os.path.join(path, f"../../../../input/vr/check/rate")
         os.makedirs(folder, exist_ok = True)
@@ -251,7 +252,7 @@ class SpreadsheetApp(QMainWindow):
         
     def mousePressEvent(self, event):
         """Wenn auf das MainWindow geklickt wird und der Dialog offen ist → bringe Dialog nach vorne"""
-        if self.dialog and self.dialog.isVisible():
+        if not self.dialog is None and self.dialog.isVisible():
             self.dialog.raise_()
             self.dialog.activateWindow()
         else:
