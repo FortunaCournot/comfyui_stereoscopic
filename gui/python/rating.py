@@ -371,12 +371,13 @@ class RateAndCutDialog(QDialog):
 
     def onSelectFolder(self, state):
         enterUITask()
+        self.folderAction.setEnabled(False)
         try:
             global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
             
             self.display.stopAndBlackout()
             
-            if cutModeFolderOverrideActive: # and not state:
+            if cutModeFolderOverrideActive:
                 cutModeFolderOverrideActive=False
                 rescanFilesToRate()
                 files=getFilesToRate()
@@ -386,38 +387,42 @@ class RateAndCutDialog(QDialog):
                 else:
                     self.currentIndex=-1
                     self.currentFile=""
-
-            if state:
-                dirpath = str(QFileDialog.getExistingDirectory(self, "Select Directory", cutModeFolderOverridePath, QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
-                if not os.path.isdir(dirpath):
-                    self.folderAction.setChecked(False)
-                else:
-                    thread = threading.Thread(
-                        target=self.customfolder_worker,
-                        args=( dirpath, ),
-                        daemon=True
-                    )
-                    thread.start()
             else:
-                self.rateCurrentFile()
+                dirpath = str(QFileDialog.getExistingDirectory(self, "Select Directory", cutModeFolderOverridePath, QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+                cutModeFolderOverrideActive=True
+
+            thread = threading.Thread(
+                target=self.customfolder_worker,
+                args=( cutModeFolderOverrideActive, dirpath, ),
+                daemon=True
+            )
+            thread.start()
         except:
             print(traceback.format_exc(), flush=True)
+            self.folderAction.setEnabled(True)
         finally:
             leaveUITask()
 
-    def customfolder_worker(self, dirpath):
+    def customfolder_worker(self, override, dirpath):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         startAsyncTask()
         try:
-            cutModeFolderOverridePath=dirpath
-            cutModeFolderOverrideActive=True
-            scanFilesToRate()
+            if override:
+                if not os.path.isdir(dirpath):
+                    cutModeFolderOverridePath=dirpath
+                    cutModeFolderOverrideActive=True
+                else:
+                    override=False
+                    cutModeFolderOverrideActive=False   # cancel
 
-            QTimer.singleShot(0, partial(self.customfolder_updater))
+            scanFilesToRate()   # can block on some drives
+
+            QTimer.singleShot(0, partial(self.customfolder_updater, override))
         except:
             print(traceback.format_exc(), flush=True) 
 
-    def customfolder_updater(self):
+    def customfolder_updater(self, override):
+
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         try:
             if len(_cutModeFolderOverrideFiles)>0:
@@ -425,13 +430,15 @@ class RateAndCutDialog(QDialog):
                 self.currentIndex=0
                 self.currentFile=files[self.currentIndex]
             else:
-                self.folderAction.setChecked(False)
+                self.currentIndex=-1
             self.rateCurrentFile()
         except:
             print(traceback.format_exc(), flush=True) 
-        finally:
             endAsyncTask()
-
+        finally:
+            self.folderAction.setChecked(False)
+            self.folderAction.setEnabled(True)
+            endAsyncTask()
 
 
     def logn(self, msg, color):
@@ -2294,6 +2301,7 @@ class InputBlocker(QWidget):
         """Overlay immer an Fenstergröße anpassen."""
         self.setGeometry(self.parent().rect())
 
+# ASYNC CONTEXT
 def scanFilesToRate():
     #print("scanFilesToRate", flush=True)
     global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
@@ -2315,7 +2323,7 @@ def scanFilesToRate():
         
     return files
 
-    
+# ASYNC CONTEXT    
 def rescanFilesToRate():
     #print("rescanFilesToRate", flush=True)
     global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
