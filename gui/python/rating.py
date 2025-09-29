@@ -1326,6 +1326,7 @@ class VideoThread(QThread):
         while self._run_flag:
             if not self.pause:
                 if self.currentFrame+1>self.b or self.currentFrame+1<self.a:
+                    print("replay", flush=True)
                     self.seek(self.a)
                 else:
                     ret, cv_img = self.cap.read()
@@ -1376,35 +1377,38 @@ class VideoThread(QThread):
         ret, cv_img = self.cap.read()
         if ret and self._run_flag:
             self.currentFrame=frame_number
+            print("seek", frame_number, self.slider.value(), flush=True)
             if (frame_number!=self.slider.value()):
-                self.slider.setValue(self.currentFrame+1)
+                self.slider.setValue(self.currentFrame)
             self.change_pixmap_signal.emit(cv_img, self.uid)
         else:
             self._run_flag = False
                 
     def sliderChanged(self):
         if self.pause:  # do not call while playback
-            #print("sliderChanged. seek", self.sender().value(), flush=True)
+            print("sliderChanged. seek", self.sender().value(), flush=True)
             self.seek(self.sender().value())
 
     def onSliderMouseClick(self):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
-            #print("onSliderMouseClick. seek", self.slider.value(), flush=True)
+            print("onSliderMouseClick. seek", self.slider.value(), flush=True)
             self.seek(self.slider.value())
 
     def posA(self):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
-        self.seek(self.a-1)
+        print("posA", flush=True)
+        self.seek(self.a)
         
     def posB(self):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
-        self.seek(self.b-1)
+        print("posB", flush=True)
+        self.seek(self.b)
 
     def setA(self, frame_number):
         self.a=frame_number
