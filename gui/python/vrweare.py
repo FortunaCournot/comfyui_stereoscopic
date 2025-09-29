@@ -1037,8 +1037,8 @@ if __name__ == "__main__":
             app = QApplication(sys.argv)
             window = SpreadsheetApp()
             window.show()
-            sys.exit(app.exec_())
         except:
             print(traceback.format_exc(), flush=True)                
+        sys.exit(app.exec_())
     else:
         print("no lock.", os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive"))
