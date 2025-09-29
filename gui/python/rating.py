@@ -59,15 +59,18 @@ def enterUITask():
     if taskCounterUI==0:
         taskStartUI=time.time()
     taskCounterUI+=1
-    print(f"enterUITask { taskCounterUI }", flush=True)
+    #print(f". enterUITask { taskCounterUI }", flush=True)
         
 
 def leaveUITask():
     global taskCounterUI, taskStartUI
-    print(f"leaveUITask { taskCounterUI }", flush=True)
+    #print(f". leaveUITask { taskCounterUI }", flush=True)
     taskCounterUI-=1
-    #if taskCounterUI==0:
-    #    print(f"UI Task executed in { int((time.time()-taskStartUI)*1000) }ms", flush=True)
+    if taskCounterUI==0:
+        tb=traceback.format_stack()
+        tb=tb[-2][tb[-2].rfind('\\')+1:]
+        tb=tb[:tb.rfind(',')]
+        print(f". UI Task executed in { int((time.time()-taskStartUI)*1000) }ms, \"" + tb, flush=True)
         
 def startAsyncTask():
     global taskCounterAsync, taskStartAsyc, showWaitDialog
@@ -76,15 +79,18 @@ def startAsyncTask():
         taskStartAsyc=time.time()
         showWaitDialog=False
     taskCounterAsync+=1
-    print(f"startAsyncTask { taskCounterAsync }", flush=True)
+    #print(f". startAsyncTask { taskCounterAsync }", flush=True)
 
 def endAsyncTask():
     global taskCounterAsync, taskStartAsyc, showWaitDialog
-    print(f"endAsyncTask { taskCounterAsync }", flush=True)
+    #print(f". endAsyncTask { taskCounterAsync }", flush=True)
     taskCounterAsync-=1
     if taskCounterAsync==0:
         showWaitDialog=False
-        # print(f"Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms", flush=True)
+        tb=traceback.format_stack()
+        tb=tb[-2][tb[-2].rfind('\\')+1:]
+        tb=tb[:tb.rfind(',')]
+        print(f". Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms, \"" + tb, flush=True)
             
    
 class WaitDialog(QDialog):
@@ -100,21 +106,6 @@ class WaitDialog(QDialog):
         layout.setAlignment(label, Qt.AlignHCenter | Qt.AlignVCenter )
         self.setLayout(layout)
         self.setFixedSize(130, 36)
-        #self.setWindowFlags(self.windowFlags() )  #| Qt.WindowStaysOnTopHint
-        
-'''        
-    def reject(self):
-        print("reject", flush=True) 
-        pass
-        
-    def accept(self):
-        print("accept", flush=True) 
-        pass
-        
-    def hideEvent(self, event):
-        print("hideEvent", flush=True) 
-        pass
-'''
 
 # --------
 
@@ -436,7 +427,6 @@ class RateAndCutDialog(QDialog):
         self.msgWidget.setCurrentCharFormat(old_format)
 
     def closeEvent(self, evnt):
-        print("closeEvent", evnt, flush=True)
         self.filebutton_timer.stop()
         self.display.stopAndBlackout()
         global cutModeActive
