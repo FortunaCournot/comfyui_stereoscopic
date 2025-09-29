@@ -9,6 +9,7 @@ import traceback
 import urllib.request
 import webbrowser
 from itertools import chain
+from pathlib import Path
 from random import randrange
 from threading import Thread
 from urllib.error import HTTPError
@@ -39,7 +40,7 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, rescanFilesToRate
+from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, rescanFilesToRate, scanFilesToRate, initCutMode
 from judge import JudgeDialog
 
 
@@ -367,271 +368,275 @@ class SpreadsheetApp(QMainWindow):
     def update_table(self):
         global idletime
 
-        
-        if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
-            print("QUIT (external signal)", flush=True)
-            sys.exit(app.exec_())
+        try:
+            if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
+                print("QUIT (external signal)", flush=True)
+                sys.exit(app.exec_())
 
-        if self.idle_container_active:
-            if idletime < 15:
-                self.show_table()
-            
-        status="idle"
-        activestage=""
-        statusfile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonstatus")
-        if os.path.exists(statusfile):
-            with open(statusfile) as file:
-                statuslines = [line.rstrip() for line in file]
-                for line in range(len(statuslines)):
-                    if line==0:
-                        activestage=statuslines[0]
-                        status="processing"
-                        idletime=0
-                    else:
-                        status=status + " " + statuslines[line]
-        self.setWindowTitle("VR we are - " + activestage + " " + status)
-
-        fontC0 = QFont()
-        fontC0.setBold(True)
-        fontC0.setItalic(True)
-
-        fontR0 = QFont()
-        fontR0.setBold(True)
-        fontR0.setItalic(True)
-
-        COLNAMES = []
-        if self.toogle_stages_expanded:
-            COLS=5
-            self.table.setColumnCount(COLS)
-            header = self.table.horizontalHeader()    
-            header.setSectionResizeMode(QHeaderView.Fixed);
-            COLNAMES.clear()
-            COL_IDX_STAGENAME=0        
-            header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
-            COLNAMES.append("")
-            self.COL_IDX_IN_TYPES=1
-            header.setSectionResizeMode(self.COL_IDX_IN_TYPES, QHeaderView.ResizeToContents)
-            COLNAMES.append("type")
-            self.COL_IDX_IN=2
-            #header.setSectionResizeMode(self.COL_IDX_IN, QHeaderView.ResizeToContents)
-            COLNAMES.append("input (done)")
-            COL_IDX_PROCESSING=3
-            #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
-            COLNAMES.append("processing")
-            self.COL_IDX_OUT=4
-            header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
-            COLNAMES.append("output")
-        else:
-            COLS=4
-            self.table.setColumnCount(COLS)
-            header = self.table.horizontalHeader()       
-            COLNAMES.clear()
-            COL_IDX_STAGENAME=0        
-            header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
-            COLNAMES.append("")
-            self.COL_IDX_IN=1
-            #header.setSectionResizeMode(self.COL_IDX_IN, QHeaderView.ResizeToContents)
-            COLNAMES.append("input (done)")
-            COL_IDX_PROCESSING=2
-            #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
-            COLNAMES.append("processing")
-            self.COL_IDX_OUT=3
-            header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
-            COLNAMES.append("output")
-        
-        skippedrows=0
-        self.table.clear()
-        ROW2STAGE.clear()
-        for r in range(ROWS):
-            displayRequired=False
-            currentRowItems = []
-            for c in range(COLS):
-                if c==COL_IDX_STAGENAME:
-                    if r==0:
-                        displayRequired=True
-                        value = ""
-                    else:
-                        value = STAGES[r-1]
-                    item = QTableWidgetItem(value)
-                    item.setFont(fontC0)
-                    if value.startswith("tasks/_"):
-                        item.setForeground(QBrush(QColor("#666666")))
-                    elif value.startswith("tasks/"):
-                        item.setForeground(QBrush(QColor("#888888")))
-                    else:
-                        item.setForeground(QBrush(QColor("#CCCCCC")))
-                    item.setBackground(QBrush(QColor("black")))
-                    item.setTextAlignment(Qt.AlignLeft + Qt.AlignVCenter)
-                else:
-                    color = "lightgray"
-                    if r==0:
-                        displayRequired=True
-                        value = COLNAMES[c]
-                        color = "gray"
-                    else:
-                        if c==self.COL_IDX_IN:
-                            folder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
-                            if os.path.exists(folder):
-                                onlyfiles = next(os.walk(folder))[2]
-                                onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
-                                count = len(onlyfiles)
-                                if count>0:
-                                    value = str(count)
-                                    displayRequired=True
-                                else:
-                                    value = ""
-                                subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/done")
-                                if os.path.exists(subfolder):
-                                    onlyfiles = next(os.walk(subfolder))[2]
-                                    nocleanup = False
-                                    for f in onlyfiles:
-                                        if ".nocleanup" == f.lower():
-                                            nocleanup = True                                            
-                                    if nocleanup:
-                                        onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
-                                        count2 = len(onlyfiles)
-                                        if count2>0:
-                                            value = value + " (" + str(count2) + ")"
-                                            color = "green"
-                                        elif count == 0:
-                                            value = value + " (-)"
-                                    else:
-                                        color = "yellow"
-                                subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
-                                if os.path.exists(subfolder):
-                                    try:
-                                        onlyfiles = next(os.walk(subfolder))[2]
-                                        count = len(onlyfiles)
-                                        if count>0:
-                                            value = value + " " + str(count) + "!"
-                                            color = "red"
-                                            displayRequired=True
-                                    except StopIteration as se:
-                                        pass
-                            else:
-                                value = "?"
-                                color = "red"
-                                displayRequired=True
-                        elif c==self.COL_IDX_OUT:
-                            folder =  os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
-                            if os.path.exists(folder):
-                                onlyfiles = next(os.walk(folder))[2]
-                                forward = False
-                                for f in onlyfiles:
-                                    if "forward.txt" == f.lower():
-                                        forward = True
-                                if not forward:
-                                    color = "green"
-                                onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
-                                count = len(onlyfiles)
-                                if count>0:
-                                    displayRequired=True
-                                    value = str(count)
-                                    if idletime>15:
-                                        color = "green"
-                                else:
-                                    value = ""
-                                if forward:
-                                    value = value + " ➤"
-                            else:
-                                value = "?"
-                                color = "red"
-                                displayRequired=True
-                        elif c==COL_IDX_PROCESSING:
-                            value = ""
-                            if status!="idle":
-                                if activestage==STAGES[r-1]:
-                                    value=status
-                                    color="yellow"
-                                    displayRequired=True
-                        elif self.toogle_stages_expanded:
-                            if c==self.COL_IDX_IN_TYPES:
-                                if len(self.stageTypes)+1==ROWS:  # use cache
-                                    value = self.stageTypes[r-1]
-                                    color = "#5E271F" # need also to set below
-                                    if value == "video":
-                                        color = "#04018C"   # need also to set below
-                                    elif value == "image":
-                                        color = "#018C08"   # need also to set below
-                                    elif value == "?":
-                                        displayRequired=True
-                                        color = "red"
-                                else:   # build and store in cache
-                                    if re.match(r"tasks/_.*", STAGES[r-1]):
-                                        stageDefRes="user/default/comfyui_stereoscopic/tasks/" + STAGES[r-1][7:] + ".json"
-                                    elif re.match(r"tasks/.*", STAGES[r-1]):
-                                        stageDefRes="custom_nodes/comfyui_stereoscopic/config/tasks/" + STAGES[r-1][6:] + ".json"
-                                    else:
-                                        stageDefRes="custom_nodes/comfyui_stereoscopic/config/stages/" + STAGES[r-1] + ".json"
-
-                                    value = "?"
-                                    defFile = os.path.join(path, "../../../../" + stageDefRes)
-                                    if os.path.exists(defFile):
-                                        with open(defFile) as file:
-                                            color = "#5E271F" # need also to set above at cache
-                                            deflines = [line.rstrip() for line in file]
-                                            for line in range(len(deflines)):
-                                                inputMatch=re.match(r".*\"input\":", deflines[line])
-                                                if inputMatch:
-                                                    valuepart=deflines[line][inputMatch.end():]
-                                                    match = re.search(r"\".*\"", valuepart)
-                                                    if match:
-                                                        value = valuepart[match.start()+1:match.end()][:-1]
-                                                        if value == "video":
-                                                            color = "#04018C"   # need also to set above at cache
-                                                        elif value == "image":
-                                                            color = "#018C08"   # need also to set above at cache
-                                                    else:
-                                                        value = "?"
-                                    self.stageTypes.append(value)
-                                    if value == "?":
-                                        displayRequired=True
-                                        color = "red"
-                            else:
-                                value = "?"
-                                color = "red"
-                                displayRequired=True
+            if self.idle_container_active:
+                if idletime < 15:
+                    self.show_table()
+                
+            status="idle"
+            activestage=""
+            statusfile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonstatus")
+            if os.path.exists(statusfile):
+                with open(statusfile) as file:
+                    statuslines = [line.rstrip() for line in file]
+                    for line in range(len(statuslines)):
+                        if line==0:
+                            activestage=statuslines[0]
+                            status="processing"
+                            idletime=0
                         else:
-                            value = "?"
-                            color = "red"
+                            status=status + " " + statuslines[line]
+            self.setWindowTitle("VR we are - " + activestage + " " + status)
+
+            fontC0 = QFont()
+            fontC0.setBold(True)
+            fontC0.setItalic(True)
+
+            fontR0 = QFont()
+            fontR0.setBold(True)
+            fontR0.setItalic(True)
+
+            COLNAMES = []
+            if self.toogle_stages_expanded:
+                COLS=5
+                self.table.setColumnCount(COLS)
+                header = self.table.horizontalHeader()    
+                header.setSectionResizeMode(QHeaderView.Fixed);
+                COLNAMES.clear()
+                COL_IDX_STAGENAME=0        
+                header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
+                COLNAMES.append("")
+                self.COL_IDX_IN_TYPES=1
+                header.setSectionResizeMode(self.COL_IDX_IN_TYPES, QHeaderView.ResizeToContents)
+                COLNAMES.append("type")
+                self.COL_IDX_IN=2
+                #header.setSectionResizeMode(self.COL_IDX_IN, QHeaderView.ResizeToContents)
+                COLNAMES.append("input (done)")
+                COL_IDX_PROCESSING=3
+                #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
+                COLNAMES.append("processing")
+                self.COL_IDX_OUT=4
+                header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
+                COLNAMES.append("output")
+            else:
+                COLS=4
+                self.table.setColumnCount(COLS)
+                header = self.table.horizontalHeader()       
+                COLNAMES.clear()
+                COL_IDX_STAGENAME=0        
+                header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
+                COLNAMES.append("")
+                self.COL_IDX_IN=1
+                #header.setSectionResizeMode(self.COL_IDX_IN, QHeaderView.ResizeToContents)
+                COLNAMES.append("input (done)")
+                COL_IDX_PROCESSING=2
+                #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
+                COLNAMES.append("processing")
+                self.COL_IDX_OUT=3
+                header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
+                COLNAMES.append("output")
+            
+            skippedrows=0
+            self.table.clear()
+            ROW2STAGE.clear()
+            for r in range(ROWS):
+                displayRequired=False
+                currentRowItems = []
+                for c in range(COLS):
+                    if c==COL_IDX_STAGENAME:
+                        if r==0:
                             displayRequired=True
-                    if value=="":
-                        value="  "
-                    item = QTableWidgetItem(value)
-                    if r==0:
-                        item.setFont(fontR0)
-                    item.setForeground(QBrush(QColor(color)))
+                            value = ""
+                        else:
+                            value = STAGES[r-1]
+                        item = QTableWidgetItem(value)
+                        item.setFont(fontC0)
+                        if value.startswith("tasks/_"):
+                            item.setForeground(QBrush(QColor("#666666")))
+                        elif value.startswith("tasks/"):
+                            item.setForeground(QBrush(QColor("#888888")))
+                        else:
+                            item.setForeground(QBrush(QColor("#CCCCCC")))
+                        item.setBackground(QBrush(QColor("black")))
+                        item.setTextAlignment(Qt.AlignLeft + Qt.AlignVCenter)
+                    else:
+                        color = "lightgray"
+                        if r==0:
+                            displayRequired=True
+                            value = COLNAMES[c]
+                            color = "gray"
+                        else:
+                            if c==self.COL_IDX_IN:
+                                folder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
+                                if os.path.exists(folder):
+                                    onlyfiles = next(os.walk(folder))[2]
+                                    onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
+                                    count = len(onlyfiles)
+                                    if count>0:
+                                        value = str(count)
+                                        displayRequired=True
+                                    else:
+                                        value = ""
+                                    subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/done")
+                                    if os.path.exists(subfolder):
+                                        onlyfiles = next(os.walk(subfolder))[2]
+                                        nocleanup = False
+                                        for f in onlyfiles:
+                                            if ".nocleanup" == f.lower():
+                                                nocleanup = True                                            
+                                        if nocleanup:
+                                            onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
+                                            count2 = len(onlyfiles)
+                                            if count2>0:
+                                                value = value + " (" + str(count2) + ")"
+                                                color = "green"
+                                            elif count == 0:
+                                                value = value + " (-)"
+                                        else:
+                                            color = "yellow"
+                                    subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
+                                    if os.path.exists(subfolder):
+                                        try:
+                                            onlyfiles = next(os.walk(subfolder))[2]
+                                            count = len(onlyfiles)
+                                            if count>0:
+                                                value = value + " " + str(count) + "!"
+                                                color = "red"
+                                                displayRequired=True
+                                        except StopIteration as se:
+                                            pass
+                                else:
+                                    value = "?"
+                                    color = "red"
+                                    displayRequired=True
+                            elif c==self.COL_IDX_OUT:
+                                folder =  os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
+                                if os.path.exists(folder):
+                                    onlyfiles = next(os.walk(folder))[2]
+                                    forward = False
+                                    for f in onlyfiles:
+                                        if "forward.txt" == f.lower():
+                                            forward = True
+                                    if not forward:
+                                        color = "green"
+                                    onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
+                                    count = len(onlyfiles)
+                                    if count>0:
+                                        displayRequired=True
+                                        value = str(count)
+                                        if idletime>15:
+                                            color = "green"
+                                    else:
+                                        value = ""
+                                    if forward:
+                                        value = value + " ➤"
+                                else:
+                                    value = "?"
+                                    color = "red"
+                                    displayRequired=True
+                            elif c==COL_IDX_PROCESSING:
+                                value = ""
+                                if status!="idle":
+                                    if activestage==STAGES[r-1]:
+                                        value=status
+                                        color="yellow"
+                                        displayRequired=True
+                            elif self.toogle_stages_expanded:
+                                if c==self.COL_IDX_IN_TYPES:
+                                    if len(self.stageTypes)+1==ROWS:  # use cache
+                                        value = self.stageTypes[r-1]
+                                        color = "#5E271F" # need also to set below
+                                        if value == "video":
+                                            color = "#04018C"   # need also to set below
+                                        elif value == "image":
+                                            color = "#018C08"   # need also to set below
+                                        elif value == "?":
+                                            displayRequired=True
+                                            color = "red"
+                                    else:   # build and store in cache
+                                        if re.match(r"tasks/_.*", STAGES[r-1]):
+                                            stageDefRes="user/default/comfyui_stereoscopic/tasks/" + STAGES[r-1][7:] + ".json"
+                                        elif re.match(r"tasks/.*", STAGES[r-1]):
+                                            stageDefRes="custom_nodes/comfyui_stereoscopic/config/tasks/" + STAGES[r-1][6:] + ".json"
+                                        else:
+                                            stageDefRes="custom_nodes/comfyui_stereoscopic/config/stages/" + STAGES[r-1] + ".json"
+
+                                        value = "?"
+                                        defFile = os.path.join(path, "../../../../" + stageDefRes)
+                                        if os.path.exists(defFile):
+                                            with open(defFile) as file:
+                                                color = "#5E271F" # need also to set above at cache
+                                                deflines = [line.rstrip() for line in file]
+                                                for line in range(len(deflines)):
+                                                    inputMatch=re.match(r".*\"input\":", deflines[line])
+                                                    if inputMatch:
+                                                        valuepart=deflines[line][inputMatch.end():]
+                                                        match = re.search(r"\".*\"", valuepart)
+                                                        if match:
+                                                            value = valuepart[match.start()+1:match.end()][:-1]
+                                                            if value == "video":
+                                                                color = "#04018C"   # need also to set above at cache
+                                                            elif value == "image":
+                                                                color = "#018C08"   # need also to set above at cache
+                                                        else:
+                                                            value = "?"
+                                        self.stageTypes.append(value)
+                                        if value == "?":
+                                            displayRequired=True
+                                            color = "red"
+                                else:
+                                    value = "?"
+                                    color = "red"
+                                    displayRequired=True
+                            else:
+                                value = "?"
+                                color = "red"
+                                displayRequired=True
+                        if value=="":
+                            value="  "
+                        item = QTableWidgetItem(value)
+                        if r==0:
+                            item.setFont(fontR0)
+                        item.setForeground(QBrush(QColor(color)))
+                        item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
+                        item.setBackground(QBrush(QColor("black")))
+                        
+                    currentRowItems.append(item)
+                    
+                if displayRequired or self.toogle_stages_expanded:
+                    for c in range(len(currentRowItems)):
+                        self.table.setItem(r-skippedrows, c, currentRowItems[c])
+                        if r>0 and c==0:
+                            ROW2STAGE.append(r-1)
+                else:
+                    skippedrows+=1
+                    
+            if ROWS-skippedrows == 1:
+                for c in range(COLS):
+                    if c==COL_IDX_PROCESSING:
+                        item=QTableWidgetItem("Nothing to display.")
+                    else:
+                        item=QTableWidgetItem("")
+                    font = QFont()
+                    font.setBold(False)
+                    font.setItalic(True)
+                    item.setFont(font)
+                    item.setForeground(QBrush(QColor("lightgreen")))
                     item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                     item.setBackground(QBrush(QColor("black")))
-                    
-                currentRowItems.append(item)
-                
-            if displayRequired or self.toogle_stages_expanded:
-                for c in range(len(currentRowItems)):
-                    self.table.setItem(r-skippedrows, c, currentRowItems[c])
-                    if r>0 and c==0:
-                        ROW2STAGE.append(r-1)
+                    self.table.setItem(1, c, item)
+                self.table.setRowCount(2)
             else:
-                skippedrows+=1
-                
-        if ROWS-skippedrows == 1:
-            for c in range(COLS):
-                if c==COL_IDX_PROCESSING:
-                    item=QTableWidgetItem("Nothing to display.")
-                else:
-                    item=QTableWidgetItem("")
-                font = QFont()
-                font.setBold(False)
-                font.setItalic(True)
-                item.setFont(font)
-                item.setForeground(QBrush(QColor("lightgreen")))
-                item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
-                item.setBackground(QBrush(QColor("black")))
-                self.table.setItem(1, c, item)
-            self.table.setRowCount(2)
-        else:
-            self.table.setRowCount(ROWS-skippedrows)
-        self.table.resizeRowsToContents()
+                self.table.setRowCount(ROWS-skippedrows)
+            self.table.resizeRowsToContents()
+        except KeyboardInterrupt:
+            pass
+        except:
+            print(traceback.format_exc(), flush=True)
 
     def show_table(self):
         self.idle_container_active=False
@@ -1034,13 +1039,18 @@ if __name__ == "__main__":
     if len(sys.argv) != 1:
        print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " ")
     elif os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
+        app = None
         try:
+            initCutMode()
+            scanFilesToRate()
+            
             global window
             app = QApplication(sys.argv)
             window = SpreadsheetApp()
             window.show()
         except:
-            print(traceback.format_exc(), flush=True)                
-        sys.exit(app.exec_())
+            print(traceback.format_exc(), flush=True)
+        if not app is None:
+            sys.exit(app.exec_())
     else:
         print("no lock.", os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive"))

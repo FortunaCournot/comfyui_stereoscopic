@@ -39,24 +39,6 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QPlainTextEdit, QLayout, QStyleOptionSlider, QStyle,
                              QRubberBand)
 
-path = os.path.dirname(os.path.abspath(__file__))
-
-# Add the current directory to the path so we can import local modules
-if path not in sys.path:
-    sys.path.append(path)
-
-# File Global
-videoActive=False
-rememberThread=None
-fileDragged=False
-FILESCANTIME = 500
-TASKCHECKTIME = 20
-WAIT_DIALOG_THRESHOLD_TIME=2000
-
-# ---- Tasks ----
-taskCounterUI=0
-taskCounterAsync=0
-showWaitDialog=False
 
 def isTaskActive():
     return taskCounterUI + taskCounterAsync > 0
@@ -64,10 +46,11 @@ def isTaskActive():
 def needsWaitDialog():
     global showWaitDialog
     
-    t=int((time.time()-taskStartAsyc)*1000)
-    
-    if taskCounterAsync > 0 and t > WAIT_DIALOG_THRESHOLD_TIME:
-        showWaitDialog=True
+    if taskCounterAsync > 0:
+        t=int((time.time()-taskStartAsyc)*1000)
+        
+        if t > WAIT_DIALOG_THRESHOLD_TIME:
+            showWaitDialog=True
 
     return showWaitDialog
 
@@ -76,9 +59,12 @@ def enterUITask():
     if taskCounterUI==0:
         taskStartUI=time.time()
     taskCounterUI+=1
+    print(f"enterUITask { taskCounterUI }", flush=True)
+        
 
 def leaveUITask():
     global taskCounterUI, taskStartUI
+    print(f"leaveUITask { taskCounterUI }", flush=True)
     taskCounterUI-=1
     #if taskCounterUI==0:
     #    print(f"UI Task executed in { int((time.time()-taskStartUI)*1000) }ms", flush=True)
@@ -90,9 +76,11 @@ def startAsyncTask():
         taskStartAsyc=time.time()
         showWaitDialog=False
     taskCounterAsync+=1
+    print(f"startAsyncTask { taskCounterAsync }", flush=True)
 
 def endAsyncTask():
     global taskCounterAsync, taskStartAsyc
+    print(f"startAsyncTask { taskCounterAsync }", flush=True)
     taskCounterAsync-=1
     if taskCounterAsync==0:
         showWaitDialog=False
@@ -115,6 +103,15 @@ class WaitDialog(QDialog):
         #self.setWindowFlags(self.windowFlags() )  #| Qt.WindowStaysOnTopHint
         
     def reject(self):
+        print("reject", flush=True) 
+        pass
+        
+    def accept(self):
+        print("accept", flush=True) 
+        pass
+        
+    def hideEvent(self, event):
+        print("hideEvent", flush=True) 
         pass
         
 # --------
@@ -139,348 +136,283 @@ class RateAndCutDialog(QDialog):
     def __init__(self, cutMode):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint )
         
-        self.setModal(True)
-        self.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint )
-
-        global cutModeActive, cutModeFolderOverrideActive
-        cutModeActive=cutMode
-        self.cutMode=cutMode
-        cutModeFolderOverrideActive=False
-        self.wait_dialog = None
-        
-        rescanFilesToRate()
-        
-        self.qt_img=None
-        self.hasCropOrTrim=False
-        self.isPaused = False
-        self.currentFile = None
-        
-        exifpath=gitbash_to_windows_path(config("EXIFTOOLBINARY", ""))
-        if len(exifpath)>0 and os.path.exists(exifpath):
-            self.exifpath=exifpath
-        else:
-            self.exifpath=None
-            print("Warning: Exifpath not found.", exifpath, len(exifpath), flush=True)
-        
-        #Set the main layout
-        if cutMode:
-            self.setWindowTitle("VR We Are - Check Files: Edit")
-        else:
-            self.setWindowTitle("VR We Are - Check Files: Rating")
-        self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
-        self.setMaximumSize(QSize(3840,2160))
-        self.setGeometry(150, 150, 1280, 768)
-        self.outer_main_layout = QVBoxLayout()
-        self.setLayout(self.outer_main_layout)
-        self.setStyleSheet("background-color : black;")
-
-        if cutMode:
-            self.cutMode_toolbar = QToolBar(self)
-            self.cutMode_toolbar.setVisible(True)
-            self.iconFolderAction = StyledIcon(os.path.join(path, '../../gui/img/folder64.png'))
-            self.folderAction = QAction(self.iconFolderAction, "Select Custom Folder")
-            self.folderAction.setCheckable(True)
-            self.folderAction.setVisible(True)
-            self.folderAction.triggered.connect(self.onSelectFolder)
-            self.cutMode_toolbar.addAction(self.folderAction)
-            self.outer_main_layout.addWidget(self.cutMode_toolbar)
-            self.cutMode_toolbar.setContentsMargins(0,0,0,0)
-
-            self.dirlabel=QLabel("")
-            self.dirlabel.setStyleSheet("QLabel { background-color : black; color : white; }");
-            self.outer_main_layout.addWidget(self.dirlabel)
-            self.outer_main_layout.setAlignment(self.dirlabel, Qt.AlignLeft )
-            self.dirlabel.setContentsMargins(8,0,0,0)
-
-        self.button_startpause_video = ActionButton()
-        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png')))
-        self.button_startpause_video.setIconSize(QSize(80,80))
-
-        if cutMode:
-            self.iconTrimA = StyledIcon(os.path.join(path, '../../gui/img/trima80.png'))
-            self.iconTrimB = StyledIcon(os.path.join(path, '../../gui/img/trimb80.png'))
-            self.iconClear = StyledIcon(os.path.join(path, '../../gui/img/clear80.png'))
-
-            self.button_trima_video = ActionButton()
-            self.button_trima_video.setIcon(self.iconTrimA)
-            self.button_trima_video.setIconSize(QSize(80,80))
-
-            self.button_trimb_video = ActionButton()
-            self.button_trimb_video.setIcon(self.iconTrimB)
-            self.button_trimb_video.setIconSize(QSize(80,80))
-
-            self.button_snapshot_from_video = ActionButton()
-            self.button_snapshot_from_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/snapshot80.png')))
-            self.button_snapshot_from_video.setIconSize(QSize(80,80))
-            self.button_snapshot_from_video.clicked.connect(self.createSnapshot)
-
-            self.button_startframe = ActionButton()
-            self.button_startframe.setIcon(StyledIcon(os.path.join(path, '../../gui/img/startframe80.png')))
-            self.button_startframe.setIconSize(QSize(80,80))
-
-            self.button_endframe = ActionButton()
-            self.button_endframe.setIcon(StyledIcon(os.path.join(path, '../../gui/img/endframe80.png')))
-            self.button_endframe.setIconSize(QSize(80,80))
-
-        self.button_prev_file = ActionButton()
-        self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/prevf80.png')))
-        self.button_prev_file.setIconSize(QSize(80,80))
-        self.button_prev_file.setEnabled(False)
-        self.button_prev_file.clicked.connect(self.ratePrevious)
-
-        if cutMode:
-            self.button_cutandclone = ActionButton()
-            self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../gui/img/cutclone80.png')))
-            self.button_cutandclone.setIconSize(QSize(80,80))
-            self.button_cutandclone.clicked.connect(self.createTrimmedAndCroppedCopy)
-
-            self.icon_compress = StyledIcon(os.path.join(path, '../../gui/img/compress80.png'))
-            self.icon_justrate = StyledIcon(os.path.join(path, '../../gui/img/justrate80.png'))
-            self.button_justrate_compress = ActionButton()
-            self.button_justrate_compress.setIcon(self.icon_justrate)
-            self.button_justrate_compress.setIconSize(QSize(80,80))
-            self.button_justrate_compress.setEnabled(True)
-            self.button_justrate_compress.setVisible(cutMode)
-            self.button_justrate_compress.clicked.connect(self.rateOrArchiveAndNext)
-            self.justRate=True
-        
-        self.button_next_file = ActionButton()
-        self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/nextf80.png')))
-        self.button_next_file.setIconSize(QSize(80,80))
-        self.button_next_file.setEnabled(False)
-        self.button_next_file.clicked.connect(self.rateNext)
-        
-        self.button_delete_file = ActionButton()
-        self.button_delete_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/trash80.png')))
-        self.button_delete_file.setIconSize(QSize(80,80))
-        self.button_delete_file.setEnabled(True)
-        self.button_delete_file.clicked.connect(self.deleteAndNext)
-        self.button_delete_file.setFocusPolicy(Qt.ClickFocus)
-        
-        self.sl = FrameSlider(Qt.Horizontal)
-        
-        self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded, self.onRectSelected)
-        #self.display.resize(self.display_width, self.display_height)
-
-        self.sp3 = QLabel(self)
-        self.sp3.setFixedSize(48, 100)
-        self.sp4 = QLabel(self)
-        self.sp4.setFixedSize(8, 100)
-
-        # Display layout
-        self.display_layout = QHBoxLayout()
-        self.display.registerForTrimUpdate(self.onCropOrTrim)
-        if cutMode:
-            self.cropWidget=CropWidget(self.display)
-            self.display_layout.addWidget(self.cropWidget)
-            self.cropWidget.registerForUpdate(self.onCropOrTrim)
-        else:
-            self.display.setMinimumSize(1000, 750)
-            self.display_layout.addWidget(self.display)
-
-
-        # Video Tool layout
-        self.videotool_layout = QHBoxLayout()
-        self.videotool_layout.addWidget(self.sp4)
-        self.videotool_layout.addWidget(self.button_startpause_video)
-        if cutMode:
-            self.videotool_layout.addWidget(self.button_startframe)
-            self.videotool_layout.addWidget(self.button_trima_video)
-        self.videotool_layout.addWidget(self.sl, alignment =  Qt.AlignVCenter)
-        if cutMode:
-            self.videotool_layout.addWidget(self.button_trimb_video)
-            self.videotool_layout.addWidget(self.button_endframe)
-            self.videotool_layout.addWidget(self.button_snapshot_from_video)
-
-        # Common Tool layout
-        # QHBoxLayout
-        ew=100
-        self.commontool_layout = QGridLayout()
-
-        self.filetool_layout = QGridLayout()
-
-        self.fileSlider=QSlider(Qt.Horizontal)
-        self.fileSlider.setMinimum(1)
-        self.fileSlider.setSingleStep(1)
-        self.fileSlider.setPageStep(10)
-        self.fileSlider.setTracking(True)
-        self.fileSlider.setStyleSheet("QSlider::handle:horizontal { background-color: black; border: 2px solid white; width: 12px; height: 12px; border-radius: 6px; margin: -7px 0;} QSlider::groove:horizontal { height: 0px; border-radius: 0px; } QSlider::sub-page:horizontal { /* Farbe für den gefüllten Bereich links vom Griff */ border: 1px solid #111111; height: 6px; border-radius: 3px; } QSlider::add-page:horizontal { /* Farbe für den Bereich rechts vom Griff */ border: 1px solid #111111; height: 6px; border-radius: 3px;}")
-        self.fileSlider.sliderPressed.connect(self.fileSliderDragStart)
-        self.fileSlider.valueChanged.connect(self.fileSliderDragged)
-        self.fileSlider.sliderReleased.connect(self.fileSliderChanged)
-
-        self.filetool_layout.addWidget(self.fileSlider, 0, 0, 1, ew)
-        
-        self.fileLabel=QLabel()
-        global fileDragged
-        self.fileDragIndex=-1
-        fileDragged=False
-        self.fileLabel.setStyleSheet("QLabel { background-color : black; color : white; }");
-        font = QFont()
-        font.setPointSize(20)
-        self.fileLabel.setFont(font)
-        self.fileLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.filetool_layout.addWidget(self.fileLabel, 0, ew, 1, 1)
-
-
-        self.commontool_layout.addLayout(self.filetool_layout, 0, 0, 1, ew)
-
-        self.commontool_layout.addWidget(self.button_prev_file, 0, ew, 1, 1)
-        
-        if cutMode:
-            self.commontool_layout.addWidget(self.button_cutandclone, 0, ew+1, 1, 1)
-            self.commontool_layout.addWidget(self.button_justrate_compress, 0, ew+2, 1, 1)
-        else:
-            self.rating_widget = RatingWidget(stars_count=5)
-            self.commontool_layout.addWidget(self.rating_widget, 0, ew+1, 1, 1)
-            self.rating_widget.ratingChanged.connect(self.on_rating_changed)
-        
-        
-        self.commontool_layout.addWidget(self.button_next_file, 0, ew+3, 1, 1)
-        self.commontool_layout.addWidget(self.sp3, 0, ew+4, 1, 1)
-        self.commontool_layout.addWidget(self.button_delete_file, 0, ew+5, 1, 1)
-        
-        self.msgWidget=QPlainTextEdit()
-        self.msgWidget.setReadOnly(True)
-        self.msgWidget.setFrameStyle(QFrame.NoFrame)
-        self.commontool_layout.addWidget(self.msgWidget, 0, ew+6, 1, ew)
-        self.msgWidget.setPlaceholderText("No log entries.")
-        
-        self.button_startpause_video.clicked.connect(self.display.startVideo)
-        if cutMode:
-            self.button_trima_video.clicked.connect(self.display.trimA)
-            self.button_trimb_video.clicked.connect(self.display.trimB)
-            self.button_startframe.clicked.connect(self.display.posA)
-            self.button_endframe.clicked.connect(self.display.posB)
-
-        #Main Layout
-        self.main_layout = QVBoxLayout()
-        self.main_layout.addLayout(self.display_layout, stretch=1)
-        self.main_layout.addLayout(self.videotool_layout)
-        self.main_layout.addLayout(self.commontool_layout)
-
-        #Main group box
-        self.main_group_box = QGroupBox()
-        self.main_group_box.setStyleSheet("QGroupBox{font-size: 20px; background-color : black; color: white;}")
-
-        self.main_group_box.setLayout(self.main_layout)
-
-        #Outer main layout to accomodate the group box
-        self.outer_main_layout.addWidget(self.main_group_box)
-        self.main_group_box.setContentsMargins(0,0,0,0)
-        
-        # Timer for updating file buttons
-        self.filebutton_timer = QTimer()
-        self.filebutton_timer.timeout.connect(self.update_filebuttons)
-        self.filebutton_timer.start(FILESCANTIME)
-        
-        # Timer for updating tasks
-        self._blocker = None
-        self.uiBlocking=isTaskActive()
-        self.uiBlockingTask_timer = QTimer()
-        self.uiBlockingTask_timer.timeout.connect(self.uiBlockHandling)
-        self.uiBlockingTask_timer.start(TASKCHECKTIME)
-        
-        self.rateNext()
-
-
-    def uiBlockHandling(self):
-        if not self.uiBlocking == isTaskActive():
-            self.uiBlocking = isTaskActive()
-            if self.uiBlocking:
-                QApplication.setOverrideCursor(Qt.WaitCursor)
-                #self.setEnabled(False)
-                if self._blocker is None:
-                    self._blocker = InputBlocker(self)                
-            else:
-                QApplication.restoreOverrideCursor()
-                self.setEnabled(True)
-                if self._blocker:
-                    self._blocker.deleteLater()
-                    self._blocker = None
-        if needsWaitDialog() and self.wait_dialog is None:
-            self.wait_dialog = WaitDialog(self)
-            self.wait_dialog.show()
-        elif not needsWaitDialog() and not self.wait_dialog is None:
-            self.wait_dialog.accept()  
-            self.wait_dialog = None
-
-    def onSelectFolder(self, state):
-        enterUITask()
-        self.folderAction.setEnabled(False)
         try:
-            global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
-            
-            self.display.stopAndBlackout()
-            
-            if cutModeFolderOverrideActive:
-                dirpath=""
-                cutModeFolderOverrideActive=False
-                rescanFilesToRate()
-                files=getFilesToRate()
-                if len(files)>0:
-                    self.currentIndex=0
-                    self.currentFile=files[self.currentIndex]
-                else:
-                    self.currentIndex=-1
-                    self.currentFile=""
-            else:
-                dirpath = str(QFileDialog.getExistingDirectory(self, "Select Directory", cutModeFolderOverridePath, QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
-                cutModeFolderOverrideActive=True
+            print("RateAndCutDialog init start", flush=True)
+            self.setModal(True)
+            self.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint )
 
-            thread = threading.Thread(
-                target=self.customfolder_worker,
-                args=( cutModeFolderOverrideActive, dirpath, ),
-                daemon=True
-            )
-            thread.start()
+            global cutModeActive, cutModeFolderOverrideActive
+            cutModeActive=cutMode
+            self.cutMode=cutMode
+            cutModeFolderOverrideActive=False
+            self.wait_dialog = None
+            
+            rescanFilesToRate()
+            
+            self.qt_img=None
+            self.hasCropOrTrim=False
+            self.isPaused = False
+            self.currentFile = None
+            
+            exifpath=gitbash_to_windows_path(config("EXIFTOOLBINARY", ""))
+            if len(exifpath)>0 and os.path.exists(exifpath):
+                self.exifpath=exifpath
+            else:
+                self.exifpath=None
+                print("Warning: Exifpath not found.", exifpath, len(exifpath), flush=True)
+            
+            #Set the main layout
+            if cutMode:
+                self.setWindowTitle("VR We Are - Check Files: Edit")
+            else:
+                self.setWindowTitle("VR We Are - Check Files: Rating")
+            self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
+            self.setMaximumSize(QSize(3840,2160))
+            self.setGeometry(150, 150, 1280, 768)
+            self.outer_main_layout = QVBoxLayout()
+            self.setLayout(self.outer_main_layout)
+            self.setStyleSheet("background-color : black;")
+
+            if cutMode:
+                self.cutMode_toolbar = QToolBar(self)
+                self.cutMode_toolbar.setVisible(True)
+                self.iconFolderAction = StyledIcon(os.path.join(path, '../../gui/img/folder64.png'))
+                self.folderAction = QAction(self.iconFolderAction, "Select Custom Folder")
+                self.folderAction.setCheckable(True)
+                self.folderAction.setVisible(True)
+                self.folderAction.triggered.connect(self.onSelectFolder)
+                self.cutMode_toolbar.addAction(self.folderAction)
+                self.outer_main_layout.addWidget(self.cutMode_toolbar)
+                self.cutMode_toolbar.setContentsMargins(0,0,0,0)
+
+                self.dirlabel=QLabel("")
+                self.dirlabel.setStyleSheet("QLabel { background-color : black; color : white; }");
+                self.outer_main_layout.addWidget(self.dirlabel)
+                self.outer_main_layout.setAlignment(self.dirlabel, Qt.AlignLeft )
+                self.dirlabel.setContentsMargins(8,0,0,0)
+
+            self.button_startpause_video = ActionButton()
+            self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png')))
+            self.button_startpause_video.setIconSize(QSize(80,80))
+
+            if cutMode:
+                self.iconTrimA = StyledIcon(os.path.join(path, '../../gui/img/trima80.png'))
+                self.iconTrimB = StyledIcon(os.path.join(path, '../../gui/img/trimb80.png'))
+                self.iconClear = StyledIcon(os.path.join(path, '../../gui/img/clear80.png'))
+
+                self.button_trima_video = ActionButton()
+                self.button_trima_video.setIcon(self.iconTrimA)
+                self.button_trima_video.setIconSize(QSize(80,80))
+
+                self.button_trimb_video = ActionButton()
+                self.button_trimb_video.setIcon(self.iconTrimB)
+                self.button_trimb_video.setIconSize(QSize(80,80))
+
+                self.button_snapshot_from_video = ActionButton()
+                self.button_snapshot_from_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/snapshot80.png')))
+                self.button_snapshot_from_video.setIconSize(QSize(80,80))
+                self.button_snapshot_from_video.clicked.connect(self.createSnapshot)
+
+                self.button_startframe = ActionButton()
+                self.button_startframe.setIcon(StyledIcon(os.path.join(path, '../../gui/img/startframe80.png')))
+                self.button_startframe.setIconSize(QSize(80,80))
+
+                self.button_endframe = ActionButton()
+                self.button_endframe.setIcon(StyledIcon(os.path.join(path, '../../gui/img/endframe80.png')))
+                self.button_endframe.setIconSize(QSize(80,80))
+
+            self.button_prev_file = ActionButton()
+            self.button_prev_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/prevf80.png')))
+            self.button_prev_file.setIconSize(QSize(80,80))
+            self.button_prev_file.setEnabled(False)
+            self.button_prev_file.clicked.connect(self.ratePrevious)
+
+            if cutMode:
+                self.button_cutandclone = ActionButton()
+                self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../gui/img/cutclone80.png')))
+                self.button_cutandclone.setIconSize(QSize(80,80))
+                self.button_cutandclone.clicked.connect(self.createTrimmedAndCroppedCopy)
+
+                self.icon_compress = StyledIcon(os.path.join(path, '../../gui/img/compress80.png'))
+                self.icon_justrate = StyledIcon(os.path.join(path, '../../gui/img/justrate80.png'))
+                self.button_justrate_compress = ActionButton()
+                self.button_justrate_compress.setIcon(self.icon_justrate)
+                self.button_justrate_compress.setIconSize(QSize(80,80))
+                self.button_justrate_compress.setEnabled(True)
+                self.button_justrate_compress.setVisible(cutMode)
+                self.button_justrate_compress.clicked.connect(self.rateOrArchiveAndNext)
+                self.justRate=True
+            
+            self.button_next_file = ActionButton()
+            self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/nextf80.png')))
+            self.button_next_file.setIconSize(QSize(80,80))
+            self.button_next_file.setEnabled(False)
+            self.button_next_file.clicked.connect(self.rateNext)
+            
+            self.button_delete_file = ActionButton()
+            self.button_delete_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/trash80.png')))
+            self.button_delete_file.setIconSize(QSize(80,80))
+            self.button_delete_file.setEnabled(True)
+            self.button_delete_file.clicked.connect(self.deleteAndNext)
+            self.button_delete_file.setFocusPolicy(Qt.ClickFocus)
+            
+            self.sl = FrameSlider(Qt.Horizontal)
+            
+            self.display = Display(self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded, self.onRectSelected)
+            #self.display.resize(self.display_width, self.display_height)
+
+            self.sp3 = QLabel(self)
+            self.sp3.setFixedSize(48, 100)
+            self.sp4 = QLabel(self)
+            self.sp4.setFixedSize(8, 100)
+
+            # Display layout
+            self.display_layout = QHBoxLayout()
+            self.display.registerForTrimUpdate(self.onCropOrTrim)
+            if cutMode:
+                self.cropWidget=CropWidget(self.display)
+                self.display_layout.addWidget(self.cropWidget)
+                self.cropWidget.registerForUpdate(self.onCropOrTrim)
+            else:
+                self.display.setMinimumSize(1000, 750)
+                self.display_layout.addWidget(self.display)
+
+
+            # Video Tool layout
+            self.videotool_layout = QHBoxLayout()
+            self.videotool_layout.addWidget(self.sp4)
+            self.videotool_layout.addWidget(self.button_startpause_video)
+            if cutMode:
+                self.videotool_layout.addWidget(self.button_startframe)
+                self.videotool_layout.addWidget(self.button_trima_video)
+            self.videotool_layout.addWidget(self.sl, alignment =  Qt.AlignVCenter)
+            if cutMode:
+                self.videotool_layout.addWidget(self.button_trimb_video)
+                self.videotool_layout.addWidget(self.button_endframe)
+                self.videotool_layout.addWidget(self.button_snapshot_from_video)
+
+            # Common Tool layout
+            # QHBoxLayout
+            ew=100
+            self.commontool_layout = QGridLayout()
+
+            self.filetool_layout = QGridLayout()
+
+            self.fileSlider=QSlider(Qt.Horizontal)
+            self.fileSlider.setMinimum(1)
+            self.fileSlider.setSingleStep(1)
+            self.fileSlider.setPageStep(10)
+            self.fileSlider.setTracking(True)
+            self.fileSlider.setStyleSheet("QSlider::handle:horizontal { background-color: black; border: 2px solid white; width: 12px; height: 12px; border-radius: 6px; margin: -7px 0;} QSlider::groove:horizontal { height: 0px; border-radius: 0px; } QSlider::sub-page:horizontal { /* Farbe für den gefüllten Bereich links vom Griff */ border: 1px solid #111111; height: 6px; border-radius: 3px; } QSlider::add-page:horizontal { /* Farbe für den Bereich rechts vom Griff */ border: 1px solid #111111; height: 6px; border-radius: 3px;}")
+            self.fileSlider.sliderPressed.connect(self.fileSliderDragStart)
+            self.fileSlider.valueChanged.connect(self.fileSliderDragged)
+            self.fileSlider.sliderReleased.connect(self.fileSliderChanged)
+
+            self.filetool_layout.addWidget(self.fileSlider, 0, 0, 1, ew)
+            
+            self.fileLabel=QLabel()
+            global fileDragged
+            self.fileDragIndex=-1
+            fileDragged=False
+            self.fileLabel.setStyleSheet("QLabel { background-color : black; color : white; }");
+            font = QFont()
+            font.setPointSize(20)
+            self.fileLabel.setFont(font)
+            self.fileLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            self.filetool_layout.addWidget(self.fileLabel, 0, ew, 1, 1)
+
+
+            self.commontool_layout.addLayout(self.filetool_layout, 0, 0, 1, ew)
+
+            self.commontool_layout.addWidget(self.button_prev_file, 0, ew, 1, 1)
+            
+            if cutMode:
+                self.commontool_layout.addWidget(self.button_cutandclone, 0, ew+1, 1, 1)
+                self.commontool_layout.addWidget(self.button_justrate_compress, 0, ew+2, 1, 1)
+            else:
+                self.rating_widget = RatingWidget(stars_count=5)
+                self.commontool_layout.addWidget(self.rating_widget, 0, ew+1, 1, 1)
+                self.rating_widget.ratingChanged.connect(self.on_rating_changed)
+            
+            
+            self.commontool_layout.addWidget(self.button_next_file, 0, ew+3, 1, 1)
+            self.commontool_layout.addWidget(self.sp3, 0, ew+4, 1, 1)
+            self.commontool_layout.addWidget(self.button_delete_file, 0, ew+5, 1, 1)
+            
+            self.msgWidget=QPlainTextEdit()
+            self.msgWidget.setReadOnly(True)
+            self.msgWidget.setFrameStyle(QFrame.NoFrame)
+            self.commontool_layout.addWidget(self.msgWidget, 0, ew+6, 1, ew)
+            self.msgWidget.setPlaceholderText("No log entries.")
+            
+            self.button_startpause_video.clicked.connect(self.display.startVideo)
+            if cutMode:
+                self.button_trima_video.clicked.connect(self.display.trimA)
+                self.button_trimb_video.clicked.connect(self.display.trimB)
+                self.button_startframe.clicked.connect(self.display.posA)
+                self.button_endframe.clicked.connect(self.display.posB)
+
+            #Main Layout
+            self.main_layout = QVBoxLayout()
+            self.main_layout.addLayout(self.display_layout, stretch=1)
+            self.main_layout.addLayout(self.videotool_layout)
+            self.main_layout.addLayout(self.commontool_layout)
+
+            #Main group box
+            self.main_group_box = QGroupBox()
+            self.main_group_box.setStyleSheet("QGroupBox{font-size: 20px; background-color : black; color: white;}")
+
+            self.main_group_box.setLayout(self.main_layout)
+
+            #Outer main layout to accomodate the group box
+            self.outer_main_layout.addWidget(self.main_group_box)
+            self.main_group_box.setContentsMargins(0,0,0,0)
+            
+            # Timer for updating file buttons
+            self.filebutton_timer = QTimer()
+            self.filebutton_timer.timeout.connect(self.update_filebuttons)
+            self.filebutton_timer.start(FILESCANTIME)
+            
+            # Timer for updating tasks
+            self._blocker = None
+            self.uiBlocking=isTaskActive()
+            self.uiBlockingTask_timer = QTimer()
+            self.uiBlockingTask_timer.timeout.connect(self.uiBlockHandling)
+            self.uiBlockingTask_timer.start(TASKCHECKTIME)
+            
+            self.rateNext()
+            
+            print("RateAndCutDialog init end", flush=True)
         except:
             print(traceback.format_exc(), flush=True)
-            self.folderAction.setEnabled(True)
-        finally:
-            leaveUITask()
 
-    def customfolder_worker(self, override, dirpath):
-        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
-        startAsyncTask()
+    def uiBlockHandling(self):
         try:
-            if override:
-                if os.path.isdir(dirpath):
-                    cutModeFolderOverridePath=dirpath
-                    cutModeFolderOverrideActive=True
+            if not self.uiBlocking == isTaskActive():
+                self.uiBlocking = isTaskActive()
+                if self.uiBlocking:
+                    print("uiBlockHandling - WaitCursor", flush=True)                
+                    QApplication.setOverrideCursor(Qt.WaitCursor)
+                    #self.setEnabled(False)
+                    if self._blocker is None:
+                        self._blocker = InputBlocker(self)                
                 else:
-                    print(f"not a directory: {dirpath}", flush=True)
-                    override=False
-                    cutModeFolderOverrideActive=False   # cancel
-                    dirpath=""                    
-            else:
-                dirpath=""
-                
-            scanFilesToRate()   # can block on some drives
-
-            QTimer.singleShot(0, partial(self.customfolder_updater, override, dirpath))
+                    QApplication.restoreOverrideCursor()
+                    print("uiBlockHandling - RestoreCursor", flush=True)                
+                    self.setEnabled(True)
+                    if self._blocker:
+                        self._blocker.deleteLater()
+                        self._blocker = None
+            if needsWaitDialog() and self.wait_dialog is None:
+                print("uiBlockHandling - show wait dialog", flush=True)                
+                self.wait_dialog = WaitDialog(self)
+                self.wait_dialog.show()
+            elif not needsWaitDialog() and not self.wait_dialog is None:
+                print("uiBlockHandling - remove wait dialog", flush=True)                
+                self.wait_dialog.accept()  
+                self.wait_dialog = None
         except:
-            print(traceback.format_exc(), flush=True) 
-
-    def customfolder_updater(self, override, path):
-
-        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
-        try:
-            if len(_cutModeFolderOverrideFiles)>0:
-                files=getFilesToRate()
-                self.currentIndex=0
-                self.currentFile=files[self.currentIndex]
-            else:
-                self.currentIndex=-1
-            self.rateCurrentFile()
-        except:
-            print(traceback.format_exc(), flush=True) 
-            endAsyncTask()
-        finally:
-            self.folderAction.setChecked(override)
-            self.folderAction.setEnabled(True)
-            self.dirlabel.setText(path)
-            endAsyncTask()
+            print(traceback.format_exc(), flush=True)
 
 
     def logn(self, msg, color):
@@ -497,6 +429,7 @@ class RateAndCutDialog(QDialog):
         self.msgWidget.setCurrentCharFormat(old_format)
 
     def closeEvent(self, evnt):
+        print("closeEvent", evnt, flush=True)
         self.filebutton_timer.stop()
         self.display.stopAndBlackout()
         global cutModeActive
@@ -690,27 +623,100 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
+           
+    def onSelectFolder(self, state):
+        enterUITask()
+        self.folderAction.setEnabled(False)
+        try:
+            global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
             
+            self.display.stopAndBlackout()
+            
+            if cutModeFolderOverrideActive:
+                dirpath=""
+                cutModeFolderOverrideActive=False
+                rescanFilesToRate()
+                files=getFilesToRate()
+                if len(files)>0:
+                    self.currentIndex=0
+                    self.currentFile=files[self.currentIndex]
+                else:
+                    self.currentIndex=-1
+                    self.currentFile=""
+            else:
+                dirpath = str(QFileDialog.getExistingDirectory(self, "Select Directory", cutModeFolderOverridePath, QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
+                cutModeFolderOverrideActive=True
+
+            thread = threading.Thread(
+                target=self.customfolder_worker,
+                args=( cutModeFolderOverrideActive, dirpath, ),
+                daemon=True
+            )
+            thread.start()
+        except:
+            print(traceback.format_exc(), flush=True)
+            self.folderAction.setEnabled(True)
+        finally:
+            leaveUITask()
+
+    def customfolder_worker(self, override, dirpath):
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        startAsyncTask()
+        try:
+            if override:
+                if os.path.isdir(dirpath):
+                    cutModeFolderOverridePath=dirpath
+                    cutModeFolderOverrideActive=True
+                else:
+                    print(f"not a directory: {dirpath}", flush=True)
+                    override=False
+                    cutModeFolderOverrideActive=False   # cancel
+                    dirpath=""                    
+            else:
+                dirpath=""
+                
+            scanFilesToRate()   # can block on some drives
+
+            QTimer.singleShot(0, partial(self.customfolder_updater, override, dirpath))
+        except:
+            print(traceback.format_exc(), flush=True) 
+
+    def customfolder_updater(self, override, path):
+
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        try:
+            if len(_cutModeFolderOverrideFiles)>0:
+                files=getFilesToRate()
+                self.currentIndex=0
+                self.currentFile=files[self.currentIndex]
+            else:
+                self.currentIndex=-1
+            self.rateCurrentFile()
+        except:
+            print(traceback.format_exc(), flush=True) 
+            endAsyncTask()
+        finally:
+            self.folderAction.setChecked(override)
+            self.folderAction.setEnabled(True)
+            self.dirlabel.setText(path)
+            endAsyncTask()
+ 
     def on_rating_changed(self, rating):
         enterUITask()
         try:
+            self.display.stopAndBlackout()
+
             print(f"Rating selected: {rating}", flush=True)
 
             files=getFilesToRate()
-            try:
-                index=files.index(self.currentFile)
-                name=self.currentFile
-                folder_in=os.path.join(path, "../../../../input/vr/check/rate")
-                folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
-                os.makedirs(folder_out, exist_ok = True)
-                input=os.path.abspath(os.path.join(folder_in, name))
-            except ValueError as ve:
-                print(traceback.format_exc(), flush=True)                
-                index=0
-                self.currentIndex=index
-                self.currentFile=files[index]
-                self.rateCurrentFile()
-                return
+
+            index=files.index(self.currentFile)
+            name=self.currentFile
+            folder_in=os.path.join(path, "../../../../input/vr/check/rate")
+            folder_out=os.path.join(path, f"../../../../output/vr/check/rate/{rating}")
+            os.makedirs(folder_out, exist_ok = True)
+            input=os.path.abspath(os.path.join(folder_in, name))
+                
             try:
                 idx = name.index('/')
                 output=os.path.abspath(os.path.join(folder_out, replaceSomeChars(name[idx+1:])))
@@ -720,75 +726,48 @@ class RateAndCutDialog(QDialog):
             #print("index"  , index, self.currentFile, flush=True)
             
             if os.path.isfile(input):
-                try:
-                    self.display.stopAndBlackout()
+                self.log(f"Rated {rating} on " + name, QColor("white"))
+                recreated=os.path.isfile(output)
+                if recreated:
+                    os.remove(output)
+                os.rename(input, output)
+                del getFilesToRate()[index]
+                files=rescanFilesToRate()
+                self.rating_widget.clear_rating()
+                self.log(" Overwritten" if recreated else " Moved", QColor("green"))
+                
+                if not self.exifpath is None:
+                    # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
                     
-                    if index>=0:
-                        self.log(f"Rated {rating} on " + name, QColor("white"))
-                        recreated=os.path.isfile(output)
-                        if recreated:
-                            os.remove(output)
-                        os.rename(input, output)
-                        del getFilesToRate()[index]
-                        files=rescanFilesToRate()
-                        self.rating_widget.clear_rating()
-                        self.log(" Overwritten" if recreated else " Moved", QColor("green"))
-                        
-                        if not self.exifpath is None:
-                            # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
-                            
-                            rating_percent_values = [0, 1, 25,50, 75, 99]   # mp4
-                            cmd = self.exifpath + f" -xmp:rating={rating} -SharedUserRating={rating_percent_values[rating]}" + " -overwrite_original \"" + output + "\""
-                            thread = threading.Thread(
-                                target=self.changeRating_worker,
-                                args=(cmd,),
-                                daemon=True
-                            )                            
-                            thread.start()
-                        else:
-                            self.logn(".", QColor("white"))
-
-                    l=len(files)
-
-                    if l==0:    # last file?
-                        self.closeOnError("last file rated (on_rating_changed)")
-                        return
-
-                    if index>=l:
-                        print("index--", index, l, flush=True)                
-                        index=l-1
-                        
-                    self.currentFile=files[index]
-                    self.currentIndex=index
-                    #print("index next"  , index, l, self.currentFile, flush=True)
-                    self.rateCurrentFile()
-                        
-                except Exception as any_ex:
-                    print(traceback.format_exc(), flush=True)                
-                    self.logn(" failed", QColor("red"))
-            else:
-                self.logn(" not found", QColor("red"))
+                    rating_percent_values = [0, 1, 25,50, 75, 99]   # mp4
+                    cmd = self.exifpath + f" -xmp:rating={rating} -SharedUserRating={rating_percent_values[rating]}" + " -overwrite_original \"" + output + "\""
+                    thread = threading.Thread(
+                        target=self.updateExif_worker,
+                        args=(cmd,),
+                        daemon=True
+                    )                            
+                    thread.start()
 
         except:
             print(traceback.format_exc(), flush=True)
+            self.folderAction.setEnabled(True)
         finally:
             leaveUITask()
 
-
-    def changeRating_worker(self, cmd):
+    def updateExif_worker(self, cmd):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True)
             QTimer.singleShot(0, partial(self.changeRating_updater, True, cmd))
         except subprocess.CalledProcessError as se:
             print(traceback.format_exc(), flush=True) 
-            QTimer.singleShot(0, partial(self.changeRating_updater, False, cmd))
+            QTimer.singleShot(0, partial(self.updateExif_updater, False, cmd))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
 
 
-    def changeRating_updater(self, success, cmd):
+    def updateExif_updater(self, success, cmd):
         if success:
             self.logn(",Rated.", QColor("green"))
         else:
@@ -1104,7 +1083,7 @@ class RateAndCutDialog(QDialog):
     def closeOnError(self, msg):
         print(msg, flush=True)
         self.display.stopAndBlackout()
-        self.done(QDialog.Rejected)
+        #self.done(QDialog.Rejected)
 
 class HoverLabel(QLabel):
     """A QLabel that detects hover and click events."""
@@ -2528,9 +2507,30 @@ def format_timedelta_hundredth(td: timedelta) -> str:
     return f"{hours:02}:{minutes:02}:{seconds:05.2f}"
 
 
-# global init
-cutModeActive=False
-cutModeFolderOverrideActive=False
-cutModeFolderOverridePath=str(Path.home())
-scanFilesToRate()
+def initCutMode():
+    # global init
+    global cutModeActive, cutModeFolderOverrideActive, cutModeFolderOverridePath
+    cutModeActive=False
+    cutModeFolderOverrideActive=False
+    cutModeFolderOverridePath=str(Path.home())
 
+    global path
+    path = os.path.dirname(os.path.abspath(__file__))
+    # Add the current directory to the path so we can import local modules
+    if path not in sys.path:
+        sys.path.append(path)
+
+    # File Global
+    global videoActive, rememberThread, fileDragged, FILESCANTIME, TASKCHECKTIME, WAIT_DIALOG_THRESHOLD_TIME
+    videoActive=False
+    rememberThread=None
+    fileDragged=False
+    FILESCANTIME = 500
+    TASKCHECKTIME = 20
+    WAIT_DIALOG_THRESHOLD_TIME=2000
+
+    # ---- Tasks ----
+    global taskCounterUI, taskCounterAsync, showWaitDialog
+    taskCounterUI=0
+    taskCounterAsync=0
+    showWaitDialog=False
