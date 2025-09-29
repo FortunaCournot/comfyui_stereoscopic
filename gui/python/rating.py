@@ -382,6 +382,20 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True)
 
+    def showEvent(self, event):
+        try:
+            """Wird aufgerufen, wenn der Dialog angezeigt wird."""
+            super().showEvent(event)
+            
+            # Stelle sicher, dass das Fenster den Fokus erhält
+            self.activateWindow()
+            self.raise_()
+
+            # Setze den Fokus explizit auf ein Widget
+            #self.button.setFocus(Qt.OtherFocusReason)
+        except:
+            print(traceback.format_exc(), flush=True)
+
     def uiBlockHandling(self):
         try:
             if not self.uiBlocking == isTaskActive():
@@ -1236,7 +1250,7 @@ class VideoThread(QThread):
         #print("Created thread with uid " + str(uid) , flush=True)
 
     def run(self):
-        startAsyncTask()
+        enterUITask()
         
         global videoActive
         global rememberThread
@@ -1284,7 +1298,7 @@ class VideoThread(QThread):
         self._run_flag = True
         videoActive=True
 
-        endAsyncTask()
+        leaveUITask()
 
         self.onVideoLoaded()
         self.update(self.pause)
@@ -1583,6 +1597,8 @@ class Display(QLabel):
                 self.trimBFrame=self.frame_count-1
                 self.slider.setText( self.buildSliderText(), Qt.white )
                 self.slider.setPosTextValues( self.thread.fps, self.frame_count)
+            self.button.setEnabled(True)
+            self.button.setFocus()
             self.loaded()
         
     def updatePaused(self, isPaused):
@@ -1590,9 +1606,9 @@ class Display(QLabel):
 
     def tooglePausePressed(self):
         if self.thread:
-            self.button.setEnabled(False)
             self.thread.tooglePause()
             self.button.setEnabled(True)
+            self.button.setFocus()
 
     def isTrimmed(self):
         return self.trimAFrame > 0 or self.trimBFrame < self.frame_count-1
