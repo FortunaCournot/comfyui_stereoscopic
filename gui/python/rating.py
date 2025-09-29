@@ -79,8 +79,8 @@ def startAsyncTask():
     print(f"startAsyncTask { taskCounterAsync }", flush=True)
 
 def endAsyncTask():
-    global taskCounterAsync, taskStartAsyc
-    print(f"startAsyncTask { taskCounterAsync }", flush=True)
+    global taskCounterAsync, taskStartAsyc, showWaitDialog
+    print(f"endAsyncTask { taskCounterAsync }", flush=True)
     taskCounterAsync-=1
     if taskCounterAsync==0:
         showWaitDialog=False
@@ -102,6 +102,7 @@ class WaitDialog(QDialog):
         self.setFixedSize(130, 36)
         #self.setWindowFlags(self.windowFlags() )  #| Qt.WindowStaysOnTopHint
         
+'''        
     def reject(self):
         print("reject", flush=True) 
         pass
@@ -113,7 +114,8 @@ class WaitDialog(QDialog):
     def hideEvent(self, event):
         print("hideEvent", flush=True) 
         pass
-        
+'''
+
 # --------
 
 class JudgeDialog(QDialog):
@@ -383,6 +385,8 @@ class RateAndCutDialog(QDialog):
             self.rateNext()
             
             print("RateAndCutDialog init end", flush=True)
+        except KeyboardInterrupt:
+            pass
         except:
             print(traceback.format_exc(), flush=True)
 
@@ -411,6 +415,8 @@ class RateAndCutDialog(QDialog):
                 print("uiBlockHandling - remove wait dialog", flush=True)                
                 self.wait_dialog.accept()  
                 self.wait_dialog = None
+        except KeyboardInterrupt:
+            pass
         except:
             print(traceback.format_exc(), flush=True)
 
@@ -653,6 +659,8 @@ class RateAndCutDialog(QDialog):
                 daemon=True
             )
             thread.start()
+        except KeyboardInterrupt:
+            pass
         except:
             print(traceback.format_exc(), flush=True)
             self.folderAction.setEnabled(True)
@@ -2324,45 +2332,57 @@ class InputBlocker(QWidget):
 
 # ASYNC CONTEXT
 def scanFilesToRate():
-    #print("scanFilesToRate", flush=True)
-    global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
-    _filesWithoutEdit = get_initial_file_list("../../../../input/vr/check/rate")
-    _editedfiles = get_initial_file_list("../../../../input/vr/check/rate/edit")
-    _readyfiles = get_initial_file_list("../../../../input/vr/check/rate/ready")
-    filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
-    if cutModeFolderOverrideActive:
-        _cutModeFolderOverrideFiles = get_initial_file_list(cutModeFolderOverridePath)
-        filesCut = buildList(_cutModeFolderOverrideFiles, None)
-    else:
-        _cutModeFolderOverrideFiles = _filesWithoutEdit
-        filesCut = buildList(_filesWithoutEdit, None)
+    try:
+        #print("scanFilesToRate", flush=True)
+        global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
+        _filesWithoutEdit = get_initial_file_list("../../../../input/vr/check/rate")
+        _editedfiles = get_initial_file_list("../../../../input/vr/check/rate/edit")
+        _readyfiles = get_initial_file_list("../../../../input/vr/check/rate/ready")
+        filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
+        if cutModeFolderOverrideActive:
+            _cutModeFolderOverrideFiles = get_initial_file_list(cutModeFolderOverridePath)
+            filesCut = buildList(_cutModeFolderOverrideFiles, None)
+        else:
+            _cutModeFolderOverrideFiles = _filesWithoutEdit
+            filesCut = buildList(_filesWithoutEdit, None)
 
-    if cutModeActive:
-        files = filesCut
-    else:
-        files = filesNoCut
-        
-    return files
+        if cutModeActive:
+            files = filesCut
+        else:
+            files = filesNoCut
+        return files
+    except KeyboardInterrupt:
+        pass
+    except Exception:
+        print(traceback.format_exc(), flush=True)
+    return ()
+
 
 # ASYNC CONTEXT    
 def rescanFilesToRate():
-    #print("rescanFilesToRate", flush=True)
-    global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
-    _filesWithoutEdit = update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
-    _editedfiles = update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
-    _readyfiles = update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
-    if cutModeActive:
-        if cutModeFolderOverrideActive:
-            _cutModeFolderOverrideFiles = update_file_list(cutModeFolderOverridePath, _cutModeFolderOverrideFiles)
-            filesCut = buildList(_cutModeFolderOverrideFiles, None)
+    try:
+        #print("rescanFilesToRate", flush=True)
+        global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
+        _filesWithoutEdit = update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
+        _editedfiles = update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
+        _readyfiles = update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
+        if cutModeActive:
+            if cutModeFolderOverrideActive:
+                _cutModeFolderOverrideFiles = update_file_list(cutModeFolderOverridePath, _cutModeFolderOverrideFiles)
+                filesCut = buildList(_cutModeFolderOverrideFiles, None)
+            else:
+                filesCut = buildList(_filesWithoutEdit, None)
+            files = filesCut
         else:
-            filesCut = buildList(_filesWithoutEdit, None)
-        files = filesCut
-    else:
-        filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
-        files = filesNoCut
-        
-    return files
+            filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
+            files = filesNoCut
+            
+        return files
+    except KeyboardInterrupt:
+        pass
+    except Exception:
+        print(traceback.format_exc(), flush=True)
+    return ()
 
 
 def getFilesToRate():

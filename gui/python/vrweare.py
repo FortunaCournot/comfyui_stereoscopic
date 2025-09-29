@@ -341,9 +341,12 @@ class SpreadsheetApp(QMainWindow):
         
 
     def update_idlecount(self):
-        global idletime
-        if status=="idle":
-            idletime += 1
+        try:
+            global idletime
+            if status=="idle":
+                idletime += 1
+        except KeyboardInterrupt:
+            pass
 
     def update_toolbar(self):
         count1=len(getFilesWithoutEdit())
@@ -636,15 +639,18 @@ class SpreadsheetApp(QMainWindow):
             print(traceback.format_exc(), flush=True)
 
     def show_table(self):
-        self.idle_container_active=False
-        # Replace logo page with table
-        self.layout.removeWidget(self.logo_container)
-        self.layout.removeWidget(self.idle_container)
-        self.logo_container.setParent(None)
-        self.idle_container.setParent(None)
-        self.layout.addWidget(self.table)
-        self.update_table()
-        self.update_timer.start(TABLEUPDATEFREQ)
+        try:
+            self.idle_container_active=False
+            # Replace logo page with table
+            self.layout.removeWidget(self.logo_container)
+            self.layout.removeWidget(self.idle_container)
+            self.logo_container.setParent(None)
+            self.idle_container.setParent(None)
+            self.layout.addWidget(self.table)
+            self.update_table()
+            self.update_timer.start(TABLEUPDATEFREQ)
+        except KeyboardInterrupt:
+            pass
 
     def show_logo_page(self):
         # Switch back to logo page for 5 seconds
