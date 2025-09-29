@@ -368,6 +368,7 @@ class SpreadsheetApp(QMainWindow):
 
         
         if not os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
+            print("QUIT (external signal)", flush=True)
             sys.exit(app.exec_())
 
         if self.idle_container_active:
