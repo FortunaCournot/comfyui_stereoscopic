@@ -760,10 +760,10 @@ class SpreadsheetApp(QMainWindow):
         lay.addWidget(pipeline_toolbar)
         global editAction
         editAction = QAction("Edit")
-        editAction.setCursor(Qt.PointingHandCursor)
         editAction.setCheckable(False)
         editAction.triggered.connect(self.edit_pipeline)
         pipeline_toolbar.addAction(editAction)
+        pipeline_toolbar.widgetForAction(editAction).setCursor(Qt.PointingHandCursor)
 
         global pipelineErrors
         pipelineErrors=QLabel("Error")
