@@ -514,6 +514,60 @@ class RateAndCutDialog(QDialog):
                 self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
 
+    def deleteAndNext(self):
+        enterUITask()
+        try:
+            
+            files=getFilesToRate()
+            try:
+                index=files.index(self.currentFile)
+                if cutModeFolderOverrideActive:
+                    folder=cutModeFolderOverridePath
+                else:
+                    folder=os.path.join(path, "../../../../input/vr/check/rate")
+                input=os.path.abspath(os.path.join(folder, self.currentFile))
+            except ValueError as ve:
+                index=0
+                self.currentIndex=index
+                self.currentFile=files[index]
+                self.rateCurrentFile()
+                print(traceback.format_exc(), flush=True)                
+                return
+            
+            if os.path.isfile(input):
+                try:
+                    self.display.stopAndBlackout()
+                    
+                    if index>=0:
+                        self.log("Deleting " + os.path.basename(input), QColor("white"))
+                        os.remove(input)
+                        files=rescanFilesToRate()
+                    
+                    l=len(files)
+
+                    if l==0:    # last file deleted?
+                        self.closeOnError("last file deleted (deleteAndNext)")
+                        return
+
+                    if index>=l:
+                        index=l-1
+                        
+                    self.currentFile=files[index]
+                    self.currentIndex=index
+                    self.rateCurrentFile()
+
+                    self.logn(" done", QColor("green"))
+                    
+                except Exception as any_ex:
+                    print(traceback.format_exc(), flush=True)                
+                    self.logn(" failed", QColor("red"))
+            else:
+                self.logn(" not found", QColor("red"))
+        except:
+            print(traceback.format_exc(), flush=True)
+        finally:
+            leaveUITask()
+
     def rateNext(self):
         enterUITask()
         try:
@@ -596,22 +650,39 @@ class RateAndCutDialog(QDialog):
     def rateCurrentFile(self):
         enterUITask()
         try:
-            self.fileSlider.setValue(self.currentIndex)
             global fileDragged
-            fileDragged=False
-            self.hasCropOrTrim=False
-            self.main_group_box.setTitle( self.currentFile )
-            if cutModeFolderOverrideActive:
-                folder=os.path.join(path, cutModeFolderOverridePath)
-            else:
-                folder=os.path.join(path, "../../../../input/vr/check/rate")
-            file_path=os.path.abspath(os.path.join(folder, self.currentFile))
-            if not os.path.exists(file_path):
-                print("Error: File does not exist: "  + file_path, flush=True)
-                return
-            self.isVideo=self.display.showFile( file_path ) == "video"
-            self.button_startpause_video.setVisible(self.isVideo)
-            self.sl.setVisible(self.isVideo)
+            if self.currentIndex>=0:
+                self.fileSlider.setValue(self.currentIndex)
+                self.fileSlider.setEnabled(True)
+                self.main_group_box.setTitle( self.currentFile )
+                if cutModeFolderOverrideActive:
+                    folder=os.path.join(path, cutModeFolderOverridePath)
+                else:
+                    folder=os.path.join(path, "../../../../input/vr/check/rate")
+                file_path=os.path.abspath(os.path.join(folder, self.currentFile))
+                if os.path.exists(file_path):
+                    self.isVideo=self.display.showFile( file_path ) == "video"
+                    self.button_startpause_video.setVisible(self.isVideo)
+                    self.sl.setVisible(self.isVideo)
+                    fileDragged=False
+                    self.hasCropOrTrim=False
+                else:
+                    print("Error: File does not exist (rateCurrentFile): "  + file_path, flush=True)
+                    self.isVideo = False
+                    fileDragged=False
+                    self.hasCropOrTrim=False
+                    self.button_startpause_video.setVisible(False)
+                    self.sl.setVisible(False)
+                    
+            if self.currentIndex<0:
+                self.fileSlider.setEnabled(False)
+                self.main_group_box.setTitle( "-" )
+                self.isVideo = False
+                fileDragged=False
+                self.hasCropOrTrim=False
+                self.button_startpause_video.setVisible(False)
+                self.sl.setVisible(False)
+                
             if self.cutMode:
                 self.button_trima_video.setVisible(self.isVideo)
                 self.button_trimb_video.setVisible(self.isVideo)
@@ -625,6 +696,7 @@ class RateAndCutDialog(QDialog):
                 self.button_justrate_compress.setEnabled(True)
                 self.button_justrate_compress.setIcon(self.icon_justrate)
                 self.justRate=True
+                
         except:
             print(traceback.format_exc(), flush=True)
         finally:
@@ -783,105 +855,38 @@ class RateAndCutDialog(QDialog):
             print("Failed: "  + cmd, flush=True)
         endAsyncTask()
     
-    def deleteAndNext(self):
-        enterUITask()
-        try:
-            
-            files=getFilesToRate()
-            try:
-                index=files.index(self.currentFile)
-                if cutModeFolderOverrideActive:
-                    folder=cutModeFolderOverridePath
-                else:
-                    folder=os.path.join(path, "../../../../input/vr/check/rate")
-                input=os.path.abspath(os.path.join(folder, self.currentFile))
-            except ValueError as ve:
-                index=0
-                self.currentIndex=index
-                self.currentFile=files[index]
-                self.rateCurrentFile()
-                print(traceback.format_exc(), flush=True)                
-                return
-            
-            if os.path.isfile(input):
-                try:
-                    self.display.stopAndBlackout()
-                    
-                    if index>=0:
-                        self.log("Deleting " + os.path.basename(input), QColor("white"))
-                        os.remove(input)
-                        files=rescanFilesToRate()
-                    
-                    l=len(files)
-
-                    if l==0:    # last file deleted?
-                        self.closeOnError("last file deleted (deleteAndNext)")
-                        return
-
-                    if index>=l:
-                        index=l-1
-                        
-                    self.currentFile=files[index]
-                    self.currentIndex=index
-                    self.rateCurrentFile()
-
-                    self.logn(" done", QColor("green"))
-                    
-                except Exception as any_ex:
-                    print(traceback.format_exc(), flush=True)                
-                    self.logn(" failed", QColor("red"))
-            else:
-                self.logn(" not found", QColor("red"))
-        except:
-            print(traceback.format_exc(), flush=True)
-        finally:
-            leaveUITask()
 
     def rateOrArchiveAndNext(self):
         enterUITask()
         try:
+            self.display.stopAndBlackout()
+
             if self.cutMode:
                 self.button_justrate_compress.setEnabled(False)
             
             files=getFilesToRate()
-            try:
-                index=files.index(self.currentFile)
-                if cutModeFolderOverrideActive:
-                    folder=cutModeFolderOverridePath
-                else:
-                    folder=os.path.join(path, "../../../../input/vr/check/rate")
-                targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
-                os.makedirs(targetfolder, exist_ok=True)
-            except ValueError as ve:
-                print(traceback.format_exc(), flush=True)                
-                index=0
-                self.currentFile=files[index]
-                self.currentIndex=index
-                self.rateCurrentFile()
-                return
+            index=files.index(self.currentFile)
+            if cutModeFolderOverrideActive:
+                folder=cutModeFolderOverridePath
+            else:
+                folder=os.path.join(path, "../../../../input/vr/check/rate")
+            targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
+            os.makedirs(targetfolder, exist_ok=True)
                 
-            try:
-                self.display.stopAndBlackout()
+            source=os.path.join(folder, self.currentFile)
+            destination=os.path.join(targetfolder, replaceSomeChars(self.currentFile))
+            
+            self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
+            recreated=os.path.exists(destination)
 
-                source=os.path.join(folder, self.currentFile)
-                destination=os.path.join(targetfolder, replaceSomeChars(self.currentFile))
-                
-                self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
-                recreated=os.path.exists(destination)
-
-                thread = threading.Thread(
-                    target=self.move_worker,
-                    args=(source, destination, index, recreated),
-                    daemon=True
-                )
-                thread.start()
-
-
-            except Exception as anyex:
-                self.logn(" Failed", QColor("red"))
-                print("Error archiving/forwarding " + source, flush=True)
-                print(traceback.format_exc(), flush=True)
+            thread = threading.Thread(
+                target=self.move_worker,
+                args=(source, destination, index, recreated),
+                daemon=True
+            )
+            thread.start()
         except:
+            print("Error archiving/forwarding " + source, flush=True)
             print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
@@ -896,6 +901,7 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True) 
             QTimer.singleShot(0, partial(self.move_updater, index, recreated, False))
 
+
     def move_updater(self, index, recreated, success):
         if success:
             self.logn(" Overwritten" if recreated else " OK", QColor("green"))
@@ -908,16 +914,14 @@ class RateAndCutDialog(QDialog):
             l=len(files)
 
             if l==0:    # last file deleted?
-                self.closeOnError("last file deleted (rateOrArchiveAndNext)")
-                return
-
-            if index>=l:
+                index=-1
+            elif index>=l:
                 index=l-1
-                
-            self.currentFile=files[index]
+                self.currentFile=files[index]
             self.currentIndex=index
             self.rateCurrentFile()
         except Exception:
+            print("Error archiving/forwarding " + source, flush=True)
             print(traceback.format_exc(), flush=True) 
         finally:
             endAsyncTask()
