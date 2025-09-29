@@ -1952,7 +1952,9 @@ class CropWidget(QWidget):
 
  
         # Layouts
-        main_layout = QGridLayout()
+        self.main_layout = QGridLayout()
+        main_layout=self.main_layout
+        
         iw=1000
         cw=1
         
@@ -2048,6 +2050,7 @@ class CropWidget(QWidget):
         self.slider_top.setMaximumHeight(h)
         self.slider_bottom.setMinimumHeight(h)
         self.slider_bottom.setMaximumHeight(h)
+
 
     def imageUpdated(self, currentFrameIndex):
        
