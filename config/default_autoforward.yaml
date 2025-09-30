@@ -1,9 +1,11 @@
 ---
 # delete this file (in user\default\comfyui_stereoscopic) to reset it to defaults.
 # After editing you have restart service daemon to apply changes.
-forwards:
+
+pipeline:
   - from: caption
-    rules:
+    keepinput: true
+    forward:
       - rule:
           to: tasks/reencode
           conditions:
@@ -23,11 +25,11 @@ forwards:
           conditions:
             - duration<1
   - from: tasks/createsilence
-    rules:
+    forward:
       - rule:
           to: tasks/reencode
   - from: tasks/reencode
-    rules:
+    forward:
       - rule:
           to: tasks/fps-limit-30
           conditions:
@@ -39,15 +41,15 @@ forwards:
       - rule:
           to: tasks/fps-limit-15
   - from: tasks/fps-limit-15
-    rules:
+    forward:
       - rule:
           to: scaling
   - from: tasks/fps-limit-30
-    rules:
+    forward:
       - rule:
           to: scaling
   - from: scaling
-    rules:
+    forward:
       - rule:
           to: tasks/hlimit-2160
           conditions:
@@ -69,7 +71,7 @@ forwards:
           conditions:
             - sbs=false
   - from: tasks/hlimit-2160
-    rules:
+    forward:
       - rule:
           to: fullsbs
           conditions:
@@ -79,7 +81,7 @@ forwards:
           conditions:
             - duration<1
   - from: tasks/vlimit-2160p
-    rules:
+    forward:
       - rule:
           to: fullsbs
           conditions:
@@ -89,7 +91,7 @@ forwards:
           conditions:
             - duration<1
   - from: tasks/vlimit-1080p
-    rules:
+    forward:
       - rule:
           to: fullsbs
           conditions:
@@ -99,7 +101,8 @@ forwards:
           conditions:
             - duration<1
   - from: fullsbs
-    rules:
+    keepinput: true
+    forward:
       - rule:
           to: interpolate
           conditions:
@@ -119,7 +122,7 @@ forwards:
       - rule:
           to: watermark/encrypt
   - from: tasks/vlimit-720p
-    rules:
+    forward:
       - rule:
           to: interpolate
           conditions:
@@ -136,7 +139,7 @@ forwards:
           conditions:
             - codec_type!=audio
   - from: interpolate
-    rules:
+    forward:
       - rule:
           to: interpolate
           conditions:
@@ -151,20 +154,25 @@ forwards:
           conditions:
             - codec_type!=audio
   - from: singleloop
-    rules:
+    keepinput: true
+    forward:
       - rule:
           to: dubbing/sfx
           conditions:
             - codec_type!=audio
   - from: tasks/forwarder
-    rules:
+    forward:
       - rule:
           to: check/rate
   - from: check/rate
-    rules:
+    forward:
       - rule:
           to: check/released
   - from: check/released
-    rules:
+    forward:
       - rule:
           to: caption
+  - from: slides
+    keepinput: true
+  - from: tasks/split-1m
+    keepinput: true

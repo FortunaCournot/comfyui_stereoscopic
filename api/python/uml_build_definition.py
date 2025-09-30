@@ -56,6 +56,8 @@ with open(uml_def, "w") as f:
     startsCand=[]
     transitionRules=[]
     typeDef=[]
+    childs=[]
+    nocleanup=[]
     for s in range(len(STAGES)):
         stage=STAGES[s]
         
@@ -89,6 +91,14 @@ with open(uml_def, "w") as f:
             typeDef.append(" : error (json)")
             if not s in involved:
                 involved.append(s)
+
+        nocleanupfile = os.path.join(path, "../../../../input/vr/" + stage + "/done/.nocleanup")
+        if os.path.exists(nocleanupfile):
+            childs.append(" {\n  state keep"+str(s)+" <<history>>\n}")
+            nocleanup.append(True)
+        else:
+            childs.append("")
+            nocleanup.append(False)
         
     for s in range(len(STAGES)):
         stage=STAGES[s]
@@ -134,7 +144,8 @@ with open(uml_def, "w") as f:
                         elif not style  == "":
                             style="["+style+"]"
                             
-                        transitionRules.append("stage" + str(s) + " -"+style+"-> stage" + str(sidx) + options)
+                        name = "stage" #"nocleanup" if nocleanup[sidx] else "stage"
+                        transitionRules.append("stage" + str(s) + " -"+style+"-> " + name + str(sidx) + options)
                     except Exception as e:
                         typeDef[s]=" : error (forward)"
 
@@ -161,7 +172,8 @@ with open(uml_def, "w") as f:
         else:
             style=style+"000000"
             
-        f.write("state \"" + stage + "\" as stage" + str(s) + style + typeDef[s] + "\n")
+            #  + style  typeDef[s]
+        f.write("state \"" + stage + "\" as stage" + str(s) + style + childs[s]  + "\n")
         
     f.write("\n")
 
@@ -180,7 +192,8 @@ with open(uml_def, "w") as f:
                 style="[#8C018C]"
             else:
                 style="[#darkgray]"
-            f.write("[*] -" + style + "-> stage" + str(s) + "\n")
+            name = "stage" #"nocleanup" if nocleanup[s] else "stage"
+            f.write("[*] -" + style + "-> " + name + str(s) + "\n")
     f.write("\n")
 
     f.write("' Transitions\n")
