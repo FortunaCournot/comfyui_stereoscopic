@@ -146,6 +146,7 @@ class RateAndCutDialog(QDialog):
             self.hasCropOrTrim=False
             self.isPaused = False
             self.currentFile = None
+            self.currentIndex = -1
             
             exifpath=gitbash_to_windows_path(config("EXIFTOOLBINARY", ""))
             if len(exifpath)>0 and os.path.exists(exifpath):
@@ -517,7 +518,24 @@ class RateAndCutDialog(QDialog):
                 self.currentFile=getFilesToRate()[0]
                 self.rateCurrentFile()
                 return
-                
+            else:
+                self.button_trima_video.setVisible(False)
+                self.button_trimb_video.setVisible(False)
+                self.button_startframe.setVisible(False)
+                self.button_endframe.setVisible(False)
+                self.button_snapshot_from_video.setVisible(False)
+                if self.cutMode:
+                    self.cropWidget.display_sliders(False)
+        else:
+            self.button_trima_video.setVisible(self.isVideo)
+            self.button_trimb_video.setVisible(self.isVideo)
+            self.button_startframe.setVisible(self.isVideo)
+            self.button_endframe.setVisible(self.isVideo)
+            self.button_snapshot_from_video.setVisible(self.isVideo)
+            if self.cutMode:
+                self.cropWidget.display_sliders(True)
+            
+            
         index=-1
         try:
             if self.currentFile:
@@ -1998,7 +2016,8 @@ class CropWidget(QWidget):
         
         # Slider deaktivieren, bis Bild geladen
         self.enable_sliders(False)
-
+        self.display_sliders(False)
+        
         # Hotkey STRG+S zum Speichern
         #self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         
@@ -2064,6 +2083,8 @@ class CropWidget(QWidget):
 
     def imageUpdated(self, currentFrameIndex):
        
+        self.display_sliders(True)
+       
         self.currentFrameIndex = currentFrameIndex
        
         sourcePixmap = self.image_label.getSourcePixmap()
@@ -2110,6 +2131,13 @@ class CropWidget(QWidget):
         self.slider_right.setEnabled(enable)
         self.slider_top.setEnabled(enable)
         self.slider_bottom.setEnabled(enable)
+
+    def display_sliders(self, visible: bool):
+        """Aktiviert oder deaktiviert Sichtbarkeit aller Slider."""
+        self.slider_left.setVisible(visible)
+        self.slider_right.setVisible(visible)
+        self.slider_top.setVisible(visible)
+        self.slider_bottom.setVisible(visible)
 
     def setSliderValuesToRect(self, rect):
         x0 = rect.x()
