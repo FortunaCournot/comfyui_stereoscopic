@@ -899,11 +899,28 @@ class RateAndCutDialog(QDialog):
                 if recreated:
                     os.remove(output)
                 os.rename(input, output)
-                del getFilesToRate()[index]
-                files=rescanFilesToRate()
                 self.rating_widget.clear_rating()
                 self.log(" Overwritten" if recreated else " Moved", QColor("green"))
                 
+                try:
+                    files=rescanFilesToRate()
+                    l=len(files)
+                    #print("rescanFilesToRate: len =", l, flush=True)
+
+                    if l==0:    # last file deleted?
+                        index=-1
+                        self.currentFile=None
+                    elif index>=l:
+                        index=l-1
+                        self.currentFile=files[index]
+                    else:
+                        self.currentFile=files[index]
+                    self.currentIndex=index
+                    self.rateCurrentFile()
+                except Exception:
+                    print(traceback.format_exc(), flush=True) 
+                
+                # Optional task: Exiftool
                 if not self.exifpath is None:
                     # https://exiftool.org/forum/index.php?topic=6591.msg32875#msg32875
                     
