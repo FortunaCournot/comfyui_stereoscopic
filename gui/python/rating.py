@@ -416,24 +416,24 @@ class RateAndCutDialog(QDialog):
             if not self.uiBlocking == isTaskActive():
                 self.uiBlocking = isTaskActive()
                 if self.uiBlocking:
-                    print("uiBlockHandling - WaitCursor", flush=True)                
+                    #print("uiBlockHandling - WaitCursor", flush=True)                
                     QApplication.setOverrideCursor(Qt.WaitCursor)
                     #self.setEnabled(False)
                     if self._blocker is None:
                         self._blocker = InputBlocker(self)                
                 else:
                     QApplication.restoreOverrideCursor()
-                    print("uiBlockHandling - RestoreCursor", flush=True)                
+                    #print("uiBlockHandling - RestoreCursor", flush=True)                
                     self.setEnabled(True)
                     if self._blocker:
                         self._blocker.deleteLater()
                         self._blocker = None
             if needsWaitDialog() and self.wait_dialog is None:
-                print("uiBlockHandling - show wait dialog", flush=True)                
+                #print("uiBlockHandling - show wait dialog", flush=True)                
                 self.wait_dialog = WaitDialog(self)
                 self.wait_dialog.show()
             elif not needsWaitDialog() and not self.wait_dialog is None:
-                print("uiBlockHandling - remove wait dialog", flush=True)                
+                #print("uiBlockHandling - remove wait dialog", flush=True)                
                 self.wait_dialog.accept()  
                 self.wait_dialog = None
         except KeyboardInterrupt:
@@ -508,6 +508,16 @@ class RateAndCutDialog(QDialog):
             self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
 
     def update_filebuttons(self):
+        if self.currentIndex<0:
+            l = len(getFilesToRate())
+            print("currentIndex-<0", l, flush=True)
+            if l > 0:
+                print("reset currentIndex=0", l, flush=True)
+                self.currentIndex=0
+                self.currentFile=getFilesToRate()[0]
+                self.rateCurrentFile()
+                return
+                
         index=-1
         try:
             if self.currentFile:
@@ -881,9 +891,6 @@ class RateAndCutDialog(QDialog):
         try:
             self.display.stopAndBlackout()
 
-            if self.cutMode:
-                self.button_justrate_compress.setEnabled(False)
-            
             files=getFilesToRate()
             index=files.index(self.currentFile)
             if cutModeFolderOverrideActive:
@@ -930,13 +937,16 @@ class RateAndCutDialog(QDialog):
             
         try:
             files=rescanFilesToRate()
-            
             l=len(files)
+            #print("rescanFilesToRate: len =", l, flush=True)
 
             if l==0:    # last file deleted?
                 index=-1
+                self.currentFile=None
             elif index>=l:
                 index=l-1
+                self.currentFile=files[index]
+            else:
                 self.currentFile=files[index]
             self.currentIndex=index
             self.rateCurrentFile()
@@ -1387,7 +1397,7 @@ class VideoThread(QThread):
                 
     def sliderChanged(self):
         if self.pause:  # do not call while playback
-            print("sliderChanged. seek", self.sender().value(), flush=True)
+            #print("sliderChanged. seek", self.sender().value(), flush=True)
             self.seek(self.sender().value())
 
     def onSliderMouseClick(self):
