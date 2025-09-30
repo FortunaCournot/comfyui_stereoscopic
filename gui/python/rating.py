@@ -161,6 +161,7 @@ class RateAndCutDialog(QDialog):
                 self.setWindowTitle("VR We Are - Check Files: Rating")
             self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
             self.setMaximumSize(QSize(3840,2160))
+            #self.setMinimumSize(QSize(1920,1080))
             self.setGeometry(150, 150, 1280, 768)
             self.outer_main_layout = QVBoxLayout()
             self.setLayout(self.outer_main_layout)
@@ -2040,7 +2041,6 @@ class CropWidget(QWidget):
 
         w  = int(w1 - pad_x)
         h  = int(h1 - pad_y)
-        #print("w/h", w, h, flush=True)
 
         self.slider_left.setMinimumWidth(w)
         self.slider_left.setMaximumWidth(w)
@@ -2513,6 +2513,13 @@ def buildList(files, subpath):
             newList.append( subpath + tuple[0] )
     return newList
 
+# Modification Time (any touch)
+def statMTime(path):
+    #c=os.stat(path).st_ctime
+    m=os.stat(path).st_mtime
+    #print("?", c, m, path, flush=True)
+    return m
+
 def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
     """
     Erstellt eine sortierte Liste mit Tupeln (Dateiname, Modifikationsdatum).
@@ -2520,7 +2527,7 @@ def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
     """
     bpath = os.path.abspath(os.path.join(path, base_path))
     files = [
-        (f, os.path.getmtime(os.path.join(bpath, f)))
+        (f, statMTime(os.path.join(bpath, f)))
         for f in os.listdir(bpath)
             if os.path.isfile(os.path.join(bpath, f))
     ]
@@ -2551,19 +2558,30 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List
     # ---- 3. Füge neue Dateien mit mtime ein (nur hier wird getmtime aufgerufen) ----
     for fname in new_files:
         full_path = os.path.join(bpath, fname)
-        mtime = os.path.getmtime(bpath)  # Nur für neue Dateien aufrufen
+        mtime = statMTime(bpath)  # Nur für neue Dateien aufrufen
         insert_sorted(file_list, (fname, mtime))
 
     return file_list
+
 
 def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float]):
     """
     Fügt ein neues Element (Dateiname, Modifikationsdatum) an der richtigen Stelle in eine
     absteigend sortierte Liste ein, ohne komplette Neusortierung.
     """
+    #for file, mtime in file_list:
+    #    print("- ", mtime, file, flush=True)
+    #print("----------------------------------", flush=True)
+    
     times = [mtime for _, mtime in file_list]
-    pos = bisect.bisect_left(times, -new_item[1])
+    pos = bisect.bisect_left(times, new_item[1])
     file_list.insert(pos, new_item)
+
+    #for file, mtime in file_list:
+    #    print("+ ", mtime, file, flush=True)
+    #
+    #print("----------------------------------", flush=True)
+    #print("= ", pos, new_item[1], new_item[0], flush=True)
 
 
 def pil2pixmap(im):
