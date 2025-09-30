@@ -69,6 +69,7 @@ GOTO End
 :: Done 
 :End
 ENDLOCAL
+pause
 
 
 

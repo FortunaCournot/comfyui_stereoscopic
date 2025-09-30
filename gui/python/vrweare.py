@@ -1050,21 +1050,32 @@ class ClickableLabel(QLabel):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 1:
-       print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " ")
-    elif os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
-        app = None
-        try:
-            initCutMode()
-            scanFilesToRate()
-            
-            global window
-            app = QApplication(sys.argv)
-            window = SpreadsheetApp()
-            window.show()
-        except:
-            print(traceback.format_exc(), flush=True)
-        if not app is None:
-            sys.exit(app.exec_())
-    else:
-        print("no lock.", os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive"))
+    errorfile=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.guierror")
+    try:
+        if len(sys.argv) != 1:
+           print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " ")
+        elif os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
+            app = None
+            try:
+                initCutMode()
+                scanFilesToRate()
+                
+                global window
+                app = QApplication(sys.argv)
+                window = SpreadsheetApp()
+                window.show()
+            except:
+                print(traceback.format_exc(), flush=True)
+            if not app is None:
+                sys.exit(app.exec_())
+        else:
+            #print("no lock.", os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive"))
+            print("\033[91mError:\033[0m The 'VR we are' service daemon is not active.", flush=True)
+            with open(errorfile, 'w'): pass
+            time.sleep(10)
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        with open(errorfile, 'w') as f:
+            print(traceback.format_exc(), flush=True, file=f)
+        print(e, traceback.format_exc(), flush=True)

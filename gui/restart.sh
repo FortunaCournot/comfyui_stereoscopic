@@ -13,7 +13,7 @@ if [ -d "../python_embeded" ]; then
 fi
 
 cleanup() {
-    echo "Reinigung wird durchgeführt..."
+    #echo "Reinigung wird durchgeführt..."
     exit 0 # Beendet das Skript nach der Bereinigung
 }
 
@@ -21,9 +21,15 @@ trap cleanup EXIT
 
 echo "Restarting gui ..."
 touch user/default/comfyui_stereoscopic/.guiactive
+rm -f user/default/comfyui_stereoscopic/.guierror 2>/dev/null
 "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH && rm -f -- user/default/comfyui_stereoscopic/.guiactive &
 
 echo "Waiting for gui or daemon to shutdown..."
 while [ -e user/default/comfyui_stereoscopic/.daemonactive ] && [ -e user/default/comfyui_stereoscopic/.guiactive ]; do
+	sleep 1
+done
+sleep 1
+if [ -e user/default/comfyui_stereoscopic/.guierror ] ; then echo "Press CTRL + C" ; fi
+while [ -e user/default/comfyui_stereoscopic/.guierror ]; do
 	sleep 1
 done
