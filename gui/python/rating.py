@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import shutil
+import tempfile
 import time
 import traceback
 import threading
@@ -24,7 +25,7 @@ import numpy as np
 import requests
 from numpy import ndarray
 from PIL import Image
-from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint,
+from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint, QPointF,
                           pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QObject)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
@@ -40,7 +41,10 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QRubberBand)
 
 
-TRACELEVEL=0
+TRACELEVEL=1
+
+SCENEDETECTION_INPUTLENGTHLIMIT=300.0
+SCENEDETECTION_THRESHOLD_DEFAULT=0.25
 
 # Globale statische Liste der erlaubten Suffixe
 ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webm", ".jpg", ".jpeg"]
@@ -261,7 +265,7 @@ class RateAndCutDialog(QDialog):
             
             self.sl = FrameSlider(Qt.Horizontal)
             
-            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoloaded, self.onRectSelected)
+            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoLoaded, self.onRectSelected)
             #self.display.resize(self.display_width, self.display_height)
 
             self.sp3 = QLabel(self)
@@ -961,6 +965,61 @@ class RateAndCutDialog(QDialog):
             print("Failed: "  + cmd, flush=True)
         endAsyncTask()
     
+    def sceneFinder_worker(self, path, threshold):
+        startAsyncTask()
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        tmp.close()
+        out = tempfile.NamedTemporaryFile(delete=False)
+        out.close()
+        try:
+            cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + path + "\" -filter:v \"select='gt(scene,"  + str(threshold) + ")',showinfo\" -f null - 2>> "+tmp.name
+            cmd2 = "grep showinfo \"" + tmp.name + "\" | grep pts_time:[0-9.]* -o | grep [0-9.]* -o > " + out.name
+            
+            if TRACELEVEL >= 1:
+                print("Executing", cmd1, flush=True)
+            cp = subprocess.run(cmd1, shell=True, check=True)
+            if TRACELEVEL >= 1:
+                print("Executing", cmd2, flush=True)
+            cp = subprocess.run(cmd2, shell=True, check=False)
+            
+            QTimer.singleShot(0, partial(self.sceneFinder_updater, path, tmp.name, out.name))
+        except subprocess.CalledProcessError as se:
+            print(traceback.format_exc(), flush=True) 
+            os.unlink(tmp.name)
+            os.unlink(out.name)
+            endAsyncTask()
+        except:
+            print(traceback.format_exc(), flush=True)
+            os.unlink(tmp.name)
+            os.unlink(out.name)
+            endAsyncTask()
+
+    def sceneFinder_updater(self, path, tmpfilename, outfilename):
+        scene_intersections=[]
+        try:
+            if cutModeFolderOverrideActive:
+                folder=cutModeFolderOverridePath
+            else:
+                folder=os.path.join(path, "../../../../../input/vr/check/rate")
+            input=os.path.abspath(os.path.join(folder, self.currentFile))
+            if not input==path:
+                if TRACELEVEL >= 1:
+                    print("Info: sceneFinder_updater detected file switch. update canceled.", input, path, flush=True)
+                return
+            
+            with open(outfilename) as file:
+                while line := file.readline():
+                    try:
+                        scene_intersections.append(float(line.rstrip()))
+                    except:
+                        pass
+            self.cropWidget.applySceneIntersections(scene_intersections)
+        except:
+            print(traceback.format_exc(), flush=True)
+        finally:
+            os.unlink(tmpfilename)
+            os.unlink(outfilename)
+            endAsyncTask()
 
     def rateOrArchiveAndNext(self):
         enterUITask()
@@ -1060,7 +1119,7 @@ class RateAndCutDialog(QDialog):
                 x=self.cropWidget.crop_left
                 y=self.cropWidget.crop_top
                 self.log("Create "+newfilename, QColor("white"))
-                cmd = "ffmpeg.exe -y -i \"" + input + "\" -vf \""
+                cmd = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \""
                 if self.isVideo:
                     cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
                 cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
@@ -1134,8 +1193,8 @@ class RateAndCutDialog(QDialog):
                 x=self.cropWidget.crop_left
                 y=self.cropWidget.crop_top
                 self.log("Create snapshot "+newfilename, QColor("white"))
-                cmd1 = "ffmpeg.exe -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 -update 1 \"" + tempfile + "\""
-                cmd2 = "ffmpeg.exe -y -i \"" + tempfile + "\" -vf \"crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" \"" + output + "\""
+                cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 -update 1 \"" + tempfile + "\""
+                cmd2 = "ffmpeg.exe -hide_banner -y -i \"" + tempfile + "\" -vf \"crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" \"" + output + "\""
                 recreated=os.path.exists(output)
                 
                 thread = threading.Thread(
@@ -1187,8 +1246,7 @@ class RateAndCutDialog(QDialog):
             endAsyncTask()
 
 
-
-    def onVideoloaded(self):
+    def onVideoLoaded(self, count, fps, length):
         if cutModeFolderOverrideActive:
             pass
         else:
@@ -1196,6 +1254,21 @@ class RateAndCutDialog(QDialog):
                 self.logn("Loading video failed. Archiving forced...", QColor("red"))
                 self.justRate=False
                 self.rateOrArchiveAndNext()
+                return
+
+        if length<=SCENEDETECTION_INPUTLENGTHLIMIT:
+            if cutModeFolderOverrideActive:
+                folder=cutModeFolderOverridePath
+            else:
+                folder=os.path.join(path, "../../../../input/vr/check/rate")
+            input=os.path.abspath(os.path.join(folder, self.currentFile))
+
+            thread = threading.Thread(
+                target=self.sceneFinder_worker,
+                args=(input, SCENEDETECTION_THRESHOLD_DEFAULT,),
+                daemon=True
+            )                            
+            thread.start()
 
 
     def closeOnError(self, msg):
@@ -1363,14 +1436,14 @@ class VideoThread(QThread):
         
         if not os.path.exists(self.filepath):
             print("Failed to open", self.filepath, flush=True)
-            self.onVideoLoaded()
+            self.onVideoLoaded(-1, 1.0, 0.0)
             return
             
         self.cap = cv2.VideoCapture(self.filepath)
         if not self.cap.isOpened():
             print("Failed to open", self.filepath, flush=True)
             self.cap=None
-            self.onVideoLoaded()
+            self.onVideoLoaded(-1, 1.0, 0.0)
             return
 
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -1383,8 +1456,8 @@ class VideoThread(QThread):
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.frame_count-1)
         self.slider.setValue(0)
-        if self.fps<1:
-            self.fps=1
+        if self.fps<1.0:
+            self.fps=1.0
         interval=int(self.fps)
         vlength = (self.frame_count-1) / self.fps
         if vlength > 7200:
@@ -1406,7 +1479,7 @@ class VideoThread(QThread):
 
         leaveUITask()
 
-        self.onVideoLoaded()
+        self.onVideoLoaded(self.frame_count, self.fps, vlength)
         self.update(self.pause)
 
         self.currentFrame=-1      # before start. first frame will be number 0
@@ -1545,7 +1618,12 @@ class Display(QLabel):
         self.origin = QPoint()
         self.selection_rect = QRect()
         
+        self.scene_intersections = []
+
         self.closeEvent = self.stopAndBlackout
+        
+    def applySceneIntersections(self, scene_intersections):
+        self.slider.applySceneIntersections(scene_intersections)
         
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1649,6 +1727,7 @@ class Display(QLabel):
             self.update_image(np.array([]), -1)
         else:
             self.update_image(np.array([]), -1)
+        self.scene_intersections = []
         
     def registerForUpdates(self, onUpdateImage):
         self.onUpdateImage = onUpdateImage
@@ -1696,7 +1775,7 @@ class Display(QLabel):
             t.requestStop()
             self.update_image(np.array([]), -1)
 
-    def onVideoLoaded(self):
+    def onVideoLoaded(self, count, fps, length):
         if self.thread:
             if not videoActive:
                 self.button.clicked.disconnect(self.tooglePausePressed)
@@ -1714,7 +1793,7 @@ class Display(QLabel):
                 self.slider.setPosTextValues( self.thread.fps, self.frame_count)
             self.button.setEnabled(True)
             self.button.setFocus()
-            self.loaded()
+            self.loaded(count, fps, length)
         
     def updatePaused(self, isPaused):
         self.update(isPaused)
@@ -1878,7 +1957,7 @@ class FrameSlider(QSlider):
         self.sliderReleased.connect(self.onSliderReleased)
         self.setTracking(True)
         self.setCursor(Qt.PointingHandCursor)
-
+        self.scene_intersections = []
      
     def resetAB(self):
         self.a = 0.0
@@ -1905,6 +1984,10 @@ class FrameSlider(QSlider):
         self.postext = text
         self.postextColor = textColor
         self.sliderpos = sliderpos
+        self.update()
+
+    def applySceneIntersections(self, scene_intersections):
+        self.scene_intersections = scene_intersections
         self.update()
 
     def paintEvent(self, event: QPaintEvent):
@@ -1939,6 +2022,16 @@ class FrameSlider(QSlider):
             else:
                 rct = QRect(0, 0, width, height)
                 painter.drawText(rct, Qt.AlignCenter | Qt.AlignBottom, self.postext)
+
+            vlen=(self.frame_count-1)/self.fps
+            if vlen>0:
+                painter.setPen(QPen(Qt.red, 4, Qt.SolidLine, Qt.RoundCap))
+                for t in self.scene_intersections:
+                    x=width*t/vlen
+                    painter.drawPoint(QPointF(x, height-1))
+                    #print(str(t), str(x), str(vlen), str(width), flush=True)
+                    
+                
 
     def buildPosSliderText(self, sliderpos):
         ms=int( 1000.0 * sliderpos * (self.frame_count) / float(self.fps) )
@@ -2016,7 +2109,7 @@ class CropWidget(QWidget):
         self.slidersInitialized = False
         self.currentW=0
         self.currentH=0
-
+        self.scene_intersections=[]
 
         # Crop-Werte
         self.crop_left = 0
@@ -2087,7 +2180,13 @@ class CropWidget(QWidget):
         
         self.resizeEvent(None)
 
+    def applySceneIntersections(self, scene_intersections):
+        self.scene_intersections = scene_intersections
+        self.image_label.applySceneIntersections(scene_intersections)
+        
     def fileChanged(self):
+        self.scene_intersections=[]
+
         # Crop-Werte zurücksetzen
         self.crop_left = 0
         self.crop_right = 0
