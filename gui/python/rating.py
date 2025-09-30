@@ -43,7 +43,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 
 TRACELEVEL=1
 
-SCENEDETECTION_INPUTLENGTHLIMIT=300.0
+SCENEDETECTION_INPUTLENGTHLIMIT=180.0
 SCENEDETECTION_THRESHOLD_DEFAULT=0.25
 
 # Globale statische Liste der erlaubten Suffixe
@@ -80,7 +80,7 @@ def leaveUITask():
         tb=traceback.format_stack()
         tb=tb[-2][tb[-2].rfind('\\')+1:]
         tb=tb[:tb.rfind(',')]
-        if TRACELEVEL >= 1:
+        if TRACELEVEL >= 2:
             print(f". UI Task executed in { int((time.time()-taskStartUI)*1000) }ms, \"" + tb, flush=True)
         
 def startAsyncTask():
@@ -101,7 +101,7 @@ def endAsyncTask():
         tb=traceback.format_stack()
         tb=tb[-2][tb[-2].rfind('\\')+1:]
         tb=tb[:tb.rfind(',')]
-        if TRACELEVEL >= 1:
+        if TRACELEVEL >= 2:
             print(f". Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms, \"" + tb, flush=True)
             
    
@@ -352,7 +352,7 @@ class RateAndCutDialog(QDialog):
             self.commontool_layout.addWidget(self.msgWidget, 0, ew+6, 1, ew)
             self.msgWidget.setPlaceholderText("No log entries.")
             
-            self.button_startpause_video.clicked.connect(self.display.startVideo)
+            self.button_startpause_video.clicked.connect(self.display.tooglePausePressed)
             if cutMode:
                 self.button_trima_video.clicked.connect(self.display.trimA)
                 self.button_trimb_video.clicked.connect(self.display.trimB)
@@ -426,7 +426,20 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True)
 
     def keyPressEvent(self, event):
-        if not self.cutMode:
+        if self.cutMode:
+            if event.key() == Qt.Key_S:
+                if self.display.slider.isEnabled() and self.display.slider.isVisible():
+                    self.display.nextScene()
+            elif event.key() == Qt.Key_A:
+                if self.button_trima_video.isEnabled() and self.button_trima_video.isVisible():
+                    self.display.trimA()
+            elif event.key() == Qt.Key_D:
+                if self.button_trimb_video.isEnabled() and self.button_trimb_video.isVisible():
+                    self.display.trimB()
+            elif event.key() == Qt.Key_P:
+                if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible():
+                    self.display.tooglePausePressed()
+        else:
             if event.key() == Qt.Key_1:
                 self.rating_widget.rate(1)
             elif event.key() == Qt.Key_2:
@@ -975,10 +988,10 @@ class RateAndCutDialog(QDialog):
             cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + path + "\" -filter:v \"select='gt(scene,"  + str(threshold) + ")',showinfo\" -f null - 2>> "+tmp.name
             cmd2 = "grep showinfo \"" + tmp.name + "\" | grep pts_time:[0-9.]* -o | grep [0-9.]* -o > " + out.name
             
-            if TRACELEVEL >= 1:
+            if TRACELEVEL >= 3:
                 print("Executing", cmd1, flush=True)
             cp = subprocess.run(cmd1, shell=True, check=True)
-            if TRACELEVEL >= 1:
+            if TRACELEVEL >= 3:
                 print("Executing", cmd2, flush=True)
             cp = subprocess.run(cmd2, shell=True, check=False)
             
@@ -1256,7 +1269,7 @@ class RateAndCutDialog(QDialog):
                 self.rateOrArchiveAndNext()
                 return
 
-        if length<=SCENEDETECTION_INPUTLENGTHLIMIT:
+        if count>0 and length<=SCENEDETECTION_INPUTLENGTHLIMIT:
             if cutModeFolderOverrideActive:
                 folder=cutModeFolderOverridePath
             else:
@@ -1269,6 +1282,8 @@ class RateAndCutDialog(QDialog):
                 daemon=True
             )                            
             thread.start()
+        else:
+            self.cropWidget.applySceneIntersections([])
 
 
     def closeOnError(self, msg):
@@ -1523,6 +1538,9 @@ class VideoThread(QThread):
     def getCurrentFrameIndex(self):
         return self.currentFrame
     
+    def getFPS(self):
+        return self.fps
+
     def isPaused(self):
         return self.pause
 
@@ -1622,7 +1640,23 @@ class Display(QLabel):
 
         self.closeEvent = self.stopAndBlackout
         
+    def nextScene(self):
+        if len(self.scene_intersections)>0:
+            if self.thread:
+                if not self.thread.isPaused():
+                    self.thread.tooglePause()
+                nextsceneframeindex=int(self.scene_intersections[0]*self.thread.getFPS())
+                for t in self.scene_intersections:
+                    idx=int(t*self.thread.getFPS())
+                    if idx>self.thread.getCurrentFrameIndex():
+                        nextsceneframeindex=idx
+                        break
+                        
+                self.thread.seek(nextsceneframeindex)
+                self.slider.setFocus()
+            
     def applySceneIntersections(self, scene_intersections):
+        self.scene_intersections=scene_intersections
         self.slider.applySceneIntersections(scene_intersections)
         
     def resizeEvent(self, event):
@@ -1738,14 +1772,13 @@ class Display(QLabel):
     def registerForTrimUpdate(self, onCropOrTrim):
         self.onCropOrTrim = onCropOrTrim
 
-
     def startVideo(self, uid):
         enterUITask()
         try:
             if self.thread:
                 self.releaseVideo()
             try:
-                self.button.clicked.disconnect(self.startVideo)
+                self.button.clicked.disconnect(self.tooglePausePressed)
             except TypeError:
                 pass
             self.button.setIcon(QIcon(os.path.join(path, '../../gui/img/pause80.png')))
@@ -1817,11 +1850,18 @@ class Display(QLabel):
         if self.thread:
             count=self.thread.getFrameCount()
             if count>1:
-                self.slider.setA(float(self.thread.getCurrentFrameIndex())/float(count-1))
-                if TRACELEVEL >= 1:
-                    print("setA", float(self.thread.getCurrentFrameIndex()), float(count-1), flush=True)
-                self.trimAFrame=self.thread.getCurrentFrameIndex()
-                self.thread.setA(self.thread.getCurrentFrameIndex())
+                newValue=float(self.thread.getCurrentFrameIndex())/float(count-1)
+                if self.slider.getA()==newValue:
+                    self.slider.setText("", Qt.white)
+                    self.slider.setA(0.0)
+                    self.thread.setA(0)
+                    self.trimAFrame=0
+                else:
+                    self.slider.setA(newValue)
+                    if TRACELEVEL >= 2:
+                        print("setA", newValue, flush=True)
+                    self.thread.setA(self.thread.getCurrentFrameIndex())
+                    self.trimAFrame=self.thread.getCurrentFrameIndex()
                 self.slider.setText( self.buildSliderText(), Qt.red if self.isTrimmed() else Qt.white )
             else:
                 self.slider.setText("", Qt.white)
@@ -1834,11 +1874,18 @@ class Display(QLabel):
         if self.thread:
             count=self.thread.getFrameCount()
             if count>1:
-                self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
-                if TRACELEVEL >= 1:
-                    print("setB", float(self.thread.getCurrentFrameIndex()), float(count-1), flush=True)
-                self.trimBFrame=self.thread.getCurrentFrameIndex()
-                self.thread.setB(self.thread.getCurrentFrameIndex())
+                newValue=float(self.thread.getCurrentFrameIndex())/float(count-1)
+                if self.slider.getB()==newValue:
+                    self.slider.setText("", Qt.white)
+                    self.slider.setB(1.0)
+                    self.thread.setB(count-1)
+                    self.thread.setB(count-1)
+                else:
+                    self.slider.setB(newValue)
+                    if TRACELEVEL >= 2:
+                        print("setB", newValue, flush=True)
+                    self.trimBFrame=self.thread.getCurrentFrameIndex()
+                    self.thread.setB(self.thread.getCurrentFrameIndex())
                 self.slider.setText( self.buildSliderText(), Qt.red if self.isTrimmed() else Qt.white )
             else:
                 self.slider.setText("", Qt.white)
@@ -1970,6 +2017,12 @@ class FrameSlider(QSlider):
     def setB(self, b):
         self.b = min(max(0.0, b), 1.0)
         self.update()
+
+    def getA(self):
+        return self.a
+
+    def getB(self):
+        return self.b
 
     def setText(self, text, textColor=Qt.white):
         self.text = text
