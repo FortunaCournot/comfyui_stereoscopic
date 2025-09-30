@@ -375,6 +375,23 @@ class RateAndCutDialog(QDialog):
             self.uiBlockingTask_timer = QTimer()
             self.uiBlockingTask_timer.timeout.connect(self.uiBlockHandling)
             self.uiBlockingTask_timer.start(TASKCHECKTIME)
+
+            # initial invisible
+            if self.cutMode:
+                self.cropWidget.display_sliders(False)
+                self.button_cutandclone.setVisible(False)
+                self.button_justrate_compress.setVisible(False)
+                self.button_trima_video.setVisible(False)
+                self.button_trimb_video.setVisible(False)
+                self.button_startframe.setVisible(False)
+                self.button_endframe.setVisible(False)
+                self.button_snapshot_from_video.setVisible(False)
+            else:
+                self.rating_widget.setVisible(False)
+            self.button_prev_file.setVisible(False)
+            self.button_next_file.setVisible(False)
+            self.button_delete_file.setVisible(False)
+            self.fileSlider.setVisible(False)
             
             self.rateNext()
             
@@ -511,30 +528,45 @@ class RateAndCutDialog(QDialog):
     def update_filebuttons(self):
         if self.currentIndex<0:
             l = len(getFilesToRate())
-            print("currentIndex-<0", l, flush=True)
+            #print("currentIndex-<0", l, flush=True)
             if l > 0:
-                print("reset currentIndex=0", l, flush=True)
+                #print("reset currentIndex=0", l, flush=True)
                 self.currentIndex=0
                 self.currentFile=getFilesToRate()[0]
                 self.rateCurrentFile()
                 return
             else:
-                self.button_trima_video.setVisible(False)
-                self.button_trimb_video.setVisible(False)
-                self.button_startframe.setVisible(False)
-                self.button_endframe.setVisible(False)
-                self.button_snapshot_from_video.setVisible(False)
                 if self.cutMode:
+                    self.button_snapshot_from_video.setVisible(False)
+                    self.button_trima_video.setVisible(False)
+                    self.button_trimb_video.setVisible(False)
                     self.cropWidget.display_sliders(False)
+                    self.button_cutandclone.setVisible(False)
+                    self.button_justrate_compress.setVisible(False)
+                    self.button_startframe.setVisible(False)
+                    self.button_endframe.setVisible(False)
+                else:
+                    self.rating_widget.setVisible(False)
+                self.button_prev_file.setVisible(False)
+                self.button_next_file.setVisible(False)
+                self.button_delete_file.setVisible(False)
+                self.fileSlider.setVisible(False)
         else:
-            self.button_trima_video.setVisible(self.isVideo)
-            self.button_trimb_video.setVisible(self.isVideo)
-            self.button_startframe.setVisible(self.isVideo)
-            self.button_endframe.setVisible(self.isVideo)
-            self.button_snapshot_from_video.setVisible(self.isVideo)
             if self.cutMode:
                 self.cropWidget.display_sliders(True)
-            
+                self.button_cutandclone.setVisible(True)
+                self.button_justrate_compress.setVisible(True)
+                self.button_trima_video.setVisible(self.isVideo)
+                self.button_trimb_video.setVisible(self.isVideo)
+                self.button_snapshot_from_video.setVisible(self.isVideo)
+                self.button_startframe.setVisible(self.isVideo)
+                self.button_endframe.setVisible(self.isVideo)
+            else:
+                self.rating_widget.setVisible(True)
+            self.button_prev_file.setVisible(True)
+            self.button_next_file.setVisible(True)
+            self.button_delete_file.setVisible(True)
+            self.fileSlider.setVisible(True)
             
         index=-1
         try:
