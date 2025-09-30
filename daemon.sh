@@ -53,6 +53,8 @@ fi
 mkdir -p user/default/comfyui_stereoscopic
 rm -f -- user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
 touch user/default/comfyui_stereoscopic/.daemonactive
+OPENCV_FFMPEG_READ_ATTEMPTS=8192
+export OPENCV_FFMPEG_READ_ATTEMPTS
 "$PYTHON_BIN_PATH"python.exe ./custom_nodes/comfyui_stereoscopic/gui/python/vrweare.py 2>/dev/null &
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini

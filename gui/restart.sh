@@ -22,6 +22,8 @@ trap cleanup EXIT
 echo "Restarting gui ..."
 touch user/default/comfyui_stereoscopic/.guiactive
 rm -f user/default/comfyui_stereoscopic/.guierror 2>/dev/null
+OPENCV_FFMPEG_READ_ATTEMPTS=8192
+export OPENCV_FFMPEG_READ_ATTEMPTS
 "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH && rm -f -- user/default/comfyui_stereoscopic/.guiactive &
 
 echo "Waiting for gui or daemon to shutdown..."
