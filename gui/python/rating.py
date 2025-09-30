@@ -874,7 +874,8 @@ class RateAndCutDialog(QDialog):
         try:
             self.display.stopAndBlackout()
 
-            print(f"Rating selected: {rating}", flush=True)
+            if TRACELEVEL >= 1:
+                print(f"Rating selected: {rating}", flush=True)
 
             files=getFilesToRate()
 
