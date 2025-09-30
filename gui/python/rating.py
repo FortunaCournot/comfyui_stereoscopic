@@ -40,6 +40,12 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QRubberBand)
 
 
+TRACELEVEL=0
+
+# Globale statische Liste der erlaubten Suffixe
+ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webm", ".jpg", ".jpeg"]
+
+
 def isTaskActive():
     return taskCounterUI + taskCounterAsync > 0
 
@@ -70,7 +76,8 @@ def leaveUITask():
         tb=traceback.format_stack()
         tb=tb[-2][tb[-2].rfind('\\')+1:]
         tb=tb[:tb.rfind(',')]
-        print(f". UI Task executed in { int((time.time()-taskStartUI)*1000) }ms, \"" + tb, flush=True)
+        if TRACELEVEL >= 1:
+            print(f". UI Task executed in { int((time.time()-taskStartUI)*1000) }ms, \"" + tb, flush=True)
         
 def startAsyncTask():
     global taskCounterAsync, taskStartAsyc, showWaitDialog
@@ -90,7 +97,8 @@ def endAsyncTask():
         tb=traceback.format_stack()
         tb=tb[-2][tb[-2].rfind('\\')+1:]
         tb=tb[:tb.rfind(',')]
-        print(f". Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms, \"" + tb, flush=True)
+        if TRACELEVEL >= 1:
+            print(f". Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms, \"" + tb, flush=True)
             
    
 class WaitDialog(QDialog):
@@ -130,7 +138,6 @@ class RateAndCutDialog(QDialog):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint )
         
         try:
-            print("RateAndCutDialog init start", flush=True)
             self.setModal(True)
             self.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint )
 
@@ -394,8 +401,7 @@ class RateAndCutDialog(QDialog):
             self.fileSlider.setVisible(False)
             
             self.rateNext()
-            
-            print("RateAndCutDialog init end", flush=True)
+
         except KeyboardInterrupt:
             pass
         except:
@@ -730,6 +736,7 @@ class RateAndCutDialog(QDialog):
     def rateCurrentFile(self):
         enterUITask()
         try:
+            QApplication.setOverrideCursor(Qt.WaitCursor)
             global fileDragged
             if self.currentIndex>=0:
                 self.fileSlider.setValue(self.currentIndex)
@@ -780,6 +787,7 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True)
         finally:
+            QApplication.restoreOverrideCursor()
             leaveUITask()
            
     def onSelectFolder(self, state):
@@ -1454,21 +1462,24 @@ class VideoThread(QThread):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
-            print("onSliderMouseClick. seek", self.slider.value(), flush=True)
+            if TRACELEVEL >= 1:
+                print("onSliderMouseClick. stop playback and seek", self.slider.value(), flush=True)
             self.seek(self.slider.value())
 
     def posA(self):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
-        print("posA", flush=True)
+        if TRACELEVEL >= 1:
+            print("posA", flush=True)
         self.seek(self.a)
         
     def posB(self):
         if not self.pause:
             self.pause=True
             self.update(self.pause)
-        print("posB", flush=True)
+        if TRACELEVEL >= 1:
+            print("posB", flush=True)
         self.seek(self.b)
 
     def setA(self, frame_number):
@@ -1710,6 +1721,8 @@ class Display(QLabel):
             count=self.thread.getFrameCount()
             if count>1:
                 self.slider.setA(float(self.thread.getCurrentFrameIndex())/float(count-1))
+                if TRACELEVEL >= 1:
+                    print("setA", float(self.thread.getCurrentFrameIndex()), float(count-1), flush=True)
                 self.trimAFrame=self.thread.getCurrentFrameIndex()
                 self.thread.setA(self.thread.getCurrentFrameIndex())
                 self.slider.setText( self.buildSliderText(), Qt.red if self.isTrimmed() else Qt.white )
@@ -1725,7 +1738,8 @@ class Display(QLabel):
             count=self.thread.getFrameCount()
             if count>1:
                 self.slider.setB(float(self.thread.getCurrentFrameIndex())/float(count-1))
-                print("setB", float(self.thread.getCurrentFrameIndex()), float(count-1), flush=True)
+                if TRACELEVEL >= 1:
+                    print("setB", float(self.thread.getCurrentFrameIndex()), float(count-1), flush=True)
                 self.trimBFrame=self.thread.getCurrentFrameIndex()
                 self.thread.setB(self.thread.getCurrentFrameIndex())
                 self.slider.setText( self.buildSliderText(), Qt.red if self.isTrimmed() else Qt.white )
@@ -2503,6 +2517,7 @@ class InputBlocker(QWidget):
         """Overlay immer an Fenstergröße anpassen."""
         self.setGeometry(self.parent().rect())
 
+
 # ASYNC CONTEXT
 def scanFilesToRate():
     try:
@@ -2596,11 +2611,13 @@ def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
     Sortiert nach Modifikationsdatum aufsteigend (alte zuerst).
     """
     bpath = os.path.abspath(os.path.join(path, base_path))
-    files = [
-        (f, statMTime(os.path.join(bpath, f)))
-        for f in os.listdir(bpath)
-            if os.path.isfile(os.path.join(bpath, f))
-    ]
+    files = []
+    for f in os.listdir(bpath):
+        full_path = os.path.join(bpath, f)
+        if os.path.isfile(full_path) and any(f.lower().endswith(suf.lower()) for suf in ALLOWED_SUFFIXES):
+            mtime = statMTime(full_path)
+            files.append((f, mtime))    
+
     return sorted(files, key=lambda x: x[1], reverse=False)
 
 
@@ -2616,6 +2633,7 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List
     current_files = {
         f for f in os.listdir(bpath)
         if os.path.isfile(os.path.join(bpath, f))
+        and any(f.lower().endswith(suf.lower()) for suf in ALLOWED_SUFFIXES)
     }
 
     # ---- 1. Entferne Dateien, die nicht mehr existieren ----
