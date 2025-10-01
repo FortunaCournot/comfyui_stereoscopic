@@ -265,7 +265,7 @@ class RateAndCutDialog(QDialog):
             
             self.sl = FrameSlider(Qt.Horizontal)
             
-            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoLoaded, self.onRectSelected)
+            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoLoaded, self.onRectSelected, self.onUpdate)
             #self.display.resize(self.display_width, self.display_height)
 
             self.sp3 = QLabel(self)
@@ -410,6 +410,10 @@ class RateAndCutDialog(QDialog):
             pass
         except:
             print(traceback.format_exc(), flush=True)
+
+
+    def onUpdate(self):
+        self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
 
     def showEvent(self, event):
         try:
@@ -1604,7 +1608,7 @@ class VideoThread(QThread):
     
 class Display(QLabel):
 
-    def __init__(self, cutMode, pushbutton, slider, updatePaused, loaded, rectSelected):
+    def __init__(self, cutMode, pushbutton, slider, updatePaused, loaded, rectSelected, parentUpdate):
         super().__init__()
         self.qt_img=None
         self.displayUid=0
@@ -1616,6 +1620,7 @@ class Display(QLabel):
         self.updatePaused = updatePaused
         self.loaded = loaded
         self.rectSelected = rectSelected
+        self.parentUpdate = parentUpdate
         self.onUpdateFile=None
         self.onUpdateImage=None
         self.onCropOrTrim = None
@@ -1705,6 +1710,7 @@ class Display(QLabel):
             if self.onUpdateImage:
                 if self.thread:
                     self.onUpdateImage( self.thread.getCurrentFrameIndex() )
+                    self.parentUpdate()
                 else:
                     self.onUpdateImage( -1 )
                 
