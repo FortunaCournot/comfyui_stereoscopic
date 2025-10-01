@@ -613,10 +613,10 @@ ECHO Apply python fixes...
 :: ComfyUI-MMAudio
 .\python_embeded\python -m pip install -I wcwidth decorator platformdirs
 :: ComfyUI-Florence2
+GOTO skip_fixes
 .\python_embeded\python -m pip install --upgrade numpy==2.2
 .\python_embeded\python -m pip install -I opencv-python
 .\python_embeded\python -m pip install -I matplotlib
-GOTO skip_fixes
 :skip_fixes
 
 ::nvidia handling
