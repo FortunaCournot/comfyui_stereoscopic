@@ -663,7 +663,8 @@ ECHO Installing dependencies for Sage Attention
 .\python_embeded\python -s -m pip install ninja
 .\python_embeded\python -s -m pip install wheel
 .\python_embeded\python -s -m pip install packaging
-.\python_embeded\python -s -m pip install onnxruntime-gpu
+.\python_embeded\python -s -m pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/packaging/onnxruntime-cuda-12/pypi/simple/
+
 
 ECHO Installing Triton and Sage Attention
 .\python_embeded\python -m pip install -U --pre triton-windows
