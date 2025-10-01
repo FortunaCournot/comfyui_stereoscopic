@@ -17,10 +17,12 @@ SETLOCAL enabledelayedexpansion
 SET VRWEARE_VERSION=4.0
 
 :: Files ouside of my authority with provided checksum:
-SET COMFYUI_SHA=a1cf7b103c075793056a24ec33280bc8bd103f77f55bd9084bcb959456619c1a
-SET COMFYUI_TAG=v0.3.59
+:: ComfyUI_windows_portable_nvidia.7z from https://github.com/comfyanonymous/ComfyUI/releases
+SET COMFYUI_SHA=38c4cae0e4983a033d65920a3e293c58c986637c9fb15cb13274f0f5bc27ee89
+SET COMFYUI_TAG=v0.3.62
 
 :: Files ouside of my authority where i provided checksum:
+:: tar.gz from https://github.com/Comfy-Org/ComfyUI-Manager/tags
 SET MANAGER_SHA=74829f5be66b4b3934f47bb0170e241b2e4b6617d05448b9232e818b511b7bf7
 SET MANAGER_TAG=3.35
 
@@ -277,7 +279,7 @@ GOTO QueryForInstallationType
 
 :SELECT_INSTALL_PATH
 ECHO/
-ECHO Please type the [2mparent path[0m of the installation and press ENTER.
+ECHO Please type the [1mparent path[0m of the installation and press ENTER.
 ECHO/
 ECHO Or alternatively drag ^& drop the folder from Windows
 ECHO Explorer on this console window and press ENTER.
