@@ -48,6 +48,35 @@ SCENEDETECTION_THRESHOLD_DEFAULT=0.25
 
 # Globale statische Liste der erlaubten Suffixe
 ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webm", ".jpg", ".jpeg"]
+global _readyfiles
+_readyfiles=[]
+
+# global init
+global cutModeActive, cutModeFolderOverrideActive, cutModeFolderOverridePath
+cutModeActive=False
+cutModeFolderOverrideActive=False
+cutModeFolderOverridePath=str(Path.home())
+
+global path
+path = os.path.dirname(os.path.abspath(__file__))
+# Add the current directory to the path so we can import local modules
+if path not in sys.path:
+    sys.path.append(path)
+
+# File Global
+global videoActive, rememberThread, fileDragged, FILESCANTIME, TASKCHECKTIME, WAIT_DIALOG_THRESHOLD_TIME
+videoActive=False
+rememberThread=None
+fileDragged=False
+FILESCANTIME = 500
+TASKCHECKTIME = 20
+WAIT_DIALOG_THRESHOLD_TIME=2000
+
+# ---- Tasks ----
+global taskCounterUI, taskCounterAsync, showWaitDialog
+taskCounterUI=0
+taskCounterAsync=0
+showWaitDialog=False
 
 
 def isTaskActive():
@@ -2787,7 +2816,11 @@ def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
     Erstellt eine sortierte Liste mit Tupeln (Dateiname, Modifikationsdatum).
     Sortiert nach Modifikationsdatum aufsteigend (alte zuerst).
     """
-    bpath = os.path.abspath(os.path.join(path, base_path))
+    fullbasepath=os.path.join(path, base_path)
+    if not os.path.exists(fullbasepath):
+        os.makedirs(fullbasepath)
+    
+    bpath = os.path.abspath(fullbasepath)
     files = []
     for f in os.listdir(bpath):
         full_path = os.path.join(bpath, f)
@@ -2805,27 +2838,34 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List
       - Fügt neue Dateien ein (holt mtime nur für neue Dateien)
       - Behält die Sortierung bei, ohne vollständige Neusortierung
     """
-    # Aktuell vorhandene Dateien NUR als Menge laden (kein mtime!)
-    bpath = os.path.abspath(os.path.join(path, base_path))
-    current_files = {
-        f for f in os.listdir(bpath)
-        if os.path.isfile(os.path.join(bpath, f))
-        and any(f.lower().endswith(suf.lower()) for suf in ALLOWED_SUFFIXES)
-    }
+    try:
+        fullbasepath=os.path.join(path, base_path)
+        if not os.path.exists(fullbasepath):
+            os.makedirs(fullbasepath)
 
-    # ---- 1. Entferne Dateien, die nicht mehr existieren ----
-    existing_names_in_list = {fname for fname, _ in file_list}
-    file_list[:] = [(fname, mtime) for fname, mtime in file_list if fname in current_files]
+        # Aktuell vorhandene Dateien NUR als Menge laden (kein mtime!)
+        bpath = os.path.abspath(os.path.join(path, fullbasepath))
+        current_files = {
+            f for f in os.listdir(bpath)
+            if os.path.isfile(os.path.join(bpath, f))
+            and any(f.lower().endswith(suf.lower()) for suf in ALLOWED_SUFFIXES)
+        }
 
-    # ---- 2. Finde neue Dateien (die noch nicht in der Liste sind) ----
-    new_files = current_files - existing_names_in_list
+        # ---- 1. Entferne Dateien, die nicht mehr existieren ----
+        existing_names_in_list = {fname for fname, _ in file_list}
+        file_list[:] = [(fname, mtime) for fname, mtime in file_list if fname in current_files]
 
-    # ---- 3. Füge neue Dateien mit mtime ein (nur hier wird getmtime aufgerufen) ----
-    for fname in new_files:
-        full_path = os.path.join(bpath, fname)
-        mtime = statMTime(bpath)  # Nur für neue Dateien aufrufen
-        insert_sorted(file_list, (fname, mtime))
+        # ---- 2. Finde neue Dateien (die noch nicht in der Liste sind) ----
+        new_files = current_files - existing_names_in_list
 
+        # ---- 3. Füge neue Dateien mit mtime ein (nur hier wird getmtime aufgerufen) ----
+        for fname in new_files:
+            full_path = os.path.join(bpath, fname)
+            mtime = statMTime(bpath)  # Nur für neue Dateien aufrufen
+            insert_sorted(file_list, (fname, mtime))
+    except:
+        print(traceback.format_exc(), flush=True)
+        
     return file_list
 
 
@@ -2914,29 +2954,4 @@ def format_timedelta_hundredth(td: timedelta) -> str:
 
 
 def initCutMode():
-    # global init
-    global cutModeActive, cutModeFolderOverrideActive, cutModeFolderOverridePath
-    cutModeActive=False
-    cutModeFolderOverrideActive=False
-    cutModeFolderOverridePath=str(Path.home())
-
-    global path
-    path = os.path.dirname(os.path.abspath(__file__))
-    # Add the current directory to the path so we can import local modules
-    if path not in sys.path:
-        sys.path.append(path)
-
-    # File Global
-    global videoActive, rememberThread, fileDragged, FILESCANTIME, TASKCHECKTIME, WAIT_DIALOG_THRESHOLD_TIME
-    videoActive=False
-    rememberThread=None
-    fileDragged=False
-    FILESCANTIME = 500
-    TASKCHECKTIME = 20
-    WAIT_DIALOG_THRESHOLD_TIME=2000
-
-    # ---- Tasks ----
-    global taskCounterUI, taskCounterAsync, showWaitDialog
-    taskCounterUI=0
-    taskCounterAsync=0
-    showWaitDialog=False
+    pass
