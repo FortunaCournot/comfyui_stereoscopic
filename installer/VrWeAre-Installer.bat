@@ -608,15 +608,15 @@ ECHO Install python requirements...
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-mmaudio\requirements.txt
 :: Some fixes
 ECHO Apply python fixes...
-GOTO skip_fixes
-.\python_embeded\python -m pip install -I decorator
-.\python_embeded\python -m pip install -I platformdirs
+:: Crystools
+.\python_embeded\python -m pip install -I piexif pynvml
+:: ComfyUI-MMAudio
+.\python_embeded\python -m pip install -I wcwidth decorator platformdirs
+:: ComfyUI-Florence2
 .\python_embeded\python -m pip install --upgrade numpy==2.2
-.\python_embeded\python -m pip install -I piexif
-.\python_embeded\python -m pip install -I wcwidth
-.\python_embeded\python -m pip install -I matplotlib
 .\python_embeded\python -m pip install -I opencv-python
-.\python_embeded\python -m pip install -I pynvml
+.\python_embeded\python -m pip install -I matplotlib
+GOTO skip_fixes
 :skip_fixes
 
 ::nvidia handling
