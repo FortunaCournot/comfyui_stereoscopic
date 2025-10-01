@@ -1120,11 +1120,12 @@ class RateAndCutDialog(QDialog):
                 folder=rfolder
             input=os.path.abspath(os.path.join(folder, replaceSomeChars(self.currentFile)))
             try:
+                suffix = ".mp4" if self.display.frame_count>0 else ".png"
                 outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
                 fnum=1
-                while os.path.exists(outputBase + str(fnum) + ".mp4"):
+                while os.path.exists(outputBase + str(fnum) + suffix):
                     fnum+=1
-                newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + ".mp4"
+                newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + suffix
                 output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
                 if self.isVideo:
                     trimA=self.display.trimAFrame
