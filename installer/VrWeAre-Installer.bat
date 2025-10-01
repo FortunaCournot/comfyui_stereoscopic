@@ -20,6 +20,7 @@ SET VRWEARE_VERSION=4.0
 :: ComfyUI_windows_portable_nvidia.7z from https://github.com/comfyanonymous/ComfyUI/releases
 SET COMFYUI_SHA=38c4cae0e4983a033d65920a3e293c58c986637c9fb15cb13274f0f5bc27ee89
 SET COMFYUI_TAG=v0.3.62
+SET PYTHON_VERSION=3.13
 
 :: Files ouside of my authority where i provided checksum:
 :: tar.gz from https://github.com/Comfy-Org/ComfyUI-Manager/tags
@@ -216,6 +217,24 @@ IF exist "%TVAI_BIN_DIR%\*" (
 )
 
 
+:CHECK_LOCAL_PYTHON
+SET LOCALPYTHONPATH=
+for %%k in (HKCU HKLM) do (
+    for %%w in (\ \Wow6432Node\) do (
+        for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wPython\PythonCore\!PYTHON_VERSION!\InstallPath" /ve  2^> nul') do (
+            for /f "tokens=3" %%z in ("%%a") do (
+                set LOCALPYTHONPATH=%%z:%%b
+				echo * Local Python !PYTHON_VERSION![92m ok [0m
+                goto CHECK_VRWEARE_VERSION
+            )
+        )
+    )
+)
+echo * Local Python !PYTHON_VERSION![91m not found[0m
+goto CHECK_VRWEARE_VERSION
+
+
+
 :CHECK_VRWEARE_VERSION
 :: Read the VR we are installation path from the Registry.
 :: echo Checking for existing VR we are installation...
@@ -242,8 +261,6 @@ IF not exist "%VRWEAREPATH%\*" (
   set VRWEAREPATH=
   GOTO SELECT_INSTALL_PATH
 )
-GOTO QUERY_UPDATE_OR_NEW
-
 
 :QUERY_UPDATE_OR_NEW
 IF %INTERACTIVE% equ 1 SET InstallFolder="%VRWEAREPATH%"\..
@@ -613,11 +630,11 @@ ECHO Apply python fixes...
 :: ComfyUI-MMAudio
 .\python_embeded\python -m pip install -I wcwidth decorator platformdirs
 :: ComfyUI-Florence2
-GOTO skip_fixes
-.\python_embeded\python -m pip install --upgrade numpy==2.2
-.\python_embeded\python -m pip install -I opencv-python
 .\python_embeded\python -m pip install -I matplotlib
-:skip_fixes
+
+:: skip these fixes:
+::.\python_embeded\python -m pip install --upgrade numpy==2.2
+::.\python_embeded\python -m pip install -I opencv-python
 
 ::nvidia handling
 SET HAS_NVIDIA_GPU=0
@@ -626,8 +643,39 @@ IF exist "C:\Windows\System32\nvidia-smi.exe" (
   C:\Windows\System32\nvidia-smi.exe --query-gpu=gpu_name --format=noheader,nounits
   SET HAS_NVIDIA_GPU=1
 )
+
+:: Following KronoKnights manual (https://www.reddit.com/r/StableDiffusion/comments/1jle4re/how_to_run_a_rtx_5090_50xx_with_triton_and_sage/)
+
+:: copy python libs
+IF "%LOCALPYTHONPATH%" == "" GOTO END_INSTALL_PACKS
+IF "%HAS_NVIDIA_GPU%" == "0" GOTO END_INSTALL_PACKS
+ECHO Copying Python libs for Sage Attention
+mkdir %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\libs
+copy /B %LOCALPYTHONPATH%libs\*.lib %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\libs
+
+:: sage attention dependencies
+ECHO Installing dependencies for Sage Attention
+.\python_embeded\python -m pip install --force-reinstall --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+.\python_embeded\python -m pip install bitsandbytes
+.\python_embeded\python -s -m pip install "accelerate >= 1.4.0"
+.\python_embeded\python -s -m pip install "diffusers >= 0.32.2"
+.\python_embeded\python -s -m pip install "transformers >= 4.49.0"
+.\python_embeded\python -s -m pip install ninja
+.\python_embeded\python -s -m pip install wheel
+.\python_embeded\python -s -m pip install packaging
+.\python_embeded\python -s -m pip install onnxruntime-gpu
+
+ECHO Installing Triton and Sage Attention
+.\python_embeded\python -m pip install -U --pre triton-windows
+cd python_embeded
+git clone https://github.com/thu-ml/SageAttention
 cd ..
-::pass
+.\python_embeded\python -m pip install sageattention
+echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+echo pause >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+:END_INSTALL_PACKS
+cd ..
+
 
 :CREATE_SHORTCUTS
 mkdir %VRWEAREPATH%\res
