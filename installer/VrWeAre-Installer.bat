@@ -277,7 +277,7 @@ GOTO QueryForInstallationType
 
 :SELECT_INSTALL_PATH
 ECHO/
-ECHO Please type the parent path of the installation and press ENTER.
+ECHO Please type the [2mparent path[0m of the installation and press ENTER.
 ECHO/
 ECHO Or alternatively drag ^& drop the folder from Windows
 ECHO Explorer on this console window and press ENTER.
@@ -498,7 +498,8 @@ echo         [Nn]* ) exit 1;; >>install.sh
 echo         * ) echo "Please answer yes or no.";; >>install.sh
 echo     esac >>install.sh
 echo done >>install.sh
-
+echo mkdir ./LICENSE >>install.sh
+echo mv -- ./LICENSE* ./LICENSE >>install.sh
 echo clear >>install.sh
 echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installing... ===\e[0m\n" >>install.sh
 echo echo -e $" " >>install.sh
@@ -592,10 +593,11 @@ reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v Un
 
 :: Install python requirements
 cd ComfyUI_windows_portable
+SET PATH=%VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\Scripts;%PATH%
 ECHO Install python requirements...
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-manager\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui_stereoscopic\requirements.txt
-.\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui_controlnet_aux\requirements.txt
+::.\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui_controlnet_aux\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfy-mtb\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-crystools\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-florence2\requirements.txt
@@ -604,6 +606,7 @@ ECHO Install python requirements...
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-mmaudio\requirements.txt
 :: Some fixes
 ECHO Apply python fixes...
+GOTO skip_fixes
 .\python_embeded\python -m pip install -I decorator
 .\python_embeded\python -m pip install -I platformdirs
 .\python_embeded\python -m pip install --upgrade numpy==2.2
@@ -612,6 +615,8 @@ ECHO Apply python fixes...
 .\python_embeded\python -m pip install -I matplotlib
 .\python_embeded\python -m pip install -I opencv-python
 .\python_embeded\python -m pip install -I pynvml
+:skip_fixes
+
 ::nvidia handling
 SET HAS_NVIDIA_GPU=0
 IF exist "C:\Windows\System32\nvidia-smi.exe" (
