@@ -169,7 +169,7 @@ except ImportError as e:
             return {"required": {"error": ("STRING", {"default": "Error loading RegexSubstitute"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
-        CATEGORY = "utils/string/stereoscopic"
+        CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
 
@@ -188,7 +188,25 @@ except ImportError as e:
             return {"required": {"error": ("STRING", {"default": "Error loading strftime"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
-        CATEGORY = "utils/string/stereoscopic"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from audio import SaveAudioSimple
+    print("[comfyui_stereoscopic] Successfully imported SaveAudioSimple")
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing SaveAudioSimple: {e}")
+
+    # Create a placeholder class
+    class SaveAudioSimple:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading SaveAudioSimple"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
 
@@ -205,6 +223,7 @@ NODE_CLASS_MAPPINGS = {
     "ScaleToResolution" : ScaleToResolution,
     "RegexSubstitute" : RegexSubstitute,
     "strftime" : strftime,
+    "SaveAudioSimple" : SaveAudioSimple,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -218,6 +237,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ScaleByFactor" : "Scale by Factor",
     "ScaleToResolution" : "ScaleToResolution",    
     "RegexSubstitute": "Regex Substitute",
-    "strftime": "strftime"
+    "strftime": "strftime",
+    "SaveAudioSimple": "Save Audio"
 }
 

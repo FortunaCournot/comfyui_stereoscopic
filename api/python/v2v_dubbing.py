@@ -61,7 +61,7 @@ prompt_text = """
       ],
       "steps": 25,
       "cfg": 6,
-      "seed": 249391616827393,
+      "seed": 1028263407902775,
       "prompt": [
         "193",
         0
@@ -100,7 +100,7 @@ prompt_text = """
       "num_beams": 3,
       "do_sample": false,
       "output_mask_select": "",
-      "seed": 554639759133520,
+      "seed": 589322187884242,
       "image": [
         "182",
         0
@@ -115,23 +115,9 @@ prompt_text = """
       "title": "Florence2Run"
     }
   },
-  "174": {
-    "inputs": {
-      "filename_prefix": "audio/ComfyUI",
-      "audioUI": "",
-      "audio": [
-        "171",
-        0
-      ]
-    },
-    "class_type": "SaveAudio",
-    "_meta": {
-      "title": "Output - Save Audio"
-    }
-  },
   "178": {
     "inputs": {
-      "video": "88968441.mp4",
+      "video": "teacher_bow_short.mp4",
       "force_rate": 25,
       "custom_width": 0,
       "custom_height": 0,
@@ -246,6 +232,20 @@ prompt_text = """
     "_meta": {
       "title": "Negative Prompt"
     }
+  },
+  "206": {
+    "inputs": {
+      "filename_prefix": "audio/sound",
+      "format": "flac",
+      "audio": [
+        "171",
+        0
+      ]
+    },
+    "class_type": "SaveAudioSimple",
+    "_meta": {
+      "title": "Save Audio"
+    }
   }
 }
 """
@@ -267,7 +267,7 @@ if len(sys.argv) == 1 + 6:
         negative = file.read().replace("\n", " ")
 
     prompt["178"]["inputs"]["video"] = sys.argv[1]
-    prompt["174"]["inputs"]["filename_prefix"] = sys.argv[2] 
+    prompt["206"]["inputs"]["filename_prefix"] = sys.argv[2] 
     prompt["191"]["inputs"]["value"] = int(sys.argv[3])
     prompt["201"]["inputs"]["value"] = positive
     prompt["202"]["inputs"]["value"] = negative

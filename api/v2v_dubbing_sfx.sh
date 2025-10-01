@@ -148,7 +148,8 @@ else
 	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX=output/vr/dubbing/sfx/intermediate/${TARGETPREFIX%.*}
+	TARGETPREFIX_CALL=vr/dubbing/sfx/intermediate/${TARGETPREFIX%.*}
+	TARGETPREFIX=output/${TARGETPREFIX_CALL}
 	FINALTARGETFOLDER=`realpath "output/vr/dubbing/sfx"`
 	
 	FADEOUTSTART=$((SEGMENTTIME-1))
@@ -158,6 +159,8 @@ else
 	mkdir -p "$TARGETPREFIX"".tmpdubbing"
 	SEGDIR=`realpath "$TARGETPREFIX""-$uuid"".tmpseg"`
 	DUBBINGDIR=`realpath "$TARGETPREFIX"".tmpdubbing"`
+	DUBBINGDIR_CALL="$TARGETPREFIX_CALL"".tmpdubbing"
+	
 	if [ ! -e "$DUBBINGDIR/concat.sh" ]
 	then
 		touch "$TARGETPREFIX""-$uuid"".tmpseg"/x
@@ -260,7 +263,7 @@ else
 					
 					echo $NOLINE "Prompting $p/$PARALLELITY: segment $dindex/$SEGCOUNT$itertimemsg           \r"
 					
-					echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR"/$p/dubsegment $AUDIOSEGMENTLENGTH "$POSITIVEPATH" "$NEGATIVEPATH" "$FLORENCE2MODEL" ; echo -ne $"\e[0m"
+					echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$TMPFILE" "$DUBBINGDIR_CALL"/$p/dubsegment $AUDIOSEGMENTLENGTH "$POSITIVEPATH" "$NEGATIVEPATH" "$FLORENCE2MODEL" ; echo -ne $"\e[0m"
 					
 					queuecount=
 					until [ "$queuecount" = "0" ]
