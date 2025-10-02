@@ -41,7 +41,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QRubberBand)
 
 
-TRACELEVEL=1
+TRACELEVEL=0
 
 SCENEDETECTION_INPUTLENGTHLIMIT=180.0
 SCENEDETECTION_THRESHOLD_DEFAULT=0.25
@@ -545,7 +545,8 @@ class RateAndCutDialog(QDialog):
         self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png') if isPaused else os.path.join(path, '../../gui/img/pause80.png') ))
 
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
-        self.button_startpause_video.setFocus()
+        if not self.isPaused:
+            self.button_startpause_video.setFocus()
 
     def fileSliderDragStart(self):
         global fileDragged
@@ -1458,11 +1459,12 @@ class RatingWidget(QWidget):
 class VideoThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, filepath, uid, slider, update, onVideoLoaded):
+    def __init__(self, parent, filepath, uid, slider, update, onVideoLoaded):
         super().__init__()
         global videoActive
         videoActive=False
 
+        self.parent = parent
         self.uid = uid
         self.filepath = filepath
         self.slider = slider
@@ -1608,6 +1610,7 @@ class VideoThread(QThread):
             if TRACELEVEL >= 1:
                 print("onSliderMouseClick. stop playback and seek", self.slider.value(), flush=True)
             self.seek(self.slider.value())
+            self.slider.setFocus()
 
     def posA(self):
         if not self.pause:
@@ -1819,7 +1822,7 @@ class Display(QLabel):
                 pass
             self.button.setIcon(QIcon(os.path.join(path, '../../gui/img/pause80.png')))
             self.button.setVisible(True)
-            self.thread = VideoThread(self.filepath, uid, self.slider, self.updatePaused, self.onVideoLoaded)
+            self.thread = VideoThread(self, self.filepath, uid, self.slider, self.updatePaused, self.onVideoLoaded)
             global rememberThread
             rememberThread=self.thread
             self.trimAFrame=0
@@ -1871,7 +1874,8 @@ class Display(QLabel):
         if self.thread:
             self.thread.tooglePause()
             self.button.setEnabled(True)
-            self.button.setFocus()
+            if not self.thread.isPaused():
+                self.button.setFocus()
 
     def isTrimmed(self):
         return self.trimAFrame > 0 or self.trimBFrame < self.frame_count-1
@@ -2131,18 +2135,20 @@ class FrameSlider(QSlider):
     def onSliderReleased(self):
         self._setTempPositioningText(0.5, "", Qt.blue)
         self.setCursor(Qt.PointingHandCursor)
+        slider=self
+
         
     def onSliderMoved(self, value):
         sliderpos = value / (self.maximum()+1)
         self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
+        self.setCursor(Qt.SizeHorCursor)
         
     def mousePressEvent(self, event):
+        super(FrameSlider, self).mousePressEvent(event)
         if event.button() == Qt.LeftButton:
             val = self.pixelPosToRangeValue(event.pos())
             self.setValue(val)
             self.onSliderMouseClick()
-            self.setCursor(Qt.SizeHorCursor)
-        super(FrameSlider, self).mousePressEvent(event)
 
     def pixelPosToRangeValue(self, pos):
         opt = QStyleOptionSlider()
