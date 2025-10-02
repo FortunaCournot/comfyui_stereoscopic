@@ -1086,18 +1086,22 @@ class RateAndCutDialog(QDialog):
             targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
             os.makedirs(targetfolder, exist_ok=True)
                 
-            source=os.path.join(folder, self.currentFile)
-            destination=os.path.join(targetfolder, replaceSomeChars(self.currentFile))
-            
-            self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
-            recreated=os.path.exists(destination)
+            source=os.path.abspath(os.path.join(folder, self.currentFile))
+            if os.path.exists(source):
+                destination=os.path.abspath(os.path.join(targetfolder, replaceSomeChars(os.path.basename(self.currentFile))))
+                
+                self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
+                recreated=os.path.exists(destination)
 
-            thread = threading.Thread(
-                target=self.move_worker,
-                args=(source, destination, index, recreated),
-                daemon=True
-            )
-            thread.start()
+                thread = threading.Thread(
+                    target=self.move_worker,
+                    args=(source, destination, index, recreated),
+                    daemon=True
+                )
+                thread.start()
+            else:
+                print("Error archiving/forwarding. Missing " + source, flush=True)
+                
         except:
             print("Error archiving/forwarding " + source, flush=True)
             print(traceback.format_exc(), flush=True)
@@ -1108,6 +1112,7 @@ class RateAndCutDialog(QDialog):
     def move_worker(self, source, destination, index, recreated):
         startAsyncTask()
         try:
+            print("move from", source, "to", destination, flush=True) 
             shutil.move(source, destination)
             QTimer.singleShot(0, partial(self.move_updater, index, recreated, True))
         except:
