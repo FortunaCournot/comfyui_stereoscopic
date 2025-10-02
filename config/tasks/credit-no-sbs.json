@@ -2,7 +2,7 @@
   "version": "1",
   "blueprint": "ffmpeg-v2v",
   "_comment": "PATH MUST BE SPECIFIED ABSOLUTE OR RELATIVE TO COMFYUI FOLDER.",
-  "options": "-stream_loop -1 -i custom_nodes/comfyui_stereoscopic/config/media/credit-vr-we-are-s_loop.mkv -filter_complex '[0:v][1:v]overlay=shortest=1:x=main_w-overlay_w-5:y=main_h-overlay_h-5'  -shortest -fflags +shortest",
+  "options": "-stream_loop -1 -i custom_nodes/comfyui_stereoscopic/config/media/credit-vr-we-are-s_loop.mkv -filter_complex '[0:v][1:v]overlay=shortest=1:x=main_w-overlay_w-5:y=main_h-overlay_h-5'  -shortest ",
   "input": "video;image",
   "output": "video;image",
 }
