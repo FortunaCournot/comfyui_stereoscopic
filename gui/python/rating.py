@@ -811,6 +811,7 @@ class RateAndCutDialog(QDialog):
                     self.hasCropOrTrim=False
                     self.button_startpause_video.setVisible(False)
                     self.sl.setVisible(False)
+                self.button_delete_file.setEnabled(True)
                     
             if self.currentIndex<0:
                 self.fileSlider.setEnabled(False)
@@ -1050,7 +1051,7 @@ class RateAndCutDialog(QDialog):
             if cutModeFolderOverrideActive:
                 folder=cutModeFolderOverridePath
             else:
-                folder=os.path.join(path, "../../../../../input/vr/check/rate")
+                folder=os.path.join(path, "../../../../input/vr/check/rate")
             input=os.path.abspath(os.path.join(folder, self.currentFile))
             if not input==path:
                 if TRACELEVEL >= 1:
