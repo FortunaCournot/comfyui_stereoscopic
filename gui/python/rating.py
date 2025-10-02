@@ -814,12 +814,15 @@ class RateAndCutDialog(QDialog):
                     
             if self.currentIndex<0:
                 self.fileSlider.setEnabled(False)
-                self.main_group_box.setTitle( "-" )
+                self.main_group_box.setTitle( "" )
                 self.isVideo = False
                 fileDragged=False
                 self.hasCropOrTrim=False
                 self.button_startpause_video.setVisible(False)
                 self.sl.setVisible(False)
+                self.display.stopAndBlackout()
+                if self.cutMode:
+                    self.cropWidget.display_sliders(False)
                 
             if self.cutMode:
                 self.button_trima_video.setVisible(self.isVideo)
@@ -1323,8 +1326,9 @@ class RateAndCutDialog(QDialog):
 
     def closeOnError(self, msg):
         print(msg, flush=True)
+        self.currentIndex=-1
         self.display.stopAndBlackout()
-        #self.done(QDialog.Rejected)
+        self.rateCurrentFile()
 
 class HoverLabel(QLabel):
     """A QLabel that detects hover and click events."""
@@ -1666,6 +1670,7 @@ class Display(QLabel):
         self.display_height = 2160
         self.resize(self.display_width, self.display_height)
         self.setAlignment(Qt.AlignCenter)
+        self.filepath = ""
         self.qt_img = None
         if cutMode:
             self.setCursor(Qt.CrossCursor)
@@ -1800,6 +1805,8 @@ class Display(QLabel):
             self.update_image(np.array([]), -1)
         else:
             self.update_image(np.array([]), -1)
+        self.filepath = ""
+        self.frame_count=-1
         self.scene_intersections = []
         
     def registerForUpdates(self, onUpdateImage):
@@ -2392,6 +2399,7 @@ class CropWidget(QWidget):
 
     def display_sliders(self, visible: bool):
         """Aktiviert oder deaktiviert Sichtbarkeit aller Slider."""
+        self.slidersVisible=visible
         self.slider_left.setVisible(visible)
         self.slider_right.setVisible(visible)
         self.slider_top.setVisible(visible)
@@ -2410,8 +2418,8 @@ class CropWidget(QWidget):
         self.slider_right.setValue(w-x1)
         self.slider_top.setValue(y0)
         self.slider_bottom.setValue(h-y1)
-
-
+        
+        
     # ----------- FRAME SETTINGS -----------
     def change_frame_color(self):
         if not self.original_pixmap:
@@ -2625,9 +2633,9 @@ class CropWidget(QWidget):
 
         self.magnifier.setPixmap(zoom_pixmap)
         self.magnifier.move(self.width() - self.magnifier.width() - 36, 30)
-        self.magnifier.show()
-        self.magnifier.raise_()  # <-- Bringt die Lupe in den Vordergrund!
-
+        if self.slidersVisible:
+            self.magnifier.show()
+            self.magnifier.raise_()  # <-- Bringt die Lupe in den Vordergrund!
 
 
     def enterEvent(self, event):
