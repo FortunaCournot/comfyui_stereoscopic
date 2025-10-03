@@ -41,7 +41,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QRubberBand)
 
 
-TRACELEVEL=0
+TRACELEVEL=3
 
 SCENEDETECTION_INPUTLENGTHLIMIT=180.0
 SCENEDETECTION_THRESHOLD_DEFAULT=0.25
@@ -459,19 +459,20 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True)
 
     def keyPressEvent(self, event):
+        if event.key() == Qt.Key_S:
+            if self.display.slider.isEnabled() and self.display.slider.isVisible():
+                self.display.nextScene()
+        elif event.key() == Qt.Key_P:
+            if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible():
+                self.display.tooglePausePressed()
+                
         if self.cutMode:
-            if event.key() == Qt.Key_S:
-                if self.display.slider.isEnabled() and self.display.slider.isVisible():
-                    self.display.nextScene()
-            elif event.key() == Qt.Key_A:
+            if event.key() == Qt.Key_A:
                 if self.button_trima_video.isEnabled() and self.button_trima_video.isVisible():
                     self.display.trimA()
             elif event.key() == Qt.Key_D:
                 if self.button_trimb_video.isEnabled() and self.button_trimb_video.isVisible():
                     self.display.trimB()
-            elif event.key() == Qt.Key_P:
-                if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible():
-                    self.display.tooglePausePressed()
         else:
             if event.key() == Qt.Key_1:
                 self.rating_widget.rate(1)
@@ -904,7 +905,7 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True) 
 
-    def customfolder_updater(self, override, path):
+    def customfolder_updater(self, override, dirpath):
 
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         try:
@@ -921,7 +922,7 @@ class RateAndCutDialog(QDialog):
         finally:
             self.folderAction.setChecked(override)
             self.folderAction.setEnabled(True)
-            self.dirlabel.setText(path)
+            self.dirlabel.setText(dirpath)
             endAsyncTask()
  
     def on_rating_changed(self, rating):
@@ -1016,14 +1017,14 @@ class RateAndCutDialog(QDialog):
             print("Failed: "  + cmd, flush=True)
         endAsyncTask()
     
-    def sceneFinder_worker(self, path, threshold):
+    def sceneFinder_worker(self, pathtofile, threshold):
         startAsyncTask()
         tmp = tempfile.NamedTemporaryFile(delete=False)
         tmp.close()
         out = tempfile.NamedTemporaryFile(delete=False)
         out.close()
         try:
-            cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + path + "\" -filter:v \"select='gt(scene,"  + str(threshold) + ")',showinfo\" -f null - 2>> "+tmp.name
+            cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + pathtofile + "\" -filter:v \"select='gt(scene,"  + str(threshold) + ")',showinfo\" -f null - 2>> "+tmp.name
             cmd2 = "grep showinfo \"" + tmp.name + "\" | grep pts_time:[0-9.]* -o | grep [0-9.]* -o > " + out.name
             
             if TRACELEVEL >= 3:
@@ -1033,7 +1034,7 @@ class RateAndCutDialog(QDialog):
                 print("Executing", cmd2, flush=True)
             cp = subprocess.run(cmd2, shell=True, check=False)
             
-            QTimer.singleShot(0, partial(self.sceneFinder_updater, path, tmp.name, out.name))
+            QTimer.singleShot(0, partial(self.sceneFinder_updater, pathtofile, tmp.name, out.name))
         except subprocess.CalledProcessError as se:
             print(traceback.format_exc(), flush=True) 
             os.unlink(tmp.name)
@@ -1045,26 +1046,19 @@ class RateAndCutDialog(QDialog):
             os.unlink(out.name)
             endAsyncTask()
 
-    def sceneFinder_updater(self, path, tmpfilename, outfilename):
+    def sceneFinder_updater(self, pathtofile, tmpfilename, outfilename):
         scene_intersections=[]
         try:
-            if cutModeFolderOverrideActive:
-                folder=cutModeFolderOverridePath
-            else:
-                folder=os.path.join(path, "../../../../input/vr/check/rate")
-            input=os.path.abspath(os.path.join(folder, self.currentFile))
-            if not input==path:
-                if TRACELEVEL >= 1:
-                    print("Info: sceneFinder_updater detected file switch. update canceled.", input, path, flush=True)
-                return
-            
             with open(outfilename) as file:
                 while line := file.readline():
                     try:
                         scene_intersections.append(float(line.rstrip()))
                     except:
                         pass
-            self.cropWidget.applySceneIntersections(scene_intersections)
+            if self.cutMode:
+                self.cropWidget.applySceneIntersections(scene_intersections)
+            else:
+                self.display.applySceneIntersections(scene_intersections)
         except:
             print(traceback.format_exc(), flush=True)
         finally:
@@ -1319,7 +1313,7 @@ class RateAndCutDialog(QDialog):
             else:
                 folder=os.path.join(path, "../../../../input/vr/check/rate")
             input=os.path.abspath(os.path.join(folder, self.currentFile))
-
+            
             thread = threading.Thread(
                 target=self.sceneFinder_worker,
                 args=(input, SCENEDETECTION_THRESHOLD_DEFAULT,),
@@ -2694,8 +2688,8 @@ class ActionButton(QPushButton):
         )
         
 class StyledIcon(QIcon):
-    def __init__(self, path):
-        enabled_icon = QPixmap(path)
+    def __init__(self, pathtofile):
+        enabled_icon = QPixmap(pathtofile)
         super().__init__(enabled_icon)
         
         img = enabled_icon.toImage()
