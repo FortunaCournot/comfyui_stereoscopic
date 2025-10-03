@@ -278,6 +278,12 @@ class RateAndCutDialog(QDialog):
                 self.button_justrate_compress.setVisible(cutMode)
                 self.button_justrate_compress.clicked.connect(self.rateOrArchiveAndNext)
                 self.justRate=True
+            else:
+                self.button_return2edit = ActionButton()
+                self.button_return2edit.setIcon(StyledIcon(os.path.join(path, '../../gui/img/return2edit80.png')))
+                self.button_return2edit.setIconSize(QSize(80,80))
+                self.button_return2edit.setEnabled(True)
+                self.button_return2edit.clicked.connect(self.return2edit)
             
             self.button_next_file = ActionButton()
             self.button_next_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/nextf80.png')))
@@ -291,6 +297,8 @@ class RateAndCutDialog(QDialog):
             self.button_delete_file.setEnabled(True)
             self.button_delete_file.clicked.connect(self.deleteAndNext)
             self.button_delete_file.setFocusPolicy(Qt.ClickFocus)
+
+            
             
             self.sl = FrameSlider(Qt.Horizontal)
             
@@ -373,12 +381,14 @@ class RateAndCutDialog(QDialog):
             
             self.commontool_layout.addWidget(self.button_next_file, 0, ew+3, 1, 1)
             self.commontool_layout.addWidget(self.sp3, 0, ew+4, 1, 1)
-            self.commontool_layout.addWidget(self.button_delete_file, 0, ew+5, 1, 1)
+            if not cutMode:
+                self.commontool_layout.addWidget(self.button_return2edit, 0, ew+5, 1, 1)
+            self.commontool_layout.addWidget(self.button_delete_file, 0, ew+6, 1, 1)
             
             self.msgWidget=QPlainTextEdit()
             self.msgWidget.setReadOnly(True)
             self.msgWidget.setFrameStyle(QFrame.NoFrame)
-            self.commontool_layout.addWidget(self.msgWidget, 0, ew+6, 1, ew)
+            self.commontool_layout.addWidget(self.msgWidget, 0, ew+7, 1, ew)
             self.msgWidget.setPlaceholderText("No log entries.")
             
             self.button_startpause_video.clicked.connect(self.display.tooglePausePressed)
@@ -430,6 +440,7 @@ class RateAndCutDialog(QDialog):
                 self.rating_widget.setVisible(False)
             self.button_prev_file.setVisible(False)
             self.button_next_file.setVisible(False)
+            self.button_return2edit.setVisible(False)
             self.button_delete_file.setVisible(False)
             self.fileSlider.setVisible(False)
             
@@ -607,6 +618,7 @@ class RateAndCutDialog(QDialog):
                     self.rating_widget.setVisible(False)
                 self.button_prev_file.setVisible(False)
                 self.button_next_file.setVisible(False)
+                self.button_return2edit.setVisible(False)
                 self.button_delete_file.setVisible(False)
                 self.fileSlider.setVisible(False)
         else:
@@ -621,6 +633,7 @@ class RateAndCutDialog(QDialog):
                 self.button_endframe.setVisible(self.isVideo)
             else:
                 self.rating_widget.setVisible(True)
+                self.button_return2edit.setVisible("/" in self.currentFile)
             self.button_prev_file.setVisible(True)
             self.button_next_file.setVisible(True)
             self.button_delete_file.setVisible(True)
@@ -1066,25 +1079,36 @@ class RateAndCutDialog(QDialog):
             os.unlink(outfilename)
             endAsyncTask()
 
+    def return2edit(self):
+        srcfolder=os.path.join(path, "../../../../input/vr/check/rate")
+        targetfolder = os.path.join(path, "../../../../input/vr/check/rate")
+        actionPrefix = "Revision "
+        self._moveFile(srcfolder, targetfolder, actionPrefix)
+        
     def rateOrArchiveAndNext(self):
+        if cutModeFolderOverrideActive:
+            srcfolder=cutModeFolderOverridePath
+        else:
+            srcfolder=os.path.join(path, "../../../../input/vr/check/rate")
+        targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
+        actionPrefix = "Forward " if self.justRate else "Archive "
+        self._moveFile(srcfolder, targetfolder, actionPrefix)
+        
+    def _moveFile(self, srcfolder, targetfolder, actionPrefix):
         enterUITask()
         try:
             self.display.stopAndBlackout()
 
             files=getFilesToRate()
             index=files.index(self.currentFile)
-            if cutModeFolderOverrideActive:
-                folder=cutModeFolderOverridePath
-            else:
-                folder=os.path.join(path, "../../../../input/vr/check/rate")
-            targetfolder = os.path.join(path, "../../../../input/vr/check/rate/ready" if self.justRate else "../../../../input/vr/check/rate/done")
+
             os.makedirs(targetfolder, exist_ok=True)
                 
-            source=os.path.abspath(os.path.join(folder, self.currentFile))
+            source=os.path.abspath(os.path.join(srcfolder, self.currentFile))
             if os.path.exists(source):
                 destination=os.path.abspath(os.path.join(targetfolder, replaceSomeChars(os.path.basename(self.currentFile))))
                 
-                self.log( ( "Forward " if self.justRate else "Archive " ) + self.currentFile, QColor("white"))
+                self.log( actionPrefix + self.currentFile, QColor("white"))
                 recreated=os.path.exists(destination)
 
                 thread = threading.Thread(
@@ -1094,10 +1118,10 @@ class RateAndCutDialog(QDialog):
                 )
                 thread.start()
             else:
-                print("Error archiving/forwarding. Missing " + source, flush=True)
+                print("Error "+actionPrefix+". Missing " + source, flush=True)
                 
         except:
-            print("Error archiving/forwarding " + source, flush=True)
+            print("Error " + actionPrefix + source, flush=True)
             print(traceback.format_exc(), flush=True)
         finally:
             leaveUITask()
@@ -1108,7 +1132,18 @@ class RateAndCutDialog(QDialog):
         try:
             print("move from", source, "to", destination, flush=True) 
             shutil.move(source, destination)
-            QTimer.singleShot(0, partial(self.move_updater, index, recreated, True))
+            countdown=5
+            while os.path.exists(source):
+                countdown=countdown-1
+                if countdown<0:
+                    break
+                print("source file still exists. retry ...", flush=True)
+                time.sleep(2)
+                shutil.move(source, destination)
+            if countdown<0:
+                QTimer.singleShot(0, partial(self.move_updater, index, recreated, False))
+            else:
+                QTimer.singleShot(0, partial(self.move_updater, index, recreated, True))
         except:
             print(traceback.format_exc(), flush=True) 
             QTimer.singleShot(0, partial(self.move_updater, index, recreated, False))
@@ -1136,7 +1171,7 @@ class RateAndCutDialog(QDialog):
             self.currentIndex=index
             self.rateCurrentFile()
         except Exception:
-            print("Error archiving/forwarding " + source, flush=True)
+            print("Error moving " + source, flush=True)
             print(traceback.format_exc(), flush=True) 
         finally:
             endAsyncTask()
@@ -2227,9 +2262,13 @@ class CropWidget(QWidget):
 
         # Slider
         self.slider_left = self.create_slider(Qt.Horizontal, False)
+        self.slider_left.setFocusPolicy(Qt.ClickFocus)
         self.slider_right = self.create_slider(Qt.Horizontal, True)
+        self.slider_right.setFocusPolicy(Qt.ClickFocus)
         self.slider_top = self.create_slider(Qt.Vertical, True)
+        self.slider_top.setFocusPolicy(Qt.ClickFocus)
         self.slider_bottom = self.create_slider(Qt.Vertical, False)
+        self.slider_bottom.setFocusPolicy(Qt.ClickFocus)
 
         # Lupen-Label
         self.magnifier = QLabel(self)
