@@ -545,8 +545,11 @@ echo clear >>install.sh
 echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installing... ===\e[0m\n" >>install.sh
 echo echo -e $" " >>install.sh
 
-::  clear any old custom nodes and flag for reinstallation
+::  clear any old python and custom nodes and flag for reinstallation
+echo   rm -f  -- ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.daemonactive >>install.sh
+echo   rm -f  -- ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.guiactive >>install.sh
 echo   rm -rf  -- ComfyUI_windows_portable/ComfyUI/custom_nodes >>install.sh
+echo   rm -rf  -- ComfyUI_windows_portable/python_embeded >>install.sh
 
 echo if [ ^^! -d ComfyUI_windows_portable/ComfyUI/custom_nodes ]; then >>install.sh
 :: Download and unpackage ComfyUI portable - GNU GENERAL PUBLIC LICENSE v3 (c) ComfyUI Code Owners
@@ -598,11 +601,11 @@ echo\ >>install.sh
 :: pass
 
 :: Install default pipeline
-ECHO cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward-template.yaml ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+ECHO cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward-template.yaml ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
 :: Apply install options
-IF %PIPELINE_OPTION_SBS% equ 0 ECHO sed -i "s/: tasks\/no-sbs/: fullsbs/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
-IF %PIPELINE_OPTION_FLI2V% equ 0 ECHO sed -i "s/FLIMAGE_TARGET/caption/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
-IF %PIPELINE_OPTION_FLI2V% equ 1 ECHO sed -i "s/FLIMAGE_TARGET/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_SBS% equ 0 ECHO sed -i "s/: tasks\/no-sbs/: fullsbs/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_FLI2V% equ 0 ECHO sed -i "s/FLIMAGE_TARGET/caption/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_FLI2V% equ 1 ECHO sed -i "s/FLIMAGE_TARGET/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
 
 
 :: Continue installation with bash script
