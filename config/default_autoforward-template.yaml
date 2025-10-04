@@ -1,0 +1,181 @@
+---
+# delete this file (in user\default\comfyui_stereoscopic) to reset it to defaults.
+# After editing you have restart service daemon to apply changes.
+
+pipeline:
+  - from: caption
+    keepinput: true
+    forward:
+      - rule:
+          to: tasks/reencode
+          conditions:
+            - codec_type=audio
+      - rule:
+          to: tasks/fps-limit-30
+          conditions:
+            - tvai=true
+      - rule:
+          to: tasks/fps-limit-30
+          conditions:
+            - vram>8
+      - rule:
+          to: tasks/fps-limit-15
+      - rule:
+          to: scaling
+          conditions:
+            - duration<1
+  - from: tasks/createsilence
+    forward:
+      - rule:
+          to: tasks/reencode
+  - from: tasks/reencode
+    forward:
+      - rule:
+          to: tasks/fps-limit-30
+          conditions:
+            - tvai=true
+      - rule:
+          to: tasks/fps-limit-30
+          conditions:
+            - vram>8
+      - rule:
+          to: tasks/fps-limit-15
+  - from: tasks/fps-limit-15
+    forward:
+      - rule:
+          to: scaling
+  - from: tasks/fps-limit-30
+    forward:
+      - rule:
+          to: scaling
+  - from: scaling
+    forward:
+      - rule:
+          to: tasks/hlimit-2160
+          conditions:
+            - calculated_aspect<1000
+            - sbs=false
+            - width>2160
+      - rule:
+          to: tasks/vlimit-2160p
+          conditions:
+            - sbs=false
+            - height>2160
+      - rule:
+          to: tasks/vlimit-1080p
+          conditions:
+            - sbs=false
+            - duration>90
+      - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+  - from: tasks/hlimit-2160
+    forward:
+      - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+      - rule:
+          to: watermark/encrypt
+          conditions:
+            - duration<1
+  - from: tasks/vlimit-2160p
+    forward:
+      - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+      - rule:
+          to: watermark/encrypt
+          conditions:
+            - duration<1
+  - from: tasks/vlimit-1080p
+    forward:
+      - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+      - rule:
+          to: watermark/encrypt
+          conditions:
+            - duration<1
+  - from: fullsbs
+    keepinput: true
+    forward:
+      - rule:
+          to: interpolate
+          conditions:
+            - duration<60
+            - tvai=true
+            - width<7681
+            - r_frame_rate<24
+      - rule:
+          to: singleloop
+          conditions:
+            - codec_type!=audio
+            - duration<20
+      - rule:
+          to: dubbing/sfx
+          conditions:
+            - codec_type!=audio
+      - rule:
+          to: watermark/encrypt
+  - from: tasks/vlimit-720p
+    forward:
+      - rule:
+          to: interpolate
+          conditions:
+            - duration<20
+            - vram>6
+            - r_frame_rate<24
+      - rule:
+          to: singleloop
+          conditions:
+            - codec_type!=audio
+            - duration<20
+      - rule:
+          to: dubbing/sfx
+          conditions:
+            - codec_type!=audio
+  - from: interpolate
+    forward:
+      - rule:
+          to: interpolate
+          conditions:
+            - r_frame_rate<24
+      - rule:
+          to: singleloop
+          conditions:
+            - codec_type!=audio
+            - duration<20
+      - rule:
+          to: dubbing/sfx
+          conditions:
+            - codec_type!=audio
+  - from: singleloop
+    keepinput: true
+    forward:
+      - rule:
+          to: dubbing/sfx
+          conditions:
+            - codec_type!=audio
+  - from: tasks/forwarder
+    forward:
+      - rule:
+          to: check/rate
+  - from: check/rate
+    forward:
+      - rule:
+          to: check/released
+  - from: check/released
+    forward:
+      - rule:
+          to: FLIMAGE_TARGET
+          conditions:
+            - duration<1
+          to: caption
+  - from: slides
+    keepinput: true
+  - from: tasks/split-1m
+    keepinput: true

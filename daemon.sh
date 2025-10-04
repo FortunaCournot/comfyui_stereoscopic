@@ -10,7 +10,7 @@ cd $COMFYUIPATH
 
 NOCLEANUP=0
 while [ -e user/default/comfyui_stereoscopic/.daemonactive ]; do
-    read -p "daemon already active. Start anyway? " yn
+    read -p "lock file exists. daemon already active or was killed. Start again? " yn
     case $yn in
         [Yy]* ) break;;
         [Nn]* ) NOCLEANUP=1; exit 0;;

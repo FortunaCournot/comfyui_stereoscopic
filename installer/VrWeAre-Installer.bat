@@ -283,7 +283,6 @@ IF ERRORLEVEL 2 GOTO SELECT_INSTALL_PATH
 IF ERRORLEVEL 1 GOTO PREPARE_UPDATE
 GOTO End
 
-
 :PREPARE_UPDATE
 :: nothing yet
 GOTO QueryForInstallationType
@@ -305,10 +304,10 @@ ECHO/
 SET InstallFolder=""
 SET /P "InstallFolder=Path: "
 SET "InstallFolder=%InstallFolder:"=%"
-IF "%InstallFolder%" == "" GOTO VRWEARE_PARENT_QUERY
+IF "%InstallFolder%" == "" GOTO SELECT_INSTALL_PATH
 SET "InstallFolder=%InstallFolder:/=\%"
 IF "%InstallFolder:~-1%" == "\" SET "InstallFolder=%InstallFolder:~0,-1%"
-IF "%InstallFolder%" == "" GOTO VRWEARE_PARENT_QUERY
+IF "%InstallFolder%" == "" GOTO SELECT_INSTALL_PATH
 ECHO/
 
 if not exist "%InstallFolder%\*" (
@@ -317,13 +316,35 @@ if not exist "%InstallFolder%\*" (
 	CALL
 	CHOICE /C YN /M "Do you want to enter the path once again "
 	IF ERRORLEVEL 2 GOTO End
-	IF ERRORLEVEL 1 GOTO VRWEARE_PARENT_QUERY
+	IF ERRORLEVEL 1 GOTO SELECT_INSTALL_PATH
 	GOTO End
 )
 
 
 :QueryForInstallationType
 IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
+SET PIPELINE_OPTION_SBS=1
+SET PIPELINE_OPTION_FLI2V=0
+:QueryForInstallationTypeCont
+SET PIPELINE_OPTION_SBS_TEXT=On
+SET PIPELINE_OPTION_FLI2V_TEXT=On
+IF %PIPELINE_OPTION_SBS% equ 0 SET PIPELINE_OPTION_SBS_TEXT=Off
+IF %PIPELINE_OPTION_FLI2V% equ 0 SET PIPELINE_OPTION_FLI2V_TEXT=Off
+CLS
+ECHO/
+ECHO Please choose the installation options:
+ECHO/ 
+ECHO   1 - Pipeline with SBS-Converter: %PIPELINE_OPTION_SBS%
+ECHO   2 - Pipeline with SBS-Converter: %PIPELINE_OPTION_FLI2V%
+ECHO/
+ECHO   Y - Install / N - QUIT
+ECHO/
+CHOICE /C 12Y /M " "
+IF ERRORLEVEL 3 GOTO VRWEARE_PARENT_CHECK
+IF ERRORLEVEL 2 GOTO SET /A "PIPELINE_OPTION_SBS=1-%PIPELINE_OPTION_SBS%" ; QueryForInstallationTypeCont
+IF ERRORLEVEL 1 GOTO SET /A "PIPELINE_OPTION_FLI2V=1-%PIPELINE_OPTION_FLI2V%" ; QueryForInstallationTypeCont
+GOTO End
+
 :: nothing do do yet - pass
 
 
@@ -574,6 +595,14 @@ echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl  >>install
 echo   installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/control-LoRAs-rank256/control-lora-recolor-rank256.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl/control-lora-recolor-rank256.safetensors" "b0bf3c163b6f578b3a73e9cf61c3e4219ae9c2a06903663205d1251cf2498925" >>install.sh
 echo\ >>install.sh
 :: pass
+
+:: Install default pipeline
+ECHO cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward-template.yaml ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+:: Apply install options
+IF %PIPELINE_OPTION_SBS% equ 0 ECHO sed -i "s/: tasks\/no-sbs/: fullsbs/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_FLI2V% equ 0 ECHO sed -i "s/FLIMAGE_TARGET/caption/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_FLI2V% equ 1 ECHO sed -i "s/FLIMAGE_TARGET/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+
 
 :: Continue installation with bash script
 :CALL_BASH
