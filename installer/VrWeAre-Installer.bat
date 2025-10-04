@@ -203,14 +203,14 @@ IF exist "%TVAI_BIN_DIR%\*" (
   IF exist "%TVAI_MODEL_DIR%\!MODEL!.json" (
        echo     + !MODEL! [92mok[0m
   ) ELSE (
-       echo     + !MODEL! [91missing[0m Deactivating TVAI.
+       echo     + !MODEL! [91mMissing[0m Deactivating TVAI.
 	   SET TVAI_MODELERROR=1
   )
   SET MODEL=chf-3
   IF exist "%TVAI_MODEL_DIR%\!MODEL!.json" (
        echo     + !MODEL! [92mok[0m
   ) ELSE (
-       echo     + !MODEL! [91missing[0m Deactivating TVAI.
+       echo     + !MODEL! [91mMissing[0m Deactivating TVAI.
 	   SET TVAI_MODELERROR=1
   )
  )
@@ -334,15 +334,16 @@ CLS
 ECHO/
 ECHO Please choose the installation options:
 ECHO/ 
-ECHO   1 - Pipeline with SBS-Converter: %PIPELINE_OPTION_SBS%
-ECHO   2 - Pipeline with SBS-Converter: %PIPELINE_OPTION_FLI2V%
+ECHO   1 - Pipeline with SBS-Converter: %PIPELINE_OPTION_SBS_TEXT%
+ECHO   2 - Judging: Pipeline for FLI2V: %PIPELINE_OPTION_FLI2V_TEXT%
 ECHO/
-ECHO   Y - Install / N - QUIT
+ECHO   Y - Yes, Install / N - No, QUIT
 ECHO/
-CHOICE /C 12Y /M " "
+CHOICE /C 12YN /M " "
+IF ERRORLEVEL 3 GOTO End
 IF ERRORLEVEL 3 GOTO VRWEARE_PARENT_CHECK
-IF ERRORLEVEL 2 GOTO SET /A "PIPELINE_OPTION_SBS=1-%PIPELINE_OPTION_SBS%" ; QueryForInstallationTypeCont
-IF ERRORLEVEL 1 GOTO SET /A "PIPELINE_OPTION_FLI2V=1-%PIPELINE_OPTION_FLI2V%" ; QueryForInstallationTypeCont
+IF ERRORLEVEL 2 SET /A "PIPELINE_OPTION_FLI2V=1-%PIPELINE_OPTION_FLI2V%" & GOTO QueryForInstallationTypeCont
+IF ERRORLEVEL 1 SET /A "PIPELINE_OPTION_SBS=1-%PIPELINE_OPTION_SBS%" & GOTO QueryForInstallationTypeCont
 GOTO End
 
 :: nothing do do yet - pass
