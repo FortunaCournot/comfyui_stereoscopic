@@ -407,7 +407,7 @@ echo   if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -e $"\e[91mCheck-sum error. Installation failed.\e[0m" >>install.sh
 echo      exit 1 >>install.sh
 echo   fi >>install.sh
-echo   7z x $2 >>install.sh
+echo   7z x -y $2 >>install.sh
 echo   if [ $? -ne 0 ]; then >>install.sh
 echo     echo -e $"\e[91mError while unpacking. Installation failed.\e[0m" >>install.sh
 echo     exit 1 >>install.sh
@@ -677,11 +677,13 @@ IF exist "C:\Windows\System32\nvidia-smi.exe" (
   SET HAS_NVIDIA_GPU=1
 )
 
-:: Following KronoKnights manual (https://www.reddit.com/r/StableDiffusion/comments/1jle4re/how_to_run_a_rtx_5090_50xx_with_triton_and_sage/)
 
-:: copy python libs
+DEL %VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 IF "%LOCALPYTHONPATH%" == "" GOTO END_INSTALL_PACKS
 IF "%HAS_NVIDIA_GPU%" == "0" GOTO END_INSTALL_PACKS
+
+:: Following KronoKnights manual (https://www.reddit.com/r/StableDiffusion/comments/1jle4re/how_to_run_a_rtx_5090_50xx_with_triton_and_sage/)
+:: copy python libs
 ECHO Copying Python libs for Sage Attention
 mkdir %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\libs
 copy /B %LOCALPYTHONPATH%libs\*.lib %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\libs
