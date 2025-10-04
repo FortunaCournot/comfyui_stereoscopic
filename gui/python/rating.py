@@ -47,7 +47,7 @@ SCENEDETECTION_INPUTLENGTHLIMIT=180.0
 SCENEDETECTION_THRESHOLD_DEFAULT=0.25
 
 # Globale statische Liste der erlaubten Suffixe
-ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webm", ".jpg", ".jpeg"]
+ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webm", ".jpg", ".jpeg", ".ts"]
 global _readyfiles
 _readyfiles=[]
 
@@ -438,9 +438,9 @@ class RateAndCutDialog(QDialog):
                 self.button_snapshot_from_video.setVisible(False)
             else:
                 self.rating_widget.setVisible(False)
+                self.button_return2edit.setVisible(False)
             self.button_prev_file.setVisible(False)
             self.button_next_file.setVisible(False)
-            self.button_return2edit.setVisible(False)
             self.button_delete_file.setVisible(False)
             self.fileSlider.setVisible(False)
             
@@ -484,6 +484,19 @@ class RateAndCutDialog(QDialog):
             elif event.key() == Qt.Key_D:
                 if self.button_trimb_video.isEnabled() and self.button_trimb_video.isVisible():
                     self.display.trimB()
+            elif event.key() == Qt.Key_U:
+                if self.display.slider.isEnabled() and self.display.slider.isVisible() and not self.display.slider.hasFocus():
+                    self.display.slider.setFocus()
+            elif event.key() == Qt.Key_PageUp:
+                if self.display.slider.isEnabled() and self.display.slider.isVisible() and not self.display.slider.hasFocus():
+                    if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible() and not self.display.isPaused():
+                        self.display.tooglePausePressed()
+                    self.display.slider.setFocus()
+            elif event.key() == Qt.Key_PageDown:
+                if self.display.slider.isEnabled() and self.display.slider.isVisible() and not self.display.slider.hasFocus():
+                    if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible() and not self.display.isPaused():
+                        self.display.tooglePausePressed()
+                    self.display.slider.setFocus()
         else:
             if event.key() == Qt.Key_1:
                 self.rating_widget.rate(1)
@@ -1808,7 +1821,7 @@ class Display(QLabel):
 
     def showFile(self, filepath):
         self.stopAndBlackout()
-        videoExtensions = ['.mp4']
+        videoExtensions = ['.mp4', '.webm', '.ts']
         if filepath.endswith(tuple(videoExtensions)):
             self.setVideo(filepath)
             return "video"
@@ -1918,6 +1931,12 @@ class Display(QLabel):
             self.button.setEnabled(True)
             if not self.thread.isPaused():
                 self.button.setFocus()
+
+    def isPaused(self):
+        if self.thread:
+            return self.thread.isPaused()
+        else:
+            return True
 
     def isTrimmed(self):
         return self.trimAFrame > 0 or self.trimBFrame < self.frame_count-1
