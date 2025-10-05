@@ -7,10 +7,6 @@ pipeline:
     keepinput: true
     forward:
       - rule:
-          to: tasks/reencode
-          conditions:
-            - codec_type=audio
-      - rule:
           to: tasks/fps-limit-30
           conditions:
             - tvai=true
