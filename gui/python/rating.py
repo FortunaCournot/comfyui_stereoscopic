@@ -203,8 +203,7 @@ class RateAndCutDialog(QDialog):
                 self.setWindowTitle("VR We Are - Check Files: Rating")
             self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
             self.setMaximumSize(QSize(3840,2160))
-            #self.setMinimumSize(QSize(1920,1080))
-            self.setGeometry(150, 150, 1280, 768)
+            self.setGeometry(150, 150, 768, 768)
             self.outer_main_layout = QVBoxLayout()
             self.setLayout(self.outer_main_layout)
             self.setStyleSheet("background-color : black;")
@@ -2302,13 +2301,15 @@ class CropWidget(QWidget):
         self.main_layout = QGridLayout()
         main_layout=self.main_layout
         
-        iw=1000
-        cw=1
+        iw=20
+        cw=5
         
         self.sp1=QLabel()
         self.sp2=QLabel()
         self.sp1.setMinimumHeight(32)
         self.sp2.setMinimumHeight(32)
+        self.sp1.setMinimumWidth(32)
+        self.sp2.setMinimumWidth(32)
         
         main_layout.addWidget(self.sp1,           0,     0,           cw, cw)
         main_layout.addWidget(self.slider_left,   0,     cw,          cw, iw,       alignment=Qt.AlignmentFlag.AlignBottom|Qt.AlignmentFlag.AlignHCenter)
