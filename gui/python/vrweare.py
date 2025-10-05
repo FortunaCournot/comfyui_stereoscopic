@@ -495,6 +495,7 @@ class SpreadsheetApp(QMainWindow):
                                             if ".nocleanup" == f.lower():
                                                 nocleanup = True                                            
                                         if nocleanup:
+                                            displayRequired=True
                                             onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
                                             count2 = len(onlyfiles)
                                             if count2>0:
