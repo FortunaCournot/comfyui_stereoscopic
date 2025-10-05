@@ -45,6 +45,12 @@ CheckProbeValue() {
 		if [ -d "$TVAI_BIN_DIR" ] ; then value1="true" ; else value1="false" ; fi
 	elif [ "$key" = "sbs" ] ; then
 		if [[ "$file" = *"_SBS_LR"* ]] ; then value1="true" ; else value1="false" ; fi
+	elif [ "$key" = "image" ] ; then
+		lcfile="${file,,}"
+		if [[ "$lcfile" = *".mp4" ]] || [[ "$lcfile" = *".webm" ]] || [[ "$lcfile" = *".ts" ]] ; then value1="false" ; else value1="true" ; fi
+	elif [ "$key" = "video" ] ; then
+		lcfile="${file,,}"
+		if [[ "$lcfile" = *".mp4" ]] || [[ "$lcfile" = *".webm" ]] || [[ "$lcfile" = *".ts" ]] ; then value1="true" ; else value1="false" ; fi
 	elif [ "$key" = "calculated_aspect" ] ; then
 		temp=`grep "width" user/default/comfyui_stereoscopic/.tmpprobe.txt`
 		temp=${temp#*:}
@@ -60,6 +66,22 @@ CheckProbeValue() {
 			value1="1000"
 		else
 			value1="$(( 1000 * $width / $height ))"
+		fi
+	elif [ "$key" = "pixel" ] ; then
+		temp=`grep "width" user/default/comfyui_stereoscopic/.tmpprobe.txt`
+		temp=${temp#*:}
+		temp="${temp%,*}"
+		temp="${temp%\"*}"
+		width="${temp#*\"}"
+		temp=`grep "height" user/default/comfyui_stereoscopic/.tmpprobe.txt`
+		temp=${temp#*:}
+		temp="${temp%,*}"
+		temp="${temp%\"*}"
+		height="${temp#*\"}"
+		if [ -z "$width" ] || [ -z "$height" ] ; then
+			value1="-1"
+		else
+			value1="$(( $width * $height ))"
 		fi
 	else
 		temp=`grep "$key" user/default/comfyui_stereoscopic/.tmpprobe.txt`

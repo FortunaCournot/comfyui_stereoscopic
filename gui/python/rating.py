@@ -47,7 +47,8 @@ SCENEDETECTION_INPUTLENGTHLIMIT=180.0
 SCENEDETECTION_THRESHOLD_DEFAULT=0.25
 
 # Globale statische Liste der erlaubten Suffixe
-ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webm", ".jpg", ".jpeg", ".ts"]
+ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webm", ".jpg", ".jpeg", ".ts", ".jfif"]
+videoExtensions = ['.mp4', '.webm', '.ts']
 global _readyfiles
 _readyfiles=[]
 
@@ -1821,7 +1822,6 @@ class Display(QLabel):
 
     def showFile(self, filepath):
         self.stopAndBlackout()
-        videoExtensions = ['.mp4', '.webm', '.ts']
         if filepath.endswith(tuple(videoExtensions)):
             self.setVideo(filepath)
             return "video"
@@ -2148,44 +2148,45 @@ class FrameSlider(QSlider):
 
         super().paintEvent(event)
 
-        with QPainter(self) as painter:
-            
-            geo = self.geometry()
-
-            x = geo.x()
-            y = geo.y()
-            width = geo.width()
-            height = geo.height()
-
-            painter.fillRect(x, y, width, height, QColor(220,0,0))
-    
-            painter.setPen(QPen(Qt.red, 4, Qt.SolidLine, Qt.RoundCap))
-            if self.a > 0.0:
-                painter.drawLine(0, 0, int(width*self.a), 0)
-            if self.b < 1.0:
-                painter.drawLine(int(width*self.b), 0, width, 0)
-
-            painter.setPen(QPen(self.textColor if self.postext == "" else self.postextColor, 2, Qt.SolidLine, Qt.RoundCap))
-            rct = QRect(0, 0, width, height)
-            font=painter.font()
-            font.setPointSize(10)
-            painter.setFont(font)
-            # QPoint(int(width-1), int(height-1))
-            if self.postext == "":
-                painter.drawText(rct, (Qt.AlignRight if self.textColor==Qt.white else Qt.AlignCenter) | Qt.AlignBottom, self.text)
-            else:
-                rct = QRect(0, 0, width, height)
-                painter.drawText(rct, Qt.AlignCenter | Qt.AlignBottom, self.postext)
-
-            vlen=(self.frame_count-1)/self.fps
-            if vlen>0:
-                painter.setPen(QPen(Qt.red, 4, Qt.SolidLine, Qt.RoundCap))
-                for t in self.scene_intersections:
-                    x=width*t/vlen
-                    painter.drawPoint(QPointF(x, height-1))
-                    #print(str(t), str(x), str(vlen), str(width), flush=True)
-                    
+        try:
+            with QPainter(self) as painter:
                 
+                geo = self.geometry()
+
+                x = geo.x()
+                y = geo.y()
+                width = geo.width()
+                height = geo.height()
+
+                painter.fillRect(x, y, width, height, QColor(220,0,0))
+        
+                painter.setPen(QPen(Qt.red, 4, Qt.SolidLine, Qt.RoundCap))
+                if self.a > 0.0:
+                    painter.drawLine(0, 0, int(width*self.a), 0)
+                if self.b < 1.0:
+                    painter.drawLine(int(width*self.b), 0, width, 0)
+
+                painter.setPen(QPen(self.textColor if self.postext == "" else self.postextColor, 2, Qt.SolidLine, Qt.RoundCap))
+                rct = QRect(0, 0, width, height)
+                font=painter.font()
+                font.setPointSize(10)
+                painter.setFont(font)
+                # QPoint(int(width-1), int(height-1))
+                if self.postext == "":
+                    painter.drawText(rct, (Qt.AlignRight if self.textColor==Qt.white else Qt.AlignCenter) | Qt.AlignBottom, self.text)
+                else:
+                    rct = QRect(0, 0, width, height)
+                    painter.drawText(rct, Qt.AlignCenter | Qt.AlignBottom, self.postext)
+
+                vlen=(self.frame_count-1)/self.fps
+                if vlen>0:
+                    painter.setPen(QPen(Qt.red, 4, Qt.SolidLine, Qt.RoundCap))
+                    for t in self.scene_intersections:
+                        x=width*t/vlen
+                        painter.drawPoint(QPointF(x, height-1))
+                        #print(str(t), str(x), str(vlen), str(width), flush=True)
+        except:       
+            print(traceback.format_exc(), flush=True)
 
     def buildPosSliderText(self, sliderpos):
         ms=int( 1000.0 * sliderpos * (self.frame_count) / float(self.fps) )
@@ -2575,87 +2576,96 @@ class CropWidget(QWidget):
         if pixmap is None or pixmap.isNull():
             return QPixmap()
 
-        # Beschneide clear_rect auf Bildgrenzen (sicherer)
-        img_rect = pixmap.rect()
-        clear_rect = clear_rect.intersected(img_rect)
-        if clear_rect.isEmpty():
-            # Kein sichtbarer Ausschnitt -> ganzes Bild abdunkeln
+        try:
+            # Beschneide clear_rect auf Bildgrenzen (sicherer)
+            img_rect = pixmap.rect()
+            clear_rect = clear_rect.intersected(img_rect)
+            if clear_rect.isEmpty():
+                # Kein sichtbarer Ausschnitt -> ganzes Bild abdunkeln
+                result = QPixmap(pixmap.size())
+                result.fill(Qt.transparent)
+                p = QPainter(result)
+                p.drawPixmap(0, 0, pixmap)
+                p.fillRect(result.rect(), QColor(0, 0, 0, darkness))
+                p.end()
+                return result
+
+            # 1) Overlay mit Alphakanal erzeugen
+            overlay = QPixmap(pixmap.size())
+            overlay.fill(Qt.transparent)  # Start mit transparentem Hintergrund
+
+            painter = QPainter(overlay)
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            # 2) Ganze Overlayfläche mit halbtransparentem Schwarz füllen
+            painter.fillRect(overlay.rect(), QColor(0, 0, 0, darkness))
+
+            # 3) "Loch" in das Overlay stanzen (macht Region transparent)
+            painter.setCompositionMode(QPainter.CompositionMode_Clear)
+            painter.fillRect(clear_rect, QColor(0, 0, 0, 0))
+
+            painter.end()
+
+            # 4) Original und Overlay zusammenführen
             result = QPixmap(pixmap.size())
             result.fill(Qt.transparent)
-            p = QPainter(result)
-            p.drawPixmap(0, 0, pixmap)
-            p.fillRect(result.rect(), QColor(0, 0, 0, darkness))
-            p.end()
+            painter = QPainter(result)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.drawPixmap(0, 0, pixmap)    # Original
+            painter.drawPixmap(0, 0, overlay)   # Overlay oben drauf
+            painter.end()
+
             return result
-
-        # 1) Overlay mit Alphakanal erzeugen
-        overlay = QPixmap(pixmap.size())
-        overlay.fill(Qt.transparent)  # Start mit transparentem Hintergrund
-
-        painter = QPainter(overlay)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        # 2) Ganze Overlayfläche mit halbtransparentem Schwarz füllen
-        painter.fillRect(overlay.rect(), QColor(0, 0, 0, darkness))
-
-        # 3) "Loch" in das Overlay stanzen (macht Region transparent)
-        painter.setCompositionMode(QPainter.CompositionMode_Clear)
-        painter.fillRect(clear_rect, QColor(0, 0, 0, 0))
-
-        painter.end()
-
-        # 4) Original und Overlay zusammenführen
-        result = QPixmap(pixmap.size())
-        result.fill(Qt.transparent)
-        painter = QPainter(result)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.drawPixmap(0, 0, pixmap)    # Original
-        painter.drawPixmap(0, 0, overlay)   # Overlay oben drauf
-        painter.end()
-
-        return result
+        except:       
+            print(traceback.format_exc(), flush=True)
+            return QPixmap()
 
 
     def apply_crop(self):
         if not self.original_pixmap:
             return
 
-        if self.crop_left == 0 and self.crop_right == 0 and self.crop_top == 0 and self.crop_bottom == 0:
-            self.clean = True
+        try:
+                
+            if self.crop_left == 0 and self.crop_right == 0 and self.crop_top == 0 and self.crop_bottom == 0:
+                self.clean = True
+                
+            if not self.clean:
+                
+                w = self.original_pixmap.width()
+                h = self.original_pixmap.height()
+
+                mx = float(w) / float(self.sourceWidth)
+                my = float(h) / float(self.sourceHeight)
+
+                #print("whmxy", w, h, mx, my, flush=True)
             
-        if not self.clean:
+                crop_rect = QRect(
+                    int(self.crop_left * mx),
+                    int(self.crop_top * my),
+                    w - int(self.crop_left * mx) - int(self.crop_right * mx),
+                    h - int(self.crop_top * my) - int(self.crop_bottom * my)
+                )
+
+                temp_pixmap=self.darken_outside_area(self.original_pixmap, crop_rect)
+
+                # Rahmen zeichnen
+                painter = QPainter(temp_pixmap)
+                painter.setRenderHint(QPainter.Antialiasing)
+                painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+                pen = QPen(self.frame_color, self.frame_thickness, self.frame_style)
+                painter.setPen(pen)
+                painter.drawRect(crop_rect)
+                painter.end()
+            else:
+                temp_pixmap = self.original_pixmap
+
+            self.display_pixmap = temp_pixmap
+            #self.image_label.setPixmap(self.display_pixmap)
+            self.image_label.setPixmap(self.display_pixmap.scaled(self.image_label.width(), self.image_label.height(), Qt.KeepAspectRatio))
             
-            w = self.original_pixmap.width()
-            h = self.original_pixmap.height()
-
-            mx = float(w) / float(self.sourceWidth)
-            my = float(h) / float(self.sourceHeight)
-
-            #print("whmxy", w, h, mx, my, flush=True)
-        
-            crop_rect = QRect(
-                int(self.crop_left * mx),
-                int(self.crop_top * my),
-                w - int(self.crop_left * mx) - int(self.crop_right * mx),
-                h - int(self.crop_top * my) - int(self.crop_bottom * my)
-            )
-
-            temp_pixmap=self.darken_outside_area(self.original_pixmap, crop_rect)
-
-            # Rahmen zeichnen
-            painter = QPainter(temp_pixmap)
-            painter.setRenderHint(QPainter.Antialiasing)
-            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-            pen = QPen(self.frame_color, self.frame_thickness, self.frame_style)
-            painter.setPen(pen)
-            painter.drawRect(crop_rect)
-            painter.end()
-        else:
-            temp_pixmap = self.original_pixmap
-
-        self.display_pixmap = temp_pixmap
-        #self.image_label.setPixmap(self.display_pixmap)
-        self.image_label.setPixmap(self.display_pixmap.scaled(self.image_label.width(), self.image_label.height(), Qt.KeepAspectRatio))
+        except:       
+            print(traceback.format_exc(), flush=True)
 
     def update_magnifier(self):
         if not self.original_pixmap:

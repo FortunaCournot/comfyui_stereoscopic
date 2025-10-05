@@ -352,7 +352,7 @@ class SpreadsheetApp(QMainWindow):
             if status=="idle":
                 idletime += 1
         except KeyboardInterrupt:
-            pass
+            sys.exit(app.exec_())
 
     def update_toolbar(self):
         count1=len(getFilesWithoutEdit())
@@ -640,7 +640,9 @@ class SpreadsheetApp(QMainWindow):
                 self.table.setRowCount(ROWS-skippedrows)
             self.table.resizeRowsToContents()
         except KeyboardInterrupt:
-            pass
+            sys.exit(app.exec_())
+        except SystemExit:
+            sys.exit(app.exec_())
         except:
             print(traceback.format_exc(), flush=True)
 
@@ -656,7 +658,7 @@ class SpreadsheetApp(QMainWindow):
             self.update_table()
             self.update_timer.start(TABLEUPDATEFREQ)
         except KeyboardInterrupt:
-            pass
+            sys.exit(app.exec_())
 
     def show_logo_page(self):
         # Switch back to logo page for 5 seconds
@@ -1074,7 +1076,10 @@ if __name__ == "__main__":
             with open(errorfile, 'w'): pass
             time.sleep(10)
     except KeyboardInterrupt:
-        pass
+        if app is None:
+            sys.exit(0)
+        else:
+            sys.exit(app.exec_())
     except Exception as e:
         with open(errorfile, 'w') as f:
             print(traceback.format_exc(), flush=True, file=f)

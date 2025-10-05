@@ -23,7 +23,7 @@ pipeline:
       - rule:
           to: scaling
           conditions:
-            - duration<1
+            - image=true
   - from: tasks/createsilence
     forward:
       - rule:
@@ -79,7 +79,7 @@ pipeline:
       - rule:
           to: watermark/encrypt
           conditions:
-            - duration<1
+            - image=true
   - from: tasks/vlimit-2160p
     forward:
       - rule:
@@ -89,7 +89,7 @@ pipeline:
       - rule:
           to: watermark/encrypt
           conditions:
-            - duration<1
+            - image=true
   - from: tasks/vlimit-1080p
     forward:
       - rule:
@@ -99,7 +99,7 @@ pipeline:
       - rule:
           to: watermark/encrypt
           conditions:
-            - duration<1
+            - image=true
   - from: fullsbs
     keepinput: true
     forward:
@@ -110,6 +110,7 @@ pipeline:
             - tvai=true
             - width<7681
             - r_frame_rate<24
+            - pixel<4800000
       - rule:
           to: singleloop
           conditions:
@@ -129,6 +130,7 @@ pipeline:
             - duration<20
             - vram>6
             - r_frame_rate<24
+            - pixel<4800000
       - rule:
           to: singleloop
           conditions:
@@ -173,8 +175,10 @@ pipeline:
       - rule:
           to: FLIMAGE_TARGET
           conditions:
-            - duration<1
+            - image=true
+      - rule:
           to: caption
+            - video=true
   - from: slides
     keepinput: true
   - from: tasks/split-1m
