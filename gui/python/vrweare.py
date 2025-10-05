@@ -726,10 +726,11 @@ class SpreadsheetApp(QMainWindow):
             
             if col == self.COL_IDX_IN:
                 folder =  os.path.abspath( os.path.join(path, "../../../../input/vr/" + STAGES[idx]) )
-                subprocess.Popen(r'explorer "'  + folder + '"')
+                subprocess.Popen(["explorer", "/select,",  folder ], close_fds=True)
+
             if col == self.COL_IDX_OUT:
                 folder =  os.path.abspath( os.path.join(path, "../../../../output/vr/" + STAGES[idx]) )
-                subprocess.Popen(r'explorer "'  + folder + '"')
+                subprocess.Popen(["explorer", "/select,",  folder ], close_fds=True)
             
         except Exception:
             print(f"Error on cell click: row={row}, col={col}", ROW2STAGE, flush=True)
@@ -782,9 +783,11 @@ class SpreadsheetApp(QMainWindow):
         w, h = 3840, 2160
         pixmap = QPixmap(w, h)
         pixmap.fill(bgcolor)
+        
         p = QPainter(pixmap)
         p.drawText(pixmap.rect(), Qt.AlignCenter, "No pipeline")
         p.end()
+        
         labelPipeline.setPixmap(pixmap)
         labelPipeline.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         labelPipeline.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -825,7 +828,7 @@ class PipelineEditThread(QThread):
         watchthread.start()
 
         configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
-        subprocess.Popen(r'notepad "'  + configFile + '"').wait()
+        subprocess.Popen(["notepad", configFile ], close_fds=True).wait()
 
         global editActive, pipelineModified, editthread
 
@@ -858,17 +861,17 @@ class PipelineWatchThread(QThread):
                 setPipelineErrorText(None)
                 hidePipelineShowText("Rebuilding forward files")
                 
-                exit_code, rebuildMsg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_forwards + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                exit_code, rebuildMsg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_forwards + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
                 if not rebuildMsg == "":
                     setPipelineErrorText(rebuildMsg)
 
                 
                 print("forwards", exit_code, flush=True)
                 hidePipelineShowText("Prepare rendering...")
-                exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_definition + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_definition + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
                 print("prepare rendering", exit_code, flush=True)
                 hidePipelineShowText("Generate new image...")
-                exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_generate_image + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True) )
+                exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_generate_image + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
                 print("rendered", exit_code, flush=True)
                 hidePipelineShowText("Updating new image...")
                 updatePipeline()
@@ -1008,7 +1011,7 @@ class ClickableLabel(QLabel):
             #qp.setFont(QFont('Arial', 20))
             #qp.drawText(40, 40, "X")
             qp.end()        
-     
+        
 
     def mousePressEvent(self, event):
         pm=self.pixmap()

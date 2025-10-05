@@ -1026,7 +1026,7 @@ class RateAndCutDialog(QDialog):
     def updateExif_worker(self, cmd):
         startAsyncTask()
         try:
-            cp = subprocess.run(cmd, shell=True, check=True)
+            cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
             QTimer.singleShot(0, partial(self.updateExif_updater, True, cmd))
         except subprocess.CalledProcessError as se:
             print(traceback.format_exc(), flush=True) 
@@ -1056,10 +1056,10 @@ class RateAndCutDialog(QDialog):
             
             if TRACELEVEL >= 3:
                 print("Executing", cmd1, flush=True)
-            cp = subprocess.run(cmd1, shell=True, check=True)
+            cp = subprocess.run(cmd1, shell=True, check=True, close_fds=True)
             if TRACELEVEL >= 3:
                 print("Executing", cmd2, flush=True)
-            cp = subprocess.run(cmd2, shell=True, check=False)
+            cp = subprocess.run(cmd2, shell=True, check=False, close_fds=True)
             
             QTimer.singleShot(0, partial(self.sceneFinder_updater, pathtofile, tmp.name, out.name))
         except subprocess.CalledProcessError as se:
@@ -1244,7 +1244,7 @@ class RateAndCutDialog(QDialog):
     def trimAndCrop_worker(self, cmd, recreated):
         startAsyncTask()
         try:
-            cp = subprocess.run(cmd, shell=True, check=True)
+            cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
             QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, True))
 
         except subprocess.CalledProcessError as se:
@@ -1316,9 +1316,9 @@ class RateAndCutDialog(QDialog):
         try:
             try:
                 print("Executing "  + cmd1, flush=True)
-                cp = subprocess.run(cmd1, shell=True, check=True)
+                cp = subprocess.run(cmd1, shell=True, check=True, close_fds=True)
                 print("Executing "  + cmd2, flush=True)
-                cp = subprocess.run(cmd2, shell=True, check=True)
+                cp = subprocess.run(cmd2, shell=True, check=True, close_fds=True)
                 os.remove(temporaryfile)
                 QTimer.singleShot(0, partial(self.takeSnapshot_updater, True, recreated))
             except subprocess.CalledProcessError as se:
@@ -2584,16 +2584,18 @@ class CropWidget(QWidget):
                 # Kein sichtbarer Ausschnitt -> ganzes Bild abdunkeln
                 result = QPixmap(pixmap.size())
                 result.fill(Qt.transparent)
+                
                 p = QPainter(result)
                 p.drawPixmap(0, 0, pixmap)
                 p.fillRect(result.rect(), QColor(0, 0, 0, darkness))
                 p.end()
+                
                 return result
 
             # 1) Overlay mit Alphakanal erzeugen
             overlay = QPixmap(pixmap.size())
             overlay.fill(Qt.transparent)  # Start mit transparentem Hintergrund
-
+            
             painter = QPainter(overlay)
             painter.setRenderHint(QPainter.Antialiasing)
 
@@ -2614,7 +2616,7 @@ class CropWidget(QWidget):
             painter.drawPixmap(0, 0, pixmap)    # Original
             painter.drawPixmap(0, 0, overlay)   # Overlay oben drauf
             painter.end()
-
+            
             return result
         except:       
             print(traceback.format_exc(), flush=True)
@@ -2650,6 +2652,7 @@ class CropWidget(QWidget):
                 temp_pixmap=self.darken_outside_area(self.original_pixmap, crop_rect)
 
                 # Rahmen zeichnen
+                
                 painter = QPainter(temp_pixmap)
                 painter.setRenderHint(QPainter.Antialiasing)
                 painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
@@ -2657,6 +2660,7 @@ class CropWidget(QWidget):
                 painter.setPen(pen)
                 painter.drawRect(crop_rect)
                 painter.end()
+                
             else:
                 temp_pixmap = self.original_pixmap
 
@@ -2780,15 +2784,17 @@ class StyledIcon(QIcon):
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         pen.setColor(QColor("green"))
-        pixm= QPixmap(path)
+        pixm= QPixmap(pathtofile)
         h=pixm.height()
         w=pixm.width()
         y=h-1
+        
         p.begin(pixm)
         p.setRenderHints(QPainter.RenderHint.Antialiasing, True)
         p.setPen(pen)
         p.drawLine(QPoint(0,y), QPoint(w,y))
         p.end()
+        
         self.addPixmap( pixm, QIcon.Normal, QIcon.On)
 
 class InputBlocker(QWidget):
