@@ -112,6 +112,11 @@ pipeline:
             - r_frame_rate<24
             - pixel<4800000
       - rule:
+          to: tasks/limit-1280
+          conditions:
+            - duration<600
+            - r_frame_rate<24
+      - rule:
           to: singleloop
           conditions:
             - codec_type!=audio
@@ -122,24 +127,10 @@ pipeline:
             - codec_type!=audio
       - rule:
           to: watermark/encrypt
-  - from: tasks/vlimit-720p
+  - from: tasks/limit-1280
     forward:
       - rule:
           to: interpolate
-          conditions:
-            - duration<20
-            - vram>6
-            - r_frame_rate<24
-            - pixel<4800000
-      - rule:
-          to: singleloop
-          conditions:
-            - codec_type!=audio
-            - duration<20
-      - rule:
-          to: dubbing/sfx
-          conditions:
-            - codec_type!=audio
   - from: interpolate
     forward:
       - rule:
@@ -178,8 +169,10 @@ pipeline:
             - image=true
       - rule:
           to: caption
+          conditions:
             - video=true
   - from: slides
     keepinput: true
   - from: tasks/split-1m
     keepinput: true
+

@@ -1,8 +1,7 @@
 {
   "version": "1",
   "blueprint": "ffmpeg-v2v",
-  "options": "-filter:v scale=-2:720",
-  "lowerlimits": "height=721",
+  "options": "-filter:v scale=w=if(gte(iw,ih),min(1280,iw),-2):h=if(gte(ih,iw),min(1280,ih),-2)",
   "input": "video;image",
   "output": "video;image",
 }

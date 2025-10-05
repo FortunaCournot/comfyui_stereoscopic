@@ -779,7 +779,7 @@ class SpreadsheetApp(QMainWindow):
         
         global labelPipeline, scroll_area
         labelPipeline = QLabel()
-        w, h = 4096, 2160
+        w, h = 3840, 2160
         pixmap = QPixmap(w, h)
         pixmap.fill(bgcolor)
         p = QPainter(pixmap)

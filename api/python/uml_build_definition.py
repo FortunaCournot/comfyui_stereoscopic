@@ -29,6 +29,7 @@ with open(uml_def, "w") as f:
     f.write("' This file is generated and contains PlantUML commands - do not edit.\n")
     f.write("\n")
     f.write("@startuml\n")
+    f.write("scale max 3840*2160\n")
     f.write("<style>\n")
     f.write("document {\n")
     f.write("  BackGroundColor darkgray\n")
@@ -96,6 +97,10 @@ with open(uml_def, "w") as f:
         if os.path.exists(nocleanupfile):
             childs.append(" {\n  state keep"+str(s)+" <<history>>\n}")
             nocleanup.append(True)
+            if not s in involved:
+                involved.append(s)            
+            if not s in startsCand:
+                startsCand.append(s)            
         else:
             childs.append("")
             nocleanup.append(False)
