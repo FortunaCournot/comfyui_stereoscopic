@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-i2i",
+  "options": "",
+  "extension": ".png",
+  "input": "image",
+  "output": "image",
+}

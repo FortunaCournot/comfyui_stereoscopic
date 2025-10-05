@@ -6,8 +6,6 @@
 #
 # Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
-# This ComfyUI API script needs addional custom node packages: 
-#  MMAudio, Florence2
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 # Prerequisite: Configured path variables below.
@@ -115,7 +113,6 @@ else
 	TARGETPREFIX=output/vr/tasks/intermediate/${TARGETPREFIX%.*}
 	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
 	mkdir -p $FINALTARGETFOLDER
-	EXTENSION="."${INPUT##*.}
 
 	upperlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"upperlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	for parameterkv in $(echo $upperlimits | sed "s/,/ /g")
@@ -133,6 +130,11 @@ else
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
 	options="${options//\$INPUT/"$INPUT"}"
+	
+	EXTENSION=`cat "$BLUEPRINTCONFIG" | grep -o '"extension":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ $loglevel -z "$EXTENSION" ] ; then
+		EXTENSION="."${INPUT##*.}
+	fi
 	
 	[ $loglevel -lt 2 ] && set -x
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX""$EXTENSION"

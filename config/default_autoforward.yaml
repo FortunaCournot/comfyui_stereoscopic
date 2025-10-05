@@ -24,22 +24,6 @@ pipeline:
           to: scaling
           conditions:
             - image=true
-  - from: tasks/createsilence
-    forward:
-      - rule:
-          to: tasks/reencode
-  - from: tasks/reencode
-    forward:
-      - rule:
-          to: tasks/fps-limit-30
-          conditions:
-            - tvai=true
-      - rule:
-          to: tasks/fps-limit-30
-          conditions:
-            - vram>8
-      - rule:
-          to: tasks/fps-limit-15
   - from: tasks/fps-limit-15
     forward:
       - rule:
@@ -174,4 +158,12 @@ pipeline:
   - from: slides
     keepinput: true
   - from: tasks/split-1m
+    keepinput: true
+  - from: tasks/createsilence
+    keepinput: true
+  - from: tasks/reencode
+    keepinput: true
+  - from: tasks/convertimage
+    keepinput: true
+  - from: tasks/convertvideo
     keepinput: true

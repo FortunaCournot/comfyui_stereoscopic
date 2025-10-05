@@ -1,13 +1,12 @@
 #!/bin/sh
 #
-# ffmpeg-v2vx.sh
+# ffmpeg-i2i.sh
 #
 # executes a ffmpeg based option task under ComfyUI/output/vr/tasks folder.
 #
 # Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
 
-# This ComfyUI API script needs addional custom node packages: 
-#  MMAudio, Florence2
+
 
 # Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
 # Prerequisite: Configured path variables below.
@@ -18,9 +17,34 @@
 # either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 
+assertlimit() {
+    mode_upperlimit=$1
+    kv=$2
+	
+    key=${kv%=*}
+    value2=$(( ${kv#*=} ))
+
+    temp=`grep "$key" output/vr/tasks/intermediate/probe.txt`
+	temp=${temp#*:}
+    temp="${temp%,*}"
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+	value1=$(( $temp ))
+
+    if [ "$mode_upperlimit" != "true" ] ; then tmp="$value1" ; value1="$value2" ; value2="$tmp" ; fi
+	
+    if [ "$value1" -gt "$value2" ] ; then
+		echo -e $"\e[32mLimit already fullfilled:\e[0m $key"": $value1 > $value2"". Skip processing and forwarding to output."
+		mv -vf -- "$INPUT" "$FINALTARGETFOLDER"
+		exit 0
+	else
+		echo "Condition met. $key"": $value1 <= $value2"
+	fi
+} 
+
+
 # API relative to COMFYUIPATH, or absolute path:
 COMFYUIPATH=`realpath $(dirname "$0")/../../../..`
-
 
 if test $# -ne 3 
 then
@@ -80,38 +104,52 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS"`echo $INPUT | grep -oP "$regex"`" =========="
 	
+	mkdir -p output/vr/tasks/intermediate
+
+	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/tasks/intermediate/probe.txt`
+	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$INPUT" >>output/vr/tasks/intermediate/probe.txt`
+	
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX=output/vr/tasks/intermediate/${TARGETPREFIX%.*}
-	mkdir -p output/vr/tasks/intermediate
 	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
 	mkdir -p $FINALTARGETFOLDER
-	rm -f output/vr/tasks/intermediate/*.mp4 2>/dev/null
+
+	upperlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"upperlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	for parameterkv in $(echo $upperlimits | sed "s/,/ /g")
+	do
+		assertlimit "true" "$parameterkv"
+	done
+	
+	lowerlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"lowerlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	for parameterkv in $(echo $lowerlimits | sed "s/,/ /g")
+	do
+		assertlimit "false" "$parameterkv"
+	done
+	
 	
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
 	options="${options//\$INPUT/"$INPUT"}"
-		
-	seqformat=`cat "$BLUEPRINTCONFIG" | grep -o '"seqformat":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-	if [ -z "$seqformat" ] ; then
-		seqformat="%05d"
-		echo -e $"\e[93mWarning: \e[0mseqformat key missing in $BLUEPRINTCONFIG . Using default."
-	fi
 
+	EXTENSION=`cat "$BLUEPRINTCONFIG" | grep -o '"extension":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ $loglevel -z "$EXTENSION" ] ; then
+		EXTENSION="."${INPUT##*.}
+	fi
+	
 	[ $loglevel -lt 2 ] && set -x
-	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" $options "$TARGETPREFIX""$seqformat"".mp4"
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX""$EXTENSION"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
-	COUNT=`find output/vr/tasks/intermediate -maxdepth 1 -type f -name '*.mp4' | wc -l`
-	if [ $COUNT -gt 0 ] ; then
-		FILES=`find output/vr/tasks/intermediate -maxdepth 1 -type f -name '*.mp4'`
-		mv -- $FILES $FINALTARGETFOLDER
+	if [ -e "$TARGETPREFIX""$EXTENSION" ] && [ -s "$TARGETPREFIX""$EXTENSION" ] ; then
+		[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$INPUT" -all:all -overwrite_original "$TARGETPREFIX""$EXTENSION" && echo "tags copied."
+		mv -- "$TARGETPREFIX""$EXTENSION" $FINALTARGETFOLDER
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $INPUT input/vr/tasks/$TASKNAME/done
 		echo -e $"\e[92mtask done.\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m Task failed. Missing $TARGETPREFIX""*.mp4"
-		rm -f -- "$TARGETPREFIX"*".mp4" 2>/dev/null
+		echo -e $"\e[91mError:\e[0m Task failed. $TARGETPREFIX""$EXTENSION missing or zero-length."
+		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $INPUT input/vr/tasks/$TASKNAME/error
 	fi

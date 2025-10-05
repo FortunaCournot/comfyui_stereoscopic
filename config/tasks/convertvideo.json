@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "",
+  "extension": ".mp4",
+  "input": "video",
+  "output": "video",
+}

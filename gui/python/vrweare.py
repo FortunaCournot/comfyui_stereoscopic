@@ -723,14 +723,14 @@ class SpreadsheetApp(QMainWindow):
     def onCellClick(self, row, col):
         try:
             idx = ROW2STAGE[row-1]
-            
+            # "/select,",  
             if col == self.COL_IDX_IN:
                 folder =  os.path.abspath( os.path.join(path, "../../../../input/vr/" + STAGES[idx]) )
-                subprocess.Popen(["explorer", "/select,",  folder ], close_fds=True)
+                subprocess.Popen(["explorer", folder ], close_fds=True)
 
             if col == self.COL_IDX_OUT:
                 folder =  os.path.abspath( os.path.join(path, "../../../../output/vr/" + STAGES[idx]) )
-                subprocess.Popen(["explorer", "/select,",  folder ], close_fds=True)
+                subprocess.Popen(["explorer", folder ], close_fds=True)
             
         except Exception:
             print(f"Error on cell click: row={row}, col={col}", ROW2STAGE, flush=True)
