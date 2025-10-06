@@ -88,13 +88,19 @@ pipeline:
           conditions:
             - duration<60
             - tvai=true
-            - width<7681
             - r_frame_rate<24
             - pixel<4800000
       - rule:
-          to: tasks/limit-1280
+          to: tasks/limit-1920
           conditions:
-            - duration<600
+            - duration<60
+            - tvai=true
+            - r_frame_rate<24
+      - rule:
+          to: tasks/limit-1600
+          conditions:
+            - duration<60
+            - tvai=false
             - r_frame_rate<24
       - rule:
           to: singleloop
@@ -107,7 +113,11 @@ pipeline:
             - codec_type!=audio
       - rule:
           to: watermark/encrypt
-  - from: tasks/limit-1280
+  - from: tasks/limit-1600
+    forward:
+      - rule:
+          to: interpolate
+  - from: tasks/limit-1920
     forward:
       - rule:
           to: interpolate
@@ -153,6 +163,10 @@ pipeline:
             - video=true
   - from: slides
     keepinput: true
+  - from: slideshow
+    forward:
+      - rule:
+          to: dubbing/sfx
   - from: tasks/split-1m
     keepinput: true
   - from: tasks/createsilence
