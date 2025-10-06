@@ -325,23 +325,30 @@ if not exist "%InstallFolder%\*" (
 IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
 SET PIPELINE_OPTION_SBS=1
 SET PIPELINE_OPTION_FLI2V=0
+SET PIPELINE_OPTION_WATERMARK=0
 :QueryForInstallationTypeCont
 SET PIPELINE_OPTION_SBS_TEXT=On
 SET PIPELINE_OPTION_FLI2V_TEXT=On
+SET PIPELINE_OPTION_WATERMARK_TEXT=On
 IF %PIPELINE_OPTION_SBS% equ 0 SET PIPELINE_OPTION_SBS_TEXT=Off
 IF %PIPELINE_OPTION_FLI2V% equ 0 SET PIPELINE_OPTION_FLI2V_TEXT=Off
+IF %PIPELINE_OPTION_WATERMARK% equ 0 SET PIPELINE_OPTION_WATERMARK_TEXT=Off
 CLS
 ECHO/
 ECHO Please choose the installation options:
 ECHO/ 
-ECHO   1 - Pipeline with SBS-Converter: %PIPELINE_OPTION_SBS_TEXT%
-ECHO   2 - Judging: Pipeline for FLI2V: %PIPELINE_OPTION_FLI2V_TEXT%
+ECHO  General options:
+ECHO   1 - Pipeline with SBS-Converter: %PIPELINE_OPTION_SBS_TEXT% (for VR devices)
+ECHO  AI-Expert options:
+ECHO   2 - Judging: Pipeline for first/last image: %PIPELINE_OPTION_FLI2V_TEXT%
+ECHO   3 - Generate Watermark: %PIPELINE_OPTION_WATERMARK_TEXT%
 ECHO/
 ECHO   Y - Yes, Install / N - No, QUIT
 ECHO/
-CHOICE /C 12YN /M " "
-IF ERRORLEVEL 4 GOTO End
-IF ERRORLEVEL 3 GOTO VRWEARE_PARENT_CHECK
+CHOICE /C 123YN /M " "
+IF ERRORLEVEL 5 GOTO End
+IF ERRORLEVEL 4 GOTO VRWEARE_PARENT_CHECK
+IF ERRORLEVEL 3 SET /A "PIPELINE_OPTION_WATERMARK=1-%PIPELINE_OPTION_WATERMARK%" & GOTO QueryForInstallationTypeCont
 IF ERRORLEVEL 2 SET /A "PIPELINE_OPTION_FLI2V=1-%PIPELINE_OPTION_FLI2V%" & GOTO QueryForInstallationTypeCont
 IF ERRORLEVEL 1 SET /A "PIPELINE_OPTION_SBS=1-%PIPELINE_OPTION_SBS%" & GOTO QueryForInstallationTypeCont
 GOTO End
@@ -606,6 +613,7 @@ ECHO cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/confi
 IF %PIPELINE_OPTION_SBS% equ 0 ECHO sed -i "s/: tasks\/no-sbs/: fullsbs/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
 IF %PIPELINE_OPTION_FLI2V% equ 0 ECHO sed -i "s/FLIMAGE_TARGET/caption/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
 IF %PIPELINE_OPTION_FLI2V% equ 1 ECHO sed -i "s/FLIMAGE_TARGET/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_WATERMARK% equ 0 ECHO sed -i "s/watermark\/encrypt/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
 
 
 :: Continue installation with bash script
