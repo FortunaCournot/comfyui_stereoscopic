@@ -217,6 +217,21 @@ IF exist "%TVAI_BIN_DIR%\*" (
 )
 
 
+::nvidia handling
+SET HAS_NVIDIA_GPU=0
+IF exist "C:\Windows\System32\nvidia-smi.exe" (
+  SET HAS_NVIDIA_GPU=1
+)
+
+IF "%HAS_NVIDIA_GPU%" == "0" (
+  ECHO     + GPU [91mnot supported[0m
+) ELSE (
+  ECHO     + GPU [92mdetected:[0m
+  C:\Windows\System32\nvidia-smi.exe --query-gpu=gpu_name --format=noheader,nounits
+)
+
+
+
 :CHECK_LOCAL_PYTHON
 SET LOCALPYTHONPATH=
 for %%k in (HKCU HKLM) do (
@@ -562,7 +577,8 @@ echo if [ ^^! -d ComfyUI_windows_portable/ComfyUI/custom_nodes ]; then >>install
 :: Download and unpackage ComfyUI portable - GNU GENERAL PUBLIC LICENSE v3 (c) ComfyUI Code Owners
 echo   downloadCheck7z "https://github.com/comfyanonymous/ComfyUI/releases/download/%COMFYUI_TAG%/ComfyUI_windows_portable_nvidia.7z" "install/comfyui.7z" "ComfyUI_windows_portable/ComfyUI/custom_nodes" "%COMFYUI_SHA%"  >>install.sh
 echo else >>install.sh
-echo   echo -e $"ComfyUI already unpacked. \e[92mok\e[0m" >>install.sh
+echo   echo -e $"Couldn't delete old custom_nodes. \e[91Failed\e[0m" >>install.sh
+echo   exit 1 >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
 
@@ -676,14 +692,6 @@ ECHO Apply python fixes...
 :: skip these fixes:
 ::.\python_embeded\python -m pip install --upgrade numpy==2.2
 ::.\python_embeded\python -m pip install -I opencv-python
-
-::nvidia handling
-SET HAS_NVIDIA_GPU=0
-IF exist "C:\Windows\System32\nvidia-smi.exe" (
-  ECHO [92mGPU detected:[0m
-  C:\Windows\System32\nvidia-smi.exe --query-gpu=gpu_name --format=noheader,nounits
-  SET HAS_NVIDIA_GPU=1
-)
 
 
 DEL %VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
