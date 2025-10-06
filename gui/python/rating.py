@@ -43,11 +43,11 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 
 TRACELEVEL=3
 
-SCENEDETECTION_INPUTLENGTHLIMIT=180.0
+SCENEDETECTION_INPUTLENGTHLIMIT=20.0
 SCENEDETECTION_THRESHOLD_DEFAULT=0.25
 
 # Globale statische Liste der erlaubten Suffixe
-ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webm", ".jpg", ".jpeg", ".ts", ".jfif"]
+ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".ts", ".jfif"]
 videoExtensions = ['.mp4', '.webm', '.ts']
 global _readyfiles
 _readyfiles=[]
@@ -203,7 +203,7 @@ class RateAndCutDialog(QDialog):
                 self.setWindowTitle("VR We Are - Check Files: Rating")
             self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
             self.setMaximumSize(QSize(3840,2160))
-            self.setGeometry(150, 150, 768, 768)
+            self.setGeometry(150, 150, 1920, 768)
             self.outer_main_layout = QVBoxLayout()
             self.setLayout(self.outer_main_layout)
             self.setStyleSheet("background-color : black;")

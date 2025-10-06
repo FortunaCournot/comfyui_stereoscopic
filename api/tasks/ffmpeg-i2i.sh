@@ -133,7 +133,7 @@ else
 	options="${options//\$INPUT/"$INPUT"}"
 
 	EXTENSION=`cat "$BLUEPRINTCONFIG" | grep -o '"extension":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-	if [ $loglevel -z "$EXTENSION" ] ; then
+	if [ -z "$EXTENSION" ] ; then
 		EXTENSION="."${INPUT##*.}
 	fi
 	
