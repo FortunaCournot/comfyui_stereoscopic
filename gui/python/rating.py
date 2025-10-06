@@ -646,7 +646,8 @@ class RateAndCutDialog(QDialog):
                 self.button_endframe.setVisible(self.isVideo)
             else:
                 self.rating_widget.setVisible(True)
-                self.button_return2edit.setVisible("/" in self.currentFile)
+                self.button_return2edit.setVisible(True)
+                self.button_return2edit.setEnabled("/" in self.currentFile)
             self.button_prev_file.setVisible(True)
             self.button_next_file.setVisible(True)
             self.button_delete_file.setVisible(True)
@@ -1369,7 +1370,8 @@ class RateAndCutDialog(QDialog):
             )                            
             thread.start()
         else:
-            self.cropWidget.applySceneIntersections([])
+            if self.cutMode:
+                self.cropWidget.applySceneIntersections([])
 
 
     def closeOnError(self, msg):
