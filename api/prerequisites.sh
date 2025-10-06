@@ -219,11 +219,11 @@ if [ ! -e $CONFIGFILE ] ; then
 	
 	echo "# TVAI Upscale Filter String. Ensure the model json, here prob-4, is existing in TVAI_MODEL_DIR. better for portrait: iris-2">>"$CONFIGFILE"
 	echo "# Documentation available by calling 'TVAI_BIN_DIR/ffmpeg.exe' -hide_banner -h filter=tvai_up">>"$CONFIGFILE"
-	echo "TVAI_FILTER_STRING_UP4X=tvai_up=model=prob-4:scale=4:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.0:device=0:vram=1:instances=1">>"$CONFIGFILE"
-	echo "TVAI_FILTER_STRING_UP2X=tvai_up=model=prob-4:scale=2:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.0:device=0:vram=1:instances=1">>"$CONFIGFILE"
+	echo "TVAI_FILTER_STRING_UP4X=tvai_up=model=prob-4:scale=4:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.0:device=0:vram=0.8:instances=1">>"$CONFIGFILE"
+	echo "TVAI_FILTER_STRING_UP2X=tvai_up=model=prob-4:scale=2:preblur=0:noise=0:details=0:halo=0:blur=0:compression=0:estimate=8:blend=0.0:device=0:vram=0.8:instances=1">>"$CONFIGFILE"
 	echo "# TVAI Interpolate Filter String; MUST END WITH ':fps=', target fps is calculated. Ensure the model json, here chf-3, is existing in TVAI MODEL DIR.">>"$CONFIGFILE"
 	echo "# Documentation available by calling 'TVAI_BIN_DIR/ffmpeg.exe' -hide_banner -h filter=tvai_fi">>"$CONFIGFILE"
-	echo "TVAI_FILTER_STRING_IP=tvai_fi=model=chf-3:slowmo=1:rdt=-0.000001:device=0:vram=1:instances=1:fps=">>"$CONFIGFILE"
+	echo "TVAI_FILTER_STRING_IP=tvai_fi=model=chf-3:slowmo=1:rdt=-0.000001:device=0:vram=0.8:instances=1:fps=">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
 

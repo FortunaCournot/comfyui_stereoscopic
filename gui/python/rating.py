@@ -41,10 +41,10 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QRubberBand)
 
 
-TRACELEVEL=3
+TRACELEVEL=0
 
 SCENEDETECTION_INPUTLENGTHLIMIT=20.0
-SCENEDETECTION_THRESHOLD_DEFAULT=0.25
+SCENEDETECTION_THRESHOLD_DEFAULT=0.10
 
 # Globale statische Liste der erlaubten Suffixe
 ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".ts", ".jfif"]
@@ -1554,9 +1554,9 @@ class VideoThread(QThread):
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.a = 0
         self.b = self.frame_count - 1
-        #print("frames", self.frame_count, flush=True)
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
-        #print("Started video. framecount:", self.frame_count, "fps:", self.fps, flush=True)
+        if TRACELEVEL >= 1:
+            print("Started video. framecount:", self.frame_count, "fps:", self.fps, flush=True)
         
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.frame_count-1)
@@ -1600,7 +1600,6 @@ class VideoThread(QThread):
                             self.currentFrame+=1
                             self.slider.setValue(self.currentFrame)
                             self.change_pixmap_signal.emit(cv_img, self.uid)
-                            #status.showMessage('frame ...')
                         else:
                             print("Error: failed to load frame", self.currentFrame)
                             self.cap.release()
@@ -1791,10 +1790,16 @@ class Display(QLabel):
             
             w = self.qt_img.width()
             h = self.qt_img.height()
-            #print("original_pixmap (Display)", w, h, flush=True)
+            #if TRACELEVEL >= 3:
+            #    print("frame. w:", w, "h:", h, flush=True)
             
             self.imggeometry=self.size()
-            self.setPixmap(self.qt_img.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
+            #if TRACELEVEL >= 3:
+            #    print("imggeometry. w:", self.imggeometry.width(), "h:", self.imggeometry.height(), flush=True)
+            pm = self.qt_img.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio)
+            #if TRACELEVEL >= 3:
+            #    print("pm. w:", pm.width(), "h:", pm.height(), flush=True)
+            self.setPixmap(pm)
             if self.onUpdateImage:
                 if self.thread:
                     self.onUpdateImage( self.thread.getCurrentFrameIndex() )

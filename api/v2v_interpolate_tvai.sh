@@ -70,7 +70,7 @@ else
 	TVAI_MODELFI=${TVAI_FILTER_STRING_IP#*"model="}
 	TVAI_MODELFI=${TVAI_MODELFI%%:*}
 
-	if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DATA_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODELFI".json" ] ; then
+	if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DATA_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODELFI".json" ] && [ -e "$TVAI_MODEL_DIR"/auth.tpz ] ; then
 		export TVAI_MODEL_DATA_DIR TVAI_MODEL_DIR
 	else
 		echo -e $"\e[91mError:\e[0m TVAI settings wrong. Please configure at $CONFIGFILE"":"
@@ -79,8 +79,11 @@ else
 		[ ! -e "$TVAI_MODEL_DIR" ] && echo -e $"\e[91mError:\e[0m TVAI_MODEL_DIR=$TVAI_MODEL_DIR"
 		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODELFI".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING_IP=$TVAI_FILTER_STRING_IP"
 		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODELFI".json" ] && echo -e $"\e[91m      \e[0m ""$TVAI_MODEL_DIR""/""$TVAI_MODELFI"".json not found in $TVAI_MODEL_DATA_DIR"
+		[ ! -e "$TVAI_MODEL_DIR"/"auth.tpz" ] && echo -e $"\e[91mError:\e[0m Not authorized."
 		exit 1
 	fi
+	
+	
 	
 	PROGRESS=" "
 	if [ -e input/vr/interpolate/BATCHPROGRESS.TXT ]

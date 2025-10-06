@@ -71,7 +71,7 @@ else
 	TVAI_MODEL2X=${TVAI_FILTER_STRING_UP2X#*"model="}
 	TVAI_MODEL2X=${TVAI_MODEL2X%%:*}
 
-	if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DATA_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] ; then
+	if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DATA_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && [ -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] && [ -e "$TVAI_MODEL_DIR"/auth.tpz ] ; then
 		export TVAI_MODEL_DATA_DIR TVAI_MODEL_DIR
 	else
 		echo -e $"\e[91mError:\e[0m TVAI settings wrong. Please configure at $CONFIGFILE"":"
@@ -82,6 +82,7 @@ else
 		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL2X".json not found in $TVAI_MODEL_DATA_DIR"
 		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && echo -e $"\e[91mError:\e[0m TVAI_FILTER_STRING_UP4X=$TVAI_FILTER_STRING_UP4X"
 		[ ! -e "$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json" ] && echo -e $"\e[91mE     \e[0m ""$TVAI_MODEL_DIR"/$TVAI_MODEL4X".json not found in $TVAI_MODEL_DATA_DIR"
+		[ ! -e "$TVAI_MODEL_DIR"/"auth.tpz" ] && echo -e $"\e[91mError:\e[0m Not authorized."
 		exit 1
 	fi
 	
