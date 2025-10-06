@@ -757,7 +757,7 @@ echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
 
-IF HAS_NVIDIA_GPU == 0 GOTO NO_GPU 
+IF "%HAS_NVIDIA_GPU%" == "0" GOTO NO_GPU 
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
 echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI Nvidea GPU.lnk" >> %SCRIPT%
