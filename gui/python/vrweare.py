@@ -258,9 +258,13 @@ class SpreadsheetApp(QMainWindow):
             self.dialog.activateWindow()
         else:
             super().mousePressEvent(event)
+
+    def open_config(self, state):
+        os.startfile(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")))
             
     def show_manual(self, state):
-        webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
+        webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
+        # webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
 
     def check_cutandclone(self, state):
         dialog = RateAndCutDialog(True)
@@ -336,6 +340,14 @@ class SpreadsheetApp(QMainWindow):
         imagepath=os.path.join(path, "../../../../user/default/comfyui_stereoscopic/uml/autoforward.png")
         if not os.path.exists(imagepath):
             self.button_show_pipeline_action.setEnabled(False)
+
+        self.toolbar.addSeparator()
+
+        self.button_open_config_action = QAction(QIcon(os.path.join(path, '../../gui/img/config64.png')), "Configuration")      
+        self.button_open_config_action.setCheckable(False)
+        self.button_open_config_action.triggered.connect(self.open_config)
+        self.toolbar.addAction(self.button_open_config_action)    
+        self.toolbar.widgetForAction(self.button_open_config_action).setCursor(Qt.PointingHandCursor)
         
         self.toolbar.addSeparator()
 
@@ -829,6 +841,8 @@ class PipelineEditThread(QThread):
         watchthread.start()
 
         configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
+        #os.startfile(os.path.realpath(configFile))
+
         subprocess.Popen(["notepad", configFile ], close_fds=True).wait()
 
         global editActive, pipelineModified, editthread
