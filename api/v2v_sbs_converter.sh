@@ -71,7 +71,10 @@ else
 	
 	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS_VIDEO=/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS_VIDEO=${SBS_DEPTH_BLUR_RADIUS_VIDEO:-"19"}
 
-	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT=/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
+	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT=/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vits.pth"}
+	
+	DEPTH_RESOLUTION=$(awk -F "=" '/DEPTH_RESOLUTION=/ {print $2}' $CONFIGFILE) ; DEPTH_RESOLUTION=${DEPTH_RESOLUTION:-"256"}
+	
 	VIDEO_FORMAT=$(awk -F "=" '/VIDEO_FORMAT=/ {print $2}' $CONFIGFILE) ; VIDEO_FORMAT=${VIDEO_FORMAT:-"video/h264-mp4"}
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT=/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF=/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
@@ -244,7 +247,7 @@ else
 				exit 1
 			fi
 			# "$VIDEO_FORMAT" "$VIDEO_PIXFMT" "$VIDEO_CRF"
-			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset $blur_radius "$f" "$SBSDIR_CALL"/sbssegment  ; echo -ne $"\e[0m"
+			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $DEPTH_RESOLUTION $depth_scale $depth_offset $blur_radius "$f" "$SBSDIR_CALL"/sbssegment  ; echo -ne $"\e[0m"
 		else
 			[ $loglevel -ge 0 ] && echo -ne "+ $f2...       \r"
 		fi

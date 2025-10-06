@@ -71,7 +71,9 @@ else
 			
 	blur_radius=$(awk -F "=" '/SBS_DEPTH_BLUR_RADIUS_IMAGE=/ {print $2}' $CONFIGFILE) ; SBS_DEPTH_BLUR_RADIUS_IMAGE=${SBS_DEPTH_BLUR_RADIUS_IMAGE:-"19"}
 
-	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT=/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
+	DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT=/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vits.pth"}
+
+	DEPTH_RESOLUTION=$(awk -F "=" '/DEPTH_RESOLUTION=/ {print $2}' $CONFIGFILE) ; DEPTH_RESOLUTION=${DEPTH_RESOLUTION:-"256"}
 
 	PROGRESS=" "
 	if [ -e input/vr/fullsbs/BATCHPROGRESS.TXT ]
@@ -143,7 +145,7 @@ else
 
 			# rm -f -- "$TARGETPREFIX"*.png 2>/dev/null
 			
-			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $depth_scale $depth_offset $blur_radius "$INPUT" "$TARGETPREFIX" ; echo -ne $"\e[0m"
+			echo -ne $"\e[91m" ; "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$DEPTH_MODEL_CKPT" $DEPTH_RESOLUTION $depth_scale $depth_offset $blur_radius "$INPUT" "$TARGETPREFIX" ; echo -ne $"\e[0m"
 			INTERMEDIATE="$TARGETPREFIX""_00001_.png"
 			rm -f $TARGETPREFIX*.png
 			mkdir -p input/vr/fullsbs/done

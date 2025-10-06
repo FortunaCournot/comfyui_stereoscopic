@@ -8,7 +8,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
-CONFIG_VERSION=8
+CONFIG_VERSION=9
 
 rm -f "custom_nodes/comfyui_stereoscopic/.test/.signalfail" >/dev/null
 
@@ -113,8 +113,15 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "SBS_DEPTH_BLUR_RADIUS_IMAGE=19">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
-	echo "# Used depth model by comfyui-depthanythingv2">>"$CONFIGFILE"
-	echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitb_fp16.safetensors">>"$CONFIGFILE"
+	if [ -e "/c/Windows/System32/nvidia-smi.exe" ] ; then
+		echo "# Used depth model by comfyui-depthanythingv2 (GPU detected)">>"$CONFIGFILE"
+		echo "DEPTH_MODEL_CKPT=depth_anything_v2_vitb_fp16.safetensors">>"$CONFIGFILE"
+		echo "DEPTH_RESOLUTION=1024">>"$CONFIGFILE"
+	else
+		echo "# Used depth model by comfyui-depthanythingv2 (no GPU detected)">>"$CONFIGFILE"
+		echo "DEPTH_MODEL_CKPT=depth_anything_v2_vits_fp16.safetensors">>"$CONFIGFILE"
+		echo "DEPTH_RESOLUTION=256">>"$CONFIGFILE"
+	fi
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- video config ---">>"$CONFIGFILE"

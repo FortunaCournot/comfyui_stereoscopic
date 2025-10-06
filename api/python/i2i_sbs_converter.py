@@ -110,17 +110,18 @@ def queue_prompt(prompt):
 
 
 
-if len(sys.argv) != 6 + 1:
+if len(sys.argv) != 7 + 1:
    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " depth_model_ckpt_name depth_scale depth_offset blur_radius InputImagePath OutputPathPrefix")
 else:
     prompt = json.loads(prompt_text)
     prompt["233"]["inputs"]["model"] = sys.argv[1]
-    prompt["220"]["inputs"]["depth_scale"] = float(sys.argv[2])
-    prompt["220"]["inputs"]["depth_offset"] = float(sys.argv[3])
-    prompt["220"]["inputs"]["blur_radius"] = int(sys.argv[4])
+    prompt["239"]["inputs"]["resolution"] = sys.argv[2] 
+    prompt["220"]["inputs"]["depth_scale"] = float(sys.argv[3])
+    prompt["220"]["inputs"]["depth_offset"] = float(sys.argv[4])
+    prompt["220"]["inputs"]["blur_radius"] = int(sys.argv[5])
     prompt["220"]["inputs"]["symetric"] = True
-    prompt["158"]["inputs"]["image"] = sys.argv[5]
-    prompt["227"]["inputs"]["filename_prefix"] = sys.argv[6] 
+    prompt["158"]["inputs"]["image"] = sys.argv[6]
+    prompt["227"]["inputs"]["filename_prefix"] = sys.argv[7] 
     
     queue_prompt(prompt)
 
