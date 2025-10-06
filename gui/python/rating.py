@@ -629,9 +629,9 @@ class RateAndCutDialog(QDialog):
                     self.button_endframe.setVisible(False)
                 else:
                     self.rating_widget.setVisible(False)
+                    self.button_return2edit.setVisible(False)
                 self.button_prev_file.setVisible(False)
                 self.button_next_file.setVisible(False)
-                self.button_return2edit.setVisible(False)
                 self.button_delete_file.setVisible(False)
                 self.fileSlider.setVisible(False)
         else:
