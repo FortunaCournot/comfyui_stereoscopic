@@ -212,7 +212,7 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
-'''
+
 try:
     from vrweare_control import VRwearePause
     nodelist=nodelist+", VRwearePause"
@@ -248,7 +248,7 @@ except ImportError as e:
         CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
-'''
+
 
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
 
