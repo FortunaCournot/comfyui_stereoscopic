@@ -40,6 +40,12 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QPlainTextEdit, QLayout, QStyleOptionSlider, QStyle,
                              QRubberBand)
 
+USE_TRASHBIN=True
+if USE_TRASHBIN:
+    try:
+        import send2trash
+    except ImportError:
+        USE_TRASHBIN=False
 
 TRACELEVEL=0
 
@@ -705,7 +711,10 @@ class RateAndCutDialog(QDialog):
                     
                     if index>=0:
                         self.log("Deleting " + os.path.basename(input), QColor("white"))
-                        os.remove(input)
+                        if USE_TRASHBIN:
+                            send2trash.send2trash(input)
+                        else:
+                            os.remove(input)
                         files=rescanFilesToRate()
                     
                     l=len(files)

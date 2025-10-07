@@ -8,3 +8,4 @@ gputil
 PyQt5
 plantuml
 pyyaml
+send2trash
