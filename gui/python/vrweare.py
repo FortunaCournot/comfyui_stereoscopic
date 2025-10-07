@@ -893,21 +893,22 @@ class PipelineWatchThread(QThread):
 
                 
     def waitOnSubprocess(self, process):
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
         msgboxtext=""
-        while True:
-            line = process.stdout.readline()
-            if not line:
-                break
-            line = line.rstrip()
-            print(line, flush=True)
-            if "Error:" in line:
-                msgboxtext = msgboxtext + ansi_escape.sub('', line) + "\n"
-        
-        rc = process.wait()
-        process.stdout.close()
-        process.stderr.close()        
-        return (rc, msgboxtext)
+        try:
+            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                line = line.rstrip()
+                print(line, flush=True)
+                if "Error:" in line:
+                    msgboxtext = msgboxtext + ansi_escape.sub('', line) + "\n"
+        finally:
+            rc = process.wait()
+            process.stdout.close()
+            process.stderr.close()        
+            return (rc, msgboxtext)
 
 class HoverTableWidget(QTableWidget):
     def __init__(self, rows, cols, isCellClickable, onCellClick, parent=None):
