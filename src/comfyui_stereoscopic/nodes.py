@@ -11,9 +11,11 @@ if current_dir not in sys.path:
 
 LOAD_ERRORS = 0
 
+nodelist="Failed import"
+
 try:
     from converter import ImageVRConverter
-    print("[comfyui_stereoscopic] Successfully imported ImageVRConverter")
+    nodelist="ImageVRConverter"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing ImageVRConverter: {e}")
@@ -31,7 +33,7 @@ except ImportError as e:
 
 try:
     from tools import GetResolutionForVR
-    print("[comfyui_stereoscopic] Successfully imported GetResolutionForVR")
+    nodelist=nodelist+", GetResolutionForVR"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing GetResolutionForVR: {e}")
@@ -49,7 +51,7 @@ except ImportError as e:
 
 try:
     from watermark import EncryptWatermark
-    print("[comfyui_stereoscopic] Successfully imported EncryptWatermark")
+    nodelist=nodelist+", EncryptWatermark"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing EncryptWatermark: {e}")
@@ -67,7 +69,7 @@ except ImportError as e:
 
 try:
     from watermark import DecryptWatermark
-    print("[comfyui_stereoscopic] Successfully imported DecryptWatermark")
+    nodelist=nodelist+", DecryptWatermark"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing DecryptWatermark: {e}")
@@ -85,7 +87,7 @@ except ImportError as e:
 
 try:
     from caption import StripXML
-    print("[comfyui_stereoscopic] Successfully imported StripXML")
+    nodelist=nodelist+", StripXML"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing StripXML: {e}")
@@ -103,7 +105,7 @@ except ImportError as e:
 
 try:
     from caption import SaveStrippedUTF8File
-    print("[comfyui_stereoscopic] Successfully imported SaveStrippedUTF8File")
+    nodelist=nodelist+", SaveStrippedUTF8File"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing SaveStrippedUTF8File: {e}")
@@ -121,7 +123,7 @@ except ImportError as e:
 
 try:
     from scaling import ScaleByFactor
-    print("[comfyui_stereoscopic] Successfully imported ScaleByFactor")
+    nodelist=nodelist+", ScaleByFactor"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing ScaleByFactor: {e}")
@@ -139,7 +141,7 @@ except ImportError as e:
 
 try:
     from scaling import ScaleToResolution
-    print("[comfyui_stereoscopic] Successfully imported ScaleToResolution")
+    nodelist=nodelist+", ScaleToResolution"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing ScaleToResolution: {e}")
@@ -157,7 +159,7 @@ except ImportError as e:
 
 try:
     from stringutils import RegexSubstitute
-    print("[comfyui_stereoscopic] Successfully imported RegexSubstitute")
+    nodelist=nodelist+", RegexSubstitute"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing RegexSubstitute: {e}")
@@ -176,7 +178,7 @@ except ImportError as e:
 
 try:
     from stringutils import strftime
-    print("[comfyui_stereoscopic] Successfully imported strftime")
+    nodelist=nodelist+", strftime"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing strftime: {e}")
@@ -194,7 +196,7 @@ except ImportError as e:
 
 try:
     from audio import SaveAudioSimple
-    print("[comfyui_stereoscopic] Successfully imported SaveAudioSimple")
+    nodelist=nodelist+", SaveAudioSimple"
 except ImportError as e:
     LOAD_ERRORS += 1
     print(f"[comfyui_stereoscopic] Error importing SaveAudioSimple: {e}")
@@ -210,6 +212,44 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from vrweare import VRwearePause
+    nodelist=nodelist+", VRwearePause"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing VRwearePause: {e}")
+
+    # Create a placeholder class
+    class VRwearePause:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading VRwearePause"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from vrweare import VRweareResume
+    nodelist=nodelist+", "
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing VRwearePause: {e}")
+
+    # Create a placeholder class
+    class VRwearePause:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading VRwearePause"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+print("[comfyui_stereoscopic] Successfully imported " + nodelist)
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 NODE_CLASS_MAPPINGS = {
@@ -224,6 +264,8 @@ NODE_CLASS_MAPPINGS = {
     "RegexSubstitute" : RegexSubstitute,
     "strftime" : strftime,
     "SaveAudioSimple" : SaveAudioSimple,
+    "VRwearePause" : VRwearePause,
+    "VRweareResume" : VRweareResume,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -238,6 +280,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ScaleToResolution" : "ScaleToResolution",    
     "RegexSubstitute": "Regex Substitute",
     "strftime": "strftime",
-    "SaveAudioSimple": "Save Audio"
+    "SaveAudioSimple": "Save Audio",
+    "VRwearePause": "Pause Pipeline",
+    "VRweareResume": "Resume Pipeline",
 }
 
