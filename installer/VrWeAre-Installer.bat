@@ -356,7 +356,7 @@ ECHO  General options:
 ECHO   1 - Pipeline with SBS-Converter: %PIPELINE_OPTION_SBS_TEXT% (for VR devices)
 ECHO  AI-Expert options:
 ECHO   2 - Judging: Pipeline for first/last image: %PIPELINE_OPTION_FLI2V_TEXT%
-ECHO   3 - Generate Watermark: %PIPELINE_OPTION_WATERMARK_TEXT%
+ECHO   3 - Generate Watermark (experimental): %PIPELINE_OPTION_WATERMARK_TEXT%
 ECHO/
 ECHO   Y - Yes, Install / N - No, QUIT
 ECHO/
