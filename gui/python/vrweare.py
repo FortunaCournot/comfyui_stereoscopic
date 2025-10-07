@@ -105,7 +105,12 @@ def setPipelineErrorText(text):
         pipelineErrors.setText(text)
         pipelineErrors.setVisible(True)
 
-
+def touch(fname):
+    if os.path.exists(fname):
+        os.utime(fname, None)
+    else:
+        open(fname, 'a').close()
+     
 class SpreadsheetApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -296,6 +301,11 @@ class SpreadsheetApp(QMainWindow):
             
     def toggle_pipeline_active_enabled(self, state):
         self.toogle_pipeline_active = state
+        if self.toogle_pipeline_active:
+            if os.path.exists(pipelineActiveLockPath): os.remove(pipelineActiveLockPath)
+        else:
+            touch( pipelineActiveLockPath )
+
         if self.toogle_pipeline_active:
             self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
         else:
