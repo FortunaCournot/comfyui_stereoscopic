@@ -3,12 +3,6 @@ import folder_paths
 import time
 
 
-class Anything(str):
-    def __eq__(self, _) -> bool:
-        return True
-    def __ne__(self, _) -> bool:
-        return False
-
 config_files_path = os.path.abspath(os.path.join(folder_paths.get_user_directory(), 'default', 'comfyui_stereoscopic'))
 
 def touch(fname):
@@ -25,11 +19,11 @@ class VRwearePause:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "anything": (Anything("*"), {"forceInput": True}),
+                "anything": (("*",), {"forceInput": True}),
             }
         }
 
-    RETURN_TYPES = (Anything("*"),)
+    RETURN_TYPES = ("*",)
     RETURN_NAMES = ("anything",)
     FUNCTION = "execute"
     CATEGORY = "Stereoscopic"
@@ -43,7 +37,7 @@ class VRwearePause:
             while os.path.exists(pipelineActiveLockPath):
                 time.sleep(1)
         print(f"[comfyui_stereoscopic] paused.")
-        return (anything)
+        return (anything,)
 
 
 class VRweareResume:
@@ -51,11 +45,11 @@ class VRweareResume:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "anything": (Anything("*"), {"forceInput": True}),
+                "anything": (("*",), {"forceInput": True}),
             }
         }
 
-    RETURN_TYPES = (Anything("*"),)
+    RETURN_TYPES = ("*",)
     RETURN_NAMES = ("anything",)
     FUNCTION = "execute"
     CATEGORY = "Stereoscopic"
@@ -64,6 +58,6 @@ class VRweareResume:
     def execute(self, anything):
         pause_file_path = os.path.abspath(os.path.join(config_files_path, '.pipelinepause'))
         if os.path.exists(pause_file_path): os.remove(pause_file_path)
-        return (anything)
+        return (anything,)
 
 
