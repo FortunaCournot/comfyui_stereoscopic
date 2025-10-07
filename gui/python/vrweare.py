@@ -56,7 +56,8 @@ idletime = 0
 
 COLS = 4
 
-pipelineActiveLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelinepause'))
+pipelinePauseLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelinepause'))
+pipelineActiveLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelineactive'))
 
 
 STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/rate", "check/released"]
@@ -122,7 +123,7 @@ class SpreadsheetApp(QMainWindow):
 
         # Flags for toggles
         self.toogle_stages_expanded = False
-        self.toogle_pipeline_active = not os.path.exists(pipelineActiveLockPath)
+        self.toogle_pipeline_active = not os.path.exists(pipelinePauseLockPath)
 
         # Initialize caches
         self.stageTypes = []
@@ -302,14 +303,17 @@ class SpreadsheetApp(QMainWindow):
     def toggle_pipeline_active_enabled(self, state):
         self.toogle_pipeline_active = state
         if self.toogle_pipeline_active:
-            if os.path.exists(pipelineActiveLockPath): os.remove(pipelineActiveLockPath)
+            if os.path.exists(pipelinePauseLockPath): os.remove(pipelinePauseLockPath)
         else:
-            touch( pipelineActiveLockPath )
+            touch( pipelinePauseLockPath )
 
         if self.toogle_pipeline_active:
             self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
         else:
-            self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+            if os.path.exists(pipelineActiveLockPath):
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
+            else:
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
 
     def init_toolbar(self):
         self.toolbar = QToolBar("Main Toolbar")
@@ -328,9 +332,18 @@ class SpreadsheetApp(QMainWindow):
 
         self.toggle_pipeline_active_icon_true = QIcon(os.path.join(path, '../../gui/img/pipelineResume.png'))
         self.toggle_pipeline_active_icon_false = QIcon(os.path.join(path, '../../gui/img/pipelinePause.png'))
+        self.toggle_pipeline_active_icon_transit = QIcon(os.path.join(path, '../../gui/img/pipelineRequestedPause.png'))
 
         # Toggle pipeline active action with icon
-        self.toggle_pipeline_active_action = QAction(self.toggle_pipeline_active_icon_true if self.toogle_pipeline_active else self.toggle_pipeline_active_icon_false, "Pause" if self.toogle_pipeline_active else "Resume", self)
+        self.toggle_pipeline_active_action = QAction(self)
+        if self.toogle_pipeline_active:
+            self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+        else:
+            if os.path.exists(pipelineActiveLockPath):
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
+            else:
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+        
         self.toggle_pipeline_active_action.setCheckable(True)
         self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
         self.toggle_pipeline_active_action.triggered.connect(self.toggle_pipeline_active_enabled)
@@ -426,14 +439,17 @@ class SpreadsheetApp(QMainWindow):
                 print("QUIT (external signal)", flush=True)
                 sys.exit(app.exec_())
 
-            pipeline_status = not os.path.exists(pipelineActiveLockPath)
+            pipeline_status = not os.path.exists(pipelinePauseLockPath)
             if not self.toogle_pipeline_active == pipeline_status:
                 self.toogle_pipeline_active = pipeline_status
                 self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
                 if self.toogle_pipeline_active:
                     self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
                 else:
-                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+                    if os.path.exists(pipelineActiveLockPath):
+                        self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
+                    else:
+                        self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
 
 
             if self.idle_container_active:
