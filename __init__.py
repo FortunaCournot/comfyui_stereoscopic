@@ -3,6 +3,7 @@ import os
 import folder_paths
 import shutil
 
+
 __author__ = """Fortuna Cournot"""
 __email__ = "fortunacournot@gmail.com"
 __version__ = "4.0.0"
@@ -76,8 +77,7 @@ def copySampleInput():
         shutil.copytree(sample_source_path, sample_input_target_path)
 
 
-
-print(f'\033[35m[comfyui-stereoscopic] v{__version__}\033[0m Loading...')
+print(f'[comfyui-stereoscopic] \033[92mV\033[91mR\033[0m we are v{__version__} Loading...')
 
 __all__ = [
     "NODE_CLASS_MAPPINGS",
