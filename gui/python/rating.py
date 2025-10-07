@@ -573,7 +573,7 @@ class RateAndCutDialog(QDialog):
             self.button_trima_video.setEnabled(isPaused)
             self.button_trimb_video.setEnabled(isPaused)
             self.button_snapshot_from_video.setEnabled(isPaused and self.isVideo)
-        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/play80.png') if isPaused else os.path.join(path, '../../gui/img/pause80.png') ))
+        self.button_startpause_video.setIcon(QIcon(os.path.join(path, '../../gui/img/pause80.png') if isPaused else os.path.join(path, '../../gui/img/play80.png') ))
 
         self.filebutton_timer.timeout.connect(self.update_filebuttons)
         if not self.isPaused:
