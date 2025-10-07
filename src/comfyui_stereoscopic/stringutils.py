@@ -57,7 +57,7 @@ class strftime:
         }
 
     RETURN_TYPES = (Anything("*"), "STRING")
-    RETURN_NAME = ("anything", "string", )
+    RETURN_NAMES = ("anything", "string", )
     FUNCTION = "_strftime"
 
     CATEGORY = "utils/string/stereoscopic"

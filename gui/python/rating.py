@@ -1392,7 +1392,8 @@ class RateAndCutDialog(QDialog):
 
 
     def closeOnError(self, msg):
-        print(msg, flush=True)
+        if TRACELEVEL >= 1:
+            print(msg, flush=True)
         self.currentIndex=-1
         self.display.stopAndBlackout()
         self.rateCurrentFile()

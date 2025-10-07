@@ -212,8 +212,9 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+'''
 try:
-    from vrweare import VRwearePause
+    from vrweare_control import VRwearePause
     nodelist=nodelist+", VRwearePause"
 except ImportError as e:
     LOAD_ERRORS += 1
@@ -231,22 +232,23 @@ except ImportError as e:
             return (f"ERROR: {error}",)
 
 try:
-    from vrweare import VRweareResume
-    nodelist=nodelist+", "
+    from vrweare_control import VRweareResume
+    nodelist=nodelist+", VRweareResume"
 except ImportError as e:
     LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing VRwearePause: {e}")
+    print(f"[comfyui_stereoscopic] Error importing VRweareResume: {e}")
 
     # Create a placeholder class
-    class VRwearePause:
+    class VRweareResume:
         @classmethod
         def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading VRwearePause"})}}
+            return {"required": {"error": ("STRING", {"default": "Error loading VRweareResume"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
         CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
+'''
 
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
 
