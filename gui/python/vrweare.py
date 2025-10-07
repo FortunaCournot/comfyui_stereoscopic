@@ -879,7 +879,6 @@ class PipelineWatchThread(QThread):
                 exit_code, rebuildMsg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_forwards + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
                 if not rebuildMsg == "":
                     setPipelineErrorText(rebuildMsg)
-
                 
                 print("forwards", exit_code, flush=True)
                 hidePipelineShowText("Prepare rendering...")
@@ -906,6 +905,8 @@ class PipelineWatchThread(QThread):
                 msgboxtext = msgboxtext + ansi_escape.sub('', line) + "\n"
         
         rc = process.wait()
+        process.stdout.close()
+        process.stderr.close()        
         return (rc, msgboxtext)
 
 class HoverTableWidget(QTableWidget):
