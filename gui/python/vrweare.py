@@ -40,7 +40,7 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, rescanFilesToRate, scanFilesToRate, initCutMode
+from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, rescanFilesToRate, scanFilesToRate, initCutMode, config
 from judge import JudgeDialog
 
 
@@ -301,19 +301,24 @@ class SpreadsheetApp(QMainWindow):
             self.toggle_stages_expanded_action.setIcon(self.toggle_stages_expanded_icon_false)
             
     def toggle_pipeline_active_enabled(self, state):
-        self.toogle_pipeline_active = state
-        if self.toogle_pipeline_active:
-            if os.path.exists(pipelinePauseLockPath): os.remove(pipelinePauseLockPath)
-        else:
-            touch( pipelinePauseLockPath )
-
-        if self.toogle_pipeline_active:
-            self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
-        else:
-            if os.path.exists(pipelineActiveLockPath):
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
+        if not config("PIPELINE_AUTOFORWARD", "0") == "1":
+            os.startfile(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")))
+        else:        
+            self.toogle_pipeline_active = state
+            if self.toogle_pipeline_active:
+                if os.path.exists(pipelinePauseLockPath): os.remove(pipelinePauseLockPath)
             else:
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+                touch( pipelinePauseLockPath )
+
+            if not config("PIPELINE_AUTOFORWARD", "0") == "1":
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+            elif self.toogle_pipeline_active:
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+            else:
+                if os.path.exists(pipelineActiveLockPath):
+                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
+                else:
+                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
 
     def init_toolbar(self):
         self.toolbar = QToolBar("Main Toolbar")
@@ -333,10 +338,13 @@ class SpreadsheetApp(QMainWindow):
         self.toggle_pipeline_active_icon_true = QIcon(os.path.join(path, '../../gui/img/pipelineResume.png'))
         self.toggle_pipeline_active_icon_false = QIcon(os.path.join(path, '../../gui/img/pipelinePause.png'))
         self.toggle_pipeline_active_icon_transit = QIcon(os.path.join(path, '../../gui/img/pipelineRequestedPause.png'))
-
+        self.toggle_pipeline_active_icon_stopped = QIcon(os.path.join(path, '../../gui/img/pipelineStopped.png'))
+        
         # Toggle pipeline active action with icon
         self.toggle_pipeline_active_action = QAction(self)
-        if self.toogle_pipeline_active:
+        if not config("PIPELINE_AUTOFORWARD", "0") == "1":
+            self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+        elif self.toogle_pipeline_active:
             self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
         else:
             if os.path.exists(pipelineActiveLockPath):
@@ -442,7 +450,9 @@ class SpreadsheetApp(QMainWindow):
             pipeline_status = not os.path.exists(pipelinePauseLockPath)
             self.toogle_pipeline_active = pipeline_status
             self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
-            if self.toogle_pipeline_active:
+            if not config("PIPELINE_AUTOFORWARD", "0") == "1":
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+            elif self.toogle_pipeline_active:
                 self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
             else:
                 if os.path.exists(pipelineActiveLockPath):
