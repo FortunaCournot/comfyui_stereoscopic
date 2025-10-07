@@ -710,12 +710,21 @@ class RateAndCutDialog(QDialog):
                     self.display.stopAndBlackout()
                     
                     if index>=0:
-                        self.log("Deleting " + os.path.basename(input), QColor("white"))
-                        if USE_TRASHBIN:
-                            send2trash.send2trash(input)
-                        else:
-                            os.remove(input)
+                        try:
+                            if USE_TRASHBIN:
+                                self.log("Trashing " + os.path.basename(input), QColor("white"))
+                                send2trash.send2trash(input)
+                            else:
+                                self.log("Deleting " + os.path.basename(input), QColor("white"))
+                                os.remove(input)
+                        finally:
+                            if os.path.exists(input):
+                                self.logn(" failed", QColor("red"))
+                            else:
+                                self.logn(" done", QColor("green"))
+                            
                         files=rescanFilesToRate()
+
                     
                     l=len(files)
 
@@ -730,7 +739,6 @@ class RateAndCutDialog(QDialog):
                     self.currentIndex=index
                     self.rateCurrentFile()
 
-                    self.logn(" done", QColor("green"))
                     
                 except Exception as any_ex:
                     print(traceback.format_exc(), flush=True)                
