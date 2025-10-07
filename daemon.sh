@@ -22,6 +22,7 @@ cleanup() {
 	exit_code=$?
 	rm -f user/default/comfyui_stereoscopic/.daemonactive
 	rm -f user/default/comfyui_stereoscopic/.daemonstatus
+	rm -f user/default/comfyui_stereoscopic/.pipelineactive
 	#echo "Exit code $exit_code"
 	while [[ ${exit_code} -ne 0 ]]; do
 		read -p "Error/Interrupt detected. Please press enter to quit: " yn
@@ -214,10 +215,18 @@ else
 			COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + INTERPOLATECOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT + CAPCOUNT + TASKCOUNT ))
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
 			COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
-			if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] || [[ $COUNTSBSSLIDES -gt 1 ]] ; then
-				[ $loglevel -ge 0 ] && echo "Found $COUNT files in incoming folders:"
-				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop >> $INTERPOLATECOUNT to interpolate, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat" && echo "$DUBSFXCOUNT to dub, $WMECOUNT to encrypt, $WMDCOUNT to decrypt, $CAPCOUNT for caption, $TASKCOUNT in tasks"
+			if [ -e user/default/comfyui_stereoscopic/.pipelinepause ] ; then
+				rm -f user/default/comfyui_stereoscopic/.pipelineactive 2>/dev/null
+				BLINK=`shuf -n1 -e "..." "   "`
+				[ $loglevel -ge 0 ] && echo -ne $"\e[93m\e[2m*** PAUSED (Use App to resume) *** $BLINK\e[0m \r"
 				sleep 1
+			elif [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] || [[ $COUNTSBSSLIDES -gt 1 ]] ; then
+				[ $loglevel -ge 0 ] && echo "Found $COUNT files in incoming folders:                               "
+				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop >> $INTERPOLATECOUNT to interpolate, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat" && echo "$DUBSFXCOUNT to dub, $WMECOUNT to encrypt, $WMDCOUNT to decrypt, $CAPCOUNT for caption, $TASKCOUNT in tasks"
+
+				touch user/default/comfyui_stereoscopic/.pipelineactive
+				sleep 1
+
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh || exit 1
 				[ $loglevel -ge 0 ] && echo "****************************************************"
 				[ $loglevel -ge 0 ] && echo "Using ComfyUI on $COMFYUIHOST port $COMFYUIPORT"
@@ -226,18 +235,21 @@ else
 				[ $loglevel -ge 0 ] && echo " "
 			else
 				BLINK=`shuf -n1 -e "..." "   "`
-				[ $loglevel -ge 0 ] && echo -ne $"\e[2mWaiting for new files$BLINK\e[0m     \r"
+				[ $loglevel -ge 0 ] && echo -ne $"\e[2mWaiting for new files$BLINK\e[0m                     \r"
+				rm -f user/default/comfyui_stereoscopic/.pipelineactive
 				sleep 1
 			fi
 			
 			WORKFLOW_FORWARDER_COUNT=`find output/vr/tasks/forwarder -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			if [[ $WORKFLOW_FORWARDER_COUNT -gt 0 ]] ; then
 				sleep 5
+				[ $loglevel -ge 0 ] && echo " "
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/forwarder || exit 1 )
 			fi
 			WORKFLOW_RELEASED_COUNT=`find output/vr/check/released -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			if [[ $WORKFLOW_RELEASED_COUNT -gt 0 ]] ; then
 				sleep 5
+				[ $loglevel -ge 0 ] && echo " "
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/released || exit 1 )
 			fi
 			
