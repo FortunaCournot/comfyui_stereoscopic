@@ -57,6 +57,8 @@ else
 	if [[ $COUNT -gt 0 ]] ; then
 		TASKFILES=`find input/vr/tasks/*/ -maxdepth 1 -type f`
 		for nextinputfile in $TASKFILES ; do
+			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+
 			INPUTDIR=`dirname -- $nextinputfile`
 			TASKNAME=${INPUTDIR##*/}
 

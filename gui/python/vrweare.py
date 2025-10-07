@@ -440,16 +440,15 @@ class SpreadsheetApp(QMainWindow):
                 sys.exit(app.exec_())
 
             pipeline_status = not os.path.exists(pipelinePauseLockPath)
-            if not self.toogle_pipeline_active == pipeline_status:
-                self.toogle_pipeline_active = pipeline_status
-                self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
-                if self.toogle_pipeline_active:
-                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+            self.toogle_pipeline_active = pipeline_status
+            self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
+            if self.toogle_pipeline_active:
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+            else:
+                if os.path.exists(pipelineActiveLockPath):
+                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
                 else:
-                    if os.path.exists(pipelineActiveLockPath):
-                        self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
-                    else:
-                        self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
 
 
             if self.idle_container_active:

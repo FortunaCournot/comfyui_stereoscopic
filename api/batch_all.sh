@@ -72,7 +72,7 @@ elif [ -d "custom_nodes" ]; then
 	# workaround for recovery problem.
 	#./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
 
-	
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
@@ -100,6 +100,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	if [ $SLIDECOUNT -ge 2 ]; then
 		# PREPARE 4K SLIDES
@@ -115,6 +116,7 @@ elif [ -d "custom_nodes" ]; then
 	
 	
 	
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	if [ $SBSCOUNT -ge 1 ]; then
 		# SBS CONVERTER: Video -> Video, Image -> Image
@@ -131,6 +133,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm' | wc -l`
 	if [ $SINGLELOOPCOUNT -ge 1 ]; then
 		# SINGLE LOOP
@@ -145,6 +148,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
 	if [ $SLIDESBSCOUNT -ge 2 ]; then
 		# MAKE SLIDESHOW
@@ -159,6 +163,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	if [ $CONCATCOUNT -ge 1 ]; then
 		# CONCAT
@@ -173,6 +178,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	DUBCOUNTSFX=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
 		if [ -x "$(command -v nvidia-smi)" ]; then
@@ -195,6 +201,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	### SKIP IF CONFIG CHECK FAILED ###
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	if [ $WMECOUNT -gt 0 ] ; then
@@ -214,6 +221,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	### SKIP IF CONFIG CHECK FAILED ###
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
 	if [ $CAPCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
@@ -224,6 +232,7 @@ elif [ -d "custom_nodes" ]; then
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	fi
 
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 	if [ $INTERPOLATECOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
@@ -234,6 +243,7 @@ elif [ -d "custom_nodes" ]; then
 		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh interpolate || exit 1 )
 	fi
 
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	TASKCOUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
 	if [ $TASKCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
