@@ -83,6 +83,7 @@ else
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
+			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			echo "scaling" >user/default/comfyui_stereoscopic/.daemonstatus
@@ -133,6 +134,7 @@ else
 	[ $loglevel -ge 1 ] && echo "Image Count: $COUNT"
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
+			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			echo "scaling" >user/default/comfyui_stereoscopic/.daemonstatus
