@@ -217,6 +217,7 @@ class RateAndCutDialog(QDialog):
             if cutMode:
                 self.cutMode_toolbar = QToolBar(self)
                 self.cutMode_toolbar.setVisible(True)
+
                 self.iconFolderAction = StyledIcon(os.path.join(path, '../../gui/img/folder64.png'))
                 self.folderAction = QAction(self.iconFolderAction, "Select Custom Folder")
                 self.folderAction.setCheckable(True)
@@ -224,6 +225,15 @@ class RateAndCutDialog(QDialog):
                 self.folderAction.triggered.connect(self.onSelectFolder)
                 self.cutMode_toolbar.addAction(self.folderAction)
                 self.cutMode_toolbar.widgetForAction(self.folderAction).setCursor(Qt.PointingHandCursor)
+
+                self.iconOpenFolderAction = StyledIcon(os.path.join(path, '../../gui/img/explorer64.png'))
+                self.openFolderAction = QAction(self.iconOpenFolderAction, "Open Folder")
+                self.openFolderAction.setCheckable(False)
+                self.openFolderAction.setVisible(True)
+                self.openFolderAction.triggered.connect(self.onOpenFolder)
+                self.cutMode_toolbar.addAction(self.openFolderAction)
+                self.cutMode_toolbar.widgetForAction(self.openFolderAction).setCursor(Qt.PointingHandCursor)
+
                 self.outer_main_layout.addWidget(self.cutMode_toolbar)
                 self.cutMode_toolbar.setContentsMargins(0,0,0,0)
 
@@ -889,6 +899,13 @@ class RateAndCutDialog(QDialog):
         finally:
             QApplication.restoreOverrideCursor()
             leaveUITask()
+           
+    def onOpenFolder(self, state):
+        if cutModeFolderOverrideActive:
+            dirPath=cutModeFolderOverridePath
+        else:
+            dirPath=srcfolder=os.path.join(path, "../../../../input/vr/check/rate")
+        subprocess.Popen(["explorer", os.path.abspath(dirPath) ], close_fds=True)
            
     def onSelectFolder(self, state):
         enterUITask()
