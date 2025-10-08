@@ -45,6 +45,7 @@ CheckProbeValue() {
 		if [ -d "$TVAI_BIN_DIR" ] ; then value1="true" ; else value1="false" ; fi
 	elif [ "$key" = "sbs" ] ; then
 		if [[ "$file" = *"_SBS_LR"* ]] ; then value1="true" ; else value1="false" ; fi
+		if [[ "$file" = *"_SBS_LR"* ]] ; then echo "_SBS_LR check true for $file"; else echo "_SBS_LR check false for $file" ; fi
 	elif [ "$key" = "image" ] ; then
 		lcfile="${file,,}"
 		if [[ "$lcfile" = *".mp4" ]] || [[ "$lcfile" = *".webm" ]] || [[ "$lcfile" = *".ts" ]] ; then value1="false" ; else value1="true" ; fi
@@ -150,7 +151,7 @@ else
 			exit 0
 		fi
 
-		temp=`grep output $sourcedef`
+		temp=`grep "\"output\":" $sourcedef`
 		temp=${temp#*:}
 		temp="${temp%\"*}"
 		temp="${temp#*\"}"
@@ -167,8 +168,9 @@ else
 		
 		forwarddef=output/vr/"$sourcestage"/forward.txt
 		forwarddef=`realpath $forwarddef`
-		
-		cat $forwarddef | tr -d '\r' | while read -r destination; do
+
+		while read -r destination; do
+			destination=`echo $destination`
 			[ !  -z "$destination" ] && [ "${destination:0:1}" = "#" ] && continue
 			conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
 			destination=${destination##*\]}
@@ -188,7 +190,7 @@ else
 					
 					#[ $loglevel -ge 1 ] && echo "forwarding media to user's $destination"
 
-					temp=`grep input user/default/comfyui_stereoscopic/"$userdestination".json`
+					temp=`grep "\"input\":" user/default/comfyui_stereoscopic/"$userdestination".json`
 					temp=${temp#*:}
 					temp="${temp%\"*}"
 					temp="${temp#*\"}"
@@ -205,7 +207,7 @@ else
 
 					#[ $loglevel -ge 1 ] && echo "forwarding media to $destination"
 					
-					temp=`grep input custom_nodes/comfyui_stereoscopic/config/"$destination".json`
+					temp=`grep "\"input\":" custom_nodes/comfyui_stereoscopic/config/"$destination".json`
 					temp=${temp#*:}
 					temp="${temp%\"*}"
 					temp="${temp#*\"}"
@@ -221,7 +223,7 @@ else
 					
 					#[ $loglevel -ge 1 ] && echo "forwarding media to stage $destination"
 					
-					temp=`grep input custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json`
+					temp=`grep "\"input\":" custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json`
 					temp=${temp#*:}
 					temp="${temp%\"*}"
 					temp="${temp#*\"}"
@@ -232,7 +234,7 @@ else
 				#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
 				
 				mkdir -p user/default/comfyui_stereoscopic
-				
+
 				for i in ${inputrule//;/ }
 				do
 					for o in ${outputrule//;/ }
@@ -303,7 +305,7 @@ else
 				echo -e $"\e[91mError:\e[0m Invalid stage path in $sourcestage""/forward.txt: input/vr/""$destination does not exist."
 				exit 1
 			fi
-		done
+		done < $forwarddef
 	else
 		[ $loglevel -ge 1 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"
 	fi
