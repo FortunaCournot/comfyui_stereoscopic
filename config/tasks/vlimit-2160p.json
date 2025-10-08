@@ -3,6 +3,6 @@
   "blueprint": "ffmpeg-v2v",
   "options": "-filter:v scale=-2:2160",
   "lowerlimits": "height=2161",
-  "input": "video;image",
-  "output": "video;image",
+  "input": "video",
+  "output": "video",
 }
