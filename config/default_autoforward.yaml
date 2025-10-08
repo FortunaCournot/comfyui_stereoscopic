@@ -179,6 +179,8 @@ pipeline:
           to: tasks/pad-16-9-sbs
           conditions:
             - sbs=true
+  - from: tasks/pad-16-9-sbs
+    keepinput: true
   - from: tasks/split-1m
     keepinput: true
   - from: tasks/createsilence
