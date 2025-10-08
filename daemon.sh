@@ -144,7 +144,7 @@ else
 		while [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ ! -e "$TVAI_MODEL_DIR"/auth.tpz ]  ; do
 			export TVAI_MODEL_DIR
 			"$TVAI_BIN_DIR"/login.exe
-			sleep 1
+			read -p "LOGIN, THEN PRESS RETURN TO CONTINUE... " xy
 						
 			TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 			TVAI_MODEL_DATA_DIR=$(awk -F "=" '/TVAI_MODEL_DATA_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DATA_DIR=${TVAI_MODEL_DATA_DIR:-""}
