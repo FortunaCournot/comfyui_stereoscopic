@@ -3,6 +3,22 @@ import re
 
 path = os.path.dirname(os.path.abspath(__file__))
 
+def config(key, default):
+        cfgFile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")
+        try:
+            if os.path.exists(cfgFile):
+                with open(cfgFile) as file:
+                    cfglines = [line.rstrip() for line in file]
+                    for line in range(len(cfglines)):
+                        inputMatch=re.match(r"^"+key+r"=", cfglines[line])
+                        if inputMatch:
+                            valuepart=cfglines[line][inputMatch.end():]
+                            return valuepart  
+            return default
+        except Exception as e:
+            print(traceback.format_exc(), flush=True)
+            return default
+
 # define stages
 STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/rate", "check/released"]
 subfolder = os.path.join(path, "../../../../custom_nodes/comfyui_stereoscopic/config/tasks")
@@ -29,7 +45,8 @@ with open(uml_def, "w") as f:
     f.write("' This file is generated and contains PlantUML commands - do not edit.\n")
     f.write("\n")
     f.write("@startuml\n")
-    f.write("scale max 3840*2160\n")
+    f.write(f"scale max {3840}*{2160}\n")
+    f.write(f"skinparam defaultFontSize {config("UML_FONTSIZE","11")}\n")
     f.write("<style>\n")
     f.write("document {\n")
     f.write("  BackGroundColor darkgray\n")

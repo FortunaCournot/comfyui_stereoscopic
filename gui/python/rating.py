@@ -2358,14 +2358,14 @@ class CropWidget(QWidget):
         self.main_layout = QGridLayout()
         main_layout=self.main_layout
         
-        iw=20
+        iw=200
         cw=5
         
         self.sp1=QLabel()
-        self.sp2=QLabel()
         self.sp1.setMinimumHeight(32)
-        self.sp2.setMinimumHeight(32)
         self.sp1.setMinimumWidth(32)
+        self.sp2=QLabel()
+        self.sp2.setMinimumHeight(32)
         self.sp2.setMinimumWidth(32)
         
         main_layout.addWidget(self.sp1,           0,     0,           cw, cw)
@@ -2382,7 +2382,21 @@ class CropWidget(QWidget):
         #controls_layout = QHBoxLayout()
         #main_layout.addLayout(controls_layout, 3, 0, 1, 1002)
 
-        self.setLayout(main_layout)
+        '''
+        ow=1
+        cw=2
+        self.spUL=QLabel()
+        self.spUL.setMinimumHeight(1)
+        self.spUL.setMinimumWidth(1)
+        self.spBR=QLabel()
+        self.spBR.setMinimumHeight(1)
+        self.spBR.setMinimumWidth(1)
+        self.outer_layout = QGridLayout()
+        self.outer_layout.addWidget(self.spUL,           0,     0,           ow, ow)
+        self.outer_layout.addLayout(main_layout,         ow,    ow,          cw, cw)
+        self.outer_layout.addWidget(self.spBR,           ow+cw,  ow+cw,      ow, ow)
+        '''
+        self.setLayout(self.main_layout)
 
         # Signale verbinden
         self.slider_left.valueChanged.connect(lambda val: self.update_crop("left", val))

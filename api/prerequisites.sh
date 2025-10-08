@@ -236,6 +236,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- VR we are App config ---">>"$CONFIGFILE"
 	echo "SCENEDETECTION_INPUTLENGTHLIMIT=20.0">>"$CONFIGFILE"
 	echo "SCENEDETECTION_THRESHOLD_DEFAULT=0.1">>"$CONFIGFILE"
+	echo "UML_FONTSIZE=11">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png

@@ -944,7 +944,7 @@ class PipelineEditThread(QThread):
                 time.sleep(1)
                 if not mtime == os.path.getmtime(configFile):
                     mtime=os.path.getmtime(configFile)
-                    print("changed", flush=True)
+                    #print("changed", flush=True)
                     QTimer.singleShot(0, partial(self._setPipelineErrorText, None ))
                     QTimer.singleShot(0, partial(self._hidePipelineShowText, "Rebuilding forward files" ))
                     
@@ -952,13 +952,13 @@ class PipelineEditThread(QThread):
                     if not rebuildMsg == "":
                         QTimer.singleShot(0, partial(self._setPipelineErrorText, rebuildMsg ))
                     
-                    print("forwards", exit_code, flush=True)
+                    #print("forwards", exit_code, flush=True)
                     QTimer.singleShot(0, partial(self._hidePipelineShowText, "Prepare rendering..." ))
                     exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_definition + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
-                    print("prepare rendering", exit_code, flush=True)
+                    #print("prepare rendering", exit_code, flush=True)
                     QTimer.singleShot(0, partial(self._hidePipelineShowText, "Generate new image..." ))
                     exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_generate_image + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
-                    print("rendered", exit_code, flush=True)
+                    #print("rendered", exit_code, flush=True)
                     QTimer.singleShot(0, partial(self._hidePipelineShowText, "Updating new image..." ))
                     QTimer.singleShot(0, partial(self._updatePipeline))
                     pipelineModified=True
