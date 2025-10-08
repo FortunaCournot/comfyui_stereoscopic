@@ -91,13 +91,6 @@ pipeline:
             - r_frame_rate<24
             - pixel<4800000
       - rule:
-          to: interpolate
-          conditions:
-            - duration<60
-            - tvai=true
-            - r_frame_rate<24
-            - pixel<4800000
-      - rule:
           to: tasks/limit-1920
           conditions:
             - duration<60
