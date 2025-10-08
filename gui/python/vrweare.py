@@ -13,6 +13,7 @@ from pathlib import Path
 from random import randrange
 from threading import Thread
 from urllib.error import HTTPError
+from functools import wraps, partial
 
 import cv2
 import numpy as np
@@ -907,7 +908,12 @@ class PipelineEditThread(QThread):
 
     def run(self):
 
-        watchthread = PipelineWatchThread(self.parent)
+
+        watchthread = Thread(
+            target=self.pipelineWatch,
+            args=(),
+            daemon=True
+        )
         watchthread.start()
 
         configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
@@ -924,44 +930,50 @@ class PipelineEditThread(QThread):
         editActive=False
         editthread=None
         editAction.setEnabled(True)
-        
-class PipelineWatchThread(QThread):
-    def __init__(self, parent):
-        super().__init__()
-        self.parent = parent
 
-    def run(self):
-        configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
-        pythonExe=os.path.join(path, r'..\..\..\..\..\python_embeded\python.exe')
-        uml_build_forwards=os.path.join(path, r'..\..\api\python\rebuild_autoforward.py')
-        uml_build_definition=os.path.join(path, r'..\..\api\python\uml_build_definition.py')
-        uml_generate_image=os.path.join(path, r'..\..\api\python\uml_generate_image.py')
+    def pipelineWatch(self):
+        try:
+            configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
+            pythonExe=os.path.join(path, r'..\..\..\..\..\python_embeded\python.exe')
+            uml_build_forwards=os.path.join(path, r'..\..\api\python\rebuild_autoforward.py')
+            uml_build_definition=os.path.join(path, r'..\..\api\python\uml_build_definition.py')
+            uml_generate_image=os.path.join(path, r'..\..\api\python\uml_generate_image.py')
 
-        mtime=os.path.getmtime(configFile)
-        while editActive:
-            time.sleep(1)
-            if not mtime == os.path.getmtime(configFile):
-                mtime=os.path.getmtime(configFile)
-                print("changed", flush=True)
-                setPipelineErrorText(None)
-                hidePipelineShowText("Rebuilding forward files")
-                
-                exit_code, rebuildMsg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_forwards + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
-                if not rebuildMsg == "":
-                    setPipelineErrorText(rebuildMsg)
-                
-                print("forwards", exit_code, flush=True)
-                hidePipelineShowText("Prepare rendering...")
-                exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_definition + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
-                print("prepare rendering", exit_code, flush=True)
-                hidePipelineShowText("Generate new image...")
-                exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_generate_image + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
-                print("rendered", exit_code, flush=True)
-                hidePipelineShowText("Updating new image...")
-                updatePipeline()
-                pipelineModified=True
+            mtime=os.path.getmtime(configFile)
+            while editActive:
+                time.sleep(1)
+                if not mtime == os.path.getmtime(configFile):
+                    mtime=os.path.getmtime(configFile)
+                    print("changed", flush=True)
+                    QTimer.singleShot(0, partial(self._setPipelineErrorText, None ))
+                    QTimer.singleShot(0, partial(self._hidePipelineShowText, "Rebuilding forward files" ))
+                    
+                    exit_code, rebuildMsg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_forwards + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
+                    if not rebuildMsg == "":
+                        QTimer.singleShot(0, partial(self._setPipelineErrorText, rebuildMsg ))
+                    
+                    print("forwards", exit_code, flush=True)
+                    QTimer.singleShot(0, partial(self._hidePipelineShowText, "Prepare rendering..." ))
+                    exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_build_definition + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
+                    print("prepare rendering", exit_code, flush=True)
+                    QTimer.singleShot(0, partial(self._hidePipelineShowText, "Generate new image..." ))
+                    exit_code, msg = self.waitOnSubprocess( subprocess.Popen(pythonExe + r' "' + uml_generate_image + '"', stderr=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=1, shell=True, text=True, close_fds=False) )
+                    print("rendered", exit_code, flush=True)
+                    QTimer.singleShot(0, partial(self._hidePipelineShowText, "Updating new image..." ))
+                    QTimer.singleShot(0, partial(self._updatePipeline))
+                    pipelineModified=True
+        except:
+            print(traceback.format_exc(), flush=True)
 
-                
+    def _updatePipeline(self):
+        updatePipeline()
+
+    def _hidePipelineShowText(self, text):
+        hidePipelineShowText(text)
+
+    def _setPipelineErrorText(self, text):
+        setPipelineErrorText(text)
+
     def waitOnSubprocess(self, process):
         msgboxtext=""
         try:
