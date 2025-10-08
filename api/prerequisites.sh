@@ -8,7 +8,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
-CONFIG_VERSION=9
+CONFIG_VERSION=10
 
 rm -f "custom_nodes/comfyui_stereoscopic/.test/.signalfail" >/dev/null
 
@@ -233,6 +233,10 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "TVAI_FILTER_STRING_IP=tvai_fi=model=chf-3:slowmo=1:rdt=-0.000001:device=0:vram=0.8:instances=1:fps=">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
+	echo "# --- VR we are App config ---">>"$CONFIGFILE"
+	echo "SCENEDETECTION_INPUTLENGTHLIMIT=20.0">>"$CONFIGFILE"
+	echo "SCENEDETECTION_THRESHOLD_DEFAULT=0.1">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
 
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 
