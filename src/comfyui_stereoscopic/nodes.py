@@ -249,6 +249,23 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from loading import LoadImageWithFilename
+    nodelist=nodelist+", LoadImageWithFilename"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing LoadImageWithFilename: {e}")
+
+    # Create a placeholder class
+    class LoadImageWithFilename:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading LoadImageWithFilename"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
 
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
 
@@ -268,6 +285,7 @@ NODE_CLASS_MAPPINGS = {
     "SaveAudioSimple" : SaveAudioSimple,
     "VRwearePause" : VRwearePause,
     "VRweareResume" : VRweareResume,
+    "LoadImageWithFilename": LoadImageWithFilename,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -285,5 +303,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SaveAudioSimple": "Save Audio",
     "VRwearePause": "Pause Pipeline",
     "VRweareResume": "Resume Pipeline",
+    "LoadImageWithFilename": "Load Image + Filename",
 }
 
