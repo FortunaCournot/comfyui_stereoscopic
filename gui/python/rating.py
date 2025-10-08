@@ -49,9 +49,6 @@ if USE_TRASHBIN:
 
 TRACELEVEL=0
 
-SCENEDETECTION_INPUTLENGTHLIMIT=20.0
-SCENEDETECTION_THRESHOLD_DEFAULT=0.10
-
 # Globale statische Liste der erlaubten Suffixe
 ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".ts", ".jfif"]
 videoExtensions = ['.mp4', '.webm', '.ts']
@@ -84,6 +81,22 @@ global taskCounterUI, taskCounterAsync, showWaitDialog
 taskCounterUI=0
 taskCounterAsync=0
 showWaitDialog=False
+
+def config(key, default):
+        cfgFile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")
+        try:
+            if os.path.exists(cfgFile):
+                with open(cfgFile) as file:
+                    cfglines = [line.rstrip() for line in file]
+                    for line in range(len(cfglines)):
+                        inputMatch=re.match(r"^"+key+r"=", cfglines[line])
+                        if inputMatch:
+                            valuepart=cfglines[line][inputMatch.end():]
+                            return valuepart  
+            return default
+        except Exception as e:
+            print(traceback.format_exc(), flush=True)
+            return default
 
 
 def isTaskActive():
@@ -209,7 +222,7 @@ class RateAndCutDialog(QDialog):
                 self.setWindowTitle("VR We Are - Check Files: Rating")
             self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
             self.setMaximumSize(QSize(3840,2160))
-            self.setGeometry(150, 150, 1920, 768)
+            self.setGeometry(40, 120, 1920, 768)
             self.outer_main_layout = QVBoxLayout()
             self.setLayout(self.outer_main_layout)
             self.setStyleSheet("background-color : black;")
@@ -1390,6 +1403,7 @@ class RateAndCutDialog(QDialog):
                 self.rateOrArchiveAndNext()
                 return
 
+        SCENEDETECTION_INPUTLENGTHLIMIT=float(config("SCENEDETECTION_INPUTLENGTHLIMIT", "20.0"))
         if count>0 and length<=SCENEDETECTION_INPUTLENGTHLIMIT:
             if cutModeFolderOverrideActive:
                 folder=cutModeFolderOverridePath
@@ -1397,6 +1411,7 @@ class RateAndCutDialog(QDialog):
                 folder=os.path.join(path, "../../../../input/vr/check/rate")
             input=os.path.abspath(os.path.join(folder, self.currentFile))
             
+            SCENEDETECTION_THRESHOLD_DEFAULT=float(config("SCENEDETECTION_THRESHOLD_DEFAULT", "0.1"))
             thread = threading.Thread(
                 target=self.sceneFinder_worker,
                 args=(input, SCENEDETECTION_THRESHOLD_DEFAULT,),
@@ -3036,22 +3051,6 @@ def pil2pixmap(im):
     pixmap = QPixmap.fromImage(qim)
     return pixmap
 
-def config(key, default):
-        cfgFile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")
-        try:
-            if os.path.exists(cfgFile):
-                with open(cfgFile) as file:
-                    cfglines = [line.rstrip() for line in file]
-                    for line in range(len(cfglines)):
-                        inputMatch=re.match(r"^"+key+r"=", cfglines[line])
-                        if inputMatch:
-                            valuepart=cfglines[line][inputMatch.end():]
-                            return valuepart  
-            return default
-        except Exception as e:
-            print(traceback.format_exc(), flush=True)
-            return default
-            
 def replaceSomeChars(path: str) -> str:
     return path.replace(' ', '_')
 
