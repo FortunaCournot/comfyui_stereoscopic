@@ -1266,10 +1266,11 @@ class RateAndCutDialog(QDialog):
                 folder=cutModeFolderOverridePath
             else:
                 folder=rfolder
-            input=os.path.abspath(os.path.join(folder, replaceSomeChars(self.currentFile)))
+            input=os.path.abspath(os.path.join(folder, self.currentFile))
             try:
                 suffix = ".mp4" if self.display.frame_count>0 else ".png"
-                outputBase=os.path.abspath(input[:input.rindex('.')] + "_")
+                outputBase=replaceSomeChars(input)
+                outputBase=os.path.abspath(outputBase[:outputBase.rindex('.')] + "_")
                 fnum=1
                 while os.path.exists(outputBase + str(fnum) + suffix):
                     fnum+=1
