@@ -199,6 +199,7 @@ class RateAndCutDialog(QDialog):
             self.cutMode=cutMode
             cutModeFolderOverrideActive=False
             self.wait_dialog = None
+            self.playtype_pingpong=False
             
             rescanFilesToRate()
             
@@ -227,10 +228,9 @@ class RateAndCutDialog(QDialog):
             self.setLayout(self.outer_main_layout)
             self.setStyleSheet("background-color : black;")
 
+            self.cutMode_toolbar = QToolBar(self)
+            self.cutMode_toolbar.setVisible(True)
             if cutMode:
-                self.cutMode_toolbar = QToolBar(self)
-                self.cutMode_toolbar.setVisible(True)
-
                 self.iconFolderAction = StyledIcon(os.path.join(path, '../../gui/img/folder64.png'))
                 self.folderAction = QAction(self.iconFolderAction, "Select Custom Folder")
                 self.folderAction.setCheckable(True)
@@ -239,17 +239,30 @@ class RateAndCutDialog(QDialog):
                 self.cutMode_toolbar.addAction(self.folderAction)
                 self.cutMode_toolbar.widgetForAction(self.folderAction).setCursor(Qt.PointingHandCursor)
 
-                self.iconOpenFolderAction = StyledIcon(os.path.join(path, '../../gui/img/explorer64.png'))
-                self.openFolderAction = QAction(self.iconOpenFolderAction, "Open Folder")
-                self.openFolderAction.setCheckable(False)
-                self.openFolderAction.setVisible(True)
-                self.openFolderAction.triggered.connect(self.onOpenFolder)
-                self.cutMode_toolbar.addAction(self.openFolderAction)
-                self.cutMode_toolbar.widgetForAction(self.openFolderAction).setCursor(Qt.PointingHandCursor)
+            self.iconOpenFolderAction = StyledIcon(os.path.join(path, '../../gui/img/explorer64.png'))
+            self.openFolderAction = QAction(self.iconOpenFolderAction, "Open Folder")
+            self.openFolderAction.setCheckable(False)
+            self.openFolderAction.setVisible(True)
+            self.openFolderAction.triggered.connect(self.onOpenFolder)
+            self.cutMode_toolbar.addAction(self.openFolderAction)
+            self.cutMode_toolbar.widgetForAction(self.openFolderAction).setCursor(Qt.PointingHandCursor)
 
-                self.outer_main_layout.addWidget(self.cutMode_toolbar)
-                self.cutMode_toolbar.setContentsMargins(0,0,0,0)
+            self.cutMode_toolbar.addSeparator()
 
+            self.toggle_playtype_icon_false = QIcon(os.path.join(path, '../../gui/img/replay64.png'))
+            self.toggle_playtype_icon_true = QIcon(os.path.join(path, '../../gui/img/pingpong64.png'))
+            self.iconPlayTypeAction = QAction(self.toggle_playtype_icon_true if self.playtype_pingpong else self.toggle_playtype_icon_false, "Change Playtype")
+            self.iconPlayTypeAction.setCheckable(True)
+            self.iconPlayTypeAction.setChecked(self.playtype_pingpong)
+            self.iconPlayTypeAction.setVisible(True)
+            self.iconPlayTypeAction.triggered.connect(self.onPlayTypeAction)
+            self.cutMode_toolbar.addAction(self.iconPlayTypeAction)
+            self.cutMode_toolbar.widgetForAction(self.iconPlayTypeAction).setCursor(Qt.PointingHandCursor)
+
+            self.outer_main_layout.addWidget(self.cutMode_toolbar)
+            self.cutMode_toolbar.setContentsMargins(0,0,0,0)
+
+            if cutMode:
                 self.dirlabel=QLabel("")
                 self.dirlabel.setStyleSheet("QLabel { background-color : black; color : white; }");
                 self.outer_main_layout.addWidget(self.dirlabel)
@@ -913,6 +926,12 @@ class RateAndCutDialog(QDialog):
             QApplication.restoreOverrideCursor()
             leaveUITask()
            
+    def onPlayTypeAction(self, state):
+        self.playtype_pingpong = state
+        self.iconPlayTypeAction.setIcon(self.toggle_playtype_icon_true if self.playtype_pingpong else self.toggle_playtype_icon_false)
+        if not self.display.thread is None:
+            self.display.thread.setPingPongModeEnabled(self.playtype_pingpong)
+        
     def onOpenFolder(self, state):
         if cutModeFolderOverrideActive:
             dirPath=cutModeFolderOverridePath
@@ -1581,6 +1600,8 @@ class VideoThread(QThread):
         self.frame_count=-1
         self.fps=1
         self._run_flag = False
+        self.pingPongModeEnabled=False
+        self.pingPongReverseState=False
         #print("Created thread with uid " + str(uid) , flush=True)
 
     def run(self):
@@ -1639,24 +1660,44 @@ class VideoThread(QThread):
 
         self.currentFrame=-1      # before start. first frame will be number 0
         while self._run_flag:
+            timestamp=time.time() 
             if not self.pause:
-                if self.currentFrame+1>self.b or self.currentFrame+1<self.a:
-                    #print("replay", flush=True)
-                    self.seek(self.a)
+                if self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame>self.a:
+                    self.currentFrame-=1
+                    self.seek(self.currentFrame)
+                elif self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame<=self.a:
+                    self.pingPongReverseState=False
+                    self.currentFrame=self.a
+                    if self.currentFrame+1<=self.b:
+                        self.currentFrame+=1
+                        self.seek(self.currentFrame)
                 else:
-                    ret, cv_img = self.cap.read()
-                    if self._run_flag:
-                        if ret and not cv_img is None:
-                            self.currentFrame+=1
-                            self.slider.setValue(self.currentFrame)
-                            self.change_pixmap_signal.emit(cv_img, self.uid)
+                    if self.currentFrame+1>self.b:
+                        if self.pingPongModeEnabled:
+                            self.pingPongReverseState=True
+                            if self.b-1 >= self.a:
+                                self.seek(self.b-1)
                         else:
-                            print("Error: failed to load frame", self.currentFrame)
-                            self.cap.release()
-                            self.cap = cv2.VideoCapture(self.filepath)
-                            self.seek(self.a)
+                            self.seek(self.a)   # replay
+                    elif self.currentFrame+1<self.a:
+                        self.seek(self.a)
+                    else:
+                        ret, cv_img = self.cap.read()
+                        if self._run_flag:
+                            if ret and not cv_img is None:
+                                self.currentFrame+=1
+                                self.slider.setValue(self.currentFrame)
+                                self.change_pixmap_signal.emit(cv_img, self.uid)
+                            else:
+                                print("Error: failed to load frame", self.currentFrame)
+                                self.cap.release()
+                                self.cap = cv2.VideoCapture(self.filepath)
+                                self.seek(self.a)
 
-            time.sleep(1.0/float(self.fps))
+            elapsed = time.time()-timestamp
+            sleeptime = 1.0/float(self.fps) - elapsed
+            if sleeptime>0:
+                time.sleep(sleeptime)
             
         self.cap.release()
         videoActive=False
@@ -1700,7 +1741,11 @@ class VideoThread(QThread):
             self.change_pixmap_signal.emit(cv_img, self.uid)
         else:
             self._run_flag = False
-                
+
+    def setPingPongModeEnabled(self, state):
+        self.pingPongModeEnabled=state
+        self.pingPongReverseState=False
+
     def sliderChanged(self):
         if self.pause:  # do not call while playback
             #print("sliderChanged. seek", self.sender().value(), flush=True)
