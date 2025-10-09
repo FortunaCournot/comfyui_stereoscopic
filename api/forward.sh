@@ -39,6 +39,8 @@ CheckProbeValue() {
 	op="${kopv:${#key}}"
 	op="${op::-${#value2}}"
 
+	[ $LOGRULES -gt 0 ] && echo "CheckProbeValue $kopv"": '""$key""'""$op""'""$value2""'"
+	
 	if [ "$key" = "vram" ] ; then
 		value1=`"$PYTHON_BIN_PATH"python.exe custom_nodes/comfyui_stereoscopic/api/python/get_vram.py`
 	elif [ "$key" = "tvai" ] ; then
@@ -173,7 +175,10 @@ else
 			destination=`echo $destination`
 			[ !  -z "$destination" ] && [ "${destination:0:1}" = "#" ] && continue
 			conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
+			[ $LOGRULES -gt 0 ] && echo "destination: '""$destination""'"
+			[ $LOGRULES -gt 0 ] && echo "conditionalrules: '""$destination""'"
 			destination=${destination##*\]}
+			[ $LOGRULES -gt 0 ] && echo "destination: '""$destination""'"
 			mkdir -p input/vr/$destination 2>/dev/null
 			if [ -z "$destination" ] ; then
 				SKIPPING_EMPTY_LINE=	# just ignore this line
@@ -244,6 +249,7 @@ else
 								OIFS="$IFS"
 								IFS=$'\n'
 								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.MP4' -o -name '*.WEBM'`
+								IFS="$OIFS"
 								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no video files.\e[0m"
 								for file in $FILES ; do
 									RULEFAILED=
@@ -269,11 +275,11 @@ else
 									fi
 									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
 								done
-								IFS="$OIFS"
 							elif  [[ $i == "image" ]] ; then
 								OIFS="$IFS"
 								IFS=$'\n'
 								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
+								IFS="$OIFS"
 								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no image files.\e[0m"
 								for file in $FILES ; do
 									RULEFAILED=
@@ -299,7 +305,6 @@ else
 									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination &&
 									echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
 								done
-								IFS="$OIFS"
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
 							fi
