@@ -2141,7 +2141,7 @@ class Display(QLabel):
         self.origin=None
         if cutModeActive:
             # update rect on release and notify observer
-            if event.button() == Qt.LeftButton:
+            if event.button() == Qt.LeftButton and not self.sourcePixmap is None:
                 self.selection_rect = self.rubberBand.geometry()
                 self.rubberBand.hide()
                 #print("hide!", flush=True)
