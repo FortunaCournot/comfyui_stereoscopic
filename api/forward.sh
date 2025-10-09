@@ -234,13 +234,15 @@ else
 				#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
 				
 				mkdir -p user/default/comfyui_stereoscopic
-
+				MOVEMSGPREFIX="\n"
 				for i in ${inputrule//;/ }
 				do
 					for o in ${outputrule//;/ }
 					do
 						if [[ $i == $o ]] ; then
 							if [[ $i == "video" ]] ; then
+								OIFS="$IFS"
+								IFS=$'\n'
 								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.MP4' -o -name '*.WEBM'`
 								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no video files.\e[0m"
 								for file in $FILES ; do
@@ -265,9 +267,12 @@ else
 											fi
 										done
 									fi
-									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination && echo "Moved ""$file"" --> $destination" 
+									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
 								done
+								IFS="$OIFS"
 							elif  [[ $i == "image" ]] ; then
+								OIFS="$IFS"
+								IFS=$'\n'
 								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
 								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no image files.\e[0m"
 								for file in $FILES ; do
@@ -292,8 +297,9 @@ else
 										done
 									fi
 									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination &&
- echo "Moved ""$file"" --> $destination"
+									echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
 								done
+								IFS="$OIFS"
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
 							fi

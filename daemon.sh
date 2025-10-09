@@ -245,13 +245,11 @@ else
 			WORKFLOW_FORWARDER_COUNT=`find output/vr/tasks/forwarder -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			if [[ $WORKFLOW_FORWARDER_COUNT -gt 0 ]] ; then
 				sleep 5
-				[ $loglevel -ge 0 ] && echo " "
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/forwarder || exit 1 )
 			fi
 			WORKFLOW_RELEASED_COUNT=`find output/vr/check/released -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			if [[ $WORKFLOW_RELEASED_COUNT -gt 0 ]] ; then
 				sleep 5
-				[ $loglevel -ge 0 ] && echo " "
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/released || exit 1 )
 			fi
 			
