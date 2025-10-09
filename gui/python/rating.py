@@ -344,7 +344,7 @@ class RateAndCutDialog(QDialog):
             
             self.sl = FrameSlider(Qt.Horizontal)
             
-            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoLoaded, self.onRectSelected, self.onUpdate)
+            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoLoaded, self.onRectSelected, self.onUpdate, self.playtype_pingpong)
             #self.display.resize(self.display_width, self.display_height)
 
             self.sp3 = QLabel(self)
@@ -929,8 +929,7 @@ class RateAndCutDialog(QDialog):
     def onPlayTypeAction(self, state):
         self.playtype_pingpong = state
         self.iconPlayTypeAction.setIcon(self.toggle_playtype_icon_true if self.playtype_pingpong else self.toggle_playtype_icon_false)
-        if not self.display.thread is None:
-            self.display.thread.setPingPongModeEnabled(self.playtype_pingpong)
+        self.display.setPingPongModeEnabled(self.playtype_pingpong)
         
     def onOpenFolder(self, state):
         if cutModeFolderOverrideActive:
@@ -1583,7 +1582,7 @@ class RatingWidget(QWidget):
 class VideoThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, parent, filepath, uid, slider, update, onVideoLoaded):
+    def __init__(self, parent, filepath, uid, slider, update, onVideoLoaded, pingpong):
         super().__init__()
         global videoActive
         videoActive=False
@@ -1601,7 +1600,7 @@ class VideoThread(QThread):
         self.frame_count=-1
         self.fps=1
         self._run_flag = False
-        self.pingPongModeEnabled=False
+        self.pingPongModeEnabled=pingpong
         self.pingPongReverseState=False
         #print("Created thread with uid " + str(uid) , flush=True)
 
@@ -1690,10 +1689,15 @@ class VideoThread(QThread):
                                 self.slider.setValue(self.currentFrame)
                                 self.change_pixmap_signal.emit(cv_img, self.uid)
                             else:
-                                print("Error: failed to load frame", self.currentFrame)
-                                self.cap.release()
-                                self.cap = cv2.VideoCapture(self.filepath)
-                                self.seek(self.a)
+                                if self.pingPongModeEnabled:
+                                    self.pingPongReverseState=True
+                                    if self.b-1 >= self.a:
+                                        self.seek(self.b-1)
+                                else:
+                                    print("Error: failed to load frame", self.currentFrame, flush=True)
+                                    self.cap.release()
+                                    self.cap = cv2.VideoCapture(self.filepath)
+                                    self.seek(self.a)
 
             elapsed = time.time()-timestamp
             sleeptime = 1.0/float(self.fps) - elapsed
@@ -1790,7 +1794,7 @@ class VideoThread(QThread):
     
 class Display(QLabel):
 
-    def __init__(self, cutMode, pushbutton, slider, updatePaused, loaded, rectSelected, parentUpdate):
+    def __init__(self, cutMode, pushbutton, slider, updatePaused, loaded, rectSelected, parentUpdate, pingpong):
         super().__init__()
         self.qt_img=None
         self.displayUid=0
@@ -1803,6 +1807,7 @@ class Display(QLabel):
         self.loaded = loaded
         self.rectSelected = rectSelected
         self.parentUpdate = parentUpdate
+        self.playtype_pingpong=pingpong
         self.onUpdateFile=None
         self.onUpdateImage=None
         self.onCropOrTrim = None
@@ -1827,7 +1832,14 @@ class Display(QLabel):
         self.scene_intersections = []
 
         self.closeEvent = self.stopAndBlackout
-        
+
+
+    def setPingPongModeEnabled(self, state):
+        self.playtype_pingpong=state
+        if not self.thread is None:
+            self.thread.setPingPongModeEnabled(self.playtype_pingpong)
+
+
     def nextScene(self):
         if len(self.scene_intersections)>0:
             if self.thread:
@@ -1979,7 +1991,7 @@ class Display(QLabel):
                 pass
             self.button.setIcon(QIcon(os.path.join(path, '../../gui/img/pause80.png')))
             self.button.setVisible(True)
-            self.thread = VideoThread(self, self.filepath, uid, self.slider, self.updatePaused, self.onVideoLoaded)
+            self.thread = VideoThread(self, self.filepath, uid, self.slider, self.updatePaused, self.onVideoLoaded, self.playtype_pingpong)
             global rememberThread
             rememberThread=self.thread
             self.trimAFrame=0
