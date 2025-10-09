@@ -234,7 +234,7 @@ else
 				#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
 				
 				mkdir -p user/default/comfyui_stereoscopic
-				MOVEMSGPREFIX="\n"
+				MOVEMSGPREFIX=$'\n'
 				for i in ${inputrule//;/ }
 				do
 					for o in ${outputrule//;/ }
