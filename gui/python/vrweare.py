@@ -41,7 +41,7 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, rescanFilesToRate, scanFilesToRate, initCutMode, config
+from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, getFilesOnlyReady, rescanFilesToRate, scanFilesToRate, initCutMode, config
 from judge import JudgeDialog
 
 
@@ -425,7 +425,7 @@ class SpreadsheetApp(QMainWindow):
 
     def update_toolbar(self):
         count1=len(getFilesWithoutEdit())
-        count2=len(getFilesOnlyEdit())
+        count2=len(getFilesOnlyEdit()) + len(getFilesOnlyReady())
 
         self.button_check_cutclone_action.setEnabled(True)
         self.button_check_rate_action.setEnabled(count2+count1>0)
