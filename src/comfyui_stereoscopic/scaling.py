@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import torch
 from PIL import Image
-
+from math import floor, sqrt
 
 class ScaleByFactor:
     @classmethod
@@ -10,7 +10,7 @@ class ScaleByFactor:
         return {
             "required": {
                 "image": ("IMAGE",),
-                "factor": ("FLOAT", {"default": 1.0, "min": 0.125, "max": 8.0}),
+                "factor": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 8.0, "step": 0.1, "precision": 1}),
                 "algorithm": (["INTER_LINEAR", "INTER_AREA", "INTER_NEAREST", "INTER_CUBIC", "INTER_LANCZOS4"], {"default": "INTER_LINEAR"}),
                 "roundexponent": ("INT", {"default": 1, "min": 0, "max": 4, "steps": 1}),
             }
@@ -96,7 +96,7 @@ class ScaleToResolution:
                 "image": ("IMAGE",),
                 "resolution": ("INT", {"default": 1024, "min": 256, "max": 4096}),
                 "algorithm": (["INTER_LINEAR", "INTER_AREA", "INTER_NEAREST", "INTER_CUBIC", "INTER_LANCZOS4"], {"default": "INTER_AREA"}),
-                "roundexponent": ("INT", {"default": 4, "min": 0, "max": 4, "steps": 1}),
+                "roundexponent": ("INT", {"default": 4, "min": 0, "max": 4, "step": 1}),
             }
         }
 
@@ -174,3 +174,33 @@ INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood.  "
         images_batch = torch.stack(images)
  
         return (images_batch, )
+
+
+class CalculateDimensions:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "width": ("INT", {"default": 1024, "min": 32, "max": 4096}),
+                "height": ("INT", {"default": 720, "min": 32, "max": 2160}),
+                "baseresolution": ("INT", {"default": 720, "min": 512, "max": 2160}),
+                "factor": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 4.0, "step": 0.1, "precision": 1 }),
+                "roundexponent": ("INT", {"default": 4, "min": 0, "max": 6, "step": 1}),
+            }
+        }
+
+    RETURN_TYPES = ("INT","INT",)
+    RETURN_NAMES = ("width","height",)
+    FUNCTION = "execute"
+    CATEGORY = "Stereoscopic"
+    DESCRIPTION = "Calculates dimensions of output image based on aspect of input size, target baseresolution and factor."
+    
+    def execute(self, width, height, baseresolution, factor, roundexponent):
+
+        round=2**roundexponent
+        
+        normalized_scaling_multiplier = baseresolution * factor / sqrt( width * height )
+        newwidth = floor(width * normalized_scaling_multiplier / round ) * round 
+        newheight = floor(normalized_scaling_multiplier * height / round ) * round 
+ 
+        return (floor(newwidth), floor(newheight), )

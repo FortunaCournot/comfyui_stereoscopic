@@ -157,6 +157,25 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+
+try:
+    from scaling import CalculateDimensions
+    nodelist=nodelist+", CalculateDimensions"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing CalculateDimensions: {e}")
+
+    # Create a placeholder class
+    class CalculateDimensions:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading CalculateDimensions"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
 try:
     from stringutils import RegexSubstitute
     nodelist=nodelist+", RegexSubstitute"
@@ -280,6 +299,7 @@ NODE_CLASS_MAPPINGS = {
     "SaveStrippedUTF8File" : SaveStrippedUTF8File,
     "ScaleByFactor" : ScaleByFactor,
     "ScaleToResolution" : ScaleToResolution,
+    "CalculateDimensions" : CalculateDimensions,    
     "RegexSubstitute" : RegexSubstitute,
     "strftime" : strftime,
     "SaveAudioSimple" : SaveAudioSimple,
@@ -298,6 +318,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SaveStrippedUTF8File" : "Save Stripped UTF-8 File",
     "ScaleByFactor" : "Scale by Factor",
     "ScaleToResolution" : "ScaleToResolution",    
+    "CalculateDimensions" : "Calculate Dimensions",    
     "RegexSubstitute": "Regex Substitute",
     "strftime": "strftime",
     "SaveAudioSimple": "Save Audio",
