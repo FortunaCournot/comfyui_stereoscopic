@@ -181,8 +181,8 @@ class CalculateDimensions:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "width": ("INT", {"default": 1024, "min": 32, "max": 4096}),
-                "height": ("INT", {"default": 720, "min": 32, "max": 2160}),
+                "width": ("INT", {"default": 800, "min": 64, "max": 4096}),
+                "height": ("INT", {"default": 450, "min": 64, "max": 2160}),
                 "baseresolution": ("INT", {"default": 720, "min": 512, "max": 2160}),
                 "factor": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 4.0, "step": 0.1, "precision": 1 }),
                 "roundexponent": ("INT", {"default": 4, "min": 0, "max": 6, "step": 1}),

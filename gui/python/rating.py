@@ -936,7 +936,8 @@ class RateAndCutDialog(QDialog):
             dirPath=cutModeFolderOverridePath
         else:
             dirPath=srcfolder=os.path.join(path, "../../../../input/vr/check/rate")
-        subprocess.Popen(["explorer", os.path.abspath(dirPath) ], close_fds=True)
+        os.system("start \"\" " + os.path.abspath(dirPath))
+        # subprocess.Popen(["explorer", os.path.abspath(dirPath) ], close_fds=True) - generates zombies
            
     def onSelectFolder(self, state):
         enterUITask()

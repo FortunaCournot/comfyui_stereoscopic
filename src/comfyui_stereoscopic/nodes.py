@@ -251,6 +251,24 @@ except ImportError as e:
             return (f"ERROR: {error}",)
 
 try:
+    from vrweare_control import VRwearePauseLatent
+    nodelist=nodelist+", VRwearePauseLatent"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing VRwearePauseLatent: {e}")
+
+    # Create a placeholder class
+    class VRwearePauseLatent:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading VRwearePauseLatent"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
     from vrweare_control import VRweareResume
     nodelist=nodelist+", VRweareResume"
 except ImportError as e:
@@ -304,6 +322,7 @@ NODE_CLASS_MAPPINGS = {
     "strftime" : strftime,
     "SaveAudioSimple" : SaveAudioSimple,
     "VRwearePause" : VRwearePause,
+    "VRwearePauseLatent" : VRwearePauseLatent,
     "VRweareResume" : VRweareResume,
     "LoadImageWithFilename": LoadImageWithFilename,
 }
@@ -323,6 +342,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "strftime": "strftime",
     "SaveAudioSimple": "Save Audio",
     "VRwearePause": "Pause Pipeline",
+    "VRwearePauseLatent": "Pause Pipeline",
     "VRweareResume": "Resume Pipeline",
     "LoadImageWithFilename": "Load Image + Filename",
 }

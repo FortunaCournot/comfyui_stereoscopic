@@ -810,14 +810,17 @@ class SpreadsheetApp(QMainWindow):
             # "/select,",  
             if col == self.COL_IDX_IN:
                 folder =  os.path.abspath( os.path.join(path, "../../../../input/vr/" + STAGES[idx]) )
-                subprocess.Popen(["explorer", folder ], close_fds=True)
+                os.system("start \"\" " + folder)
+                # subprocess.Popen(["explorer", folder ], close_fds=True) - does not close properly
 
             if col == self.COL_IDX_OUT:
                 folder =  os.path.abspath( os.path.join(path, "../../../../output/vr/" + STAGES[idx]) )
-                subprocess.Popen(["explorer", folder ], close_fds=True)
+                os.system("start \"\" " + folder)
+                # subprocess.Popen(["explorer", folder ], close_fds=True) - does not close properly
             
-        except Exception:
-            print(f"Error on cell click: row={row}, col={col}", ROW2STAGE, flush=True)
+        except Exception as e:
+            print(f"Error on cell click: row={row}, col={col}", flush=True)
+            print(e, traceback.format_exc(), flush=True)
             pass
         
 

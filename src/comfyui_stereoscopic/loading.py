@@ -8,13 +8,13 @@ import folder_paths
 class LoadImageWithFilename:
     @classmethod
     def INPUT_TYPES(cls):
-        # Wie in der offiziellen Load Image Node
         input_dir = folder_paths.get_input_directory()
         files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
         files = folder_paths.filter_files_content_types(files, ["image"])
         return {
             "required": {
                 "image": (sorted(files), {"image_upload": True}),
+                "filepath": ("STRING", {"default": "", "multiline": False, "placeholder": "Optional: Path to Image"}),
             }
         }
 
@@ -22,22 +22,33 @@ class LoadImageWithFilename:
     RETURN_NAMES = ("image", "mask", "filename", "width", "height")
     FUNCTION = "load_image"
     CATEGORY = "Stereoscopic"
-    DESCRIPTION = "Load image (like builtin) + filename, width & height"
+    DESCRIPTION = "Load image (like builtin) + filename, width & height. If filepath is given, it overrides the image selection, allowing to choose files from other diretories."
 
     @classmethod
-    def IS_CHANGED(cls, image):
-        if isinstance(image, str):
-            try:
-                image_path = os.path.join(folder_paths.get_input_directory(), image)
-                m = hashlib.sha256()
-                with open(image_path, "rb") as f:
-                    m.update(f.read())
-                return m.digest().hex()
-            except Exception:
-                return None
-        return None
+    def IS_CHANGED(cls, image, filepath):
+        try:
+            if filepath and os.path.isfile(filepath):
+                path = filepath
+            else:
+                path = os.path.join(folder_paths.get_input_directory(), image)
+            m = hashlib.sha256()
+            with open(path, "rb") as f:
+                m.update(f.read())
+            return m.digest().hex()
+        except Exception:
+            return None
 
-    def load_image(self, image):
+    def load_image(self, image, filepath):
+        
+        if not os.path.isabs(filepath):
+            filepath = os.path.join(folder_paths.get_input_directory(), filepath)
+    
+        if filepath and os.path.isfile(filepath):
+            image_path = filepath
+        else:
+            image_path = os.path.join(folder_paths.get_input_directory(), image)
+
+
         # Falls der Input bereits ein IMAGE ist (z. B. weitergeleitet)
         if not isinstance(image, str):
             if isinstance(image, np.ndarray):
@@ -52,7 +63,6 @@ class LoadImageWithFilename:
             return (image, None, "", 0, 0)
 
         # Normales Laden vom Dateisystem
-        image_path = os.path.join(folder_paths.get_input_directory(), image)
         pil_img = Image.open(image_path)
         pil_img = ImageOps.exif_transpose(pil_img)
 

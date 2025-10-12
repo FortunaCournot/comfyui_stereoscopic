@@ -44,25 +44,44 @@ class VRwearePause:
         pipelineActiveLockPath = os.path.abspath(os.path.join(config_files_path, '.pipelineactive'))
         if os.path.exists(pipelineActiveLockPath):
             print(f"[comfyui_stereoscopic] VR we are pipeline pause requested. Stopping...")
-            '''
-            img = Image.open(os.path.join(img_files_path, 'pipelineRequestedPause.png')).convert("RGB")
-            np_img = np.array(img).astype(np.float32) / 255.0
-            np_img = np_img[None, ...]
-            PreviewImage(np_img)  
-            '''
+
             while os.path.exists(pipelineActiveLockPath):
                 time.sleep(1)
 
-        '''
-        img = Image.open(os.path.join(img_files_path, 'pipelinePause.png')).convert("RGB")
-        np_img = np.array(img).astype(np.float32) / 255.0
-        np_img = np_img[None, ...]
-        PreviewImage(np_img)  
-        '''
-        
         print(f"[comfyui_stereoscopic] paused.")
         return (image,)
 
+'''
+To be used at start of pipeline, to ensure there is no concurrent process.
+'''
+class VRwearePauseLatent:
+
+    RETURN_TYPES = ("LATENT",)
+    RETURN_NAMES = ("latent",)
+    FUNCTION = "execute"
+    CATEGORY = "Stereoscopic"
+    DESCRIPTION = "Pause pipeline, to be used at start of workflow, to ensure there is no concurrent pipeline process. It waits until the pipeline is paused. forwarding is not affected."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "latent": (
+                    "LATENT",
+                ),
+            }
+        }
+    
+    def execute(self, latent):
+        touch( os.path.abspath(os.path.join(config_files_path, '.pipelinepause')) )
+        pipelineActiveLockPath = os.path.abspath(os.path.join(config_files_path, '.pipelineactive'))
+        if os.path.exists(pipelineActiveLockPath):
+            print(f"[comfyui_stereoscopic] VR we are pipeline pause requested. Stopping...")
+            while os.path.exists(pipelineActiveLockPath):
+                time.sleep(1)
+
+        print(f"[comfyui_stereoscopic] paused.")
+        return (latent,)
 
         
 class VRweareResume:
