@@ -11,15 +11,10 @@ class LoadImageWithFilename:
         input_dir = folder_paths.get_input_directory()
         files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
         files = folder_paths.filter_files_content_types(files, ["image"])
-        
-        # Aktueller Node-Wert, wenn gesetzt
-        current_value = None
-        if "image" in kwargs:
-            current_value = kwargs["image"]
-        elif "default" in kwargs:
-            current_value = kwargs["default"]
 
-        # Wenn ein externer Pfad gesetzt ist und nicht in der Liste steht → hinzufügen
+        # Aktueller Node-Wert, wenn gesetzt
+        current_value = kwargs.get("image")
+        # Wenn ein externer oder relativer Pfad gesetzt ist → zur Liste hinzufügen
         if current_value and current_value not in files:
             files.append(current_value)
 
@@ -28,17 +23,19 @@ class LoadImageWithFilename:
                 "image": (sorted(files), {"image_upload": True}),
             }
         }
-        
+
     RETURN_TYPES = ("IMAGE", "MASK", "STRING", "INT", "INT")
-    RETURN_NAMES = ("image", "mask", "basename", "width", "height")
+    RETURN_NAMES = ("image", "mask", "filename", "width", "height")
     FUNCTION = "load_image"
-    CATEGORY = "Stereoscopic"
-    DESCRIPTION = "Load image (like builtin) + filename, width & height."
+    CATEGORY = "image"
+    DESCRIPTION = "Load image from dropdown or relative/absolute path."
 
     @classmethod
     def IS_CHANGED(cls, image):
+        path = cls.resolve_path(image)
+        if not path or not os.path.isfile(path):
+            return None
         try:
-            path = os.path.join(folder_paths.get_input_directory(), image)
             m = hashlib.sha256()
             with open(path, "rb") as f:
                 m.update(f.read())
@@ -46,39 +43,44 @@ class LoadImageWithFilename:
         except Exception:
             return None
 
+    @staticmethod
+    def resolve_path(image):
+        """Löst relative Pfade relativ zum input-Verzeichnis auf."""
+        # Falls leer
+        if not image:
+            return None
+
+        # direkter absoluter Pfad
+        if os.path.isabs(image) and os.path.isfile(image):
+            return image
+
+        # relativer Pfad → an input anhängen
+        input_dir = folder_paths.get_input_directory()
+        rel_path = os.path.join(input_dir, image)
+        if os.path.isfile(rel_path):
+            return rel_path
+
+        # Fallback: prüfen ob Datei im Input ohne zusätzliche Unterordner liegt
+        fallback_path = os.path.join(input_dir, os.path.basename(image))
+        if os.path.isfile(fallback_path):
+            return fallback_path
+
+        return None
+
     def load_image(self, image):
-        
-        # if not os.path.isabs(filepath):
-        #    filepath = os.path.join(folder_paths.get_input_directory(), filepath)
-    
-        image_path = os.path.join(folder_paths.get_input_directory(), image)
+        image_path = self.resolve_path(image)
+        if not image_path or not os.path.isfile(image_path):
+            raise FileNotFoundError(f"❌ Datei nicht gefunden: {image}")
 
-
-        # Falls der Input bereits ein IMAGE ist (z. B. weitergeleitet)
-        if not isinstance(image, str):
-            if isinstance(image, np.ndarray):
-                img_t = torch.from_numpy(image).float()
-                if img_t.ndim == 3:
-                    img_t = img_t.unsqueeze(0)
-                h, w = img_t.shape[1], img_t.shape[2]
-                return (img_t, None, "", w, h)
-            elif isinstance(image, torch.Tensor):
-                h, w = image.shape[1], image.shape[2]
-                return (image, None, "", w, h)
-            return (image, None, "", 0, 0)
-
-        # Normales Laden vom Dateisystem
         pil_img = Image.open(image_path)
         pil_img = ImageOps.exif_transpose(pil_img)
 
-        # Maske falls Alpha vorhanden
         mask_tensor = None
         if "A" in pil_img.getbands():
             alpha = pil_img.getchannel("A")
             alpha_np = np.array(alpha).astype(np.float32) / 255.0
             mask_tensor = torch.from_numpy(alpha_np)[None,]
 
-        # RGB Bilddaten
         rgb = pil_img.convert("RGB")
         w, h = rgb.size
         img_np = np.array(rgb).astype(np.float32) / 255.0
@@ -86,5 +88,4 @@ class LoadImageWithFilename:
 
         filename = os.path.basename(image_path)
         return (img_tensor, mask_tensor, filename, w, h)
-
 

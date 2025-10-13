@@ -1421,8 +1421,7 @@ class RateAndCutDialog(QDialog):
             self.log(" Overwritten" if recreated else " OK", QColor("green"))
             cb = QApplication.clipboard()
             cb.clear(mode=cb.Clipboard)
-            ifolder=os.path.join(path, "../../../../input")
-            cb.setText(os.path.relpath(output, ifolder), mode=cb.Clipboard)
+            cb.setText(output, mode=cb.Clipboard)
             self.logn("+clipboard", QColor("gray"))
         else:
             self.logn(" Failed", QColor("red"))
