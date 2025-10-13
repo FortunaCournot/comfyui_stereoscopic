@@ -515,6 +515,7 @@ echo\ >>install.sh
 echo rm -f -- ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.daemonactive ^>/dev/null >>install.sh
 echo\ >>install.sh
 
+echo "Checking ComfyUI status on $COMFYUIHOST/$COMFYUIPORT ..." >>install.sh
 echo COMFYUIHOST=127.0.0.1 >>install.sh
 echo COMFYUIPORT=8188 >>install.sh
 echo status=`true ^&^>/dev/null ^</dev/tcp/$COMFYUIHOST/$COMFYUIPORT ^&^& echo open ^|^| echo closed` >>install.sh
@@ -527,6 +528,7 @@ echo 	done >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
 
+echo "Download license files..." >>install.sh
 :: Download licenses . for tags from /tags/... the other from /heads/main/
 echo  installFile "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/refs/heads/main/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/tags/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
@@ -842,8 +844,9 @@ GOTO End
 
 :Fail 
 ECHO [91mInstallation failed.[0m (%ERRORLEVEL%)
-ECHO Please remove files manually.
+ECHO Please remove any intermediate files manually.
 ECHO/ 
+pause
 exit /B 1
 
 :: Done 
