@@ -945,7 +945,7 @@ class RateAndCutDialog(QDialog):
     def onCopyFilepathToClipboard(self, state):
         cb = QApplication.clipboard()
         cb.clear(mode=cb.Clipboard)
-        if not self.currentFile == "":
+        if self.currentIndex >= 0:
             if cutModeFolderOverrideActive:
                 folder=cutModeFolderOverridePath
             else:
