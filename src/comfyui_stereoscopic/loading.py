@@ -30,18 +30,15 @@ class LoadImageWithFilename:
         }
         
     RETURN_TYPES = ("IMAGE", "MASK", "STRING", "INT", "INT")
-    RETURN_NAMES = ("image", "mask", "filename", "width", "height")
+    RETURN_NAMES = ("image", "mask", "basename", "width", "height")
     FUNCTION = "load_image"
     CATEGORY = "Stereoscopic"
-    DESCRIPTION = "Load image (like builtin) + filename, width & height. If filepath is given, it overrides the image selection, allowing to choose files from other diretories."
+    DESCRIPTION = "Load image (like builtin) + filename, width & height."
 
     @classmethod
-    def IS_CHANGED(cls, image, filepath):
+    def IS_CHANGED(cls, image):
         try:
-            if filepath and os.path.isfile(filepath):
-                path = filepath
-            else:
-                path = os.path.join(folder_paths.get_input_directory(), image)
+            path = os.path.join(folder_paths.get_input_directory(), image)
             m = hashlib.sha256()
             with open(path, "rb") as f:
                 m.update(f.read())
@@ -49,15 +46,12 @@ class LoadImageWithFilename:
         except Exception:
             return None
 
-    def load_image(self, image, filepath):
+    def load_image(self, image):
         
-        if not os.path.isabs(filepath):
-            filepath = os.path.join(folder_paths.get_input_directory(), filepath)
+        # if not os.path.isabs(filepath):
+        #    filepath = os.path.join(folder_paths.get_input_directory(), filepath)
     
-        if filepath and os.path.isfile(filepath):
-            image_path = filepath
-        else:
-            image_path = os.path.join(folder_paths.get_input_directory(), image)
+        image_path = os.path.join(folder_paths.get_input_directory(), image)
 
 
         # Falls der Input bereits ein IMAGE ist (z. B. weitergeleitet)
