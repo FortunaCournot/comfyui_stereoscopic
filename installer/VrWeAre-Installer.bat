@@ -105,7 +105,7 @@ Goto Fail
 :CHECK_GIT_VERSION
 set /p Version=<"%temp%"\version.txt
 del "%temp%"\version.txt
-echo * %Version%  - [94mRecommended: 2.51[0m
+echo * %Version%  - [94mRecommended: 2.51 (Warning: Older version might fail!) [0m
 set Version=
 ::pass
 
@@ -515,9 +515,9 @@ echo\ >>install.sh
 echo rm -f -- ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.daemonactive ^>/dev/null >>install.sh
 echo\ >>install.sh
 
-echo "Checking ComfyUI status on $COMFYUIHOST/$COMFYUIPORT ..." >>install.sh
 echo COMFYUIHOST=127.0.0.1 >>install.sh
 echo COMFYUIPORT=8188 >>install.sh
+echo "Checking ComfyUI status on $COMFYUIHOST/$COMFYUIPORT (upgrade git if getting stuck here) ..." >>install.sh
 echo status=`true ^&^>/dev/null ^</dev/tcp/$COMFYUIHOST/$COMFYUIPORT ^&^& echo open ^|^| echo closed` >>install.sh
 echo if [ "$status" = "open" ]; then >>install.sh
 echo     echo -e $"\e[93m\e[1mComfyUI running\e[0m - Waiting for stop on http://""$COMFYUIHOST"":""$COMFYUIPORT ..." >>install.sh
