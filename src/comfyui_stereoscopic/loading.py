@@ -7,17 +7,28 @@ import folder_paths
 
 class LoadImageWithFilename:
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls, **kwargs):
         input_dir = folder_paths.get_input_directory()
         files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
         files = folder_paths.filter_files_content_types(files, ["image"])
+        
+        # Aktueller Node-Wert, wenn gesetzt
+        current_value = None
+        if "image" in kwargs:
+            current_value = kwargs["image"]
+        elif "default" in kwargs:
+            current_value = kwargs["default"]
+
+        # Wenn ein externer Pfad gesetzt ist und nicht in der Liste steht → hinzufügen
+        if current_value and current_value not in files:
+            files.append(current_value)
+
         return {
             "required": {
                 "image": (sorted(files), {"image_upload": True}),
-                "filepath": ("STRING", {"default": "", "multiline": False, "placeholder": "Optional: Path to Image"}),
             }
         }
-
+        
     RETURN_TYPES = ("IMAGE", "MASK", "STRING", "INT", "INT")
     RETURN_NAMES = ("image", "mask", "filename", "width", "height")
     FUNCTION = "load_image"

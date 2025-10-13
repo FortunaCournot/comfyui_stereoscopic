@@ -350,6 +350,7 @@ IF %PIPELINE_OPTION_FLI2V% equ 0 SET PIPELINE_OPTION_FLI2V_TEXT=Off
 IF %PIPELINE_OPTION_WATERMARK% equ 0 SET PIPELINE_OPTION_WATERMARK_TEXT=Off
 CLS
 ECHO/
+ECHO === Basic installation [13 GB] ===
 ECHO Please choose the installation options:
 ECHO/ 
 ECHO  General options:
