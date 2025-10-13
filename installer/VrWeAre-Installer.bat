@@ -845,7 +845,7 @@ GOTO End
 :Fail 
 ECHO [91mInstallation failed.[0m (%ERRORLEVEL%)
 ECHO Please remove any intermediate files manually.
-ECHO If you executed install script by double-click, try to execute in command prompt instead.
+ECHO If you executed install script by double-click, try to execute in fresh command prompt window instead.
 ECHO/ 
 pause
 exit /B 1
