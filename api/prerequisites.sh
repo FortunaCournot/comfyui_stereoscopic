@@ -13,7 +13,7 @@ CONFIG_VERSION=10
 rm -f "custom_nodes/comfyui_stereoscopic/.test/.signalfail" >/dev/null
 
 if [ ! -e "custom_nodes/comfyui_stereoscopic/.test" ] ; then
-	echo -e $"\e[91mError:\e[0m Waiting for ComfyUI to complete installation..."
+	echo -e $"\e[96mInfo:\e[0m Waiting for ComfyUI to complete installation..."
 	while [ ! -e "custom_nodes/comfyui_stereoscopic/.test" ] ; do
 		sleep 1
 	done
