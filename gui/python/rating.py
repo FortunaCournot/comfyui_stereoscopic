@@ -259,6 +259,17 @@ class RateAndCutDialog(QDialog):
             self.cutMode_toolbar.addAction(self.iconPlayTypeAction)
             self.cutMode_toolbar.widgetForAction(self.iconPlayTypeAction).setCursor(Qt.PointingHandCursor)
 
+            self.cutMode_toolbar.addSeparator()
+
+            self.iconCopyFilepathToClipboardAction = StyledIcon(os.path.join(path, '../../gui/img/clipboard64.png'))
+            self.copyFilepathToClipboardAction = QAction(self.iconCopyFilepathToClipboardAction, "Copy file path")
+            self.copyFilepathToClipboardAction.setCheckable(False)
+            self.copyFilepathToClipboardAction.setVisible(True)
+            self.copyFilepathToClipboardAction.triggered.connect(self.onCopyFilepathToClipboard)
+            self.cutMode_toolbar.addAction(self.copyFilepathToClipboardAction)
+            self.cutMode_toolbar.widgetForAction(self.copyFilepathToClipboardAction).setCursor(Qt.PointingHandCursor)
+
+
             self.outer_main_layout.addWidget(self.cutMode_toolbar)
             self.cutMode_toolbar.setContentsMargins(0,0,0,0)
 
@@ -931,6 +942,17 @@ class RateAndCutDialog(QDialog):
         self.iconPlayTypeAction.setIcon(self.toggle_playtype_icon_true if self.playtype_pingpong else self.toggle_playtype_icon_false)
         self.display.setPingPongModeEnabled(self.playtype_pingpong)
         
+    def onCopyFilepathToClipboard(self, state):
+        cb = QApplication.clipboard()
+        cb.clear(mode=cb.Clipboard)
+        if not self.currentFile == "":
+            if cutModeFolderOverrideActive:
+                folder=cutModeFolderOverridePath
+            else:
+                folder=os.path.join(path, "../../../../input/vr/check/rate")
+            filepath=os.path.abspath(os.path.join(folder, self.currentFile))
+            cb.setText(filepath, mode=cb.Clipboard)
+        
     def onOpenFolder(self, state):
         if cutModeFolderOverrideActive:
             dirPath=cutModeFolderOverridePath
@@ -1366,7 +1388,7 @@ class RateAndCutDialog(QDialog):
                 
                 thread = threading.Thread(
                             target=self.takeSnapshot_worker,
-                            args=(cmd1, cmd2, recreated, tempfile, ),
+                            args=(cmd1, cmd2, recreated, tempfile, output, ),
                             daemon=True
                         )
                 thread.start()
@@ -1378,7 +1400,7 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
 
-    def takeSnapshot_worker(self, cmd1, cmd2, recreated, temporaryfile):
+    def takeSnapshot_worker(self, cmd1, cmd2, recreated, temporaryfile, output):
         startAsyncTask()
         try:
             try:
@@ -1387,18 +1409,25 @@ class RateAndCutDialog(QDialog):
                 print("Executing "  + cmd2, flush=True)
                 cp = subprocess.run(cmd2, shell=True, check=True, close_fds=True)
                 os.remove(temporaryfile)
-                QTimer.singleShot(0, partial(self.takeSnapshot_updater, True, recreated))
+                QTimer.singleShot(0, partial(self.takeSnapshot_updater, True, recreated, output))
             except subprocess.CalledProcessError as se:
-                QTimer.singleShot(0, partial(self.takeSnapshot_updater, False, recreated))
+                QTimer.singleShot(0, partial(self.takeSnapshot_updater, False, recreated, ""))
 
         except Exception:
             print(traceback.format_exc(), flush=True) 
 
-    def takeSnapshot_updater(self, success, recreated):
+    def takeSnapshot_updater(self, success, recreated, output):
         if success:
-            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+            self.log(" Overwritten" if recreated else " OK", QColor("green"))
+            cb = QApplication.clipboard()
+            cb.clear(mode=cb.Clipboard)
+            ifolder=os.path.join(path, "../../../../input")
+            cb.setText(os.path.relpath(output, ifolder), mode=cb.Clipboard)
+            self.logn("+clipboard", QColor("gray"))
         else:
             self.logn(" Failed", QColor("red"))
+            cb = QApplication.clipboard()
+            cb.clear(mode=cb.Clipboard )
             
         try:
             rescanFilesToRate()

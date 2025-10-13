@@ -1167,8 +1167,9 @@ if __name__ == "__main__":
                 initCutMode()
                 scanFilesToRate()
                 
-                global window
+                global window, cb
                 app = QApplication(sys.argv)
+                
                 window = SpreadsheetApp()
                 window.show()
             except:
