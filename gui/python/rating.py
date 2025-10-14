@@ -47,7 +47,7 @@ if USE_TRASHBIN:
     except ImportError:
         USE_TRASHBIN=False
 
-TRACELEVEL=0
+TRACELEVEL=2
 
 # Globale statische Liste der erlaubten Suffixe
 ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".ts", ".jfif"]
@@ -1754,7 +1754,10 @@ class VideoThread(QThread):
                         self.seek(self.a)
                     else:
                         ret, cv_img = self.cap.read()
-                        if self._run_flag:
+                        if self.pause:
+                            print("meanwhile paused. ignore image.", flush=True)
+                            pass # ignore image
+                        elif self._run_flag:
                             if ret and not cv_img is None:
                                 self.currentFrame+=1
                                 self.slider.setValue(self.currentFrame)
@@ -1807,17 +1810,28 @@ class VideoThread(QThread):
 
 
     def seek(self, frame_number):
+        if self.currentFrame == frame_number:
+            return
+            
+        if TRACELEVEL >= 2:
+            print("seeking for", frame_number, flush=True)
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
         ret, cv_img = self.cap.read()
+        if TRACELEVEL >= 2:
+            print("seeking done", self.currentFrame, frame_number, ret , self._run_flag, self.pause, flush=True)
         if ret and self._run_flag:
             self.currentFrame=frame_number
             #print("seek", frame_number, self.slider.value(), flush=True)
             if (frame_number!=self.slider.value()):
                 self.slider.setValue(self.currentFrame)
-            self.change_pixmap_signal.emit(cv_img, self.uid)
+            #self.change_pixmap_signal.emit(cv_img, self.uid)
+            QTimer.singleShot(100, partial(self.seekUpdate, cv_img))
         else:
             self._run_flag = False
 
+    def seekUpdate(self, cv_img):
+        self.change_pixmap_signal.emit(cv_img, self.uid)
+        
     def setPingPongModeEnabled(self, state):
         self.pingPongModeEnabled=state
         self.pingPongReverseState=False
@@ -1949,6 +1963,8 @@ class Display(QLabel):
 
     @pyqtSlot(ndarray, int)
     def update_image(self, cv_img, uid):
+        if TRACELEVEL>=2:
+            print("update_image", uid, self.displayUid, flush=True)
         
         if uid!=self.displayUid:
             self.qt_img = None
@@ -2565,7 +2581,8 @@ class CropWidget(QWidget):
         self.image_label.applySceneIntersections(scene_intersections)
         
     def fileChanged(self):
-        print("fileChanged", flush=True)
+        if TRACELEVEL >= 2:
+            print("fileChanged", flush=True)
         self.sourceWidth=0
         self.sourceHeight=0
         
@@ -2629,7 +2646,8 @@ class CropWidget(QWidget):
         
 
     def imageUpdated(self, currentFrameIndex):
-        print("imageUpdated", currentFrameIndex, flush=True)
+        if TRACELEVEL >= 3:
+            print("imageUpdated", currentFrameIndex, flush=True)
 
         self.currentFrameIndex = currentFrameIndex
        
@@ -2653,7 +2671,6 @@ class CropWidget(QWidget):
             return
 
         self.original_pixmap = sourcePixmap.copy()
-        #self.original_pixmap = pixmap.copy()
         w = self.original_pixmap.width()
         h = self.original_pixmap.height()
         #print("original_pixmap", w, h, flush=True)
