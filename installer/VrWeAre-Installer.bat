@@ -39,6 +39,10 @@ SET MMAUDIO_TAG=1.0.3
 SET DEPTH_ANYTHING_V2_TAG=1.0.1
 ::SET CONTROLNETAUX_TAG=1.1.2-rev562
 
+:: Addional files
+SET KJNODES_TAG=1.1.7
+
+
 SET INTERACTIVE=1
 if [%1]==[] goto DoChecks
 SET INSTALLATIONTYPE=1
@@ -546,7 +550,7 @@ echo\ >>install.sh
 echo  installFile "https://raw.githubusercontent.com/hkchengrex/MMAudio/refs/heads/main/LICENSE" "./LICENSE_MMAudio.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/refs/heads/master/LICENSE" "./LICENSE_Real-ESRGAN.TXT"  >>install.sh
 echo  installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/LICENSE.MD?download=true" "./LICENSE_STABILITY-AI_CONTROL-LORA.MD"  >>install.sh
-
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-KJNodes/refs/heads/1.1.7/LICENSE" "./LICENSE_ComfyUI-KJNodes.TXT"  >>install.sh
 :: Ask user for commitment
 echo\ >>install.sh
 echo clear >>install.sh
@@ -598,6 +602,8 @@ echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Florence2/a
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-VideoHelperSuite/archive/refs/tags/%VHS_TAG%.tar.gz" "install/vhs.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-videohelpersuite" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Frame-Interpolation/archive/refs/tags/%FRAMEINTERPOL_TAG%.tar.gz" "install/frameinterpol.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-frame-interpolation" >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-MMAudio/archive/refs/tags/%MMAUDIO_TAG%.tar.gz" "install/mmaudio.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
+echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-KJNodes/archive/refs/tags/%KJNODES_TAG%.tar.gz" "install/kjnodes.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
+
 echo\ >>install.sh
 
 :: Clear git files
