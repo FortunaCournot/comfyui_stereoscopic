@@ -288,10 +288,15 @@ class RateAndCutDialog(QDialog):
                 self.iconTrimA = StyledIcon(os.path.join(path, '../../gui/img/trima80.png'))
                 self.iconTrimB = StyledIcon(os.path.join(path, '../../gui/img/trimb80.png'))
                 self.iconClear = StyledIcon(os.path.join(path, '../../gui/img/clear80.png'))
+                self.iconTrimFirst = StyledIcon(os.path.join(path, '../../gui/img/trimfirst80.png'))
 
                 self.button_trima_video = ActionButton()
                 self.button_trima_video.setIcon(self.iconTrimA)
                 self.button_trima_video.setIconSize(QSize(80,80))
+
+                self.button_trimfirst_video = ActionButton()
+                self.button_trimfirst_video.setIcon(self.iconTrimFirst)
+                self.button_trimfirst_video.setIconSize(QSize(80,80))
 
                 self.button_trimb_video = ActionButton()
                 self.button_trimb_video.setIcon(self.iconTrimB)
@@ -355,7 +360,7 @@ class RateAndCutDialog(QDialog):
             
             self.sl = FrameSlider(Qt.Horizontal)
             
-            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoLoaded, self.onRectSelected, self.onUpdate, self.playtype_pingpong)
+            self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoLoaded, self.onRectSelected, self.onUpdate, self.playtype_pingpong, self.onBlackout)
             #self.display.resize(self.display_width, self.display_height)
 
             self.sp3 = QLabel(self)
@@ -382,6 +387,8 @@ class RateAndCutDialog(QDialog):
             if cutMode:
                 self.videotool_layout.addWidget(self.button_startframe)
                 self.videotool_layout.addWidget(self.button_trima_video)
+                self.videotool_layout.addWidget(self.button_trimfirst_video)
+                self.button_trimfirst_video.setVisible(False)
             self.videotool_layout.addWidget(self.sl, alignment =  Qt.AlignVCenter)
             if cutMode:
                 self.videotool_layout.addWidget(self.button_trimb_video)
@@ -447,6 +454,7 @@ class RateAndCutDialog(QDialog):
             self.button_startpause_video.clicked.connect(self.display.tooglePausePressed)
             if cutMode:
                 self.button_trima_video.clicked.connect(self.display.trimA)
+                self.button_trimfirst_video.clicked.connect(self.trimFirst)
                 self.button_trimb_video.clicked.connect(self.display.trimB)
                 self.button_startframe.clicked.connect(self.display.posA)
                 self.button_endframe.clicked.connect(self.display.posB)
@@ -507,6 +515,12 @@ class RateAndCutDialog(QDialog):
 
     def onUpdate(self):
         self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
+        if self.isPaused and self.isVideo:
+            self.button_trima_video.setVisible(True)
+            self.button_trimfirst_video.setVisible(False)
+
+    def onBlackout(self):
+            self.button_trimfirst_video.setVisible(False)
 
     def showEvent(self, event):
         try:
@@ -537,6 +551,9 @@ class RateAndCutDialog(QDialog):
             elif event.key() == Qt.Key_D:
                 if self.button_trimb_video.isEnabled() and self.button_trimb_video.isVisible():
                     self.display.trimB()
+            elif event.key() == Qt.Key_1:
+                if self.button_trimfirst_video.isEnabled() and self.button_trimfirst_video.isVisible():
+                    self.trimFirst()
             elif event.key() == Qt.Key_U:
                 if self.display.slider.isEnabled() and self.display.slider.isVisible() and not self.display.slider.hasFocus():
                     self.display.slider.setFocus()
@@ -550,6 +567,9 @@ class RateAndCutDialog(QDialog):
                     if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible() and not self.display.isPaused():
                         self.display.tooglePausePressed()
                     self.display.slider.setFocus()
+            #elif event.key() == Qt.Key_?????????:
+            #    if self.button_snapshot_from_video.isEnabled() and self.button_snapshot_from_video.isVisible():
+            #        self.createSnapshot()
         else:
             if event.key() == Qt.Key_1:
                 self.rating_widget.rate(1)
@@ -692,7 +712,9 @@ class RateAndCutDialog(QDialog):
                 self.cropWidget.display_sliders(True)
                 self.button_cutandclone.setVisible(True)
                 self.button_justrate_compress.setVisible(True)
-                self.button_trima_video.setVisible(self.isVideo)
+                if not self.isVideo:
+                    self.button_trima_video.setVisible(self.isVideo)
+                    self.button_trimfirst_video.setVisible(self.isVideo)
                 self.button_trimb_video.setVisible(self.isVideo)
                 self.button_snapshot_from_video.setVisible(self.isVideo)
                 self.button_startframe.setVisible(self.isVideo)
@@ -731,6 +753,11 @@ class RateAndCutDialog(QDialog):
                 self.button_snapshot_from_video.setEnabled(False)
                 self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
+
+    def trimFirst(self):
+        self.button_trimfirst_video.setVisible(False)
+        self.button_trima_video.setVisible(self.isVideo)
+        self.display.trimFirst()
 
     def deleteAndNext(self):
         enterUITask()
@@ -1451,6 +1478,9 @@ class RateAndCutDialog(QDialog):
                 self.rateOrArchiveAndNext()
                 return
 
+        self.button_trima_video.setVisible(False)
+        self.button_trimfirst_video.setVisible(True)
+
         SCENEDETECTION_INPUTLENGTHLIMIT=float(config("SCENEDETECTION_INPUTLENGTHLIMIT", "20.0"))
         if count>0 and length<=SCENEDETECTION_INPUTLENGTHLIMIT:
             if cutModeFolderOverrideActive:
@@ -1823,7 +1853,7 @@ class VideoThread(QThread):
     
 class Display(QLabel):
 
-    def __init__(self, cutMode, pushbutton, slider, updatePaused, loaded, rectSelected, parentUpdate, pingpong):
+    def __init__(self, cutMode, pushbutton, slider, updatePaused, loaded, rectSelected, parentUpdate, pingpong, onBlackout):
         super().__init__()
         self.qt_img=None
         self.displayUid=0
@@ -1837,6 +1867,7 @@ class Display(QLabel):
         self.rectSelected = rectSelected
         self.parentUpdate = parentUpdate
         self.playtype_pingpong=pingpong
+        self.onBlackout = onBlackout
         self.onUpdateFile=None
         self.onUpdateImage=None
         self.onCropOrTrim = None
@@ -1991,6 +2022,7 @@ class Display(QLabel):
         self.update_image(cv_img, self.displayUid)        
 
     def stopAndBlackout(self):
+        
         if self.thread:
             self.releaseVideo()
             self.update_image(np.array([]), -1)
@@ -1999,6 +2031,7 @@ class Display(QLabel):
         self.filepath = ""
         self.frame_count=-1
         self.scene_intersections = []
+        self.onBlackout()
         
     def registerForUpdates(self, onUpdateImage):
         self.onUpdateImage = onUpdateImage
@@ -2090,6 +2123,18 @@ class Display(QLabel):
         text=format_timedelta_hundredth(td)
         return text
 
+    def trimFirst(self):
+        if self.thread:
+            count=self.thread.getFrameCount()
+            if count>1:
+                self.slider.setText("", Qt.white)
+                newValue=float(1/float(count-1))
+                self.slider.setA(newValue)
+                self.thread.setA(1)
+                self.trimAFrame=1
+            if self.onCropOrTrim:
+                self.onCropOrTrim()
+        
     def trimA(self):
         if self.thread:
             count=self.thread.getFrameCount()
