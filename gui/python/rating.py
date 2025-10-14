@@ -2652,7 +2652,8 @@ class CropWidget(QWidget):
             print("Das übergebene QLabel enthält kein gültiges Bild.")
             return
 
-        self.original_pixmap = pixmap.copy()
+        self.original_pixmap = sourcePixmap.copy()
+        #self.original_pixmap = pixmap.copy()
         w = self.original_pixmap.width()
         h = self.original_pixmap.height()
         #print("original_pixmap", w, h, flush=True)
