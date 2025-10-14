@@ -521,12 +521,13 @@ class RateAndCutDialog(QDialog):
             self.button_trimfirst_video.setVisible(False)
         
     def onBlackout(self):
-        self.button_trimfirst_video.setVisible(False)
-        l = len(getFilesToRate())
-        if l <= 0:
-            self.display.onNoFiles()
-            if self.cutMode and self.sliderinitdone:
-                self.cropWidget.display_sliders(False)
+        if self.cutMode:
+            self.button_trimfirst_video.setVisible(False)
+            l = len(getFilesToRate())
+            if l <= 0:
+                self.display.onNoFiles()
+                if self.sliderinitdone:
+                    self.cropWidget.display_sliders(False)
 
             
 
@@ -1488,8 +1489,9 @@ class RateAndCutDialog(QDialog):
                 self.rateOrArchiveAndNext()
                 return
 
-        self.button_trima_video.setVisible(False)
-        self.button_trimfirst_video.setVisible(True)
+        if self.cutMode:
+            self.button_trima_video.setVisible(False)
+            self.button_trimfirst_video.setVisible(True)
 
         SCENEDETECTION_INPUTLENGTHLIMIT=float(config("SCENEDETECTION_INPUTLENGTHLIMIT", "20.0"))
         if count>0 and length<=SCENEDETECTION_INPUTLENGTHLIMIT:
@@ -2620,7 +2622,7 @@ class CropWidget(QWidget):
         self.slider_top.setMaximumHeight(h)
         self.slider_bottom.setMinimumHeight(h)
         self.slider_bottom.setMaximumHeight(h)
-
+        
 
     def imageUpdated(self, currentFrameIndex):
        
@@ -2667,6 +2669,10 @@ class CropWidget(QWidget):
         self.apply_crop()
         
         self.resizeEvent(None)
+        
+        self.main_layout.invalidate()
+
+
 
     def enable_sliders(self, enable: bool):
         """Aktiviert oder deaktiviert alle Slider."""
