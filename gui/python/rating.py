@@ -200,6 +200,7 @@ class RateAndCutDialog(QDialog):
             cutModeFolderOverrideActive=False
             self.wait_dialog = None
             self.playtype_pingpong=False
+            self.sliderinitdone=False
             
             rescanFilesToRate()
             
@@ -518,9 +519,16 @@ class RateAndCutDialog(QDialog):
         if self.isPaused and self.isVideo:
             self.button_trima_video.setVisible(True)
             self.button_trimfirst_video.setVisible(False)
-
+        
     def onBlackout(self):
-            self.button_trimfirst_video.setVisible(False)
+        self.button_trimfirst_video.setVisible(False)
+        l = len(getFilesToRate())
+        if l <= 0:
+            self.display.onNoFiles()
+            if self.cutMode and self.sliderinitdone:
+                self.cropWidget.display_sliders(False)
+
+            
 
     def showEvent(self, event):
         try:
@@ -567,7 +575,7 @@ class RateAndCutDialog(QDialog):
                     if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible() and not self.display.isPaused():
                         self.display.tooglePausePressed()
                     self.display.slider.setFocus()
-            #elif event.key() == Qt.Key_?????????:
+            #elif event.key() == Qt.Key_:
             #    if self.button_snapshot_from_video.isEnabled() and self.button_snapshot_from_video.isVisible():
             #        self.createSnapshot()
         else:
@@ -760,6 +768,7 @@ class RateAndCutDialog(QDialog):
         self.display.trimFirst()
 
     def deleteAndNext(self):
+        self.sliderinitdone=True
         enterUITask()
         try:
             
@@ -1215,6 +1224,7 @@ class RateAndCutDialog(QDialog):
         self._moveFile(srcfolder, targetfolder, actionPrefix)
         
     def rateOrArchiveAndNext(self):
+        self.sliderinitdone=True
         if cutModeFolderOverrideActive:
             srcfolder=cutModeFolderOverridePath
         else:
@@ -2033,6 +2043,9 @@ class Display(QLabel):
         self.scene_intersections = []
         self.onBlackout()
         
+    def onNoFiles(self):
+        self.update_image(np.array([]), -1)
+        
     def registerForUpdates(self, onUpdateImage):
         self.onUpdateImage = onUpdateImage
 
@@ -2611,8 +2624,10 @@ class CropWidget(QWidget):
 
     def imageUpdated(self, currentFrameIndex):
        
-        self.display_sliders(True)
-       
+        self.display_sliders(currentFrameIndex>=0)
+        if currentFrameIndex<0:
+            return
+            
         self.currentFrameIndex = currentFrameIndex
        
         sourcePixmap = self.image_label.getSourcePixmap()
