@@ -2565,6 +2565,10 @@ class CropWidget(QWidget):
         self.image_label.applySceneIntersections(scene_intersections)
         
     def fileChanged(self):
+        print("fileChanged", flush=True)
+        self.sourceWidth=0
+        self.sourceHeight=0
+        
         self.scene_intersections=[]
 
         # Crop-Werte zurücksetzen
@@ -2625,11 +2629,8 @@ class CropWidget(QWidget):
         
 
     def imageUpdated(self, currentFrameIndex):
-       
-        self.display_sliders(currentFrameIndex>=0)
-        if currentFrameIndex<0:
-            return
-            
+        print("imageUpdated", currentFrameIndex, flush=True)
+
         self.currentFrameIndex = currentFrameIndex
        
         sourcePixmap = self.image_label.getSourcePixmap()
@@ -2660,9 +2661,9 @@ class CropWidget(QWidget):
         self.display_pixmap = pixmap.copy()
         self.image_label.setPixmap(self.display_pixmap)
 
+        self.update_slider_ranges()
         if not self.slidersInitialized:
             # Slider aktivieren und konfigurieren
-            self.update_slider_ranges()
             self.enable_sliders(True)
             self.slidersInitialized = True
 
@@ -2742,6 +2743,7 @@ class CropWidget(QWidget):
 
     def update_slider_ranges(self):
         if not self.original_pixmap:
+            #print("not self.original_pixmap", flush=True)
             return
 
         w = self.sourceWidth
