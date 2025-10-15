@@ -326,21 +326,25 @@ class RateAndCutDialog(QDialog):
             self.button_prev_file.setEnabled(False)
             self.button_prev_file.clicked.connect(self.ratePrevious)
 
+            self.icon_compress = StyledIcon(os.path.join(path, '../../gui/img/compress80.png'))
+            self.icon_justrate = StyledIcon(os.path.join(path, '../../gui/img/justrate80.png'))
+            self.button_justrate_compress = ActionButton()
+            if cutMode:
+                self.button_justrate_compress.setIcon(self.icon_justrate)
+                self.justRate=True
+            else:
+                self.button_justrate_compress.setIcon(self.icon_compress)
+                self.justRate=False
+            self.button_justrate_compress.setIconSize(QSize(80,80))
+            self.button_justrate_compress.setEnabled(True)
+            self.button_justrate_compress.setVisible(True)
+            self.button_justrate_compress.clicked.connect(self.rateOrArchiveAndNext)
+
             if cutMode:
                 self.button_cutandclone = ActionButton()
                 self.button_cutandclone.setIcon(StyledIcon(os.path.join(path, '../../gui/img/cutclone80.png')))
                 self.button_cutandclone.setIconSize(QSize(80,80))
                 self.button_cutandclone.clicked.connect(self.createTrimmedAndCroppedCopy)
-
-                self.icon_compress = StyledIcon(os.path.join(path, '../../gui/img/compress80.png'))
-                self.icon_justrate = StyledIcon(os.path.join(path, '../../gui/img/justrate80.png'))
-                self.button_justrate_compress = ActionButton()
-                self.button_justrate_compress.setIcon(self.icon_justrate)
-                self.button_justrate_compress.setIconSize(QSize(80,80))
-                self.button_justrate_compress.setEnabled(True)
-                self.button_justrate_compress.setVisible(cutMode)
-                self.button_justrate_compress.clicked.connect(self.rateOrArchiveAndNext)
-                self.justRate=True
             else:
                 self.button_return2edit = ActionButton()
                 self.button_return2edit.setIcon(StyledIcon(os.path.join(path, '../../gui/img/return2edit80.png')))
@@ -447,13 +451,14 @@ class RateAndCutDialog(QDialog):
             self.commontool_layout.addWidget(self.button_next_file, 0, ew+3, 1, 1)
             self.commontool_layout.addWidget(self.sp3, 0, ew+4, 1, 1)
             if not cutMode:
-                self.commontool_layout.addWidget(self.button_return2edit, 0, ew+5, 1, 1)
-            self.commontool_layout.addWidget(self.button_delete_file, 0, ew+6, 1, 1)
+                self.commontool_layout.addWidget(self.button_justrate_compress, 0, ew+5, 1, 1)
+                self.commontool_layout.addWidget(self.button_return2edit, 0, ew+6, 1, 1)
+            self.commontool_layout.addWidget(self.button_delete_file, 0, ew+7, 1, 1)
             
             self.msgWidget=QPlainTextEdit()
             self.msgWidget.setReadOnly(True)
             self.msgWidget.setFrameStyle(QFrame.NoFrame)
-            self.commontool_layout.addWidget(self.msgWidget, 0, ew+7, 1, ew)
+            self.commontool_layout.addWidget(self.msgWidget, 0, ew+8, 1, ew)
             self.msgWidget.setPlaceholderText("No log entries.")
             
             self.button_startpause_video.clicked.connect(self.display.tooglePausePressed)
@@ -714,12 +719,12 @@ class RateAndCutDialog(QDialog):
                     self.button_trimb_video.setVisible(False)
                     self.cropWidget.display_sliders(False)
                     self.button_cutandclone.setVisible(False)
-                    self.button_justrate_compress.setVisible(False)
                     self.button_startframe.setVisible(False)
                     self.button_endframe.setVisible(False)
                 else:
                     self.rating_widget.setVisible(False)
                     self.button_return2edit.setVisible(False)
+                self.button_justrate_compress.setVisible(False)
                 self.button_prev_file.setVisible(False)
                 self.button_next_file.setVisible(False)
                 self.button_delete_file.setVisible(False)
@@ -728,7 +733,6 @@ class RateAndCutDialog(QDialog):
             if self.cutMode:
                 self.cropWidget.display_sliders(True)
                 self.button_cutandclone.setVisible(True)
-                self.button_justrate_compress.setVisible(True)
                 if not self.isVideo:
                     self.button_trima_video.setVisible(self.isVideo)
                     self.button_trimfirst_video.setVisible(self.isVideo)
@@ -740,6 +744,7 @@ class RateAndCutDialog(QDialog):
                 self.rating_widget.setVisible(True)
                 self.button_return2edit.setVisible(True)
                 self.button_return2edit.setEnabled("/" in self.currentFile)
+            self.button_justrate_compress.setVisible(True)
             self.button_prev_file.setVisible(True)
             self.button_next_file.setVisible(True)
             self.button_delete_file.setVisible(True)
@@ -850,6 +855,10 @@ class RateAndCutDialog(QDialog):
                 self.button_justrate_compress.setEnabled(True)
                 self.button_justrate_compress.setIcon(self.icon_justrate)
                 self.justRate=True
+            else:
+                self.button_justrate_compress.setEnabled(True)
+                self.button_justrate_compress.setIcon(self.icon_compress)
+                self.justRate=False
 
             files=getFilesToRate()
             if len(files)==0:
@@ -888,6 +897,10 @@ class RateAndCutDialog(QDialog):
                 self.button_justrate_compress.setEnabled(True)
                 self.button_justrate_compress.setIcon(self.icon_justrate)
                 self.justRate=True
+            else:
+                self.button_justrate_compress.setEnabled(True)
+                self.button_justrate_compress.setIcon(self.icon_compress)
+                self.justRate=False
             
             files=getFilesToRate()
             if len(files)==0:
@@ -975,6 +988,10 @@ class RateAndCutDialog(QDialog):
                 self.button_justrate_compress.setEnabled(True)
                 self.button_justrate_compress.setIcon(self.icon_justrate)
                 self.justRate=True
+            else:
+                self.button_justrate_compress.setEnabled(True)
+                self.button_justrate_compress.setIcon(self.icon_compress)
+                self.justRate=False
                 
         except:
             print(traceback.format_exc(), flush=True)
@@ -2336,7 +2353,7 @@ class FrameSlider(QSlider):
         self.resetAB()
         self.text=""
         self.postext = ""
-        self.postextColor = Qt.blue
+        self.postextColor = Qt.cyan
         self.textColor=Qt.white
         self.fps=-1.0
         self.frame_count=-1
@@ -2439,14 +2456,14 @@ class FrameSlider(QSlider):
 
     def onSliderReleased(self):
         if not self.isHovered and not self.hasFocus:
-            self._setTempPositioningText(0.5, "", Qt.blue)
+            self._setTempPositioningText(0.5, "", Qt.cyan)
         self.setCursor(Qt.PointingHandCursor)
         slider=self
 
         
     def onSliderMoved(self, value):
         sliderpos = self.value() / (self.maximum()+1)
-        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
+        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.cyan)
         self.setCursor(Qt.SizeHorCursor)
         
     def mousePressEvent(self, event):
@@ -2481,31 +2498,31 @@ class FrameSlider(QSlider):
     def focusInEvent(self, event):
         self.hasFocus=True
         sliderpos = self.value() / (self.maximum()+1)
-        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
+        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.cyan)
         super().focusInEvent(event)  # wichtig: Standardverhalten beibehalten
 
     def focusOutEvent(self, event):
         self.hasFocus=False
         if not self.isHovered and not self.hasFocus:
-            self._setTempPositioningText(0.5, "", Qt.blue)
+            self._setTempPositioningText(0.5, "", Qt.cyan)
         super().focusOutEvent(event)
         
     def enterEvent(self, event):
         self.isHovered=True
         sliderpos = self.value() / (self.maximum()+1)
-        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
+        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.cyan)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         self.isHovered=False
         if not self.isHovered and not self.hasFocus:
-            self._setTempPositioningText(0.5, "", Qt.blue)
+            self._setTempPositioningText(0.5, "", Qt.cyan)
         super().leaveEvent(event)
 
     def sliderChanged(self, value):
         if self.isHovered or self.hasFocus:
             sliderpos = value / (self.maximum()+1)
-            self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
+            self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.cyan)
         
 class CropWidget(QWidget):
     def __init__(self, display, parent=None):
