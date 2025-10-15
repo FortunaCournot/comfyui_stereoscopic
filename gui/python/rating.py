@@ -1738,6 +1738,7 @@ class VideoThread(QThread):
         self.update(self.pause)
 
         self.currentFrame=-1      # before start. first frame will be number 0
+        self.lastLoadedFrame= -1
         while self._run_flag:
             timestamp=time.time() 
             if TRACELEVEL >= 4:
@@ -1753,7 +1754,9 @@ class VideoThread(QThread):
                         self.currentFrame+=1
                         self.seek(self.currentFrame)
                 else:
-                    if self.currentFrame+1>self.b:
+                    if self.currentFrame!=self.lastLoadedFrame:
+                        self.seek(self.currentFrame)
+                    elif self.currentFrame+1>self.b:
                         if self.pingPongModeEnabled:
                             self.pingPongReverseState=True
                             if self.b-1 >= self.a:
@@ -1770,6 +1773,7 @@ class VideoThread(QThread):
                         elif self._run_flag:
                             if ret and not cv_img is None:
                                 self.currentFrame+=1
+                                self.lastLoadedFrame=self.currentFrame
                                 self.slider.setValue(self.currentFrame)
                                 self.change_pixmap_signal.emit(cv_img, self.uid)
                             else:
@@ -1820,7 +1824,7 @@ class VideoThread(QThread):
 
 
     def seek(self, frame_number):
-        if self.currentFrame == frame_number:
+        if self.currentFrame == frame_number and self.currentFrame == self.lastLoadedFrame:
             return
             
         if TRACELEVEL >= 2:
@@ -1831,16 +1835,17 @@ class VideoThread(QThread):
             print("seeking done", self.currentFrame, frame_number, ret , self._run_flag, self.pause, flush=True)
         if ret and self._run_flag:
             self.currentFrame=frame_number
+            self.lastLoadedFrame=frame_number
             #print("seek", frame_number, self.slider.value(), flush=True)
             if (frame_number!=self.slider.value()):
                 self.slider.setValue(self.currentFrame)
-            #self.change_pixmap_signal.emit(cv_img, self.uid)
-            QTimer.singleShot(100, partial(self.seekUpdate, cv_img))
+            self.change_pixmap_signal.emit(cv_img, self.uid)
+            #QTimer.singleShot(100, partial(self.seekUpdate, cv_img))
         else:
             self._run_flag = False
 
-    def seekUpdate(self, cv_img):
-        self.change_pixmap_signal.emit(cv_img, self.uid)
+    #def seekUpdate(self, cv_img):
+    #    self.change_pixmap_signal.emit(cv_img, self.uid)
         
     def setPingPongModeEnabled(self, state):
         self.pingPongModeEnabled=state
@@ -1850,6 +1855,7 @@ class VideoThread(QThread):
         if self.pause:  # do not call while playback
             #print("sliderChanged. seek", self.sender().value(), flush=True)
             self.seek(self.sender().value())
+        self.sender().sliderChanged(self.sender().value())
 
     def onSliderMouseClick(self):
         if not self.pause:
@@ -1859,6 +1865,9 @@ class VideoThread(QThread):
             self.update(self.pause)
 
             frame=self.slider.value()
+            QTimer.singleShot(200, partial(self.onSliderMouseClickUpdate, frame))
+
+    def onSliderMouseClickUpdate(self, frame):
             self.currentFrame=frame
             self.slider.setFocus()
 
@@ -1976,7 +1985,7 @@ class Display(QLabel):
     @pyqtSlot(ndarray, int)
     def update_image(self, cv_img, uid):
         if TRACELEVEL>=4:
-            print("update_image", uid, self.displayUid, flush=True)
+            print("update_image", uid, self.displayUid, time.time() , flush=True)
         
         if uid!=self.displayUid:
             self.qt_img = None
@@ -2337,6 +2346,9 @@ class FrameSlider(QSlider):
         self.setTracking(True)
         self.setCursor(Qt.PointingHandCursor)
         self.scene_intersections = []
+        self.isHovered=False
+        self.hasFocus=False
+
      
     def resetAB(self):
         self.a = 0.0
@@ -2426,13 +2438,14 @@ class FrameSlider(QSlider):
         return text
 
     def onSliderReleased(self):
-        self._setTempPositioningText(0.5, "", Qt.blue)
+        if not self.isHovered and not self.hasFocus:
+            self._setTempPositioningText(0.5, "", Qt.blue)
         self.setCursor(Qt.PointingHandCursor)
         slider=self
 
         
     def onSliderMoved(self, value):
-        sliderpos = value / (self.maximum()+1)
+        sliderpos = self.value() / (self.maximum()+1)
         self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
         self.setCursor(Qt.SizeHorCursor)
         
@@ -2465,6 +2478,34 @@ class FrameSlider(QSlider):
     def registerForMouseEvent(self, onSliderMouseClick):
         self.onSliderMouseClick=onSliderMouseClick
         
+    def focusInEvent(self, event):
+        self.hasFocus=True
+        sliderpos = self.value() / (self.maximum()+1)
+        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
+        super().focusInEvent(event)  # wichtig: Standardverhalten beibehalten
+
+    def focusOutEvent(self, event):
+        self.hasFocus=False
+        if not self.isHovered and not self.hasFocus:
+            self._setTempPositioningText(0.5, "", Qt.blue)
+        super().focusOutEvent(event)
+        
+    def enterEvent(self, event):
+        self.isHovered=True
+        sliderpos = self.value() / (self.maximum()+1)
+        self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.isHovered=False
+        if not self.isHovered and not self.hasFocus:
+            self._setTempPositioningText(0.5, "", Qt.blue)
+        super().leaveEvent(event)
+
+    def sliderChanged(self, value):
+        if self.isHovered or self.hasFocus:
+            sliderpos = value / (self.maximum()+1)
+            self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.blue)
         
 class CropWidget(QWidget):
     def __init__(self, display, parent=None):
