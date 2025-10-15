@@ -47,7 +47,7 @@ if USE_TRASHBIN:
     except ImportError:
         USE_TRASHBIN=False
 
-TRACELEVEL=2
+TRACELEVEL=0
 
 # Globale statische Liste der erlaubten Suffixe
 ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".ts", ".jfif"]
@@ -118,12 +118,14 @@ def enterUITask():
     if taskCounterUI==0:
         taskStartUI=time.time()
     taskCounterUI+=1
-    #print(f". enterUITask { taskCounterUI }", flush=True)
+    if TRACELEVEL >= 3:
+        print(f". enterUITask { taskCounterUI }", flush=True)
         
 
 def leaveUITask():
     global taskCounterUI, taskStartUI
-    #print(f". leaveUITask { taskCounterUI }", flush=True)
+    if TRACELEVEL >= 3:
+        print(f". leaveUITask { taskCounterUI }", flush=True)
     taskCounterUI-=1
     if taskCounterUI==0:
         tb=traceback.format_stack()
@@ -139,11 +141,13 @@ def startAsyncTask():
         taskStartAsyc=time.time()
         showWaitDialog=False
     taskCounterAsync+=1
-    #print(f". startAsyncTask { taskCounterAsync }", flush=True)
+    if TRACELEVEL >= 3:
+        print(f". startAsyncTask { taskCounterAsync }", flush=True)
 
 def endAsyncTask():
     global taskCounterAsync, taskStartAsyc, showWaitDialog
-    #print(f". endAsyncTask { taskCounterAsync }", flush=True)
+    if TRACELEVEL >= 3:
+        print(f". endAsyncTask { taskCounterAsync }", flush=True)
     taskCounterAsync-=1
     if taskCounterAsync==0:
         showWaitDialog=False
@@ -597,24 +601,28 @@ class RateAndCutDialog(QDialog):
             if not self.uiBlocking == isTaskActive():
                 self.uiBlocking = isTaskActive()
                 if self.uiBlocking:
-                    #print("uiBlockHandling - WaitCursor", flush=True)                
+                    if TRACELEVEL >= 3:
+                        print("uiBlockHandling - WaitCursor", flush=True)                
                     QApplication.setOverrideCursor(Qt.WaitCursor)
                     #self.setEnabled(False)
                     if self._blocker is None:
                         self._blocker = InputBlocker(self)                
                 else:
                     QApplication.restoreOverrideCursor()
-                    #print("uiBlockHandling - RestoreCursor", flush=True)                
+                    if TRACELEVEL >= 3:
+                        print("uiBlockHandling - RestoreCursor", flush=True)                
                     self.setEnabled(True)
                     if self._blocker:
                         self._blocker.deleteLater()
                         self._blocker = None
             if needsWaitDialog() and self.wait_dialog is None:
-                #print("uiBlockHandling - show wait dialog", flush=True)                
+                if TRACELEVEL >= 3:
+                    print("uiBlockHandling - show wait dialog", flush=True)                
                 self.wait_dialog = WaitDialog(self)
                 self.wait_dialog.show()
             elif not needsWaitDialog() and not self.wait_dialog is None:
-                #print("uiBlockHandling - remove wait dialog", flush=True)                
+                if TRACELEVEL >= 3:
+                    print("uiBlockHandling - remove wait dialog", flush=True)                
                 self.wait_dialog.accept()  
                 self.wait_dialog = None
         except KeyboardInterrupt:
@@ -1732,6 +1740,8 @@ class VideoThread(QThread):
         self.currentFrame=-1      # before start. first frame will be number 0
         while self._run_flag:
             timestamp=time.time() 
+            if TRACELEVEL >= 4:
+                print("VideoThread run ", self.currentFrame, int(timestamp*1000), flush=True)
             if not self.pause:
                 if self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame>self.a:
                     self.currentFrame-=1
@@ -1843,11 +1853,13 @@ class VideoThread(QThread):
 
     def onSliderMouseClick(self):
         if not self.pause:
-            self.pause=True
-            self.update(self.pause)
             if TRACELEVEL >= 1:
                 print("onSliderMouseClick. stop playback and seek", self.slider.value(), flush=True)
-            self.seek(self.slider.value())
+            self.pause=True
+            self.update(self.pause)
+
+            frame=self.slider.value()
+            self.currentFrame=frame
             self.slider.setFocus()
 
     def posA(self):
@@ -1963,7 +1975,7 @@ class Display(QLabel):
 
     @pyqtSlot(ndarray, int)
     def update_image(self, cv_img, uid):
-        if TRACELEVEL>=2:
+        if TRACELEVEL>=4:
             print("update_image", uid, self.displayUid, flush=True)
         
         if uid!=self.displayUid:
@@ -2646,7 +2658,7 @@ class CropWidget(QWidget):
         
 
     def imageUpdated(self, currentFrameIndex):
-        if TRACELEVEL >= 3:
+        if TRACELEVEL >= 4:
             print("imageUpdated", currentFrameIndex, flush=True)
 
         self.currentFrameIndex = currentFrameIndex
