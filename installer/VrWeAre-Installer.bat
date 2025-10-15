@@ -57,6 +57,8 @@ CLS
 ECHO/
 ECHO [1m=== [92mV[91mR[0m[1m we are %VRWEARE_VERSION% - Installation ===[0m
 ECHO/
+ECHO Direct internet access required for downloads. No proxy support.
+ECHO/
 ::pass
 
 :: CheckOS
@@ -115,8 +117,7 @@ set Version=
 
 :Check7ZipRegistryEntry
 :: Read the 7-Zip installation path from the Registry.
-:: Read the 7-Zip installation path from the Registry.
-::echo Checking for existing 7-Zip installation...
+:: echo Checking for existing 7-Zip installation...
 for %%k in (HKCU HKLM) do (
     for %%w in (\ \Wow6432Node\) do (
         for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wMicrosoft\Windows\CurrentVersion\Uninstall\7-Zip" /v InstallLocation 2^> nul') do (
@@ -128,18 +129,31 @@ for %%k in (HKCU HKLM) do (
         )
     )
 )
-ECHO [91m7-Zip not found. Please install from [96m https://www.7-zip.org/ [0m
-GOTO Fail
-:GIT_END_7Z_REG_SEARCH
+ECHO/
+ECHO [91m7-Zip not found. Please install it.[0m
+:reinstall7z
+ECHO/ 
+ECHO   Y - Open Browser to [96mhttps://www.7-zip.org[0m
+ECHO   R - Retry (installed)
+ECHO   Q - Quit.
+ECHO/
+CHOICE /C YRQ /M " "
+IF ERRORLEVEL 3 GOTO Fail
+CLS
+IF ERRORLEVEL 2 GOTO Check7ZipRegistryEntry
+start "" https://www.7-zip.org/
+GOTO Check7ZipRegistryEntry
 
+:GIT_END_7Z_REG_SEARCH
 :CHECK_7ZIP_PATH
 :: Make sure Bash is in PATH (for running scripts).
 SET PATH=%THE7ZIPPATH%;%PATH%
 7z --help >"%temp%"\zversion.txt
 IF %ERRORLEVEL% == 0 GOTO CHECK_7ZIP_VERSION
 ECHO * [91m7-Zip to old, you need to update before installing VR we are.[0m
-ECHO   [91mPlease download 7-Zip from [96m https://www.7-zip.org/ [0m
-Goto Fail
+ECHO/
+ECHO Please deinstall it first. Then...
+Goto reinstall7z
 
 :CHECK_7ZIP_VERSION
 ::type "%temp%"\zversion.txt
@@ -147,15 +161,26 @@ echo * 7-Zip found.
 set Version=
 ::pass
 
-
-
 :CHECK_FFMPEG_PATH
 ffmpeg -version >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_FFMPEG_VERSION
-echo * [91mffmpeg not found in path, please install from [96m https://www.ffmpeg.org/ [0m
-echo   [91mand add path to environment variable Path.[0m
-echo   [91mE.g. call as admin: [96m"C:\Windows\system32\rundll32.exe" sysdm.cpl,EditEnvironmentVariables[0m
-GOTO Fail
+ECHO/
+echo [91mffmpeg not found in path. Please install it. Homepage: [96mhttps://www.ffmpeg.org[0m
+call RefreshEnv.cmd
+IF %ERRORLEVEL% NEQ 0 GOTO Fail
+:reinstallffmpeg
+ECHO/ 
+ECHO   Y - Open Browser to Download release 8.0 from [96mhttps://www.gyan.dev/ffmpeg/builds/[0m
+ECHO   R - Retry (installed)
+ECHO   Q - Quit.
+ECHO/
+CHOICE /C YRQ /M " "
+IF ERRORLEVEL 3 GOTO Fail
+CLS
+IF ERRORLEVEL 2 GOTO CHECK_FFMPEG_PATH
+start "" https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z
+GOTO CHECK_FFMPEG_PATH
+
 
 :CHECK_FFMPEG_VERSION
 set /p Version=<"%temp%"\version.txt
@@ -167,10 +192,24 @@ set Version=
 :CHECK_EXIF_PATH
 exiftool -ver >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_EXIF_VERSION
-echo * [91mexiftool not found in path, please install from [96m https://exiftool.org/ [0m
-echo   [91mrename binary to exiftool.exe, and add path to environment variable Path.[0m
-echo   [91mE.g. call as admin: [96m"C:\Windows\system32\rundll32.exe" sysdm.cpl,EditEnvironmentVariables[0m
-GOTO Fail
+ECHO/
+echo [91mexiftool not found in path. Please install it. Homepage: [96mhttps://exiftool.org[0m 
+echo You need to rename "exiftool(-k).exe" to "exiftool.exe" for command-line use.
+call RefreshEnv.cmd
+IF %ERRORLEVEL% NEQ 0 GOTO Fail
+:reinstallexiftool
+ECHO/ 
+ECHO   Y - Open Browser to download v13.38 from [96msourceforge.net[0m
+ECHO   R - Retry (installed and renamed)
+ECHO   Q - Quit.
+ECHO/
+CHOICE /C YRQ /M " "
+IF ERRORLEVEL 3 GOTO Fail
+CLS
+IF ERRORLEVEL 2 GOTO CHECK_EXIF_PATH
+start "" https://sourceforge.net/projects/exiftool/files/exiftool-13.38_64.zip/download
+GOTO CHECK_EXIF_PATH
+
 
 :CHECK_EXIF_VERSION
 set /p Version=<"%temp%"\version.txt
@@ -182,6 +221,7 @@ set Version=
 :: Search for Topaz Video AI Path in registry to add it to configuration via bash script later
 :: HKEY_LOCAL_MACHINE\SOFTWARE\Topaz Labs LLC\Topaz Video AI     InstallDir   ModelDir
 :: TVAI_BIN_DIR, TVAI_MODEL_DATA_DIR, TVAI_MODEL_DIR
+:CHECK_TVAI
 for %%k in (HKCU HKLM) do (
     for %%w in (\ \Wow6432Node\) do (
         for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wTopaz Labs LLC\Topaz Video AI" /v InstallDir 2^> nul') do (
