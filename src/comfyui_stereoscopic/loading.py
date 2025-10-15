@@ -4,7 +4,7 @@ from PIL import Image, ImageOps
 import numpy as np
 import torch
 import folder_paths
-E:\SD\vrweare\ComfyUI_windows_portable\ComfyUI\input\vr\check\rate\edit\TK0HGT4PHVGAEYW9R6R562ES20a-251013183746_00001__100.png
+
 class LoadImageWithFilename:
     @classmethod
     def INPUT_TYPES(cls, **kwargs):
