@@ -19,6 +19,8 @@ cleanup() {
 
 trap cleanup EXIT
 
+source ./user/default/comfyui_stereoscopic/.environment
+
 echo "Restarting gui ..."
 touch user/default/comfyui_stereoscopic/.guiactive
 rm -f user/default/comfyui_stereoscopic/.guierror 2>/dev/null
