@@ -26,6 +26,8 @@ SET PYTHON_VERSION=3.13
 :: tar.gz from https://github.com/Comfy-Org/ComfyUI-Manager/tags
 SET MANAGER_SHA=74829f5be66b4b3934f47bb0170e241b2e4b6617d05448b9232e818b511b7bf7
 SET MANAGER_TAG=3.35
+SET FFMPEG_SHA=48ca5e824d2660a94f89fd55287b7c35129b55bbe680c4330efeed5269c4820f
+SET FFMPEG_TAG=8.0
 
 :: Files redistributed through released forks:
 SET VRWEARE_TAG=4.0.0-alpha
@@ -95,8 +97,20 @@ for %%k in (HKCU HKLM) do (
         )
     )
 )
+ECHO/
 ECHO [91mGit not found. Please install from [96m https://git-scm.com/ [0m
-GOTO Fail
+:reinstallgit
+ECHO/ 
+ECHO   Y - Open Browser to [96mhttps://git-scm.com/[0m
+ECHO   R - Retry (installed)
+ECHO   Q - Quit.
+ECHO/
+CHOICE /C YRQ /M " "
+IF ERRORLEVEL 3 GOTO Fail
+CLS
+IF ERRORLEVEL 2 GOTO CheckGitRegistryEntry
+start "" https://github.com/git-for-windows/git/releases/download/v2.51.0.windows.2/Git-2.51.0.2-64-bit.exe
+GOTO CheckGitRegistryEntry
 :GIT_END_GIT_REG_SEARCH
 
 :CHECK_GIT_PATH
@@ -104,9 +118,9 @@ GOTO Fail
 SET PATH=%GITPATH%bin;%PATH%
 git --version >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_GIT_VERSION
-ECHO * [91mGit to old (version is below 2.37), you need to update before installing VR we are.[0m
-ECHO   [91mPlease download Git from [96m https://git-scm.com/ [0m
-Goto Fail
+ECHO * [91mGit to old, you need to update before installing VR we are.[0m
+ECHO/
+Goto reinstallgit
 
 :CHECK_GIT_VERSION
 set /p Version=<"%temp%"\version.txt
@@ -130,10 +144,10 @@ for %%k in (HKCU HKLM) do (
     )
 )
 ECHO/
-ECHO [91m7-Zip not found. Please install it.[0m
+ECHO [91m7-Zip not found. Please install it first.[0m
 :reinstall7z
 ECHO/ 
-ECHO   Y - Open Browser to [96mhttps://www.7-zip.org[0m
+ECHO   Y - Open Browser to [96mhttps://www.7-zip.org/[0m
 ECHO   R - Retry (installed)
 ECHO   Q - Quit.
 ECHO/
@@ -164,8 +178,13 @@ set Version=
 :CHECK_FFMPEG_PATH
 ffmpeg -version >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_FFMPEG_VERSION
+
+:: LOCAL INSTALL . SKIP WIN install
+echo * [94mffmpeg not found.[0m Will be installed locally (+1GB)
+set FLAG_INSTALL_FFMPEG=
+GOTO CHECK_EXIF_PATH
 ECHO/
-echo [91mffmpeg not found in path. Please install it. Homepage: [96mhttps://www.ffmpeg.org[0m
+echo [91mffmpeg not found in path. Please install it. Homepage: [96mhttps://www.ffmpeg.org/[0m
 call RefreshEnv.cmd
 IF %ERRORLEVEL% NEQ 0 GOTO Fail
 :reinstallffmpeg
@@ -181,7 +200,6 @@ IF ERRORLEVEL 2 GOTO CHECK_FFMPEG_PATH
 start "" https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z
 GOTO CHECK_FFMPEG_PATH
 
-
 :CHECK_FFMPEG_VERSION
 set /p Version=<"%temp%"\version.txt
 del "%temp%"\version.txt
@@ -192,8 +210,11 @@ set Version=
 :CHECK_EXIF_PATH
 exiftool -ver >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_EXIF_VERSION
+echo * [94mexiftool not found.[0m Will be installed locally.
+set FLAG_INSTALL_EXIFTOOL=
+GOTO CHECK_TVAI
 ECHO/
-echo [91mexiftool not found in path. Please install it. Homepage: [96mhttps://exiftool.org[0m 
+echo [91mexiftool not found in path. Please install it. Homepage: [96mhttps://exiftool.org/[0m 
 echo You need to rename "exiftool(-k).exe" to "exiftool.exe" for command-line use.
 call RefreshEnv.cmd
 IF %ERRORLEVEL% NEQ 0 GOTO Fail
@@ -431,9 +452,13 @@ CD /D "%InstallFolder%"\vrweare
 SET "VRWEAREPATH=%cd%"
 
 ::Some parameters contains special characters. Load them over file
-echo %THE7ZIPPATH% >.install-the7zippath
+if defined THE7ZIPPATH(
+    echo %THE7ZIPPATH% >.install-the7zippath
+)
 
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: Write Bash script
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 echo #^^!/bin/bash >install.sh
 echo\ >>install.sh
 echo THE7ZIPPATH=`cat .install-the7zippath` >>install.sh
@@ -535,7 +560,7 @@ echo      fi >>install.sh
 echo    fi >>install.sh
 echo    if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
-echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo      curl --ssl-revoke-best-effort -A "Wget" -L $1 ^>$2 >>install.sh
 echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
 echo        if [ ^^! -z "$3" ] ; then >>install.sh
@@ -591,6 +616,13 @@ echo  installFile "https://raw.githubusercontent.com/hkchengrex/MMAudio/refs/hea
 echo  installFile "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/refs/heads/master/LICENSE" "./LICENSE_Real-ESRGAN.TXT"  >>install.sh
 echo  installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/LICENSE.MD?download=true" "./LICENSE_STABILITY-AI_CONTROL-LORA.MD"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-KJNodes/refs/heads/1.1.7/LICENSE" "./LICENSE_ComfyUI-KJNodes.TXT"  >>install.sh
+if defined FLAG_INSTALL_FFMPEG(
+echo  installFile "https://raw.githubusercontent.com/FFmpeg/FFmpeg/refs/heads/master/LICENSE.md" "./LICENSE_ffmpeg.md"  >>install.sh
+)
+if defined FLAG_INSTALL_EXIFTOOL(
+echo  "ExifTool by Phil Harvey. This is free software; you can redistribute it and/or modify it under the same terms as Perl itself. https://dev.perl.org/licenses/" ^> ./LICENSE_Exiftool.txt  >>install.sh
+)
+
 :: Ask user for commitment
 echo\ >>install.sh
 echo clear >>install.sh
@@ -629,6 +661,26 @@ echo   exit 1 >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
 
+
+::  Download and install rest of prerequisites
+echo mkdir -p ./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic    >>install.sh
+echo echo "" ^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
+if defined FLAG_INSTALL_FFMPEG(
+echo  installFile "https://github.com/GyanD/codexffmpeg/releases/download/8.0/ffmpeg-%FFMPEG_TAG%-full_build.zip" "install/ffmpeg.zip" %FFMPEG_SHA% >>install.sh
+echo  unzip -qo install/ffmpeg.zip -d .  >>install.sh
+echo FFMPEGPATH=`ls  | grep ffmpeg-`      >>install.sh
+echo FFMPEGPATH=`echo $FFMPEGPATH`"bin"  >>install.sh
+echo echo "PATH=$FFMPEGPATH:$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
+echo\ >>install.sh
+)
+if defined FLAG_INSTALL_EXIFTOOL(
+echo  installFile "https://sourceforge.net/projects/exiftool/files/exiftool-13.39_64.zip" "install/exiftool.zip"  >>install.sh
+echo  unzip -qo install/exiftool.zip -d .  >>install.sh
+echo EXIFPATH=`ls  | grep exiftool-`   >>install.sh
+echo mv "$EXIFPATH/exiftool(-k).exe" "$EXIFPATH/exiftool.exe"   >>install.sh
+echo echo "PATH=$EXIFPATH:$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
+echo\ >>install.sh
+)
 
 ::  Download and unpackage comfyui nodes
 echo   installCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
@@ -680,8 +732,9 @@ IF %PIPELINE_OPTION_FLI2V% equ 0 ECHO sed -i "s/FLIMAGE_TARGET/caption/g" ComfyU
 IF %PIPELINE_OPTION_FLI2V% equ 1 ECHO sed -i "s/FLIMAGE_TARGET/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
 IF %PIPELINE_OPTION_WATERMARK% equ 0 ECHO sed -i "s/watermark\/encrypt/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
 
-
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: Continue installation with bash script
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :CALL_BASH
 ECHO/
 ECHO Continue installation with bash script. Waiting for completion...
