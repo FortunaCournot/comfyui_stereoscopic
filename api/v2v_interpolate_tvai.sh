@@ -186,7 +186,15 @@ else
 
 		rm -f -- "$TARGETPREFIX""-right-input.mp4" "$TARGETPREFIX""-left-input.mp4"
 
-
+		FRAMES1=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 "$TARGETPREFIX""-part2.mp4"`
+		FRAMES2=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 "$TARGETPREFIX""-part2.mp4"`
+		if [[ "$FRAMES1" != "$FRAMES2" ]] ; then 
+			echo -e $"\e[91mError:\e[0m TVAI generation failed. Check for error messages. Frame-Count mismatch $FRAMES1 != $FRAMES2 ."
+			mkdir -p input/vr/interpolate/error
+			mv -vf -- "$INPUT" input/vr/interpolate/error
+			exit 0
+		fi
+		
 		TESTAUDIO=`"$FFMPEGPATHPREFIX"ffprobe -i "$INPUT" -show_streams -select_streams a -loglevel error | head -n 1`
 		if [[ $TESTAUDIO =~ "[STREAM]" ]]; then
 			set -x

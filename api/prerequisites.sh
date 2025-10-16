@@ -281,7 +281,17 @@ CONFIGERROR=
 #	echo "Upgraded config.ini to v$config_version"
 #fi
 
-
+### Crystools: Enforce deactivation of GPU Management. Problems detected, especially with TVAI.
+COMFYUI_SETTINGS_FILE=`realpath "./user/default/comfy.settings.json"`
+if [ -e "$COMFYUI_SETTINGS_FILE" ]; then
+	PROHIBITED_SETTING_COUNT=`grep "\"Crystools.ShowGpu.*\": true" "$COMFYUI_SETTINGS_FILE" | wc -l`
+	if [ $PROHIBITED_SETTING_COUNT -gt 0 ] ; then
+		sed -i "/\"Crystools.ShowGpuTemperatureZero\":/s/: true/: false/" "$COMFYUI_SETTINGS_FILE"
+		sed -i "/\"Crystools.ShowGpuVramZero\":/s/: true/: false/" "$COMFYUI_SETTINGS_FILE"
+		sed -i "/\"Crystools.ShowGpuUsageZero\":/s/: true/: false/" "$COMFYUI_SETTINGS_FILE"
+		echo -e $"\e[93mWarning:\e[0m ComfyUI settings changed ($PROHIBITED_SETTING_COUNT). Crystools.ShowGpu settings must be false.\n\e[95m*** Please restart ComfyUI ***\e[0m"
+	fi
+fi
 
 TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 
