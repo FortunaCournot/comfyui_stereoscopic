@@ -1380,7 +1380,7 @@ class RateAndCutDialog(QDialog):
                 recreated=os.path.exists(output)
                 thread = threading.Thread(
                     target=self.trimAndCrop_worker,
-                    args=(cmd, recreated, ),
+                    args=(cmd, recreated, output, ),
                     daemon=True
                 )
                 thread.start()
@@ -1393,22 +1393,29 @@ class RateAndCutDialog(QDialog):
             leaveUITask()
 
 
-    def trimAndCrop_worker(self, cmd, recreated):
+    def trimAndCrop_worker(self, cmd, recreated, output):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, True))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, output, True))
 
         except subprocess.CalledProcessError as se:
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, False))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, output, False))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
 
 
-    def trimAndCrop_updater(self, cmd, recreated, success):
+    def trimAndCrop_updater(self, cmd, recreated, output, success):
         if success:
-            self.logn(" Overwritten" if recreated else " OK", QColor("green"))
+            self.log(" Overwritten" if recreated else " OK", QColor("green"))
+            if self.display.frame_count<=0:
+                cb = QApplication.clipboard()
+                cb.clear(mode=cb.Clipboard)
+                cb.setText(output, mode=cb.Clipboard)
+                self.logn("+clipboard", QColor("gray"))
+            else:
+                self.logn("", QColor("gray"))
         else:
             self.logn(" Failed", QColor("red"))
 
