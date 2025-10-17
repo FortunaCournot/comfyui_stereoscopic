@@ -678,8 +678,7 @@ if defined FLAG_INSTALL_EXIFTOOL (
 echo  installFile "https://sourceforge.net/projects/exiftool/files/exiftool-13.39_64.zip" "install/exiftool.zip"  >>install.sh
 echo  unzip -qo install/exiftool.zip -d .  >>install.sh
 echo EXIFPATH=`ls  ^| grep exiftool-`   >>install.sh
-echo EXIFPATH=`realpath $EXIFPATH
-`   >>install.sh
+echo EXIFPATH=`realpath $EXIFPATH`   >>install.sh
 echo mv "$EXIFPATH/exiftool(-k).exe" "$EXIFPATH/exiftool.exe"   >>install.sh
 echo echo "PATH=$EXIFPATH:""$""PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 echo\ >>install.sh
@@ -760,6 +759,12 @@ ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.git >>"%VRWEARE
 ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.github >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO DEL /Q %VRWEAREPATH%\ComfyUI_windows_portable\*.bat >>"%VRWEAREPATH%\\Uninstall.cmd"
+if defined FLAG_INSTALL_FFMPEG (
+ECHO FOR /D %%i IN (%VRWEAREPATH%\ffmpeg-*) DO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
+)
+if defined FLAG_INSTALL_EXIFTOOL (
+ECHO FOR /D %%i IN (%VRWEAREPATH%\exiftool-*) DO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
+)
 ECHO RMDIR /S /Q %VRWEAREPATH%\res >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO DEL %VRWEAREPATH%\Uninstall.cmd >>"%VRWEAREPATH%\\Uninstall.cmd"
 echo Updating registry.
