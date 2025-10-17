@@ -205,6 +205,10 @@ class RateAndCutDialog(QDialog):
             self.wait_dialog = None
             self.playtype_pingpong=False
             self.sliderinitdone=False
+            self.filter_img = False
+            self.filter_vid = False
+            self.filter_edit = not self.cutMode
+            
             
             rescanFilesToRate()
             
@@ -233,6 +237,7 @@ class RateAndCutDialog(QDialog):
             self.setLayout(self.outer_main_layout)
             self.setStyleSheet("background-color : black;")
 
+            # --- Toolbar ---
             self.cutMode_toolbar = QToolBar(self)
             self.cutMode_toolbar.setVisible(True)
             if cutMode:
@@ -251,6 +256,14 @@ class RateAndCutDialog(QDialog):
             self.openFolderAction.triggered.connect(self.onOpenFolder)
             self.cutMode_toolbar.addAction(self.openFolderAction)
             self.cutMode_toolbar.widgetForAction(self.openFolderAction).setCursor(Qt.PointingHandCursor)
+
+            self.iconOpenArchiveAction = StyledIcon(os.path.join(path, '../../gui/img/openarchive64.png'))
+            self.openArchiveAction = QAction(self.iconOpenArchiveAction, "Open Archive")
+            self.openArchiveAction.setCheckable(False)
+            self.openArchiveAction.setVisible(True)
+            self.openArchiveAction.triggered.connect(self.onOpenArchive)
+            self.cutMode_toolbar.addAction(self.openArchiveAction)
+            self.cutMode_toolbar.widgetForAction(self.openArchiveAction).setCursor(Qt.PointingHandCursor)
 
             self.cutMode_toolbar.addSeparator()
 
@@ -274,9 +287,42 @@ class RateAndCutDialog(QDialog):
             self.cutMode_toolbar.addAction(self.copyFilepathToClipboardAction)
             self.cutMode_toolbar.widgetForAction(self.copyFilepathToClipboardAction).setCursor(Qt.PointingHandCursor)
 
+            self.cutMode_toolbar.addSeparator()
+
+            self.toggle_filterimg_icon_false = QIcon(os.path.join(path, '../../gui/img/filterimgoff64.png'))
+            self.toggle_filterimg_icon_true = QIcon(os.path.join(path, '../../gui/img/filterimgon64.png'))
+            self.filterImgAction = QAction(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false, "Toogle Image Filter")
+            self.filterImgAction.setCheckable(True)
+            self.filterImgAction.setChecked(self.filter_img)
+            self.filterImgAction.setVisible(True)
+            self.filterImgAction.triggered.connect(self.onFilterImg)
+            self.cutMode_toolbar.addAction(self.filterImgAction)
+            self.cutMode_toolbar.widgetForAction(self.filterImgAction).setCursor(Qt.PointingHandCursor)
+
+            self.toggle_filtervid_icon_false = QIcon(os.path.join(path, '../../gui/img/filtervidoff64.png'))
+            self.toggle_filtervid_icon_true = QIcon(os.path.join(path, '../../gui/img/filtervidon64.png'))
+            self.filterVidAction = QAction(self.toggle_filtervid_icon_true if self.filter_vid else self.toggle_filtervid_icon_false, "Toogle Video Filter")
+            self.filterVidAction.setCheckable(True)
+            self.filterVidAction.setChecked(self.filter_vid)
+            self.filterVidAction.setVisible(True)
+            self.filterVidAction.triggered.connect(self.onFilterVid)
+            self.cutMode_toolbar.addAction(self.filterVidAction)
+            self.cutMode_toolbar.widgetForAction(self.filterVidAction).setCursor(Qt.PointingHandCursor)
+
+            self.toggle_filteredit_icon_false = QIcon(os.path.join(path, '../../gui/img/filtereditoff64.png'))
+            self.toggle_filteredit_icon_true = QIcon(os.path.join(path, '../../gui/img/filterediton64.png'))
+            self.filterEditAction = QAction(self.toggle_filteredit_icon_true if self.filter_edit else self.toggle_filteredit_icon_false, "Toogle Edit Filter")
+            self.filterEditAction.setCheckable(True)
+            self.filterEditAction.setChecked(self.filter_edit)
+            self.filterEditAction.setVisible(True)
+            self.filterEditAction.triggered.connect(self.onFilterEdit)
+            self.cutMode_toolbar.addAction(self.filterEditAction)
+            self.cutMode_toolbar.widgetForAction(self.filterEditAction).setCursor(Qt.PointingHandCursor)
 
             self.outer_main_layout.addWidget(self.cutMode_toolbar)
             self.cutMode_toolbar.setContentsMargins(0,0,0,0)
+
+            # ------
 
             if cutMode:
                 self.dirlabel=QLabel("")
@@ -1004,6 +1050,18 @@ class RateAndCutDialog(QDialog):
         self.iconPlayTypeAction.setIcon(self.toggle_playtype_icon_true if self.playtype_pingpong else self.toggle_playtype_icon_false)
         self.display.setPingPongModeEnabled(self.playtype_pingpong)
         
+    def onFilterImg(self, state):
+        self.filter_img = state
+        self.filterImgAction.setIcon(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false)
+    
+    def onFilterVid(self, state):
+        self.filter_vid = state
+        self.filterVidAction.setIcon(self.toggle_filtervid_icon_true if self.filter_vid else self.toggle_filtervid_icon_false)
+    
+    def onFilterEdit(self, state):
+        self.filter_edit = state
+        self.filterEditAction.setIcon(self.toggle_filteredit_icon_true if self.filter_edit else self.toggle_filteredit_icon_false)
+        
     def onCopyFilepathToClipboard(self, state):
         cb = QApplication.clipboard()
         cb.clear(mode=cb.Clipboard)
@@ -1022,7 +1080,12 @@ class RateAndCutDialog(QDialog):
             dirPath=srcfolder=os.path.join(path, "../../../../input/vr/check/rate")
         os.system("start \"\" " + os.path.abspath(dirPath))
         # subprocess.Popen(["explorer", os.path.abspath(dirPath) ], close_fds=True) - generates zombies
-           
+         
+    def onOpenArchive(self, state):
+        dirPath=srcfolder=os.path.join(path, "../../../../input/vr/check/rate/done")
+        os.system("start \"\" " + os.path.abspath(dirPath))
+        # subprocess.Popen(["explorer", os.path.abspath(dirPath) ], close_fds=True) - generates zombies
+         
     def onSelectFolder(self, state):
         enterUITask()
         self.folderAction.setEnabled(False)
