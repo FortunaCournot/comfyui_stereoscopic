@@ -703,6 +703,8 @@ class RateAndCutDialog(QDialog):
         self.display.stopAndBlackout()
         global cutModeActive
         cutModeActive=False
+        setFileFilter(False, False, False)
+        rescanFilesToRate()
         super(QDialog, self).closeEvent(evnt)
             
     def updatePaused(self, isPaused):
@@ -1057,19 +1059,27 @@ class RateAndCutDialog(QDialog):
         self.filter_img = state
         self.filterImgAction.setIcon(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false)
         setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
-        rescanFilesToRate()
-        self.currentFile=None
-        self.currentIndex=0
-        self.rateNext()
+        if self.filter_img and self.filter_vid:
+            self.filterVidAction.setChecked(False)
+            self.onFilterVid(False)
+        else:
+            rescanFilesToRate()
+            self.currentFile=None
+            self.currentIndex=0
+            self.rateNext()
     
     def onFilterVid(self, state):
         self.filter_vid = state
         self.filterVidAction.setIcon(self.toggle_filtervid_icon_true if self.filter_vid else self.toggle_filtervid_icon_false)
         setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
-        rescanFilesToRate()
-        self.currentFile=None
-        self.currentIndex=0
-        self.rateNext()
+        if self.filter_img and self.filter_vid:
+            self.filterImgAction.setChecked(False)
+            self.onFilterImg(False)
+        else:
+            rescanFilesToRate()
+            self.currentFile=None
+            self.currentIndex=0
+            self.rateNext()
     
     def onFilterEdit(self, state):
         self.filter_edit = state
