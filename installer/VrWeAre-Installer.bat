@@ -670,7 +670,7 @@ echo  installFile "https://github.com/GyanD/codexffmpeg/releases/download/8.0/ff
 echo  unzip -qo install/ffmpeg.zip -d .  >>install.sh
 echo FFMPEGPATH=`ls  ^| grep ffmpeg-`      >>install.sh
 echo FFMPEGPATH=`echo $FFMPEGPATH`"bin"  >>install.sh
-echo echo "PATH=$FFMPEGPATH:$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
+echo echo "PATH=$FFMPEGPATH:^$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 echo\ >>install.sh
 )
 if defined FLAG_INSTALL_EXIFTOOL (
@@ -678,7 +678,7 @@ echo  installFile "https://sourceforge.net/projects/exiftool/files/exiftool-13.3
 echo  unzip -qo install/exiftool.zip -d .  >>install.sh
 echo EXIFPATH=`ls  ^| grep exiftool-`   >>install.sh
 echo mv "$EXIFPATH/exiftool(-k).exe" "$EXIFPATH/exiftool.exe"   >>install.sh
-echo echo "PATH=$EXIFPATH:$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
+echo echo "PATH=$EXIFPATH:^$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 echo\ >>install.sh
 )
 
