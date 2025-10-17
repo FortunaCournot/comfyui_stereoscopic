@@ -835,7 +835,7 @@ class SpreadsheetApp(QMainWindow):
     def show_pipeline(self, state):
         
         global pipelinedialog, lay
-        pipelinedialog = QDialog()
+        pipelinedialog = QDialog(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         pipelinedialog.setWindowTitle("VR We Are - Pipeline")
         pipelinedialog.setModal(True)
         #pipelinedialog.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
@@ -847,6 +847,7 @@ class SpreadsheetApp(QMainWindow):
         self.setPalette(pal)
 
         pipeline_toolbar = QToolBar("Pipeline Actions")
+        self.pipeline_toolbar = pipeline_toolbar
         lay.addWidget(pipeline_toolbar)
         global editAction
         editAction = QAction("Edit")
@@ -854,6 +855,17 @@ class SpreadsheetApp(QMainWindow):
         editAction.triggered.connect(self.edit_pipeline)
         pipeline_toolbar.addAction(editAction)
         pipeline_toolbar.widgetForAction(editAction).setCursor(Qt.PointingHandCursor)
+
+        empty = QWidget()
+        empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+        pipeline_toolbar.addWidget(empty)
+
+        self.button_show_pipeline_manual_action = QAction(QIcon(os.path.join(path, '../../gui/img/manualinv64.png')), "Manual")      
+        self.button_show_pipeline_manual_action.setCheckable(False)
+        self.button_show_pipeline_manual_action.triggered.connect(self.show_manual)
+        pipeline_toolbar.addAction(self.button_show_pipeline_manual_action)    
+        pipeline_toolbar.widgetForAction(self.button_show_pipeline_manual_action).setCursor(Qt.PointingHandCursor)
+
 
         global pipelineErrors
         pipelineErrors=QLabel("Error")
