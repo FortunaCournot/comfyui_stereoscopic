@@ -40,6 +40,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 if path not in sys.path:
     sys.path.append(path)
 
+VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts']
+IMAGE_EXTENSIONS = ['.png', '.webp', '.jpg', '.jpeg', '.jfif']
 
 class JudgeDialog(QDialog):
 
@@ -58,6 +60,47 @@ class JudgeDialog(QDialog):
         self.setLayout(self.outer_main_layout)
         self.setStyleSheet("background : black; color: white;")
         self.sw=1
+        self.filter_vid=False
+        self.filter_img=False
+        
+        # --- Toolbar ---
+        self.judge_toolbar = QToolBar(self)
+        self.judge_toolbar.setVisible(True)
+
+        self.toggle_filterimg_icon_false = QIcon(os.path.join(path, '../../gui/img/filterimgoff64.png'))
+        self.toggle_filterimg_icon_true = QIcon(os.path.join(path, '../../gui/img/filterimgon64.png'))
+        self.filterImgAction = QAction(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false, "Toogle Image Filter")
+        self.filterImgAction.setCheckable(True)
+        self.filterImgAction.setChecked(self.filter_img)
+        self.filterImgAction.setVisible(True)
+        self.filterImgAction.triggered.connect(self.onFilterImg)
+        self.judge_toolbar.addAction(self.filterImgAction)
+        self.judge_toolbar.widgetForAction(self.filterImgAction).setCursor(Qt.PointingHandCursor)
+
+        self.toggle_filtervid_icon_false = QIcon(os.path.join(path, '../../gui/img/filtervidoff64.png'))
+        self.toggle_filtervid_icon_true = QIcon(os.path.join(path, '../../gui/img/filtervidon64.png'))
+        self.filterVidAction = QAction(self.toggle_filtervid_icon_true if self.filter_vid else self.toggle_filtervid_icon_false, "Toogle Video Filter")
+        self.filterVidAction.setCheckable(True)
+        self.filterVidAction.setChecked(self.filter_vid)
+        self.filterVidAction.setVisible(True)
+        self.filterVidAction.triggered.connect(self.onFilterVid)
+        self.judge_toolbar.addAction(self.filterVidAction)
+        self.judge_toolbar.widgetForAction(self.filterVidAction).setCursor(Qt.PointingHandCursor)
+
+        empty = QWidget()
+        empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+        self.judge_toolbar.addWidget(empty)
+
+        self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../gui/img/manual64.png')), "Manual")      
+        self.button_show_manual_action.setCheckable(False)
+        self.button_show_manual_action.triggered.connect(self.show_manual)
+        self.judge_toolbar.addAction(self.button_show_manual_action)    
+        self.judge_toolbar.widgetForAction(self.button_show_manual_action).setCursor(Qt.PointingHandCursor)
+
+        self.outer_main_layout.addWidget(self.judge_toolbar)
+        self.judge_toolbar.setContentsMargins(0,0,0,0)
+
+        # ------
         
         # layout in Grid
         self.display_layout = QGridLayout()
@@ -125,14 +168,62 @@ class JudgeDialog(QDialog):
             else:
                 self.catStatusLabels[c].setPixmap(self.pmStatusToDo)
 
+    def show_manual(self, state):
+        webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
 
+    def onFilterImg(self, state):
+        self.filter_img = state
+        self.filterImgAction.setIcon(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false)
+        if self.filter_img and self.filter_vid:
+            self.filterVidAction.setChecked(False)
+            self.onFilterVid(False)
+        else:
+            fileCounts = self.updateContents()
+            for c in range(5):
+                if fileCounts[c]==0:
+                    self.catStatusLabels[c].setPixmap(self.pmStatusNoFiles)
+                else:
+                    self.catStatusLabels[c].setPixmap(self.pmStatusToDo)
+    
+    def onFilterVid(self, state):
+        self.filter_vid = state
+        self.filterVidAction.setIcon(self.toggle_filtervid_icon_true if self.filter_vid else self.toggle_filtervid_icon_false)
+        if self.filter_img and self.filter_vid:
+            self.filterImgAction.setChecked(False)
+            self.onFilterImg(False)
+        else:
+            fileCounts = self.updateContents()
+            for c in range(5):
+                if fileCounts[c]==0:
+                    self.catStatusLabels[c].setPixmap(self.pmStatusNoFiles)
+                else:
+                    self.catStatusLabels[c].setPixmap(self.pmStatusToDo)
+
+    def applyFileFilter(self, allfiles):
+        _activeExtensions=[]
+        if not self.filter_img:
+            _activeExtensions = _activeExtensions + IMAGE_EXTENSIONS
+        if not self.filter_vid:
+            _activeExtensions = _activeExtensions + VIDEO_EXTENSIONS
+        
+        files = []
+        try:
+            for f in allfiles:
+                if any(f.lower().endswith(suf.lower()) for suf in _activeExtensions):
+                    files.append(f) 
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+            
+        return files
+        
+        
     def executeForward(self, catIndex):
         folder = os.path.join(path, "../../../../output/vr/check/rate")
         subfolder = os.path.join(folder, str(catIndex+1))
         targetfolder = os.path.join(path, "../../../../output/vr/check/released")
         os.makedirs(targetfolder, exist_ok=True)
         try:
-            files = next(os.walk(subfolder))[2]
+            files = self.applyFileFilter( next(os.walk(subfolder))[2] )
             for f in files:
                 try:
                     source=os.path.join(subfolder, f)
@@ -152,7 +243,7 @@ class JudgeDialog(QDialog):
         targetfolder = os.path.join(path, "../../../../input/vr/check/released/done")
         os.makedirs(targetfolder, exist_ok=True)
         try:
-            files = next(os.walk(subfolder))[2]
+            files = self.applyFileFilter( next(os.walk(subfolder))[2] )
             for f in files:
                 try:
                     source=os.path.join(subfolder, f)
@@ -170,7 +261,7 @@ class JudgeDialog(QDialog):
         folder = os.path.join(path, "../../../../output/vr/check/rate")
         subfolder = os.path.join(folder, str(catIndex+1))
         try:
-            files = next(os.walk(subfolder))[2]
+            files = self.applyFileFilter( next(os.walk(subfolder))[2] )
             for f in files:
                 try:
                     source=os.path.join(subfolder, f)
@@ -195,7 +286,7 @@ class JudgeDialog(QDialog):
         for c in range(5):
             subfolder = os.path.join(folder, str(c+1))
             try:
-                files = next(os.walk(subfolder))[2]
+                files = self.applyFileFilter( next(os.walk(subfolder))[2] )
                 fileCounts.append((len(files)))
             except StopIteration as e:
                 fileCounts.append(0)

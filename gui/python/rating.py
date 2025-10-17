@@ -322,6 +322,16 @@ class RateAndCutDialog(QDialog):
             self.cutMode_toolbar.addAction(self.filterEditAction)
             self.cutMode_toolbar.widgetForAction(self.filterEditAction).setCursor(Qt.PointingHandCursor)
 
+            empty = QWidget()
+            empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+            self.cutMode_toolbar.addWidget(empty)
+
+            self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../gui/img/manual64.png')), "Manual")      
+            self.button_show_manual_action.setCheckable(False)
+            self.button_show_manual_action.triggered.connect(self.show_manual)
+            self.cutMode_toolbar.addAction(self.button_show_manual_action)    
+            self.cutMode_toolbar.widgetForAction(self.button_show_manual_action).setCursor(Qt.PointingHandCursor)
+
             self.outer_main_layout.addWidget(self.cutMode_toolbar)
             self.cutMode_toolbar.setContentsMargins(0,0,0,0)
 
@@ -571,6 +581,8 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True)
 
+    def show_manual(self, state):
+        webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
 
     def onUpdate(self):
         self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
