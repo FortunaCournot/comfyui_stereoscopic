@@ -419,10 +419,10 @@ ECHO === Basic installation [13 GB] ===
 ECHO Please choose the installation options:
 ECHO/ 
 ECHO  General options:
-ECHO   1 - Pipeline with SBS-Converter: %PIPELINE_OPTION_SBS_TEXT% (for VR devices)
+ECHO   1 - Pipeline with SBS-Converter: [1m%PIPELINE_OPTION_SBS_TEXT%[0m (for VR devices)
 ECHO  AI-Expert options:
-ECHO   2 - Judging: Pipeline for first/last image: %PIPELINE_OPTION_FLI2V_TEXT%
-ECHO   3 - Generate Watermark (experimental): %PIPELINE_OPTION_WATERMARK_TEXT%
+ECHO   2 - Judging: Pipeline for first/last image: [1m%PIPELINE_OPTION_FLI2V_TEXT%[0m
+ECHO   3 - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATERMARK_TEXT%[0m
 ECHO/
 ECHO   Y - Yes, Install / N - No, QUIT
 ECHO/
@@ -452,7 +452,7 @@ CD /D "%InstallFolder%"\vrweare
 SET "VRWEAREPATH=%cd%"
 
 ::Some parameters contains special characters. Load them over file
-if defined THE7ZIPPATH(
+if defined THE7ZIPPATH (
     echo %THE7ZIPPATH% >.install-the7zippath
 )
 
@@ -616,10 +616,10 @@ echo  installFile "https://raw.githubusercontent.com/hkchengrex/MMAudio/refs/hea
 echo  installFile "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/refs/heads/master/LICENSE" "./LICENSE_Real-ESRGAN.TXT"  >>install.sh
 echo  installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/LICENSE.MD?download=true" "./LICENSE_STABILITY-AI_CONTROL-LORA.MD"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-KJNodes/refs/heads/1.1.7/LICENSE" "./LICENSE_ComfyUI-KJNodes.TXT"  >>install.sh
-if defined FLAG_INSTALL_FFMPEG(
+if defined FLAG_INSTALL_FFMPEG (
 echo  installFile "https://raw.githubusercontent.com/FFmpeg/FFmpeg/refs/heads/master/LICENSE.md" "./LICENSE_ffmpeg.md"  >>install.sh
 )
-if defined FLAG_INSTALL_EXIFTOOL(
+if defined FLAG_INSTALL_EXIFTOOL (
 echo  "ExifTool by Phil Harvey. This is free software; you can redistribute it and/or modify it under the same terms as Perl itself. https://dev.perl.org/licenses/" ^> ./LICENSE_Exiftool.txt  >>install.sh
 )
 
@@ -665,7 +665,7 @@ echo\ >>install.sh
 ::  Download and install rest of prerequisites
 echo mkdir -p ./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic    >>install.sh
 echo echo "" ^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
-if defined FLAG_INSTALL_FFMPEG(
+if defined FLAG_INSTALL_FFMPEG (
 echo  installFile "https://github.com/GyanD/codexffmpeg/releases/download/8.0/ffmpeg-%FFMPEG_TAG%-full_build.zip" "install/ffmpeg.zip" %FFMPEG_SHA% >>install.sh
 echo  unzip -qo install/ffmpeg.zip -d .  >>install.sh
 echo FFMPEGPATH=`ls  | grep ffmpeg-`      >>install.sh
@@ -673,7 +673,7 @@ echo FFMPEGPATH=`echo $FFMPEGPATH`"bin"  >>install.sh
 echo echo "PATH=$FFMPEGPATH:$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 echo\ >>install.sh
 )
-if defined FLAG_INSTALL_EXIFTOOL(
+if defined FLAG_INSTALL_EXIFTOOL (
 echo  installFile "https://sourceforge.net/projects/exiftool/files/exiftool-13.39_64.zip" "install/exiftool.zip"  >>install.sh
 echo  unzip -qo install/exiftool.zip -d .  >>install.sh
 echo EXIFPATH=`ls  | grep exiftool-`   >>install.sh
