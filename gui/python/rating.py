@@ -50,10 +50,13 @@ if USE_TRASHBIN:
 TRACELEVEL=0
 
 # Globale statische Liste der erlaubten Suffixe
-ALLOWED_SUFFIXES = [".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".ts", ".jfif"]
-videoExtensions = ['.mp4', '.webm', '.ts']
-global _readyfiles
+VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts']
+IMAGE_EXTENSIONS = ['.png', '.webp', '.jpg', '.jpeg', '.jfif']
+ALL_EXTENSIONS = VIDEO_EXTENSIONS + IMAGE_EXTENSIONS
+global _readyfiles, _activeExtensions, _filterEdit
 _readyfiles=[]
+_activeExtensions=ALL_EXTENSIONS
+_filterEdit=False
 
 # global init
 global cutModeActive, cutModeFolderOverrideActive, cutModeFolderOverridePath
@@ -209,7 +212,7 @@ class RateAndCutDialog(QDialog):
             self.filter_vid = False
             self.filter_edit = not self.cutMode
             
-            
+            setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
             rescanFilesToRate()
             
             self.qt_img=None
@@ -314,7 +317,7 @@ class RateAndCutDialog(QDialog):
             self.filterEditAction = QAction(self.toggle_filteredit_icon_true if self.filter_edit else self.toggle_filteredit_icon_false, "Toogle Edit Filter")
             self.filterEditAction.setCheckable(True)
             self.filterEditAction.setChecked(self.filter_edit)
-            self.filterEditAction.setVisible(True)
+            self.filterEditAction.setVisible(not self.cutMode)
             self.filterEditAction.triggered.connect(self.onFilterEdit)
             self.cutMode_toolbar.addAction(self.filterEditAction)
             self.cutMode_toolbar.widgetForAction(self.filterEditAction).setCursor(Qt.PointingHandCursor)
@@ -1053,14 +1056,29 @@ class RateAndCutDialog(QDialog):
     def onFilterImg(self, state):
         self.filter_img = state
         self.filterImgAction.setIcon(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false)
+        setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
+        rescanFilesToRate()
+        self.currentFile=None
+        self.currentIndex=0
+        self.rateNext()
     
     def onFilterVid(self, state):
         self.filter_vid = state
         self.filterVidAction.setIcon(self.toggle_filtervid_icon_true if self.filter_vid else self.toggle_filtervid_icon_false)
+        setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
+        rescanFilesToRate()
+        self.currentFile=None
+        self.currentIndex=0
+        self.rateNext()
     
     def onFilterEdit(self, state):
         self.filter_edit = state
         self.filterEditAction.setIcon(self.toggle_filteredit_icon_true if self.filter_edit else self.toggle_filteredit_icon_false)
+        setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
+        rescanFilesToRate()
+        self.currentFile=None
+        self.currentIndex=0
+        self.rateNext()
         
     def onCopyFilepathToClipboard(self, state):
         cb = QApplication.clipboard()
@@ -2132,7 +2150,7 @@ class Display(QLabel):
 
     def showFile(self, filepath):
         self.stopAndBlackout()
-        if filepath.endswith(tuple(videoExtensions)):
+        if filepath.endswith(tuple(VIDEO_EXTENSIONS)):
             self.setVideo(filepath)
             return "video"
         else:
@@ -3196,6 +3214,14 @@ class InputBlocker(QWidget):
         """Overlay immer an Fenstergröße anpassen."""
         self.setGeometry(self.parent().rect())
 
+def setFileFilter(filterImg, filterVid, filterEdit):
+    global _activeExtensions, _filterEdit
+    _activeExtensions=[]
+    if not filterImg:
+        _activeExtensions = _activeExtensions + IMAGE_EXTENSIONS
+    if not filterVid:
+        _activeExtensions = _activeExtensions + VIDEO_EXTENSIONS
+    _filterEdit=filterEdit
 
 # ASYNC CONTEXT
 def scanFilesToRate():
@@ -3241,8 +3267,11 @@ def rescanFilesToRate():
                 filesCut = buildList(_filesWithoutEdit, None)
             files = filesCut
         else:
-            filesNoCut = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
-            files = filesNoCut
+            if _filterEdit:
+                filesNoCut  = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/")
+            else:
+                filesNoCut  = buildList(_editedfiles, "edit/") + buildList(_readyfiles, "ready/") + buildList(_filesWithoutEdit, None)
+            files = filesNoCut 
             
         return files
     except KeyboardInterrupt:
@@ -3297,7 +3326,7 @@ def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
     files = []
     for f in os.listdir(bpath):
         full_path = os.path.join(bpath, f)
-        if os.path.isfile(full_path) and any(f.lower().endswith(suf.lower()) for suf in ALLOWED_SUFFIXES):
+        if os.path.isfile(full_path) and any(f.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
             mtime = statMTime(full_path)
             files.append((f, mtime))    
 
@@ -3321,7 +3350,7 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List
         current_files = {
             f for f in os.listdir(bpath)
             if os.path.isfile(os.path.join(bpath, f))
-            and any(f.lower().endswith(suf.lower()) for suf in ALLOWED_SUFFIXES)
+            and any(f.lower().endswith(suf.lower()) for suf in _activeExtensions)
         }
 
         # ---- 1. Entferne Dateien, die nicht mehr existieren ----
