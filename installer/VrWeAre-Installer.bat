@@ -181,7 +181,7 @@ IF %ERRORLEVEL% == 0 GOTO CHECK_FFMPEG_VERSION
 
 :: LOCAL INSTALL . SKIP WIN install
 echo * [94mffmpeg not found.[0m Will be installed locally (+1GB)
-set FLAG_INSTALL_FFMPEG=
+set FLAG_INSTALL_FFMPEG=X
 GOTO CHECK_EXIF_PATH
 ECHO/
 echo [91mffmpeg not found in path. Please install it. Homepage: [96mhttps://www.ffmpeg.org/[0m
@@ -211,7 +211,7 @@ set Version=
 exiftool -ver >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_EXIF_VERSION
 echo * [94mexiftool not found.[0m Will be installed locally.
-set FLAG_INSTALL_EXIFTOOL=
+set FLAG_INSTALL_EXIFTOOL=X
 GOTO CHECK_TVAI
 ECHO/
 echo [91mexiftool not found in path. Please install it. Homepage: [96mhttps://exiftool.org/[0m 
@@ -668,7 +668,7 @@ echo echo "" ^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereosco
 if defined FLAG_INSTALL_FFMPEG (
 echo  installFile "https://github.com/GyanD/codexffmpeg/releases/download/8.0/ffmpeg-%FFMPEG_TAG%-full_build.zip" "install/ffmpeg.zip" %FFMPEG_SHA% >>install.sh
 echo  unzip -qo install/ffmpeg.zip -d .  >>install.sh
-echo FFMPEGPATH=`ls  | grep ffmpeg-`      >>install.sh
+echo FFMPEGPATH=`ls  ^| grep ffmpeg-`      >>install.sh
 echo FFMPEGPATH=`echo $FFMPEGPATH`"bin"  >>install.sh
 echo echo "PATH=$FFMPEGPATH:$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 echo\ >>install.sh
@@ -676,7 +676,7 @@ echo\ >>install.sh
 if defined FLAG_INSTALL_EXIFTOOL (
 echo  installFile "https://sourceforge.net/projects/exiftool/files/exiftool-13.39_64.zip" "install/exiftool.zip"  >>install.sh
 echo  unzip -qo install/exiftool.zip -d .  >>install.sh
-echo EXIFPATH=`ls  | grep exiftool-`   >>install.sh
+echo EXIFPATH=`ls  ^| grep exiftool-`   >>install.sh
 echo mv "$EXIFPATH/exiftool(-k).exe" "$EXIFPATH/exiftool.exe"   >>install.sh
 echo echo "PATH=$EXIFPATH:$PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 echo\ >>install.sh
