@@ -18,8 +18,13 @@ SET VRWEARE_VERSION=4.0
 
 :: Files ouside of my authority with provided checksum:
 :: ComfyUI_windows_portable_nvidia.7z from https://github.com/comfyanonymous/ComfyUI/releases
-SET COMFYUI_SHA=38c4cae0e4983a033d65920a3e293c58c986637c9fb15cb13274f0f5bc27ee89
-SET COMFYUI_TAG=v0.3.62
+
+::SET COMFYUI_SHA=38c4cae0e4983a033d65920a3e293c58c986637c9fb15cb13274f0f5bc27ee89
+::SET COMFYUI_TAG=v0.3.62
+
+SET COMFYUI_SHA=6d17839039e3e70ec7edb757bcf330811fc645ad5c27f958233bf4d46592061e
+SET COMFYUI_TAG=v0.3.65
+
 SET PYTHON_VERSION=3.13
 
 :: Files ouside of my authority where i provided checksum:
@@ -423,6 +428,9 @@ ECHO   1 - Pipeline with SBS-Converter: [1m%PIPELINE_OPTION_SBS_TEXT%[0m (for 
 ECHO  AI-Expert options:
 ECHO   2 - Judging: Pipeline for first/last image: [1m%PIPELINE_OPTION_FLI2V_TEXT%[0m
 ECHO   3 - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATERMARK_TEXT%[0m
+ECHO  ComfyUI options:
+ECHO   Currently no selection available. 
+ECHO   It will install ComfyUI %COMFYUI_TAG% Portable for modern Nvidia/CPU.
 ECHO/
 ECHO   Y - Yes, Install / N - No, QUIT
 ECHO/
