@@ -759,14 +759,7 @@ ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.git >>"%VRWEARE
 ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.github >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO DEL /Q %VRWEAREPATH%\ComfyUI_windows_portable\*.bat >>"%VRWEAREPATH%\\Uninstall.cmd"
-:: if defined FLAG_INSTALL_FFMPEG (
-:: ECHO FOR /D %%i IN (%VRWEAREPATH%\ffmpeg-*) DO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
-:: )
-:: if defined FLAG_INSTALL_EXIFTOOL (
-:: ECHO FOR /D %%i IN (%VRWEAREPATH%\exiftool-*) DO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
-:: )
 ECHO RMDIR /S /Q %VRWEAREPATH%\res >>"%VRWEAREPATH%\\Uninstall.cmd"
-ECHO DEL %VRWEAREPATH%\Uninstall.cmd >>"%VRWEAREPATH%\\Uninstall.cmd"
 echo Updating registry.
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayName /t REG_SZ /f /d "VR we are" >nul
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayVersion /t REG_SZ /f /d %VRWEARE_VERSION% >nul
@@ -775,6 +768,13 @@ reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v In
 ::reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v NoModify /t REG_DWORD /f /d 1 >nul
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v UninstallString /t REG_SZ /f /d "%VRWEAREPATH%\\Uninstall.cmd" >nul
 :: VR we are Path registered.
+if defined FLAG_INSTALL_FFMPEG (
+ECHO FOR /D %%i IN (%VRWEAREPATH%\ffmpeg-*) DO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
+)
+if defined FLAG_INSTALL_EXIFTOOL (
+ECHO FOR /D %%i IN (%VRWEAREPATH%\exiftool-*) DO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
+)
+:: ECHO DEL %VRWEAREPATH%\Uninstall.cmd >>"%VRWEAREPATH%\\Uninstall.cmd"
 
 
 :: Install python requirements
