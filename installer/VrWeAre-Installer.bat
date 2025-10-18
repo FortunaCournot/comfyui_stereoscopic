@@ -462,7 +462,7 @@ if defined THE7ZIPPATH (
 echo #^^!/bin/bash >install.sh
 echo\ >>install.sh
 echo THE7ZIPPATH=`cat .install-the7zippath` >>install.sh
-::echo rm .install-the7zippath >>install.sh
+echo rm .install-the7zippath >>install.sh
 echo THE7ZIPPATH=`echo $THE7ZIPPATH` >>install.sh
 echo CWD=`pwd`  >>install.sh
 echo cd "$THE7ZIPPATH"  >>install.sh
@@ -672,6 +672,7 @@ echo FFMPEGPATH=`ls  ^| grep ffmpeg-`      >>install.sh
 echo FFMPEGPATH=`echo $FFMPEGPATH`"bin"  >>install.sh
 echo FFMPEGPATH=`realpath $FFMPEGPATH`  >>install.sh
 echo echo "PATH=$FFMPEGPATH:""$""PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
+echo echo "export PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 echo\ >>install.sh
 )
 if defined FLAG_INSTALL_EXIFTOOL (
@@ -681,6 +682,7 @@ echo EXIFPATH=`ls  ^| grep exiftool-`   >>install.sh
 echo EXIFPATH=`realpath $EXIFPATH`   >>install.sh
 echo mv "$EXIFPATH/exiftool(-k).exe" "$EXIFPATH/exiftool.exe"   >>install.sh
 echo echo "PATH=$EXIFPATH:""$""PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
+echo echo "export PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 echo\ >>install.sh
 )
 
@@ -758,8 +760,12 @@ ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.ci >>"%VRWEAREP
 ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.git >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\.github >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\models\mmaudio >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO DEL /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\models\upscale_models\RealESRGAN*.* >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO DEL /Q %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\models\controlnet\sdxl\control-lora-recolor-*.* >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO DEL /Q %VRWEAREPATH%\ComfyUI_windows_portable\*.bat >>"%VRWEAREPATH%\\Uninstall.cmd"
 ECHO RMDIR /S /Q %VRWEAREPATH%\res >>"%VRWEAREPATH%\\Uninstall.cmd"
+ECHO RMDIR /S /Q %VRWEAREPATH%\LICENSE >>"%VRWEAREPATH%\\Uninstall.cmd"
 echo Updating registry.
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayName /t REG_SZ /f /d "VR we are" >nul
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v DisplayVersion /t REG_SZ /f /d %VRWEARE_VERSION% >nul
@@ -769,10 +775,10 @@ reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v In
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VRweare" /v UninstallString /t REG_SZ /f /d "%VRWEAREPATH%\\Uninstall.cmd" >nul
 :: VR we are Path registered.
 if defined FLAG_INSTALL_FFMPEG (
-ECHO FOR /D %%i IN (%VRWEAREPATH%\ffmpeg-*) DO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
+FOR /D %%i IN (%VRWEAREPATH%\ffmpeg-*) DO ECHO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
 )
 if defined FLAG_INSTALL_EXIFTOOL (
-ECHO FOR /D %%i IN (%VRWEAREPATH%\exiftool-*) DO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
+FOR /D %%i IN (%VRWEAREPATH%\exiftool-*) DO ECHO rmdir /S /Q "%%i" >>"%VRWEAREPATH%\\Uninstall.cmd"
 )
 :: ECHO DEL %VRWEAREPATH%\Uninstall.cmd >>"%VRWEAREPATH%\\Uninstall.cmd"
 
@@ -947,7 +953,6 @@ ECHO/
 :: Clean-up
 ::ECHO You can clear install folder now to free space.
 DEL install.sh
-DEL install-the7zippath
 RMDIR /S /Q install
 GOTO End
 
