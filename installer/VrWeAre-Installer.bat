@@ -892,7 +892,7 @@ echo oLink.IconLocation = "%VRWEAREPATH%\res\comfyui.ico"  >> %SCRIPT%
 echo oLink.Save >> %SCRIPT%
 cscript /nologo %SCRIPT%
 del %SCRIPT%
-GOTO DESKTOP_LINKS_DONE
+:: always install CPU link
 
 :NO_GPU
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
