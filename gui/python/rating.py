@@ -2474,7 +2474,7 @@ class FrameSlider(QSlider):
         self.setCursor(Qt.PointingHandCursor)
         self.scene_intersections = []
         self.isHovered=False
-        self.hasFocus=False
+        self._hasFocus=False
 
      
     def resetAB(self):
@@ -2565,7 +2565,7 @@ class FrameSlider(QSlider):
         return text
 
     def onSliderReleased(self):
-        if not self.isHovered and not self.hasFocus:
+        if not self.isHovered and not self._hasFocus:
             self._setTempPositioningText(0.5, "", Qt.cyan)
         self.setCursor(Qt.PointingHandCursor)
         slider=self
@@ -2606,14 +2606,14 @@ class FrameSlider(QSlider):
         self.onSliderMouseClick=onSliderMouseClick
         
     def focusInEvent(self, event):
-        self.hasFocus=True
+        self._hasFocus=True
         sliderpos = self.value() / (self.maximum()+1)
         self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.cyan)
         super().focusInEvent(event)  # wichtig: Standardverhalten beibehalten
 
     def focusOutEvent(self, event):
-        self.hasFocus=False
-        if not self.isHovered and not self.hasFocus:
+        self._hasFocus=False
+        if not self.isHovered and not self._hasFocus:
             self._setTempPositioningText(0.5, "", Qt.cyan)
         super().focusOutEvent(event)
         
@@ -2625,12 +2625,12 @@ class FrameSlider(QSlider):
 
     def leaveEvent(self, event):
         self.isHovered=False
-        if not self.isHovered and not self.hasFocus:
+        if not self.isHovered and not self._hasFocus:
             self._setTempPositioningText(0.5, "", Qt.cyan)
         super().leaveEvent(event)
 
     def sliderChanged(self, value):
-        if self.isHovered or self.hasFocus:
+        if self.isHovered or self._hasFocus:
             sliderpos = value / (self.maximum()+1)
             self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.cyan)
         
@@ -2649,7 +2649,6 @@ class CropWidget(QWidget):
         
         #self.setWindowTitle("Bild zuschneiden mit Lupenansicht")
         self.setMinimumSize(1000, 750)
-
 
         # Internes Label, in dem wir das Bild anzeigen
         self.image_label = display

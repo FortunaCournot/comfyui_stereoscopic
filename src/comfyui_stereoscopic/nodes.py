@@ -304,6 +304,24 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from tools import LinearFade
+    nodelist=nodelist+", LinearFade"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing LinearFade: {e}")
+
+    # Create a placeholder class
+    class LinearFade:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading LinearFade"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
 
 # A dictionary that contains all nodes you want to export with their names
@@ -325,6 +343,7 @@ NODE_CLASS_MAPPINGS = {
     "VRwearePauseLatent" : VRwearePauseLatent,
     "VRweareResume" : VRweareResume,
     "LoadImageWithFilename": LoadImageWithFilename,
+    "LinearFade": LinearFade,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -345,5 +364,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "VRwearePauseLatent": "Pause Pipeline",
     "VRweareResume": "Resume Pipeline",
     "LoadImageWithFilename": "Load Image + Filename",
+    "LinearFade": "Linear Fade",
 }
-

@@ -27,7 +27,7 @@ class LoadImageWithFilename:
     RETURN_TYPES = ("IMAGE", "MASK", "STRING", "INT", "INT")
     RETURN_NAMES = ("image", "mask", "filename", "width", "height")
     FUNCTION = "load_image"
-    CATEGORY = "image"
+    CATEGORY = "Stereoscopic"
     DESCRIPTION = "Load image from dropdown or relative/absolute path."
 
     @classmethod

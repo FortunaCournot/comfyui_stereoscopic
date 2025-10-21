@@ -24,7 +24,7 @@ class RegexSubstitute():
 
     RETURN_TYPES = ("STRING",)
     FUNCTION = "execute"
-    CATEGORY = "utils/string/stereoscopic"
+    CATEGORY = "Stereoscopic"
 
     def execute(self, string, regex_pattern, repl, count, case_insensitive, multiline, dotall, **kwargs):
         join_delimiter = "\n"
@@ -60,7 +60,7 @@ class strftime:
     RETURN_NAMES = ("anything", "string", )
     FUNCTION = "_strftime"
 
-    CATEGORY = "utils/string/stereoscopic"
+    CATEGORY = "Stereoscopic"
 
     def _strftime(self, format, anything):
         s = datetime.today().strftime(format)
