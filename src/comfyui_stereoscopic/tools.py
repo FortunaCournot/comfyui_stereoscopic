@@ -45,7 +45,7 @@ class LinearFade:
 
         # mid gibt an, wo zwischen 0 und 1 der Übergang liegt
         # → entspricht also einem prozentualen Anteil der Bildliste
-        mid_index = int(num_images * mid)
+        mid_index = int(num_images * midpoint)
         mid_index = max(1, min(mid_index, num_images - 1))  # Grenzen absichern
 
         strengths = []
@@ -53,11 +53,11 @@ class LinearFade:
             if i < mid_index:
                 # Interpolieren zwischen start → midpoint
                 t = i / max(1, mid_index - 1)
-                strength = start + t * (midpoint - start)
+                strength = start + t * (mid - start)
             else:
                 # Interpolieren zwischen midpoint → end
                 t = (i - mid_index) / max(1, num_images - mid_index - 1)
-                strength = midpoint + t * (end - midpoint)
+                strength = mid + t * (end - mid)
             strengths.append(strength)
 
         # ⚠️ WICHTIG: separat zurückgeben (nicht als Tupel!)
