@@ -168,6 +168,9 @@ class JudgeDialog(QDialog):
             
         self.done = QLabel()
         self.done.setPixmap(QPixmap(os.path.join(path, '../../gui/img/donedone.png')))
+        self.display_layout.addWidget(self.done, 2, 0, 4, 5+2*self.sw)
+        self.display_layout.setAlignment(self.done,  Qt.AlignHCenter | Qt.AlignTop)
+        self.done.setVisible(False)
 
         fileCounts = self.updateContents()
         for c in range(5):
@@ -185,6 +188,7 @@ class JudgeDialog(QDialog):
         # subprocess.Popen(["explorer", os.path.abspath(dirPath) ], close_fds=True) - generates zombies
 
     def onFilterImg(self, state):
+        self.done.setVisible(False)
         self.filter_img = state
         self.filterImgAction.setIcon(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false)
         if self.filter_img and self.filter_vid:
@@ -199,6 +203,7 @@ class JudgeDialog(QDialog):
                     self.catStatusLabels[c].setPixmap(self.pmStatusToDo)
     
     def onFilterVid(self, state):
+        self.done.setVisible(False)
         self.filter_vid = state
         self.filterVidAction.setIcon(self.toggle_filtervid_icon_true if self.filter_vid else self.toggle_filtervid_icon_false)
         if self.filter_img and self.filter_vid:
@@ -319,11 +324,9 @@ class JudgeDialog(QDialog):
                 break
     
         if highest<0:
-            if not self.done is None:
-                self.display_layout.addWidget(self.done, 2, 0, 4, 5+2*self.sw)
-                self.display_layout.setAlignment(self.done,  Qt.AlignHCenter | Qt.AlignTop)
-                self.done=None
+            self.done.setVisible(True)
         else:
+            self.done.setVisible(False)
             lowest=-1
             for c in range(5):
                 if fileCounts[c]!=0:
@@ -359,6 +362,7 @@ class JudgeDialog(QDialog):
             self.display_layout.addWidget(action, 4, sw+lowest , 1, 1)
             self.display_layout.setAlignment(action,  Qt.AlignHCenter | Qt.AlignVCenter)
             self.actionList.append(action)
+
 
         return fileCounts
 
