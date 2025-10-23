@@ -1481,7 +1481,7 @@ class RateAndCutDialog(QDialog):
                 cmd = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \""
                 if self.isVideo:
                     cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
-                cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
+                cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" -shortest \"" + output + "\""
                 print("Executing "  + cmd, flush=True)
                 
                 recreated=os.path.exists(output)

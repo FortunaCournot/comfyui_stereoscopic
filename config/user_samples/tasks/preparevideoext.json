@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-filter:v fps=16,scale=960:528",
+  "input": "video",
+  "output": "video",
+}
