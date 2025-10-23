@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from PIL import Image
 from math import floor, sqrt
+from typing import Iterable
 
 class ScaleByFactor:
     @classmethod
@@ -194,13 +195,70 @@ class CalculateDimensions:
     FUNCTION = "execute"
     CATEGORY = "Stereoscopic"
     DESCRIPTION = "Calculates dimensions of output image based on aspect of input size, target baseresolution and factor."
-    
-    def execute(self, width, height, baseresolution, factor, roundexponent):
 
-        round=2**roundexponent
-        
-        normalized_scaling_multiplier = baseresolution * factor / sqrt( width * height )
-        newwidth = floor(width * normalized_scaling_multiplier / round ) * round 
-        newheight = floor(normalized_scaling_multiplier * height / round ) * round 
+    def _to_number(self, v):
+        """Versucht, v zu einem int/float-konformen Typ zu wandeln."""
+        # torch.Tensor, numpy types etc. -> Python int/float
+        try:
+            # Torch tensors have .item()
+            import torch
+            if isinstance(v, torch.Tensor):
+                return float(v.item())
+        except Exception:
+            pass
+
+        try:
+            import numpy as np
+            if isinstance(v, np.generic):
+                return float(v.item())
+            if isinstance(v, np.ndarray) and v.size == 1:
+                return float(v.reshape(-1)[0])
+        except Exception:
+            pass
+
+        # normale numerische Typen
+        if isinstance(v, (int, float)):
+            return v
+
+        # strings that might contain ints
+        try:
+            return float(v)
+        except Exception:
+            raise TypeError(f"Cannot convert value {v!r} to number")
+
+    def _is_iterable_but_not_str(self, x):
+        return isinstance(x, Iterable) and not isinstance(x, (str, bytes))
+
+    def execute(self, width, height, baseresolution, factor, roundexponent):
+        # Helper: compute for single pair (w,h)
+        def compute_single(w_val, h_val):
+            # ensure numeric
+            w_num = self._to_number(w_val)
+            h_num = self._to_number(h_val)
+
+            rnd = 2 ** int(roundexponent)
+            normalized_scaling_multiplier = (baseresolution * float(factor)) / sqrt(max(1.0, w_num * h_num))
+            newwidth = floor((w_num * normalized_scaling_multiplier) / rnd) * rnd
+            newheight = floor((h_num * normalized_scaling_multiplier) / rnd) * rnd
+            return int(floor(newwidth)), int(floor(newheight))
+
+        # Fall: Batch (Liste/Tuple/ndarray/...), aber nicht String
+        if self._is_iterable_but_not_str(width) and self._is_iterable_but_not_str(height):
+            # sichere Umwandlung in Listen (zip benötigt gleiche Länge)
+            width_list = list(width)
+            height_list = list(height)
+            if len(width_list) != len(height_list):
+                raise ValueError("Width and height lists must have the same length for batch processing.")
+
+            out_w = []
+            out_h = []
+            for w_item, h_item in zip(width_list, height_list):
+                nw, nh = compute_single(w_item, h_item)
+                out_w.append(nw)
+                out_h.append(nh)
+            return (out_w, out_h)
+
+        # Einzelwert-Fall (wie vorher)
+        nw, nh = compute_single(width, height)
+        return (nw, nh)
  
-        return (floor(newwidth), floor(newheight), )

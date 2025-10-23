@@ -67,6 +67,14 @@ class JudgeDialog(QDialog):
         self.judge_toolbar = QToolBar(self)
         self.judge_toolbar.setVisible(True)
 
+        self.iconOpenFolderAction = StyledIcon(os.path.join(path, '../../gui/img/explorer64.png'))
+        self.openFolderAction = QAction(self.iconOpenFolderAction, "Open Folder")
+        self.openFolderAction.setCheckable(False)
+        self.openFolderAction.setVisible(True)
+        self.openFolderAction.triggered.connect(self.onOpenFolder)
+        self.judge_toolbar.addAction(self.openFolderAction)
+        self.judge_toolbar.widgetForAction(self.openFolderAction).setCursor(Qt.PointingHandCursor)
+
         self.toggle_filterimg_icon_false = QIcon(os.path.join(path, '../../gui/img/filterimgoff64.png'))
         self.toggle_filterimg_icon_true = QIcon(os.path.join(path, '../../gui/img/filterimgon64.png'))
         self.filterImgAction = QAction(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false, "Toogle Image Filter")
@@ -170,6 +178,11 @@ class JudgeDialog(QDialog):
 
     def show_manual(self, state):
         webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
+
+    def onOpenFolder(self, state):
+        dirPath=srcfolder=os.path.join(path, "../../../../output/vr/check/rate")
+        os.system("start \"\" " + os.path.abspath(dirPath))
+        # subprocess.Popen(["explorer", os.path.abspath(dirPath) ], close_fds=True) - generates zombies
 
     def onFilterImg(self, state):
         self.filter_img = state

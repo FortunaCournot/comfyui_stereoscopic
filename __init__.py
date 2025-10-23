@@ -79,9 +79,13 @@ def copySampleInput():
 
 print(f'[comfyui-stereoscopic] \033[92mV\033[91mR\033[0m we are v{__version__} Loading...')
 
+# Autoload extensions from WEB_DIRECTORY.
+WEB_DIRECTORY = "./web"
+
 __all__ = [
     "NODE_CLASS_MAPPINGS",
     "NODE_DISPLAY_NAME_MAPPINGS",    
+    "WEB_DIRECTORY",    
 ]
 
 from .src.comfyui_stereoscopic.nodes import LOAD_ERRORS
