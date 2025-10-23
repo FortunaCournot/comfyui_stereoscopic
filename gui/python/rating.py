@@ -1445,6 +1445,15 @@ class RateAndCutDialog(QDialog):
             endAsyncTask()
 
 
+    def buildOutputFilename(self, inputBaseFolder, outputBaseFolder, inputRelative, outputSuffix):
+            outputBase=replaceSomeChars(inputRelative)
+            outputBase=os.path.abspath(os.path.join(outputBaseFolder, outputBase[:outputBase.rindex('.')] + "_"))
+            fnum=1
+            while os.path.exists(outputBase + str(fnum) + outputSuffix):
+                fnum+=1
+            return inputRelative[:inputRelative.rindex('.')] + "_" + str(fnum) + outputSuffix
+        
+
     def createTrimmedAndCroppedCopy(self):
         enterUITask()
         try:
@@ -1457,12 +1466,7 @@ class RateAndCutDialog(QDialog):
             input=os.path.abspath(os.path.join(folder, self.currentFile))
             try:
                 suffix = ".mp4" if self.display.frame_count>0 else ".png"
-                outputBase=replaceSomeChars(input)
-                outputBase=os.path.abspath(outputBase[:outputBase.rindex('.')] + "_")
-                fnum=1
-                while os.path.exists(outputBase + str(fnum) + suffix):
-                    fnum+=1
-                newfilename=self.currentFile[:self.currentFile.rindex('.')] + "_" + str(fnum) + suffix
+                newfilename = self.buildOutputFilename(folder, rfolder+"/edit", self.currentFile, suffix)
                 output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
                 if self.isVideo:
                     trimA=self.display.trimAFrame
@@ -1544,8 +1548,8 @@ class RateAndCutDialog(QDialog):
             input=os.path.abspath(os.path.join(folder, self.currentFile))
             frameindex=str(self.cropWidget.getCurrentFrameIndex())
             try:
-                newfilename=replaceSomeChars(self.currentFile[:self.currentFile.rindex('.')]) + "_" + frameindex + ".png"
-                tmpfilename=replaceSomeChars(self.currentFile[:self.currentFile.rindex('.')]) + "_" + frameindex + "_tmp.png"
+                newfilename = self.buildOutputFilename(folder, rfolder+"/edit", self.currentFile, ".png")
+                tmpfilename = self.buildOutputFilename(folder, rfolder+"/edit", self.currentFile, "_tmp.png")
                 output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
                 tempfile=os.path.abspath(os.path.join(rfolder+"/edit", tmpfilename))
                 out_w=self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
