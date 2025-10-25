@@ -131,6 +131,15 @@ else
 		mv -f --  $INPUT input/vr/interpolate/error
 		exit 0
 	fi
+	if [ -z "$RESW" ] || [ -z "$RESH" ] ; then
+		echo "---PROBE---"
+		cat output/vr/interpolate/intermediate/probe.txt
+		echo "^^^^^^^^^^^"
+		echo -e $"\e[91mError:\e[0m Can't process video. Probe invalid."
+		mkdir -p input/vr/interpolate/error
+		mv -f --  $INPUT input/vr/interpolate/error
+		exit 0
+	fi
 	PIXEL=$(( $RESW * $RESH ))
 	TVAI_FILTER_STRING_IP="$TVAI_FILTER_STRING_IP""$TARGETFPS"
 
