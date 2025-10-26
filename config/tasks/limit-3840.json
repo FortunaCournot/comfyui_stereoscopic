@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-filter:v scale=w=if(gte(iw\,ih)\,min(3840\,iw)\,-2):h=if(gte(ih\,iw)\,min(3840\,ih)\,-2)",
+  "input": "video",
+  "output": "video",
+}
