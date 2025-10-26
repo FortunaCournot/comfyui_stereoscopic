@@ -26,9 +26,9 @@ class LinearFade:
             "required": {
                 "images": ("IMAGE",),
                 "start": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0}),
-                "mid": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0}),
+                "mid": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0}),
                 "end": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0}),
-                "midpoint": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0}),
+                "midpoint": ("FLOAT", {"default": 0.2, "min": 0.0, "max": 1.0}),
             },
         }
 
