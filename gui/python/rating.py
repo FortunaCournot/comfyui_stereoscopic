@@ -353,6 +353,7 @@ class RateAndCutDialog(QDialog):
                 self.iconTrimB = StyledIcon(os.path.join(path, '../../gui/img/trimb80.png'))
                 self.iconClear = StyledIcon(os.path.join(path, '../../gui/img/clear80.png'))
                 self.iconTrimFirst = StyledIcon(os.path.join(path, '../../gui/img/trimfirst80.png'))
+                self.iconTrimToSnap = StyledIcon(os.path.join(path, '../../gui/img/trimtosnapshot.png'))
 
                 self.button_trima_video = ActionButton()
                 self.button_trima_video.setIcon(self.iconTrimA)
@@ -365,6 +366,10 @@ class RateAndCutDialog(QDialog):
                 self.button_trimb_video = ActionButton()
                 self.button_trimb_video.setIcon(self.iconTrimB)
                 self.button_trimb_video.setIconSize(QSize(80,80))
+
+                self.button_trimtosnap_video = ActionButton()
+                self.button_trimtosnap_video.setIcon(self.iconTrimToSnap)
+                self.button_trimtosnap_video.setIconSize(QSize(80,80))
 
                 self.button_snapshot_from_video = ActionButton()
                 self.button_snapshot_from_video.setIcon(StyledIcon(os.path.join(path, '../../gui/img/snapshot80.png')))
@@ -460,6 +465,8 @@ class RateAndCutDialog(QDialog):
             self.videotool_layout.addWidget(self.sl, alignment =  Qt.AlignVCenter)
             if cutMode:
                 self.videotool_layout.addWidget(self.button_trimb_video)
+                self.videotool_layout.addWidget(self.button_trimtosnap_video)
+                self.button_trimtosnap_video.setVisible(False)
                 self.videotool_layout.addWidget(self.button_endframe)
                 self.videotool_layout.addWidget(self.button_snapshot_from_video)
 
@@ -525,6 +532,7 @@ class RateAndCutDialog(QDialog):
                 self.button_trima_video.clicked.connect(self.display.trimA)
                 self.button_trimfirst_video.clicked.connect(self.trimFirst)
                 self.button_trimb_video.clicked.connect(self.display.trimB)
+                self.button_trimtosnap_video.clicked.connect(self.trimToSnap)
                 self.button_startframe.clicked.connect(self.display.posA)
                 self.button_endframe.clicked.connect(self.display.posB)
 
@@ -589,10 +597,13 @@ class RateAndCutDialog(QDialog):
         if self.isPaused and self.isVideo:
             self.button_trima_video.setVisible(True)
             self.button_trimfirst_video.setVisible(False)
+            self.button_trimb_video.setVisible(True)
+            self.button_trimtosnap_video.setVisible(False)
         
     def onBlackout(self):
         if self.cutMode:
             self.button_trimfirst_video.setVisible(False)
+            self.button_trimtosnap_video.setVisible(False)
             l = len(getFilesToRate())
             if l <= 0:
                 self.display.onNoFiles()
@@ -797,9 +808,10 @@ class RateAndCutDialog(QDialog):
                 self.cropWidget.display_sliders(True)
                 self.button_cutandclone.setVisible(True)
                 if not self.isVideo:
-                    self.button_trima_video.setVisible(self.isVideo)
-                    self.button_trimfirst_video.setVisible(self.isVideo)
-                self.button_trimb_video.setVisible(self.isVideo)
+                    self.button_trima_video.setVisible(False)
+                    self.button_trimfirst_video.setVisible(False)
+                    self.button_trimb_video.setVisible(False)
+                    self.button_trimtosnap_video.setVisible(False)
                 self.button_snapshot_from_video.setVisible(self.isVideo)
                 self.button_startframe.setVisible(self.isVideo)
                 self.button_endframe.setVisible(self.isVideo)
@@ -843,6 +855,12 @@ class RateAndCutDialog(QDialog):
         self.button_trimfirst_video.setVisible(False)
         self.button_trima_video.setVisible(self.isVideo)
         self.display.trimFirst()
+
+    def trimToSnap(self):
+        self.button_trimtosnap_video.setVisible(False)
+        self.button_trimb_video.setVisible(self.isVideo)
+        self.display.trimToSnap()
+        self.display.posB()
 
     def deleteAndNext(self):
         self.sliderinitdone=True
@@ -1612,6 +1630,8 @@ class RateAndCutDialog(QDialog):
             self.button_justrate_compress.setIcon(self.icon_compress)
             self.justRate=False
             self.button_justrate_compress.setFocus()
+            self.button_trimb_video.setVisible(False)
+            self.button_trimtosnap_video.setVisible(True)            
         except:
             print(traceback.format_exc(), flush=True) 
         finally:
@@ -2311,13 +2331,27 @@ class Display(QLabel):
             count=self.thread.getFrameCount()
             if count>1:
                 self.slider.setText("", Qt.white)
-                newValue=float(1/float(count-1))
+                newIndex=1
+                newValue=float(newIndex/float(count-1))
                 self.slider.setA(newValue)
-                self.thread.setA(1)
-                self.trimAFrame=1
-            if self.onCropOrTrim:
-                self.onCropOrTrim()
+                self.thread.setA(newIndex)
+                self.trimAFrame=newIndex
+                if self.onCropOrTrim:
+                    self.onCropOrTrim()
         
+    def trimToSnap(self):
+        if self.thread and self.thread.getCurrentFrameIndex()>0:
+            count=self.thread.getFrameCount()
+            if count>1:
+                self.slider.setText("", Qt.white)
+                newIndex=self.thread.getCurrentFrameIndex()-1
+                newValue=float(newIndex/float(count-1))
+                self.slider.setB(newValue)
+                self.thread.setB(newIndex)
+                self.trimBFrame=newIndex
+                if self.onCropOrTrim:
+                    self.onCropOrTrim()
+
     def trimA(self):
         if self.thread:
             count=self.thread.getFrameCount()
