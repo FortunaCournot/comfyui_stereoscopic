@@ -62,3 +62,51 @@ class LinearFade:
 
         # ⚠️ WICHTIG: separat zurückgeben (nicht als Tupel!)
         return (images, strengths)
+
+
+
+class ColorCorrectBatch:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),  # Tensor mit Shape [B, H, W, C]
+                "saturation": ("FLOAT", {"forceInput": True}),  # Liste von Floats
+            },
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("corrected_images",)
+    FUNCTION = "apply"
+    CATEGORY = "Stereoscopic"
+    DESCRIPTION = (
+        "Wendet eine Sättigungskorrektur auf ein Batch von Bildern an. "
+        "Der Input 'images' ist ein Tensor [B, H, W, C]; 'saturation' ist eine Liste von Float-Werten "
+        "mit der gleichen Länge wie die Batchgröße."
+    )
+
+    def apply(self, images, saturation):
+        # Sicherstellen, dass saturation eine Liste ist
+        if not isinstance(saturation, (list, tuple)):
+            saturation = [saturation]
+
+        batch_size = images.shape[0]
+        if len(saturation) != batch_size:
+            raise ValueError(
+                f"Länge der Sättigungsliste ({len(saturation)}) muss der Batchgröße ({batch_size}) entsprechen."
+            )
+
+        # Wir kopieren, um nicht das Original zu verändern
+        corrected = []
+        weights = torch.tensor([0.299, 0.587, 0.114], device=images.device, dtype=images.dtype)
+
+        for i in range(batch_size):
+            img = images[i]  # [H, W, C]
+            sat = float(saturation[i])
+            gray = torch.sum(img * weights, dim=-1, keepdim=True)  # Luminanzkanal
+            adjusted = gray + (img - gray) * sat
+            adjusted = torch.clamp(adjusted, 0.0, 1.0)
+            corrected.append(adjusted)
+
+        corrected_tensor = torch.stack(corrected, dim=0)  # [B, H, W, C]
+        return (corrected_tensor,)

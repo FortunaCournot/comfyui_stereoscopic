@@ -393,6 +393,23 @@ except ImportError as e:
         CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
+try:
+    from tools import ColorCorrectBatch
+    nodelist=nodelist+", ColorCorrectBatch"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing ColorCorrectBatch: {e}")
+
+    # Create a placeholder class
+    class ColorCorrectBatch:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading ColorCorrectBatch"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
 
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
 
@@ -420,6 +437,8 @@ NODE_CLASS_MAPPINGS = {
     "LoopWhileNotFinished": LoopWhileNotFinished,
     "StartLoopTrigger": StartLoopTrigger,
     "LinearFade": LinearFade,
+    "ColorCorrectBatch": ColorCorrectBatch,
+    
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -445,4 +464,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoopWhileNotFinished": "LoopWhileNotFinished",
     "StartLoopTrigger": "StartLoopTrigger",
     "LinearFade": "Linear Fade",
+    "ColorCorrectBatch": "ColorCorrectBatch",
+    
 }
