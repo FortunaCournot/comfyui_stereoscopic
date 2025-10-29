@@ -129,8 +129,8 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "FFMPEGPATHPREFIX=">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
-	echo "# Limits the framerate of video processing, has influence on memory consumption.">>"$CONFIGFILE"
-	echo "MAXFPS=30">>"$CONFIGFILE"
+	echo "# Limits the framerate of video processing (double WAN2.2), has influence on memory consumption.">>"$CONFIGFILE"
+	echo "MAXFPS=32">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- Video Output configuration. Not used everywhere yet. ---">>"$CONFIGFILE"

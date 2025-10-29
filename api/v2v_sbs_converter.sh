@@ -189,7 +189,7 @@ else
 		fi
 
 		# Prepare to restrict fps
-		MAXFPS=$(awk -F "=" '/MAXFPS=/ {print $2}' $CONFIGFILE) ; MAXFPS=${MAXFPS:-"30"}
+		MAXFPS=$(awk -F "=" '/MAXFPS=/ {print $2}' $CONFIGFILE) ; MAXFPS=${MAXFPS:-"32"}
 		fpsv=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=nw=1:nk=1 $SPLITINPUT`
 		fps=$(($fpsv))
 		echo "Source FPS: $fps ($fpsv)"
