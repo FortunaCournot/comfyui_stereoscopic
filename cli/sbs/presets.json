@@ -1,0 +1,81 @@
+{
+  "folder": {
+    "minimum": {
+      "model_name": "depth-anything/Depth-Anything-V2-Small-hf",
+      "batch_size": 4,
+      "n_feeders": 1,
+      "n_preprocess": 1,
+      "n_processors": 4,
+      "n_savers": 3,
+      "r_queue": 8,
+      "in_queue": 8,
+      "p_queue": 8,
+      "s_queue": 8
+    },
+    "balance": {
+      "model_name": "depth-anything/Depth-Anything-V2-Base-hf",
+      "batch_size": 5,
+      "n_feeders": 1,
+      "n_preprocess": 2,
+      "n_processors": 8,
+      "n_savers": 4,
+      "r_queue": 16,
+      "in_queue": 16,
+      "p_queue": 16,
+      "s_queue": 16
+    },
+    "max_quality": {
+      "model_name": "depth-anything/Depth-Anything-V2-Large-hf",
+      "batch_size": 6,
+      "n_feeders": 1,
+      "n_preprocess": 2,
+      "n_processors": 4,
+      "n_savers": 2,
+      "r_queue": 16,
+      "in_queue": 16,
+      "p_queue": 16,
+      "s_queue": 16
+    }
+  },
+  "video": {
+    "minimum": {
+      "model_name": "depth-anything/Depth-Anything-V2-Small-hf",
+      "batch_size": 3,
+      "n_feeders": 1,
+      "n_preprocess": 1,
+      "n_processors": 4,
+      "n_savers": 1,
+      "r_queue": 6,
+      "in_queue": 6,
+      "p_queue": 6,
+      "s_queue": 6,
+      "codec": "libx264"
+    },
+    "balance": {
+      "model_name": "depth-anything/Depth-Anything-V2-Base-hf",
+      "batch_size": 5,
+      "n_feeders": 1,
+      "n_preprocess": 2,
+      "n_processors": 8,
+      "n_savers": 1,
+      "r_queue": 16,
+      "in_queue": 16,
+      "p_queue": 16,
+      "s_queue": 16,
+      "codec": "libx264"
+    },
+    "max_quality": {
+      "model_name": "depth-anything/Depth-Anything-V2-Large-hf",
+      "batch_size": 6,
+      "n_feeders": 1,
+      "n_preprocess": 1,
+      "n_processors": 3,
+      "n_savers": 1,
+      "r_queue": 16,
+      "in_queue": 16,
+      "p_queue": 16,
+      "s_queue": 16,
+      "codec": "libx264"
+    }
+  }
+}

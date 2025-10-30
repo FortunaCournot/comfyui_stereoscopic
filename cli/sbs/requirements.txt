@@ -1,0 +1,11 @@
+numpy
+numba
+opencv-python
+natsort
+psutil
+py-cpuinfo
+matplotlib
+transformers
+
+
+
