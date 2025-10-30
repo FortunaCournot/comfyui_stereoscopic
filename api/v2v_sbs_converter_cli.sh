@@ -117,7 +117,7 @@ else
 
 	mv -fv -- $INPUT $CWD/input/vr/fullsbs/done
 	runtime=$((end-startjob))
-	echo $"\e[92mdone.\e[0m duration: $runtime""s.                         "
+	echo -e $"\e[92mdone.\e[0m duration: $runtime""s.                         "
 	rm queuecheck.json	
 	
 fi
