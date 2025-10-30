@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import threading
 import numpy as np
 import os , time , cv2 , subprocess 
-from utils import force_exit , prepare_batch
+from sbsutils import force_exit , prepare_batch
 from depthestimator import DepthEstimator
 from converter import ImageSBSConverter
 

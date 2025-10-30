@@ -1,14 +1,22 @@
+import os, sys
+
+path = os.path.dirname(os.path.abspath(__file__))
+
+# Add the current directory to the path so we can import local modules
+if path not in sys.path:
+    sys.path.append(path)    
+
 from threading import Thread
 from queue import Queue
 from natsort import natsorted
 from dataclasses import fields
 import numpy as np
 import threading
-import os , time , cv2 , signal 
+import time , cv2 , signal 
 from depthestimator import DepthEstimator 
 from converter import ImageSBSConverter
 from pipeline_core import PipelineContext
-from utils import force_exit , debug_report , load_preset , merge_with_preset , validate_config , detect_nvenc_support
+from sbsutils import force_exit , debug_report , load_preset , merge_with_preset , validate_config , detect_nvenc_support
 
 
 def init_pipeline(
