@@ -93,6 +93,17 @@ else
 	INPUTPREFIX=input/vr/fullsbs/intermediate/$TARGETPREFIX_SBS
 	FINALTARGETFOLDER=`realpath "output/vr/fullsbs"`
 	
+	INPUT2="$INPUT"
+	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT2`
+	if [ $RESW -gt 1920 ] ; then
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=1920:-2" "$INTERMEDIATEPREFIX""-d"".mp4" 
+		INPUT2="$INTERMEDIATEPREFIX""-d"".mp4"
+	fi
+	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT2`
+	if [ $RESH -gt 1920 ] ; then
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=-2:1920" "$INTERMEDIATEPREFIX""-d"".mp4" 
+		INPUT2="$INTERMEDIATEPREFIX""-d"".mp4"
+	fi
 	
 	lastcount=""
 	start=`date +%s`
@@ -104,21 +115,22 @@ else
 	
 	#"$DEPTH_MODEL_CKPT" $DEPTH_RESOLUTION $depth_scale $depth_offset $blur_radius "$f"
 	#--preset balance
-	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT" -o "$INTERMEDIATEPREFIX"".mp4" 
+	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" 
 	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGETFOLDER"/"$TARGETPREFIX"".mp4"
 	end=`date +%s`
 	
-	if [ ! -e "$FINALTARGETFOLDER"/"$TARGETPREFIX"".mp4" ] ; then
-		echo -e $"\e[91mError\e[0m: Concat failed."
+	if [ ! -s "$FINALTARGETFOLDER"/"$TARGETPREFIX"".mp4" ] ; then
+		echo -e $"\e[91mError\e[0m: Converter failed."
 		mkdir -p $CWD/input/vr/fullsbs/error
 		mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
 		exit -1
 	fi
 
 	mv -fv -- $INPUT $CWD/input/vr/fullsbs/done
+	rm -f -- "$INPUT2" >/dev/null
 	runtime=$((end-startjob))
 	echo -e $"\e[92mdone.\e[0m duration: $runtime""s.                         "
-	rm queuecheck.json	
+
 	
 fi
 exit 0
