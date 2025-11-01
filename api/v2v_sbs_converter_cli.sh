@@ -100,8 +100,8 @@ else
 		INPUT2="$INTERMEDIATEPREFIX""-d"".mp4"
 	fi
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT2`
-	if [ $RESH -gt 1920 ] ; then
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=-2:1920" "$INTERMEDIATEPREFIX""-d"".mp4" 
+	if [ $RESH -gt 2160 ] ; then
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=-2:2160" "$INTERMEDIATEPREFIX""-d"".mp4" 
 		INPUT2="$INTERMEDIATEPREFIX""-d"".mp4"
 	fi
 	
