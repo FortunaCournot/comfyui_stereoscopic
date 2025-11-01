@@ -1939,9 +1939,8 @@ class VideoThread(QThread):
                                     self.seek(self.a)
 
             elapsed = time.time()-timestamp
-            sleeptime = 1.0/float(self.fps) - elapsed
-            if sleeptime>0:
-                time.sleep(sleeptime)
+            sleeptime = max(0.02, 1.0/float(self.fps) - elapsed)
+            time.sleep(sleeptime)
             
         self.cap.release()
         videoActive=False
