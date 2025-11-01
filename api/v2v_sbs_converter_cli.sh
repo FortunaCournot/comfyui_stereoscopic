@@ -92,17 +92,32 @@ else
 	INTERMEDIATEPREFIX=output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS-$uuid
 	INPUTPREFIX=input/vr/fullsbs/intermediate/$TARGETPREFIX_SBS
 	FINALTARGETFOLDER=`realpath "output/vr/fullsbs"`
+	mkdir -p output/vr/fullsbs/intermediate
 	
 	INPUT2="$INPUT"
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT2`
 	if [ $RESW -gt 1920 ] ; then
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=1920:-2" "$INTERMEDIATEPREFIX""-d"".mp4" 
-		INPUT2="$INTERMEDIATEPREFIX""-d"".mp4"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=1920:-2" "$INTERMEDIATEPREFIX""-dw"".mp4" 
+		if [ ! -s "$INTERMEDIATEPREFIX""-dw"".mp4" ] ; then
+			echo -e $"\e[91mError\e[0m: Rescale width failed."
+			mkdir -p $CWD/input/vr/fullsbs/error
+			mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
+			exit -1
+		else
+			INPUT2="$INTERMEDIATEPREFIX""-dw"".mp4"
+		fi
 	fi
 	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT2`
 	if [ $RESH -gt 2160 ] ; then
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=-2:2160" "$INTERMEDIATEPREFIX""-d"".mp4" 
-		INPUT2="$INTERMEDIATEPREFIX""-d"".mp4"
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=-2:2160" "$INTERMEDIATEPREFIX""-dh"".mp4" 
+		if [ ! -s "$INTERMEDIATEPREFIX""-dh"".mp4" ] ; then
+			echo -e $"\e[91mError\e[0m: Rescale height failed."
+			mkdir -p $CWD/input/vr/fullsbs/error
+			mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
+			exit -1
+		else
+			INPUT2="$INTERMEDIATEPREFIX""-dh"".mp4"
+		fi
 	fi
 	
 	lastcount=""
@@ -115,7 +130,7 @@ else
 	
 	#"$DEPTH_MODEL_CKPT" $DEPTH_RESOLUTION $depth_scale $depth_offset $blur_radius "$f"
 	#--preset balance
-	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" -model_name "depth-anything/Depth-Anything-V2-Small-hf" -depth_scale $depth_scale -depth_offset $depth_offset -blur_radius $blur_radius 
+	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale $depth_scale --depth-offset $depth_offset --blur-radius $blur_radius  
 	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGETFOLDER"/"$TARGETPREFIX"".mp4"
 	end=`date +%s`
 	
