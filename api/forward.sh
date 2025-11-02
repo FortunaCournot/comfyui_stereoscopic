@@ -146,6 +146,10 @@ else
 			sourcedef=custom_nodes/comfyui_stereoscopic/config/"$sourcestage".json
 		else
 			sourcedef=custom_nodes/comfyui_stereoscopic/config/stages/"$sourcestage".json
+			if [ -e user/default/comfyui_stereoscopic/.pipelinepause ] ; then
+				# paused.
+				exit 0
+			fi
 		fi
 
 		if [ ! -e $sourcedef ] ; then
