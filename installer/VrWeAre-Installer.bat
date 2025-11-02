@@ -48,6 +48,7 @@ SET DEPTH_ANYTHING_V2_TAG=1.0.1
 
 :: Addional files
 SET KJNODES_TAG=1.1.7
+SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
 
 
 SET INTERACTIVE=1
@@ -844,9 +845,9 @@ ECHO Installing dependencies for Sage Attention
 ECHO Installing Triton and Sage Attention
 .\python_embeded\python -m pip install -U --pre triton-windows
 cd python_embeded
-git clone https://github.com/thu-ml/SageAttention
+:: rem  (using URL instead)  git clone https://github.com/thu-ml/SageAttention
 cd ..
-.\python_embeded\python -m pip install sageattention
+.\python_embeded\python -m pip install %SAGEATTENTIONURL%
 echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 echo pause >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 :END_INSTALL_PACKS
