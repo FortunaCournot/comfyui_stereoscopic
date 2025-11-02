@@ -78,6 +78,7 @@ fileDragged=False
 FILESCANTIME = 500
 TASKCHECKTIME = 20
 WAIT_DIALOG_THRESHOLD_TIME=2000
+MAX_WAIT_DIALOG_THRESHOLD_TIME=10000
 
 # ---- Tasks ----
 global taskCounterUI, taskCounterAsync, showWaitDialog
@@ -211,6 +212,7 @@ class RateAndCutDialog(QDialog):
             self.filter_img = False
             self.filter_vid = False
             self.filter_edit = not self.cutMode
+            self.loadingOk = True
             
             setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
             rescanFilesToRate()
@@ -777,10 +779,10 @@ class RateAndCutDialog(QDialog):
             self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
 
     def update_filebuttons(self):
-        if self.currentIndex<0:
+        if self.currentIndex<0 or not self.loadingOk:
             l = len(getFilesToRate())
             #print("currentIndex-<0", l, flush=True)
-            if l > 0:
+            if self.currentIndex<0 and l > 0:
                 #print("reset currentIndex=0", l, flush=True)
                 self.currentIndex=0
                 self.currentFile=getFilesToRate()[0]
@@ -799,10 +801,10 @@ class RateAndCutDialog(QDialog):
                     self.rating_widget.setVisible(False)
                     self.button_return2edit.setVisible(False)
                 self.button_justrate_compress.setVisible(False)
-                self.button_prev_file.setVisible(False)
-                self.button_next_file.setVisible(False)
-                self.button_delete_file.setVisible(False)
-                self.fileSlider.setVisible(False)
+                self.button_prev_file.setVisible(self.currentIndex>=0)
+                self.button_next_file.setVisible(self.currentIndex>=0)
+                self.button_delete_file.setVisible(self.currentIndex>=0)
+                self.fileSlider.setVisible(self.currentIndex>=0)
         else:
             if self.cutMode:
                 self.cropWidget.display_sliders(True)
@@ -1021,6 +1023,7 @@ class RateAndCutDialog(QDialog):
             QApplication.setOverrideCursor(Qt.WaitCursor)
             global fileDragged
             if self.currentIndex>=0:
+                self.loadingOk = True
                 self.fileSlider.setValue(self.currentIndex)
                 self.fileSlider.setEnabled(True)
                 self.main_group_box.setTitle( self.currentFile )
@@ -1646,14 +1649,22 @@ class RateAndCutDialog(QDialog):
                 self.logn("Loading video failed. Archiving forced...", QColor("red"))
                 self.justRate=False
                 self.rateOrArchiveAndNext()
+                self.loadingOk = False
                 return
 
+        if count<0:
+            self.logn("Loading video failed.", QColor("red"))
+            self.display.stopAndBlackout()
+            self.loadingOk = False
+            return
+            
         if self.cutMode:
             self.button_trima_video.setVisible(False)
             self.button_trimfirst_video.setVisible(True)
 
         SCENEDETECTION_INPUTLENGTHLIMIT=float(config("SCENEDETECTION_INPUTLENGTHLIMIT", "20.0"))
         if count>0 and length<=SCENEDETECTION_INPUTLENGTHLIMIT:
+            #self.logn("Scene detection...", QColor("grey"))
             if cutModeFolderOverrideActive:
                 folder=cutModeFolderOverridePath
             else:
@@ -1843,13 +1854,20 @@ class VideoThread(QThread):
         if not os.path.exists(self.filepath):
             print("Failed to open", self.filepath, flush=True)
             self.onVideoLoaded(-1, 1.0, 0.0)
+            self.cap.release()
+            leaveUITask()
             return
             
         self.cap = cv2.VideoCapture(self.filepath)
         if not self.cap.isOpened():
             print("Failed to open", self.filepath, flush=True)
+            try:
+                self.cap.release()
+            except:
+                pass
             self.cap=None
             self.onVideoLoaded(-1, 1.0, 0.0)
+            leaveUITask()
             return
 
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
