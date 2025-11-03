@@ -800,6 +800,8 @@ class RateAndCutDialog(QDialog):
                 else:
                     self.rating_widget.setVisible(False)
                     self.button_return2edit.setVisible(False)
+                self.button_startpause_video.setVisible(False)
+                self.sl.setVisible(False)
                 self.button_justrate_compress.setVisible(False)
                 self.button_prev_file.setVisible(self.currentIndex>=0)
                 self.button_next_file.setVisible(self.currentIndex>=0)
