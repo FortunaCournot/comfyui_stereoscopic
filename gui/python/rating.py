@@ -295,6 +295,18 @@ class RateAndCutDialog(QDialog):
 
             self.cutMode_toolbar.addSeparator()
 
+            self.iconSceneFinderAction = StyledIcon(os.path.join(path, '../../gui/img/scenefinder64.png'))
+            self.sceneFinderAction = QAction(self.iconSceneFinderAction, "Find scene cuts")
+            self.sceneFinderAction.setCheckable(True)
+            self.sceneFinderDone=False
+            self.sceneFinderAction.setChecked(self.sceneFinderDone)
+            self.sceneFinderAction.setVisible(True)
+            self.sceneFinderAction.triggered.connect(self.onSceneFinderAction)
+            self.cutMode_toolbar.addAction(self.sceneFinderAction)
+            self.cutMode_toolbar.widgetForAction(self.sceneFinderAction).setCursor(Qt.PointingHandCursor)
+
+            self.cutMode_toolbar.addSeparator()
+
             self.toggle_filterimg_icon_false = QIcon(os.path.join(path, '../../gui/img/filterimgoff64.png'))
             self.toggle_filterimg_icon_true = QIcon(os.path.join(path, '../../gui/img/filterimgon64.png'))
             self.filterImgAction = QAction(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false, "Toogle Image Filter")
@@ -609,6 +621,13 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True)
 
+    def onSceneFinderAction(self, state):
+        if not state and self.sceneFinderDone:
+            self.sceneFinderAction.setChecked(self.sceneFinderDone)
+        elif state:
+            self.sceneFinderAction.setChecked(False)
+            self.sceneDetection()
+
     def on_sortfiles_combobox_index_changed(self, index):
         global _sortOrderIndex
         _sortOrderIndex=index        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
@@ -848,7 +867,9 @@ class RateAndCutDialog(QDialog):
                 self.button_snapshot_from_video.setVisible(self.isVideo)
                 self.button_startframe.setVisible(self.isVideo)
                 self.button_endframe.setVisible(self.isVideo)
+                self.sceneFinderAction.setVisible(self.isVideo)
             else:
+                self.sceneFinderAction.setVisible(False)
                 self.rating_widget.setVisible(True)
                 self.button_return2edit.setVisible(True)
                 self.button_return2edit.setEnabled("/" in self.currentFile)
@@ -1391,6 +1412,9 @@ class RateAndCutDialog(QDialog):
                 self.cropWidget.applySceneIntersections(scene_intersections)
             else:
                 self.display.applySceneIntersections(scene_intersections)
+            self.sceneFinderDone=True
+            self.sceneFinderAction.setChecked(self.sceneFinderDone)
+                
         except:
             print(traceback.format_exc(), flush=True)
         finally:
@@ -1673,6 +1697,9 @@ class RateAndCutDialog(QDialog):
 
 
     def onVideoLoaded(self, count, fps, length):
+        self.sceneFinderDone=False
+        self.sceneFinderAction.setChecked(self.sceneFinderDone)
+
         if cutModeFolderOverrideActive:
             pass
         else:
@@ -1695,24 +1722,28 @@ class RateAndCutDialog(QDialog):
 
         SCENEDETECTION_INPUTLENGTHLIMIT=float(config("SCENEDETECTION_INPUTLENGTHLIMIT", "20.0"))
         if count>0 and length<=SCENEDETECTION_INPUTLENGTHLIMIT:
-            #self.logn("Scene detection...", QColor("grey"))
-            if cutModeFolderOverrideActive:
-                folder=cutModeFolderOverridePath
-            else:
-                folder=os.path.join(path, "../../../../input/vr/check/rate")
-            input=os.path.abspath(os.path.join(folder, self.currentFile))
-            
-            SCENEDETECTION_THRESHOLD_DEFAULT=float(config("SCENEDETECTION_THRESHOLD_DEFAULT", "0.1"))
-            thread = threading.Thread(
-                target=self.sceneFinder_worker,
-                args=(input, SCENEDETECTION_THRESHOLD_DEFAULT,),
-                daemon=True
-            )                            
-            thread.start()
+            self.sceneDetection()
         else:
             if self.cutMode:
                 self.cropWidget.applySceneIntersections([])
 
+
+    def sceneDetection(self):
+        #self.logn("Scene detection...", QColor("grey"))
+        if cutModeFolderOverrideActive:
+            folder=cutModeFolderOverridePath
+        else:
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, self.currentFile))
+        
+        SCENEDETECTION_THRESHOLD_DEFAULT=float(config("SCENEDETECTION_THRESHOLD_DEFAULT", "0.1"))
+        thread = threading.Thread(
+            target=self.sceneFinder_worker,
+            args=(input, SCENEDETECTION_THRESHOLD_DEFAULT,),
+            daemon=True
+        )                            
+        thread.start()
+        
 
     def closeOnError(self, msg):
         if TRACELEVEL >= 1:
