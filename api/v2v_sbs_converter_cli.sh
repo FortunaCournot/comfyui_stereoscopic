@@ -130,7 +130,7 @@ else
 	
 	#"$DEPTH_MODEL_CKPT" $DEPTH_RESOLUTION $depth_scale $depth_offset $blur_radius "$f"
 	#--preset balance
-	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale $depth_scale --depth-offset $depth_offset --blur-radius $blur_radius  
+	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale $depth_scale --depth-offset $depth_offset --blur-radius $blur_radius --symmetric
 	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGETFOLDER"/"$TARGETPREFIX"".mp4"
 	end=`date +%s`
 	
