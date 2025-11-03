@@ -53,10 +53,11 @@ TRACELEVEL=0
 VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts']
 IMAGE_EXTENSIONS = ['.png', '.webp', '.jpg', '.jpeg', '.jfif']
 ALL_EXTENSIONS = VIDEO_EXTENSIONS + IMAGE_EXTENSIONS
-global _readyfiles, _activeExtensions, _filterEdit
+global _readyfiles, _activeExtensions, _filterEdit, _sortOrderIndex
 _readyfiles=[]
 _activeExtensions=ALL_EXTENSIONS
 _filterEdit=False
+_sortOrderIndex=2        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
 
 # global init
 global cutModeActive, cutModeFolderOverrideActive, cutModeFolderOverridePath
@@ -323,6 +324,23 @@ class RateAndCutDialog(QDialog):
             self.filterEditAction.triggered.connect(self.onFilterEdit)
             self.cutMode_toolbar.addAction(self.filterEditAction)
             self.cutMode_toolbar.widgetForAction(self.filterEditAction).setCursor(Qt.PointingHandCursor)
+
+            self.cutMode_toolbar.addSeparator()
+
+            self.sortfiles_icons = []
+            self.sortfiles_icons.append( QIcon(os.path.join(path, '../../gui/img/sortaz64.png')) )
+            self.sortfiles_icons.append( QIcon(os.path.join(path, '../../gui/img/sortza64.png')) )
+            self.sortfiles_icons.append( QIcon(os.path.join(path, '../../gui/img/sorttup64.png')) )
+            self.sortfiles_icons.append( QIcon(os.path.join(path, '../../gui/img/sorttdown64.png')) )
+            self.sortfiles_combo = QComboBox()
+            self.sortfiles_combo.setEditable(False)
+            for icon in self.sortfiles_icons:
+                self.sortfiles_combo.addItem(icon, "")
+            self.sortfiles_combo.setIconSize(QSize(32,32))
+            self.sortfiles_combo.setCurrentIndex(_sortOrderIndex)
+            self.sortfiles_combo.setStyleSheet('selection-background-color: rgb(0,0,0)')
+            self.cutMode_toolbar.addWidget(self.sortfiles_combo)
+            self.sortfiles_combo.currentIndexChanged.connect(self.on_sortfiles_combobox_index_changed)
 
             empty = QWidget()
             empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
@@ -591,6 +609,17 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True)
 
+    def on_sortfiles_combobox_index_changed(self, index):
+        global _sortOrderIndex
+        _sortOrderIndex=index        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
+        applySortOrder()
+        rescanFilesToRate()
+        f=getFilesToRate()
+        if len(f) > 0:
+            self.currentIndex=0
+            self.currentFile=f[self.currentIndex]
+            self.rateCurrentFile()
+        
     def show_manual(self, state):
         webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
 
@@ -3333,7 +3362,7 @@ def scanFilesToRate():
 def rescanFilesToRate():
     try:
         #print("rescanFilesToRate", flush=True)
-        global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
+        global _filesWithoutEdit, _editedfiles, _readyfiles, _cutModeFolderOverrideFiles, filesNoCut, filesCut
         _filesWithoutEdit = update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
         _editedfiles = update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
         _readyfiles = update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
@@ -3448,25 +3477,80 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List
         
     return file_list
 
+def _get_sort_key(item: Tuple[str, float]):
+    """
+    Liefert den Sortierschlüssel für ein Element (Dateiname, mtime)
+    basierend auf dem globalen _sortOrderIndex.
+    """
+    global _sortOrderIndex
+
+    if _sortOrderIndex in (0, 1):  # alphabetisch
+        return item[0].lower()
+    elif _sortOrderIndex in (2, 3):  # nach Zeit
+        return item[1]
+    else:
+        # Fallback: Zeit aufsteigend
+        return item[1]
+
+
+def _sort_file_list(file_list: List[Tuple[str, float]]):
+    """
+    Sortiert eine Datei-Liste gemäß der aktuellen globalen Sortierregel.
+    """
+    global _sortOrderIndex
+
+    reverse = _sortOrderIndex in (1, 3)  # 1 = alpha↓, 3 = time↓
+    return sorted(file_list, key=_get_sort_key, reverse=reverse)
+
 
 def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float]):
     """
-    Fügt ein neues Element (Dateiname, Modifikationsdatum) an der richtigen Stelle in eine
-    absteigend sortierte Liste ein, ohne komplette Neusortierung.
+    Fügt ein neues Element (Dateiname, Modifikationsdatum) an der richtigen
+    Stelle in die bestehende Liste ein, basierend auf der aktuellen Sortierlogik.
     """
-    #for file, mtime in file_list:
-    #    print("- ", mtime, file, flush=True)
-    #print("----------------------------------", flush=True)
-    
-    times = [mtime for _, mtime in file_list]
-    pos = bisect.bisect_left(times, new_item[1])
+    global _sortOrderIndex
+
+    if not file_list:
+        file_list.append(new_item)
+        return
+
+    # Bestimme den Sortierschlüssel für das neue Element
+    new_key = _get_sort_key(new_item)
+
+    # Liste der bestehenden Sortierschlüssel erzeugen
+    keys = [_get_sort_key(item) for item in file_list]
+
+    # Je nach Sortierreihenfolge passende Einfügelogik
+    if _sortOrderIndex in (0, 2):  # aufsteigend
+        pos = bisect.bisect_left(keys, new_key)
+    elif _sortOrderIndex in (1, 3):  # absteigend
+        reversed_keys = list(reversed(keys))
+        insert_pos = bisect.bisect_left(reversed_keys, new_key)
+        pos = len(file_list) - insert_pos
+    else:
+        pos = bisect.bisect_left(keys, new_key)
+
     file_list.insert(pos, new_item)
 
-    #for file, mtime in file_list:
-    #    print("+ ", mtime, file, flush=True)
-    #
-    #print("----------------------------------", flush=True)
-    #print("= ", pos, new_item[1], new_item[0], flush=True)
+
+def applySortOrder():
+    """
+    Sortiert alle relevanten globalen Listen anhand der aktuellen Einstellung
+    von _sortOrderIndex neu. Wird aufgerufen, wenn die Sortiermethode geändert wird.
+    """
+    global _filesWithoutEdit, _editedfiles, _readyfiles, _cutModeFolderOverrideFiles
+
+    try:
+        if _filesWithoutEdit is not None:
+            _filesWithoutEdit = _sort_file_list(_filesWithoutEdit)
+        if _editedfiles is not None:
+            _editedfiles = _sort_file_list(_editedfiles)
+        if _readyfiles is not None:
+            _readyfiles = _sort_file_list(_readyfiles)
+        if _cutModeFolderOverrideFiles is not None:
+            _cutModeFolderOverrideFiles = _sort_file_list(_cutModeFolderOverrideFiles)
+    except Exception:
+        print(traceback.format_exc(), flush=True)
 
 
 def pil2pixmap(im):
