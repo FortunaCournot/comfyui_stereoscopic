@@ -1905,6 +1905,7 @@ class VideoThread(QThread):
         self._run_flag = False
         self.pingPongModeEnabled=pingpong
         self.pingPongReverseState=False
+        self.seekRequest=-1
         #print("Created thread with uid " + str(uid) , flush=True)
 
     def run(self):
@@ -2017,7 +2018,10 @@ class VideoThread(QThread):
                                     self.cap.release()
                                     self.cap = cv2.VideoCapture(self.filepath)
                                     self.seek(self.a)
-
+            elif self.seekRequest>=0:
+                self.seek(self.seekRequest)
+                self.seekRequest=-1
+            
             elapsed = time.time()-timestamp
             sleeptime = max(0.02, 1.0/float(self.fps) - elapsed)
             time.sleep(sleeptime)
@@ -2092,6 +2096,7 @@ class VideoThread(QThread):
             if TRACELEVEL >= 1:
                 print("onSliderMouseClick. stop playback and seek", self.slider.value(), flush=True)
             self.pause=True
+            self.seekRequest=self.slider.value()
             self.update(self.pause)
 
             frame=self.slider.value()
