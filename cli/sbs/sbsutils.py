@@ -54,7 +54,16 @@ def force_exit(sig=None, frame=None):
         pass
     sys.exit(1)
     
+def graceful_shutdown(ctx):
+    ctx.fatal_error = True
+    ctx.raw_queue.close()
+    ctx.input_queue.close()
+    ctx.process_queue.close()
+    ctx.save_queue.close()
+    
 def load_preset(mode: str, name: str, path: str = "presets.json") -> dict:
+    base_dir = Path(__file__).resolve().parent
+    preset_path = base_dir / path
     path = Path(path)
     
     if not path.exists():

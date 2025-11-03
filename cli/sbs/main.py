@@ -5,9 +5,9 @@ path = os.path.dirname(os.path.abspath(__file__))
 # Add the current directory to the path so we can import local modules
 if path not in sys.path:
     sys.path.append(path)    
-
+    
 from threading import Thread
-from queue import Queue
+from queue import Queue, Empty, Full
 from natsort import natsorted
 from dataclasses import fields
 import numpy as np
@@ -18,6 +18,63 @@ from converter import ImageSBSConverter
 from pipeline_core import PipelineContext
 from sbsutils import force_exit , debug_report , load_preset , merge_with_preset , validate_config , detect_nvenc_support
 
+
+class CloseableQueue(Queue):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.closed = False
+
+    def close(self):
+        with self.mutex:
+            self.closed = True
+            # let's wake up everyone who's waiting
+            self.not_empty.notify_all()
+            self.not_full.notify_all()
+
+    def get(self, block=True, timeout=None):
+        with self.not_empty:
+            # waiting for something to appear
+            while not self._qsize():
+                # but if the queue is already closed, exit
+                if self.closed:
+                    raise EOFError("Queue closed")
+                if not block:
+                    raise Empty
+                if timeout is None:
+                    self.not_empty.wait()
+                else:
+                    endtime = time.time() + timeout
+                    while not self._qsize():
+                        remaining = endtime - time.time()
+                        if remaining <= 0.0:
+                            raise Empty
+                        self.not_empty.wait(remaining)
+                    break
+            item = self._get()
+            self.not_full.notify()
+            return item
+
+    def put(self, item, block=True, timeout=None):
+        with self.not_full:
+            if self.closed:
+                raise EOFError("Queue closed")
+            while self._qsize() >= self.maxsize > 0:
+                if self.closed:
+                    raise EOFError("Queue closed")
+                if not block:
+                    raise Full
+                if timeout is None:
+                    self.not_full.wait()
+                else:
+                    endtime = time.time() + timeout
+                    while self._qsize() >= self.maxsize > 0:
+                        remaining = endtime - time.time()
+                        if remaining <= 0.0:
+                            raise Full
+                        self.not_full.wait(remaining)
+                    break
+            self._put(item)
+            self.not_empty.notify()
 
 def init_pipeline(
     version: str,
@@ -113,10 +170,10 @@ def init_pipeline(
     device = estimator.device
 
     # Create thread-safe queues to connect pipeline stages
-    raw_q = Queue(maxsize=r_queue)  # feeders → preprocessors
-    inp_q = Queue(maxsize=in_queue) # preprocessors → GPU inference
-    proc_q = Queue(maxsize=p_queue) # GPU inference → SBS processors
-    save_q = Queue(maxsize=s_queue) # processors → savers
+    raw_q = CloseableQueue(maxsize=r_queue)  # feeders → preprocessors
+    inp_q = CloseableQueue(maxsize=in_queue) # preprocessors → GPU inference
+    proc_q = CloseableQueue(maxsize=p_queue) # GPU inference → SBS processors
+    save_q = CloseableQueue(maxsize=s_queue) # processors → savers
     
 
     ctx = PipelineContext(
@@ -190,7 +247,7 @@ def init_pipeline(
     
     if input_type == "video":
         for _ in range(n_savers):
-            ctx.savers.append(Thread(target=PipelineContext.video_worker_thread, args=(save_q, video_path, output_path, W*2, H, fps, codec)))
+            ctx.savers.append(Thread(target=PipelineContext.video_worker_thread, args=(save_q, video_path, output_path, W*2, H, fps, codec,ctx)))
     elif input_type == "folder":
         for _ in range(n_savers):
             ctx.savers.append(Thread(target=PipelineContext.save_worker_thread, args=(save_q, output_path,input_type)))
@@ -238,8 +295,10 @@ def run_pipeline(ctx: PipelineContext):
         t.join()
         
     # Signal preprocess workers to stop (send poison pills)
-    for _ in range(ctx.n_preprocess):
-        ctx.raw_queue.put(None)
+    if not getattr(ctx, "fatal_error", False):
+        for _ in range(ctx.n_preprocess):
+            ctx.raw_queue.put(None)
+            
     for t in ctx.pre_workers:
         t.join()
     
@@ -249,8 +308,9 @@ def run_pipeline(ctx: PipelineContext):
         t.join()
     
     # Signal saver threads to stop
-    for _ in range(ctx.n_savers):
-        ctx.save_queue.put(None)
+    if not getattr(ctx, "fatal_error", False):
+        for _ in range(ctx.n_savers):
+            ctx.save_queue.put(None)
     for t in ctx.savers:
         t.join()
 

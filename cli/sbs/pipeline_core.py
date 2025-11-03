@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import threading
 import numpy as np
 import os , time , cv2 , subprocess 
-from sbsutils import force_exit , prepare_batch
+from sbsutils import force_exit , graceful_shutdown , prepare_batch 
 from depthestimator import DepthEstimator
 from converter import ImageSBSConverter
 
@@ -79,8 +79,11 @@ class PipelineContext:
     t_start: float = 0.0
     t_end: float = 0.0
     
+    # etc
+    fatal_error: bool = False
+    
     @staticmethod
-    def video_worker_thread(save_queue: Queue,video_path, output_path: str, width: int, height: int, fps: float,codec: str):
+    def video_worker_thread(save_queue: Queue,video_path, output_path: str, width: int, height: int, fps: float,codec: str,ctx):
         """
         Writes SBS frames from queue to video via FFmpeg, preserving audio if present.
         """
@@ -117,7 +120,10 @@ class PipelineContext:
 
         try:
             while True:
-                item = save_queue.get()
+                try:
+                    item = save_queue.get()
+                except EOFError:
+                    return
                 if item is None:
                     # Note: sentinel has arrived - there will be no more new batches.
                     finished = True
@@ -129,7 +135,14 @@ class PipelineContext:
 
                 # We try to write all available frames in a row, starting from next_index
                 while next_index in buffer:
-                    proc.stdin.write(buffer[next_index].tobytes())
+                    try:
+                        proc.stdin.write(buffer[next_index].tobytes())
+                    except Exception as e:
+                        print(f"FFmpeg pipe broken - {e}")
+                        ctx.fatal_error = True
+                        graceful_shutdown(ctx)
+                        return
+                        
                     del buffer[next_index]
                     next_index += 1
 
@@ -138,10 +151,17 @@ class PipelineContext:
 
         finally:
             try:
-                proc.stdin.close()
-            except:
+                if proc.stdin:
+                    proc.stdin.close()
+            except Exception:
                 pass
-            proc.wait()
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
     
     @staticmethod
     def save_worker_thread(save_queue: Queue, output_dir: str,input_type: str | None = None):
@@ -152,7 +172,10 @@ class PipelineContext:
             os.makedirs(output_dir, exist_ok=True)
 
         while True:
-            item = save_queue.get()
+            try:
+                item = save_queue.get()
+            except EOFError:
+                return
             if item is None:
                 break
 
@@ -175,7 +198,10 @@ class PipelineContext:
 
         while True:
             #start_wait = time.perf_counter()
-            item = process_queue.get()
+            try:
+                item = process_queue.get()
+            except EOFError:
+                return
             #end_wait = time.perf_counter()
             #print(f"Waited {end_wait - start_wait:.3f} s on queue.get()")
             if item is None:
@@ -208,10 +234,15 @@ class PipelineContext:
             sbs_uint8 = [(img * 255).clip(0, 255).astype(np.uint8) for img in sbs_images]
 
             if input_type == "video":
-                save_queue.put((indices, sbs_uint8))
+                try:
+                    save_queue.put((indices, sbs_uint8))
+                except EOFError:
+                    return
             else:
-                save_queue.put((names, sbs_uint8))
-                
+                try:
+                    save_queue.put((names, sbs_uint8))
+                except EOFError:
+                    return
                 
     @staticmethod   
     def gpu_worker_loop(estimator, queue: Queue, process_queue: Queue ,model_name, n_preprocess: int,H_orig, W_orig,n_processors: int,cudnn_benchmark: bool,input_type: str):
@@ -222,7 +253,10 @@ class PipelineContext:
         done_count = 0
         while True:
             #start_wait = time.perf_counter()
-            item = queue.get()
+            try:
+                item = queue.get()
+            except EOFError:
+                return
             #end_wait = time.perf_counter()
             #print(f"Waited {end_wait - start_wait:.3f} s on queue.get()")
             if item is None:
@@ -240,12 +274,21 @@ class PipelineContext:
             #print(f"Waited {end_gpu - start_gpu:.3f} s on predict_batch_tensor")
             
             if input_type== "video":  # video
-                process_queue.put((indices, depth_maps, indexed_images))
+                try:
+                    process_queue.put((indices, depth_maps, indexed_images))
+                except EOFError:
+                    return
             else:  # folder and i2i
-                process_queue.put((names, depth_maps, indexed_images))
+                try:
+                    process_queue.put((names, depth_maps, indexed_images))
+                except EOFError:
+                    return
             
         for _ in range(n_processors):
-            process_queue.put(None)
+            try:
+                process_queue.put(None)
+            except EOFError:
+                return
             
     @staticmethod
     def preprocess_worker(raw_queue: Queue, batch_size: int, processor, device, input_queue: Queue):
@@ -256,26 +299,37 @@ class PipelineContext:
         batch_idx, batch_imgs, batch_names = [], [], []
         while True:
             #start_wait = time.perf_counter()
-            item = raw_queue.get()
+            try:
+                item = raw_queue.get()
+            except EOFError:
+                return
             #end_wait = time.perf_counter()
             #print(f"Waited {end_wait - start_wait:.3f} s on queue.get()")
             if item is None:
                 if batch_imgs:
                     inputs = processor(images=batch_imgs, return_tensors="pt")
-                    input_queue.put((
-                        list(batch_idx),
-                        list(batch_names),
-                        inputs.pixel_values.to(device, non_blocking=True),
-                        list(zip(batch_idx, batch_imgs))
-                    ))
+                    
+                    try:
+                        input_queue.put((
+                            list(batch_idx),
+                            list(batch_names),
+                            inputs.pixel_values.to(device, non_blocking=True),
+                            list(zip(batch_idx, batch_imgs))
+                        ))
+                    except EOFError:
+                        return
+                        
                 # forward single sentinel to input_queue and exit
-                input_queue.put(None)
+                try:
+                    input_queue.put(None)
+                except EOFError:
+                    return
                 break
                 
-            if len(item) == 2:  # (idx, img) - для video
+            if len(item) == 2:  # (idx, img) - for video
                 idx, img = item
                 name = None
-            elif len(item) == 3:  # (None, img, name) - для folder
+            elif len(item) == 3:  # (None, img, name) - for folder
                 idx, img, name = item
             else:
                 raise ValueError("Unknown item format")
@@ -286,12 +340,16 @@ class PipelineContext:
             
             if len(batch_imgs) >= batch_size:
                 inputs = processor(images=batch_imgs, return_tensors="pt")
-                input_queue.put((
-                    list(batch_idx),
-                    list(batch_names),
-                    inputs.pixel_values.to(device, non_blocking=True),
-                    list(zip(batch_idx, batch_imgs))
-                ))
+                try:
+                    input_queue.put((
+                        list(batch_idx),
+                        list(batch_names),
+                        inputs.pixel_values.to(device, non_blocking=True),
+                        list(zip(batch_idx, batch_imgs))
+                    ))
+                except EOFError:
+                    return
+                    
                 batch_idx.clear(); batch_imgs.clear(); batch_names.clear()
 
     @staticmethod
@@ -316,7 +374,10 @@ class PipelineContext:
                 if len(raw) < frame_size:
                     break
                 img = np.frombuffer(raw, dtype=np.uint8).reshape((H_orig, W_orig, 3)).copy()
-                raw_queue.put((idx, img))
+                try:
+                    raw_queue.put((idx, img))
+                except EOFError:
+                    return
                 idx += 1
                 if max_frames is not None and idx >= max_frames:
                     break
@@ -343,7 +404,10 @@ class PipelineContext:
                 continue
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             name_stem, _ = os.path.splitext(fname)
-            raw_queue.put((None, img, name_stem)) 
+            try:
+                raw_queue.put((None, img, name_stem))
+            except EOFError:
+                return                
             idx += 1
             
         if result_dict:
