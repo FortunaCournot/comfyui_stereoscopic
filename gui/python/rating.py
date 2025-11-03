@@ -1906,6 +1906,7 @@ class VideoThread(QThread):
         self.pingPongModeEnabled=pingpong
         self.pingPongReverseState=False
         self.seekRequest=-1
+        self.busy=False
         #print("Created thread with uid " + str(uid) , flush=True)
 
     def run(self):
@@ -1971,10 +1972,13 @@ class VideoThread(QThread):
 
         self.currentFrame=-1      # before start. first frame will be number 0
         self.lastLoadedFrame= -1
+        self.idle=True
+        
         while self._run_flag:
             timestamp=time.time() 
             if TRACELEVEL >= 4:
                 print("VideoThread run ", self.currentFrame, int(timestamp*1000), flush=True)
+            self.idle=False
             if not self.pause:
                 if self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame>self.a:
                     self.currentFrame-=1
@@ -2019,8 +2023,11 @@ class VideoThread(QThread):
                                     self.cap = cv2.VideoCapture(self.filepath)
                                     self.seek(self.a)
             elif self.seekRequest>=0:
+                self.idle=True
                 self.seek(self.seekRequest)
                 self.seekRequest=-1
+            else:
+                self.idle=True
             
             elapsed = time.time()-timestamp
             sleeptime = max(0.02, 1.0/float(self.fps) - elapsed)
@@ -2032,11 +2039,12 @@ class VideoThread(QThread):
         #rememberThread=None
 
     def requestStop(self):
-        #print("stopping thread...", flush=True)
         self._run_flag=False
         self.change_pixmap_signal.emit(np.array([]), -1)
+        print("waiting for thread to stop...", flush=True)
         while videoActive:
             pass
+        print("stopped.", flush=True)
         #print("done.", flush=True)
     
     def getFrameCount(self):
@@ -2053,20 +2061,25 @@ class VideoThread(QThread):
 
     def tooglePause(self):
         self.pause = not self.pause
-        #self.slider.setEnabled(self.pause)
         self.update(self.pause)
 
 
     def seek(self, frame_number):
         if self.currentFrame == frame_number and self.currentFrame == self.lastLoadedFrame:
             return
+        while self.busy or not self.idle:
+            pass
+        self.busy=True
+        try:
+            if TRACELEVEL >= 2:
+                print("seeking for", frame_number, flush=True)
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
+            ret, cv_img = self.cap.read()
+            if TRACELEVEL >= 2:
+                print("seeking done", self.currentFrame, frame_number, ret , self._run_flag, self.pause, flush=True)
+        finally:
+            self.busy=False
             
-        if TRACELEVEL >= 2:
-            print("seeking for", frame_number, flush=True)
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
-        ret, cv_img = self.cap.read()
-        if TRACELEVEL >= 2:
-            print("seeking done", self.currentFrame, frame_number, ret , self._run_flag, self.pause, flush=True)
         if ret and self._run_flag:
             self.currentFrame=frame_number
             self.lastLoadedFrame=frame_number
@@ -2363,6 +2376,7 @@ class Display(QLabel):
             self.button.clicked.disconnect(self.tooglePausePressed)
             t.change_pixmap_signal.disconnect(self.update_image)
             t.requestStop()
+            t.deleteLater()
             self.update_image(np.array([]), -1)
 
     def onVideoLoaded(self, count, fps, length):

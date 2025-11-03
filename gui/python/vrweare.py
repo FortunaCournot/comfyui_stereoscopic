@@ -34,6 +34,9 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
                              QScrollArea)
 
+import faulthandler
+faulthandler.enable()
+
 path = os.path.dirname(os.path.abspath(__file__))
 
 # Add the current directory to the path so we can import local modules
