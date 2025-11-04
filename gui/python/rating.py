@@ -57,7 +57,7 @@ global _readyfiles, _activeExtensions, _filterEdit, _sortOrderIndex
 _readyfiles=[]
 _activeExtensions=ALL_EXTENSIONS
 _filterEdit=False
-_sortOrderIndex=2        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
+_sortOrderIndex=3        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
 
 # global init
 global cutModeActive, cutModeFolderOverrideActive, cutModeFolderOverridePath
@@ -809,9 +809,11 @@ class RateAndCutDialog(QDialog):
             self.fileDragIndex=index
             self.fileLabel.setText(str(index)+" of "+str(lastIndex))
             self.main_group_box.setTitle(getFilesToRate()[index-1])
+            self.display.updatePreview( getFilesToRate()[index-1] )
 
     def fileSliderChanged(self):
         index=self.fileDragIndex
+        self.display.hidePreview()
         if index!=self.currentIndex and index>=1 and index<=len(getFilesToRate()):
             #print("fileSliderChanged to", str(index+1)+" of "+str(len(getFilesToRate())), flush=True)
             self.fileLabel.setStyleSheet("QLabel { background-color : black; color : white; }");
@@ -861,26 +863,30 @@ class RateAndCutDialog(QDialog):
                 self.fileSlider.setVisible(self.currentIndex>=0)
         else:
             if self.cutMode:
-                self.cropWidget.display_sliders(True)
-                self.button_cutandclone.setVisible(True)
+                self.cropWidget.display_sliders(not fileDragged)
+                self.button_cutandclone.setVisible(not fileDragged)
                 if not self.isVideo:
                     self.button_trima_video.setVisible(False)
                     self.button_trimfirst_video.setVisible(False)
                     self.button_trimb_video.setVisible(False)
                     self.button_trimtosnap_video.setVisible(False)
-                self.button_snapshot_from_video.setVisible(self.isVideo)
-                self.button_startframe.setVisible(self.isVideo)
-                self.button_endframe.setVisible(self.isVideo)
-                self.sceneFinderAction.setVisible(self.isVideo)
+                else:
+                    self.button_trimb_video.setVisible(not fileDragged)
+                self.button_snapshot_from_video.setVisible(self.isVideo and not fileDragged)
+                self.button_startframe.setVisible(self.isVideo and not fileDragged)
+                self.button_endframe.setVisible(self.isVideo and not fileDragged)
+                self.sceneFinderAction.setVisible(self.isVideo and not fileDragged)
             else:
                 self.sceneFinderAction.setVisible(False)
-                self.rating_widget.setVisible(True)
-                self.button_return2edit.setVisible(True)
+                self.rating_widget.setVisible(not fileDragged)
+                self.button_return2edit.setVisible(not fileDragged)
                 self.button_return2edit.setEnabled("/" in self.currentFile)
-            self.button_justrate_compress.setVisible(True)
-            self.button_prev_file.setVisible(True)
-            self.button_next_file.setVisible(True)
-            self.button_delete_file.setVisible(True)
+            self.sl.setVisible(self.isVideo and not fileDragged)
+            self.button_startpause_video.setVisible(self.isVideo and not fileDragged)
+            self.button_justrate_compress.setVisible(not fileDragged)
+            self.button_prev_file.setVisible(not fileDragged)
+            self.button_next_file.setVisible(not fileDragged)
+            self.button_delete_file.setVisible(not fileDragged)
             self.fileSlider.setVisible(True)
             
         index=-1
@@ -1976,84 +1982,91 @@ class VideoThread(QThread):
 
         leaveUITask()
 
-        self.onVideoLoaded(self.frame_count, self.fps, vlength)
-        self.update(self.pause)
+        try:
+            self.onVideoLoaded(self.frame_count, self.fps, vlength)
+            self.update(self.pause)
 
-        self.currentFrame=-1      # before start. first frame will be number 0
-        self.lastLoadedFrame= -1
-        self.idle=True
-        
-        while self._run_flag:
-            timestamp=time.time() 
-            if TRACELEVEL >= 4:
-                print("VideoThread run ", self.currentFrame, int(timestamp*1000), flush=True)
-            self.idle=False
-            if not self.pause:
-                if self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame>self.a:
-                    self.currentFrame-=1
-                    self.seek(self.currentFrame)
-                elif self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame<=self.a:
-                    self.pingPongReverseState=False
-                    self.currentFrame=self.a
-                    if self.currentFrame+1<=self.b:
-                        self.currentFrame+=1
+            self.currentFrame=-1      # before start. first frame will be number 0
+            self.lastLoadedFrame= -1
+            self.idle=True
+            
+            while self._run_flag:
+                timestamp=time.time() 
+                if TRACELEVEL >= 4:
+                    print("VideoThread run ", self.currentFrame, int(timestamp*1000), flush=True)
+                self.idle=False
+                if not self.pause:
+                    if self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame>self.a:
+                        self.currentFrame-=1
                         self.seek(self.currentFrame)
-                else:
-                    if self.currentFrame!=self.lastLoadedFrame:
-                        self.seek(self.currentFrame)
-                    elif self.currentFrame+1>self.b:
-                        if self.pingPongModeEnabled:
-                            self.pingPongReverseState=True
-                            if self.b-1 >= self.a:
-                                self.seek(self.b-1)
-                        else:
-                            self.seek(self.a)   # replay
-                    elif self.currentFrame+1<self.a:
-                        self.seek(self.a)
+                    elif self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame<=self.a:
+                        self.pingPongReverseState=False
+                        self.currentFrame=self.a
+                        if self.currentFrame+1<=self.b:
+                            self.currentFrame+=1
+                            self.seek(self.currentFrame)
                     else:
-                        ret, cv_img = self.cap.read()
-                        if self.pause:
-                            print("meanwhile paused. ignore image.", flush=True)
-                            pass # ignore image
-                        elif self._run_flag:
-                            if ret and not cv_img is None:
-                                self.currentFrame+=1
-                                self.lastLoadedFrame=self.currentFrame
-                                self.slider.setValue(self.currentFrame)
-                                self.change_pixmap_signal.emit(cv_img, self.uid)
+                        if self.currentFrame!=self.lastLoadedFrame:
+                            self.seek(self.currentFrame)
+                        elif self.currentFrame+1>self.b:
+                            if self.pingPongModeEnabled:
+                                self.pingPongReverseState=True
+                                if self.b-1 >= self.a:
+                                    self.seek(self.b-1)
                             else:
-                                if self.pingPongModeEnabled:
-                                    self.pingPongReverseState=True
-                                    if self.b-1 >= self.a:
-                                        self.seek(self.b-1)
+                                self.seek(self.a)   # replay
+                        elif self.currentFrame+1<self.a:
+                            self.seek(self.a)
+                        else:
+                            ret, cv_img = self.cap.read()
+                            if self.pause:
+                                print("meanwhile paused. ignore image.", flush=True)
+                                pass # ignore image
+                            elif self._run_flag:
+                                if ret and not cv_img is None:
+                                    self.currentFrame+=1
+                                    self.lastLoadedFrame=self.currentFrame
+                                    self.slider.setValue(self.currentFrame)
+                                    self.change_pixmap_signal.emit(cv_img, self.uid)
                                 else:
-                                    print("Error: failed to load frame", self.currentFrame, flush=True)
-                                    self.cap.release()
-                                    self.cap = cv2.VideoCapture(self.filepath)
-                                    self.seek(self.a)
-            elif self.seekRequest>=0:
-                self.idle=True
-                self.seek(self.seekRequest)
-                self.seekRequest=-1
-            else:
-                self.idle=True
+                                    if self.pingPongModeEnabled:
+                                        self.pingPongReverseState=True
+                                        if self.b-1 >= self.a:
+                                            self.seek(self.b-1)
+                                    else:
+                                        print("Error: failed to load frame", self.currentFrame, flush=True)
+                                        self.cap.release()
+                                        self.cap = cv2.VideoCapture(self.filepath)
+                                        self.seek(self.a)
+                elif self.seekRequest>=0:
+                    self.idle=True
+                    self.seek(self.seekRequest)
+                    self.seekRequest=-1
+                else:
+                    self.idle=True
+                
+                elapsed = time.time()-timestamp
+                sleeptime = max(0.02, 1.0/float(self.fps) - elapsed)
+                time.sleep(sleeptime)
             
-            elapsed = time.time()-timestamp
-            sleeptime = max(0.02, 1.0/float(self.fps) - elapsed)
-            time.sleep(sleeptime)
-            
-        self.cap.release()
-        videoActive=False
-        #print("Thread ends.", flush=True)
-        #rememberThread=None
+        except:
+            print(traceback.format_exc(), flush=True)
+        finally:
+            self.cap.release()
+            videoActive=False
+            #print("Thread ends.", flush=True)
+            #rememberThread=None
+             
 
     def requestStop(self):
         self._run_flag=False
         self.change_pixmap_signal.emit(np.array([]), -1)
-        print("waiting for thread to stop...", flush=True)
+        if TRACELEVEL >= 2:
+            print("waiting for thread to stop...", flush=True)
         while videoActive:
             pass
-        print("stopped.", flush=True)
+        if TRACELEVEL >= 2:            
+            print("stopped.", flush=True)
         #print("done.", flush=True)
     
     def getFrameCount(self):
@@ -2197,6 +2210,53 @@ class Display(QLabel):
 
         self.closeEvent = self.stopAndBlackout
 
+        # Thumbnail-Label
+        self.thumbnailsize=640
+        self.thumbnail = QLabel(self)
+        self.thumbnail.setFixedSize(self.thumbnailsize, self.thumbnailsize)
+        self.thumbnail.setFrameStyle(QFrame.Box)
+        self.thumbnail.setStyleSheet("background-color: black; border: 2px solid black;")
+        self.thumbnail.hide()
+        
+
+    def hidePreview(self):
+        self.thumbnail.hide()
+
+    def updatePreview(self, relativePath):
+        blackpixmap = QPixmap(self.thumbnailsize, self.thumbnailsize)
+        blackpixmap.fill(Qt.black)
+        self.thumbnail.setPixmap(blackpixmap)
+        self.thumbnail.move(int(self.width()/2 - self.thumbnail.width()/2), int(self.height()/2 - self.thumbnail.height()/2))
+        self.thumbnail.show()
+        self.thumbnail.raise_()  # <-- Bringt die Vorschau in den Vordergrund!
+
+        if cutModeFolderOverrideActive:
+            folder=cutModeFolderOverridePath
+        else:
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, relativePath))
+
+        try:
+            if input.endswith(tuple(VIDEO_EXTENSIONS)):
+                    cap = cv2.VideoCapture(input)
+                    try:
+                        if cap.isOpened():
+                            ret, cv_img = cap.read()
+                            if not ret or cv_img is None:                        
+                                return
+                    finally:
+                        cap.release()
+            else:
+                cv_img  = cv2.imread( input )
+        
+            rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb_image.shape
+            bytes_per_line = ch * w
+            convert_cv_qt_img = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            self.thumbnail.setPixmap( QPixmap.fromImage(convert_cv_qt_img).scaled( self.thumbnailsize, self.thumbnailsize, Qt.KeepAspectRatio ) )
+        except:
+            print(traceback.format_exc(), flush=True)
+        
 
     def setPingPongModeEnabled(self, state):
         self.playtype_pingpong=state
@@ -3479,25 +3539,6 @@ def statMTime(path):
     #print("?", c, m, path, flush=True)
     return m
 
-def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
-    """
-    Erstellt eine sortierte Liste mit Tupeln (Dateiname, Modifikationsdatum).
-    Sortiert nach Modifikationsdatum aufsteigend (alte zuerst).
-    """
-    fullbasepath=os.path.join(path, base_path)
-    if not os.path.exists(fullbasepath):
-        os.makedirs(fullbasepath)
-    
-    bpath = os.path.abspath(fullbasepath)
-    files = []
-    for f in os.listdir(bpath):
-        full_path = os.path.join(bpath, f)
-        if os.path.isfile(full_path) and any(f.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
-            mtime = statMTime(full_path)
-            files.append((f, mtime))    
-
-    return sorted(files, key=lambda x: x[1], reverse=False)
-
 
 def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
     """
@@ -3561,6 +3602,27 @@ def _sort_file_list(file_list: List[Tuple[str, float]]):
     reverse = _sortOrderIndex in (1, 3)  # 1 = alpha↓, 3 = time↓
     return sorted(file_list, key=_get_sort_key, reverse=reverse)
 
+def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
+    """
+    Erstellt eine sortierte Liste mit Tupeln (Dateiname, Modifikationsdatum).
+    Sortiert nach Modifikationsdatum aufsteigend (alte zuerst).
+    """
+    fullbasepath=os.path.join(path, base_path)
+    if not os.path.exists(fullbasepath):
+        os.makedirs(fullbasepath)
+    
+    bpath = os.path.abspath(fullbasepath)
+    files = []
+    for f in os.listdir(bpath):
+        full_path = os.path.join(bpath, f)
+        if os.path.isfile(full_path) and any(f.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
+            mtime = statMTime(full_path)
+            files.append((f, mtime))    
+
+    #return sorted(files, key=lambda x: x[1], reverse=False)
+    global _sortOrderIndex
+    reverse = _sortOrderIndex in (1, 3)  # 1 = alpha↓, 3 = time↓
+    return sorted(files, key=_get_sort_key, reverse=reverse)
 
 def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float]):
     """
