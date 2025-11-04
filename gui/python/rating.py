@@ -2304,6 +2304,8 @@ class Display(QLabel):
         if TRACELEVEL>=4:
             print("update_image", uid, self.displayUid, time.time() , flush=True)
         
+        self.thumbnail.hide()
+        
         if uid!=self.displayUid:
             self.qt_img = None
             self.imggeometry=self.size()
