@@ -629,15 +629,19 @@ class RateAndCutDialog(QDialog):
             self.sceneDetection()
 
     def on_sortfiles_combobox_index_changed(self, index):
-        global _sortOrderIndex
-        _sortOrderIndex=index        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
-        applySortOrder()
-        rescanFilesToRate()
-        f=getFilesToRate()
-        if len(f) > 0:
-            self.currentIndex=0
-            self.currentFile=f[self.currentIndex]
-            self.rateCurrentFile()
+        enterUITask()
+        try:
+            global _sortOrderIndex
+            _sortOrderIndex=index        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
+            applySortOrder()
+            rescanFilesToRate()
+            f=getFilesToRate()
+            if len(f) > 0:
+                self.currentIndex=0
+                self.currentFile=f[self.currentIndex]
+                self.rateCurrentFile()
+        finally:
+            leaveUITask()
         
     def show_manual(self, state):
         webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
@@ -1134,7 +1138,7 @@ class RateAndCutDialog(QDialog):
         finally:
             QApplication.restoreOverrideCursor()
             leaveUITask()
-           
+
     def onPlayTypeAction(self, state):
         self.playtype_pingpong = state
         self.iconPlayTypeAction.setIcon(self.toggle_playtype_icon_true if self.playtype_pingpong else self.toggle_playtype_icon_false)
@@ -1559,15 +1563,11 @@ class RateAndCutDialog(QDialog):
                     cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
                 cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" -shortest \"" + output + "\""
                 print("Executing "  + cmd, flush=True)
-                
                 recreated=os.path.exists(output)
                 thread = threading.Thread(
-                    target=self.trimAndCrop_worker,
-                    args=(cmd, recreated, output, ),
-                    daemon=True
-                )
+                    target=self.trimAndCrop_worker, args=(cmd, recreated, output, ), daemon=True)
                 thread.start()
-                    
+                
             except ValueError as e:
                 pass
         except:
@@ -1575,21 +1575,21 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
 
-
+            
     def trimAndCrop_worker(self, cmd, recreated, output):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, output, True))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, output, True))
 
         except subprocess.CalledProcessError as se:
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, output, False))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, output, False))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
 
 
-    def trimAndCrop_updater(self, cmd, recreated, output, success):
+    def trimAndCrop_updater(self, recreated, output, success):
         if success:
             self.log(" Overwritten" if recreated else " OK", QColor("green"))
             if self.display.frame_count<=0:
@@ -1635,9 +1635,10 @@ class RateAndCutDialog(QDialog):
                 x=self.cropWidget.crop_left
                 y=self.cropWidget.crop_top
                 self.log("Create snapshot "+newfilename, QColor("white"))
+                recreated=os.path.exists(output)
+                '''
                 cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 -update 1 \"" + tempfile + "\""
                 cmd2 = "ffmpeg.exe -hide_banner -y -i \"" + tempfile + "\" -vf \"crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" \"" + output + "\""
-                recreated=os.path.exists(output)
                 
                 thread = threading.Thread(
                             target=self.takeSnapshot_worker,
@@ -1645,6 +1646,12 @@ class RateAndCutDialog(QDialog):
                             daemon=True
                         )
                 thread.start()
+                '''
+                
+                rect = QRect(x, y, out_w, out_h)
+                cropped_pixmap = self.cropWidget.original_pixmap.copy(rect)        
+                success = cropped_pixmap.save(output)
+                self.takeSnapshot_updater(success, recreated, output, )
                 
             except ValueError as e:
                 pass
@@ -1653,6 +1660,7 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
 
+    '''
     def takeSnapshot_worker(self, cmd1, cmd2, recreated, temporaryfile, output):
         startAsyncTask()
         try:
@@ -1668,6 +1676,7 @@ class RateAndCutDialog(QDialog):
 
         except Exception:
             print(traceback.format_exc(), flush=True) 
+    '''
 
     def takeSnapshot_updater(self, success, recreated, output):
         if success:
