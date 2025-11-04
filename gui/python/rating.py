@@ -2067,7 +2067,7 @@ class VideoThread(QThread):
     def seek(self, frame_number):
         if self.currentFrame == frame_number and self.currentFrame == self.lastLoadedFrame:
             return
-        while self.busy or not self.idle:
+        while self.busy:
             pass
         self.busy=True
         try:
