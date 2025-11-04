@@ -7,22 +7,36 @@ pipeline:
     keepinput: true
     forward:
       - rule:
-          to: tasks/fps-limit-30
+          to: tasks/fps-limit-32
           conditions:
             - tvai=false
             - vram>8
       - rule:
-          to: tasks/fps-limit-15
+          to: tasks/fps-limit-16
           conditions:
             - tvai=false
       - rule:
           to: scaling
-  - from: tasks/fps-limit-15
+  - from: tasks/fps-limit-16
     forward:
       - rule:
+          to: tasks/vlimit-1080p
+          conditions:
+            - tvai=false
+            - sbs=false
+            - height>1080
+            - duration>90
+      - rule:
           to: scaling
-  - from: tasks/fps-limit-30
+  - from: tasks/fps-limit-32
     forward:
+      - rule:
+          to: tasks/vlimit-1080p
+          conditions:
+            - tvai=false
+            - sbs=false
+            - height>1080
+            - duration>90
       - rule:
           to: scaling
   - from: scaling

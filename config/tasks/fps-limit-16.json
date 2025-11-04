@@ -1,8 +1,8 @@
 {
   "version": "1",
   "blueprint": "ffmpeg-v2v",
-  "options": "-filter:v fps=15",
-  "lowerlimits": "r_frame_rate=16",
+  "options": "-filter:v fps=16",
+  "lowerlimits": "r_frame_rate=17",
   "input": "video",
   "output": "video",
 }
