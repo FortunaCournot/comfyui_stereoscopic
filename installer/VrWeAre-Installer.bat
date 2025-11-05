@@ -892,7 +892,7 @@ copy %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereos
 
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - Service Daemon""%INSTALLATIONNUMBERTEXT%"".lnk" >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - Service Daemon%INSTALLATIONNUMBERTEXT%.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.WindowStyle = 7 >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" >> %SCRIPT%
@@ -904,7 +904,7 @@ del %SCRIPT%
 
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - App""%INSTALLATIONNUMBERTEXT%"".lnk" >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - App%INSTALLATIONNUMBERTEXT%.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.WindowStyle = 7 >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\restart_gui.bat" >> %SCRIPT%
@@ -917,7 +917,7 @@ del %SCRIPT%
 IF "%HAS_NVIDIA_GPU%" == "0" GOTO NO_GPU
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI Nvidea GPU""%INSTALLATIONNUMBERTEXT%"".lnk" >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI Nvidea GPU%INSTALLATIONNUMBERTEXT%.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat" >> %SCRIPT%
 echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
@@ -930,7 +930,7 @@ del %SCRIPT%
 :NO_GPU
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI CPU""%INSTALLATIONNUMBERTEXT%"".lnk" >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI CPU%INSTALLATIONNUMBERTEXT%.lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" >> %SCRIPT%
 echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
@@ -962,7 +962,8 @@ ECHO - VR we are - App
 ECHO/
 
 RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test"
-START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" /MIN CMD /K CALL "%GITPATH%"git-bash.exe daemon.sh >NUL
+::START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" /MIN CMD /K CALL "%GITPATH%"git-bash.exe daemon.sh >NUL
+START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" CMD /C CALL  "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" >NUL
 START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" > NUL
 ::pass
 

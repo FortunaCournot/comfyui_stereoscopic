@@ -11,12 +11,12 @@ SETLOCAL enabledelayedexpansion
 
 :: CheckOS
 FOR /f "tokens=4-5 delims=. " %%i IN ('ver') DO SET VERSION=%%i.%%j
-IF "%version%" == "6.3" ECHO Windows 8.1 not supported
-IF "%version%" == "6.2" ECHO Windows 8 not supported.
-IF "%version%" == "6.1" ECHO Windows 7 not supported.
-IF "%version%" == "6.0" ECHO Windows Vista not supported.
-IF "%version%" == "10.0" GOTO CheckArch
-ECHO OS version %version%
+IF "%VERSION%" == "6.3" ECHO Windows 8.1 not supported
+IF "%VERSION%" == "6.2" ECHO Windows 8 not supported.
+IF "%VERSION%" == "6.1" ECHO Windows 7 not supported.
+IF "%VERSION%" == "6.0" ECHO Windows Vista not supported.
+IF "%VERSION%" == "10.0" GOTO CheckArch
+ECHO OS version %VERSION%
 GOTO Fail
 
 :CheckArch
@@ -61,9 +61,12 @@ GOTO Fail
 ECHO ON
 "%GIT%"git-bash.exe daemon.sh
 IF %ERRORLEVEL% == 0 GOTO End
+ECHO [91mError level: %ERRORLEVEL%[0m
 
 :Fail 
-ECHO [91mDaemon start failed. (%ERRORLEVEL%)[0m
+ECHO OS: %OS%
+ECHO OS-Version: %VERSION%
+ECHO [91mDaemon start failed.[0m
 pause
 GOTO End
 
