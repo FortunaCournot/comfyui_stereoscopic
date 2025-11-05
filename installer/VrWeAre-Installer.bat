@@ -57,6 +57,7 @@ SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/downloa
 SET INTERACTIVE=1
 if [%1]==[] goto DoChecks
 SET INSTALLATIONTYPE=1
+SET INSTALLATIONNUMBERTEXT=
 SET InstallFolder=%1
 echo Installfolder: %InstallFolder%
 SET INTERACTIVE=0
@@ -368,7 +369,7 @@ ECHO   Q - Keep existing installation and stop.
 ECHO/
 CHOICE /C 12Q /M " "
 IF ERRORLEVEL 3 GOTO End
-IF ERRORLEVEL 2 GOTO SELECT_INSTALL_PATH
+IF ERRORLEVEL 2 GOTO SECOND_INSTALL
 IF ERRORLEVEL 1 GOTO PREPARE_UPDATE
 GOTO End
 
@@ -381,7 +382,9 @@ GOTO QueryForInstallationType
 :: No Choice - Create new installation...
 ::pass
 
-
+:SECOND_INSTALL
+set INSTALLATIONTYPE=2
+SET INSTALLATIONNUMBERTEXT=_2
 :SELECT_INSTALL_PATH
 ECHO/
 ECHO Please type the [1mparent path[0m of the installation and press ENTER.
@@ -488,9 +491,9 @@ echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Inst
 echo\ >>install.sh
 echo cleanup() { >>install.sh
 echo  exit_code=$? >>install.sh
-echo  [[ ${exit_code} -eq 0 ]] ^&^& trap - ERR ^&^& echo 0 ^>.installstatus ^&^& exit 0 >>install.sh
+echo  [[ ${exit_code} -eq 0 ]] ^&^& trap - ERR ^&^& echo 0 ^>.installstatus >>install.sh
 echo  [[ ${exit_code} -ne 0 ]] ^&^& echo -e $"\n\e[91m=== PRESS RETURN TO CONTINUE (${exit_code}) ===\e[0m" >>install.sh
-echo  read WAITING_FOR_ENTER >>install.sh
+echo  [[ ${exit_code} -ne 0 ]] ^&^& read WAITING_FOR_ENTER >>install.sh
 echo  echo $exit_code ^>.installstatus >>install.sh
 echo } >>install.sh
 echo trap cleanup EXIT >>install.sh
@@ -498,27 +501,27 @@ echo trap cleanup EXIT >>install.sh
 echo downloadCheck7z() { >>install.sh
 echo   if [ -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94m$2 already exists.\e[0m Validating Check-sum on $2 " >>install.sh
-echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (echo rm -f "$2" ; echo -e $"\e[93mfailed\e[0m") >>install.sh
+echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2" >>install.sh
 echo   fi >>install.sh
 echo   if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -e $"\e[94mDownloading $1\e[0m" >>install.sh
-echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo      curl --fail --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
 echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
 echo      echo -n "Validating Check-sum " >>install.sh
-echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (echo rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
+echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2" >>install.sh
 echo   fi >>install.sh
 echo   if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -e $"\e[91mCheck-sum error. Installation failed.\e[0m" >>install.sh
-echo      exit 1 >>install.sh
+echo      return 1 >>install.sh
 echo   fi >>install.sh
 echo   7z x -y $2 >>install.sh
 echo   if [ $? -ne 0 ]; then >>install.sh
 echo     echo -e $"\e[91mError while unpacking. Installation failed.\e[0m" >>install.sh
-echo     exit 1 >>install.sh
+echo     return 1 >>install.sh
 echo   fi >>install.sh
 echo   if [ ^^! -d "$3" ]; then >>install.sh
 echo     echo -e $"\e[91mError while unpacking. Installation failed.\e[0m" >>install.sh
-echo     exit 1 >>install.sh
+echo     return 1 >>install.sh
 echo   fi >>install.sh
 echo } >>install.sh
 :: installCustomNodes(): URL targetfile targetfolder [shasum]
@@ -528,19 +531,19 @@ echo    if [ -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94m$2 already exists.\e[0m " >>install.sh
 echo      if [ ^^! -z "$4" ] ; then >>install.sh
 echo     	echo -ne $"Validating Check-sum on $2 "   >>install.sh
-echo        echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[93mfailed\e[0m") >>install.sh
+echo        echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2"  >>install.sh
 echo      else >>install.sh
 echo      	echo -e $"\e[92mok\e[0m"  >>install.sh
 echo      fi >>install.sh
 echo    fi >>install.sh
 echo    if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
-echo      curl --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
+echo      curl --fail --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
 echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
 echo        if [ ^^! -z "$4" ] ; then >>install.sh
 echo          echo -n "Validating Check-sum " >>install.sh
-echo          echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
+echo          echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2" >>install.sh
 echo        fi >>install.sh
 echo      fi >>install.sh
 echo    fi >>install.sh
@@ -548,13 +551,13 @@ echo    if [ -s "$2" ] ; then >>install.sh
 echo      echo -e $"\e[92mok\e[0m" >>install.sh
 echo    else >>install.sh
 echo      echo -e $"\e[91mfailed\e[0m" >>install.sh
-echo      exit 1 >>install.sh
+echo      return 1 >>install.sh
 echo    fi >>install.sh
 echo    mkdir -p "$3" >>install.sh
 echo    tar xzf $2 -C "$3" --strip-components=1 >>install.sh
 echo    if [ ^^! -d "$3" ]; then >>install.sh
 echo      echo -e $"\e[91mError while unpacking. Installation failed.\e[0m" >>install.sh
-echo      exit 1 >>install.sh
+echo      return 1 >>install.sh
 echo    fi >>install.sh
 echo  else >>install.sh
 echo   echo -e $"$2 already unpacked. \e[92mok\e[0m" >>install.sh
@@ -565,19 +568,19 @@ echo installFile() { >>install.sh
 echo    if [ -s "$2" ] ; then >>install.sh
 echo      if [ ^^! -z "$3" ] ; then >>install.sh
 echo     	echo -ne $"Validating Check-sum on $2 "   >>install.sh
-echo        echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[93mfailed\e[0m") >>install.sh
+echo        echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2"  >>install.sh
 echo      else >>install.sh
 echo      	echo -e $"\e[92mok\e[0m"  >>install.sh
 echo      fi >>install.sh
 echo    fi >>install.sh
 echo    if [ ^^! -f "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
-echo      curl --ssl-revoke-best-effort -A "Wget" -L $1 ^>$2 >>install.sh
+echo      curl --fail --ssl-revoke-best-effort -A "Wget" -L $1 ^>$2 >>install.sh
 echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
 echo        if [ ^^! -z "$3" ] ; then >>install.sh
 echo          echo -n "Validating Check-sum " >>install.sh
-echo          echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| (rm -f "$2" ; echo -e $"\e[91mfailed\e[0m") >>install.sh
+echo          echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2"  >>install.sh
 echo        fi >>install.sh
 echo      fi >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
@@ -585,11 +588,12 @@ echo        echo -e $"\e[92mok\e[0m" >>install.sh
 echo      else >>install.sh
 echo        ls -l "$2" >>install.sh
 echo        echo -e $"\e[91mfailed\e[0m" >>install.sh
-echo        exit 1 >>install.sh
+echo        return 1 >>install.sh
 echo      fi >>install.sh
 echo    fi >>install.sh
 echo } >>install.sh
 echo\ >>install.sh
+
 :: url destination checksum
 echo mkdir -p install >>install.sh
 echo\ >>install.sh
@@ -658,6 +662,9 @@ echo clear >>install.sh
 echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installing... ===\e[0m\n" >>install.sh
 echo echo -e $" " >>install.sh
 
+:: echo set -x >>install.sh
+
+
 ::  clear any old python and custom nodes and flag for reinstallation
 echo   rm -f  -- ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.daemonactive >>install.sh
 echo   rm -f  -- ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.guiactive >>install.sh
@@ -667,9 +674,10 @@ echo   rm -rf  -- ComfyUI_windows_portable/python_embeded >>install.sh
 echo if [ ^^! -d ComfyUI_windows_portable/ComfyUI/custom_nodes ]; then >>install.sh
 :: Download and unpackage ComfyUI portable - GNU GENERAL PUBLIC LICENSE v3 (c) ComfyUI Code Owners
 echo   downloadCheck7z "https://github.com/comfyanonymous/ComfyUI/releases/download/%COMFYUI_TAG%/ComfyUI_windows_portable_nvidia.7z" "install/comfyui.7z" "ComfyUI_windows_portable/ComfyUI/custom_nodes" "%COMFYUI_SHA%"  >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo else >>install.sh
 echo   echo -e $"Couldn't delete old custom_nodes. \e[91Failed\e[0m" >>install.sh
-echo   exit 1 >>install.sh
+echo   sleep 1 ; exit 1 >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
 
@@ -679,6 +687,7 @@ echo mkdir -p ./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscop
 echo echo "" ^>./ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/.environment >>install.sh
 if defined FLAG_INSTALL_FFMPEG (
 echo  installFile "https://github.com/GyanD/codexffmpeg/releases/download/8.0/ffmpeg-%FFMPEG_TAG%-full_build.zip" "install/ffmpeg.zip" %FFMPEG_SHA% >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo  unzip -qo install/ffmpeg.zip -d .  >>install.sh
 echo FFMPEGPATH=`ls  ^| grep ffmpeg-`      >>install.sh
 echo FFMPEGPATH=`echo $FFMPEGPATH`"bin"  >>install.sh
@@ -689,6 +698,7 @@ echo\ >>install.sh
 )
 if defined FLAG_INSTALL_EXIFTOOL (
 echo  installFile "https://sourceforge.net/projects/exiftool/files/exiftool-13.39_64.zip" "install/exiftool.zip"  >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo  unzip -qo install/exiftool.zip -d .  >>install.sh
 echo EXIFPATH=`ls  ^| grep exiftool-`   >>install.sh
 echo EXIFPATH=`realpath $EXIFPATH`   >>install.sh
@@ -700,17 +710,29 @@ echo\ >>install.sh
 
 ::  Download and unpackage comfyui nodes
 echo   installCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
+::echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-DepthAnythingV2/archive/refs/tags/%DEPTH_ANYTHING_V2_TAG%.tar.gz"  "install/depthanythingv2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Custom-Scripts/archive/refs/tags/%CUSTOMSCRIPTS_TAG%.tar.gz" "install/customscripts.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-custom-scripts" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/comfy_mtb/archive/refs/tags/%MTB_TAG%.tar.gz" "install/mtb.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfy-mtb" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Crystools/archive/refs/tags/%CRYSTOOLS_TAG%.tar.gz" "install/crystools.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Florence2/archive/refs/tags/%FLORENCE2_TAG%.tar.gz" "install/florence2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-florence2" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-VideoHelperSuite/archive/refs/tags/%VHS_TAG%.tar.gz" "install/vhs.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-videohelpersuite" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Frame-Interpolation/archive/refs/tags/%FRAMEINTERPOL_TAG%.tar.gz" "install/frameinterpol.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-frame-interpolation" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-MMAudio/archive/refs/tags/%MMAUDIO_TAG%.tar.gz" "install/mmaudio.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-KJNodes/archive/refs/tags/%KJNODES_TAG%.tar.gz" "install/kjnodes.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 
 echo\ >>install.sh
 
@@ -724,19 +746,26 @@ echo\ >>install.sh
 echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/mmaudio  >>install.sh
 :: MMAudio models MIT License - Copyright (c) 2024 Sony Research Inc.
 echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" "d8ad903a79adc2b29bacfeedabfa3d78b03d36d3b4dcb885c0649fe8c5d763cb" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_large_44k_v2_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_large_44k_v2_fp16.safetensors" "a61378951ba4e8bfde2e977c0ad8211a7e02e1e92fd6a5b1c258a6464c1d102f" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_synchformer_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_synchformer_fp16.safetensors" "b8d05128c76da6ee88720a89d25a5f86c603589883d02b53f563c3c66afe3581" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_vae_44k_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_vae_44k_fp16.safetensors" "2598189f081bd10c86975106e5b6e2490168667429a75b52d77671283f245649" >>install.sh
 echo\ >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 
 :: LICENSE_Real-ESRGAN upscaling - BSD 3-Clause License - Copyright (c) 2021, Xintao Wang
 echo   installFile "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth" "ComfyUI_windows_portable/ComfyUI/models/upscale_models/RealESRGAN_x2plus.pth" "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installFile "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth" "ComfyUI_windows_portable/ComfyUI/models/upscale_models/RealESRGAN_x4plus.pth" "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo\ >>install.sh
 
 :: STABILITY AI CONTROL-LORA - COMMUNITY LICENSE AGREEMENT
 echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl  >>install.sh
 echo   installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/control-LoRAs-rank256/control-lora-recolor-rank256.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl/control-lora-recolor-rank256.safetensors" "b0bf3c163b6f578b3a73e9cf61c3e4219ae9c2a06903663205d1251cf2498925" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo\ >>install.sh
 :: pass
 
@@ -863,7 +892,7 @@ copy %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereos
 
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - Service Daemon.lnk" >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - Service Daemon""%INSTALLATIONNUMBERTEXT%"".lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.WindowStyle = 7 >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" >> %SCRIPT%
@@ -875,7 +904,7 @@ del %SCRIPT%
 
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - App.lnk" >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\VR we are - App""%INSTALLATIONNUMBERTEXT%"".lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.WindowStyle = 7 >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\restart_gui.bat" >> %SCRIPT%
@@ -888,7 +917,7 @@ del %SCRIPT%
 IF "%HAS_NVIDIA_GPU%" == "0" GOTO NO_GPU
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI Nvidea GPU.lnk" >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI Nvidea GPU""%INSTALLATIONNUMBERTEXT%"".lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat" >> %SCRIPT%
 echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
@@ -901,7 +930,7 @@ del %SCRIPT%
 :NO_GPU
 set SCRIPT="%TEMP%\%RANDOM%-%RANDOM%-%RANDOM%-%RANDOM%.vbs"
 echo Set oWS = WScript.CreateObject("WScript.Shell") >> %SCRIPT%
-echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI CPU.lnk" >> %SCRIPT%
+echo sLinkFile = "%USERPROFILE%\Desktop\ComfyUI CPU""%INSTALLATIONNUMBERTEXT%"".lnk" >> %SCRIPT%
 echo Set oLink = oWS.CreateShortcut(sLinkFile) >> %SCRIPT%
 echo oLink.TargetPath = "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" >> %SCRIPT%
 echo oLink.WorkingDirectory = "%VRWEAREPATH%\ComfyUI_windows_portable\" >> %SCRIPT%
