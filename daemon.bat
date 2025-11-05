@@ -4,6 +4,7 @@
 ::====================================================================
 @ECHO OFF 
 :: Windows version check 
+if %OS%==64BIT GOTO CheckGit
 IF NOT "%OS%"=="Windows_NT" GOTO Fail
 :: Keep variable local 
 SETLOCAL enabledelayedexpansion
