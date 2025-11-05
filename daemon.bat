@@ -17,13 +17,14 @@ IF "%VERSION%" == "6.1" ECHO Windows 7 not supported.
 IF "%VERSION%" == "6.0" ECHO Windows Vista not supported.
 IF "%VERSION%" == "10.0" GOTO CheckArch
 ECHO OS version %VERSION%
+ver
 GOTO Fail
 
 :CheckArch
-reg Query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" > NUL && set OS=32BIT || set OS=64BIT
-if %OS%==32BIT echo [91mThis is a 32bit operating system. Not supported.[0m
-if %OS%==64BIT GOTO CheckGit
-echo OS Architecture %OS%
+reg Query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" > NUL && set OS2=32BIT || set OS2=64BIT
+if %OS2%==32BIT echo [91mThis is a 32bit operating system. Not supported.[0m
+if %OS2%==64BIT GOTO CheckGit
+echo OS Architecture: %OS2%
 GOTO Fail
 
 :CheckGit
