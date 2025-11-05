@@ -31,9 +31,13 @@ SET COMFYUI_TAG=v0.3.66
 SET PYTHON_VERSION=3.13
 
 :: Files ouside of my authority where i provided checksum:
+
 :: tar.gz from https://github.com/Comfy-Org/ComfyUI-Manager/tags
-SET MANAGER_SHA=74829f5be66b4b3934f47bb0170e241b2e4b6617d05448b9232e818b511b7bf7
-SET MANAGER_TAG=3.35
+:: SET MANAGER_SHA=74829f5be66b4b3934f47bb0170e241b2e4b6617d05448b9232e818b511b7bf7
+::SET MANAGER_TAG=3.35
+SET MANAGER_SHA=98bcaac52fa5218459981c69ee0d4ef5955f5f60f41a84f3876f6f8c490f9be9
+SET MANAGER_TAG=3.37
+
 SET FFMPEG_SHA=48ca5e824d2660a94f89fd55287b7c35129b55bbe680c4330efeed5269c4820f
 SET FFMPEG_TAG=8.0
 
@@ -505,14 +509,14 @@ echo   if [ -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94m$2 already exists.\e[0m Validating Check-sum on $2 " >>install.sh
 echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2" >>install.sh
 echo   fi >>install.sh
-echo   if [ ^^! -f "$2" ] ; then >>install.sh
+echo   if [ ^^! -s "$2" ] ; then >>install.sh
 echo      echo -e $"\e[94mDownloading $1\e[0m" >>install.sh
 echo      curl --fail --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
 echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
 echo      echo -n "Validating Check-sum " >>install.sh
 echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2" >>install.sh
 echo   fi >>install.sh
-echo   if [ ^^! -f "$2" ] ; then >>install.sh
+echo   if [ ^^! -s "$2" ] ; then >>install.sh
 echo      echo -e $"\e[91mCheck-sum error. Installation failed.\e[0m" >>install.sh
 echo      return 1 >>install.sh
 echo   fi >>install.sh
@@ -538,7 +542,7 @@ echo      else >>install.sh
 echo      	echo -e $"\e[92mok\e[0m"  >>install.sh
 echo      fi >>install.sh
 echo    fi >>install.sh
-echo    if [ ^^! -f "$2" ] ; then >>install.sh
+echo    if [ ^^! -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
 echo      curl --fail --ssl-revoke-best-effort -L $1 ^>$2 >>install.sh
 echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
@@ -575,7 +579,7 @@ echo      else >>install.sh
 echo      	echo -e $"\e[92mok\e[0m"  >>install.sh
 echo      fi >>install.sh
 echo    fi >>install.sh
-echo    if [ ^^! -f "$2" ] ; then >>install.sh
+echo    if [ ^^! -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
 echo      curl --fail --ssl-revoke-best-effort -A "Wget" -L $1 ^>$2 >>install.sh
 echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh

@@ -16,7 +16,7 @@ IF "%VERSION%" == "6.2" ECHO Windows 8 not supported.
 IF "%VERSION%" == "6.1" ECHO Windows 7 not supported.
 IF "%VERSION%" == "6.0" ECHO Windows Vista not supported.
 IF "%VERSION%" == "10.0" GOTO CheckArch
-ECHO OS version %VERSION%
+ECHO OS-Version: %VERSION%
 ver
 GOTO Fail
 
@@ -66,7 +66,6 @@ ECHO [91mError level: %ERRORLEVEL%[0m
 
 :Fail 
 ECHO OS: %OS%
-ECHO OS-Version: %VERSION%
 ECHO [91mDaemon start failed.[0m
 pause
 GOTO End
