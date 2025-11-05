@@ -349,6 +349,8 @@ IF not exist "%VRWEAREPATH%\*" (
   echo [93mWarning:[0m Invalid VR we are Registry entry found - Ignored.
   IF %INTERACTIVE% equ 1 SET InstallFolder=
   set VRWEAREPATH=
+  set INSTALLATIONTYPE=2
+  SET INSTALLATIONNUMBERTEXT=_2
   GOTO SELECT_INSTALL_PATH
 )
 
