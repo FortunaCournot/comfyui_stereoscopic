@@ -54,7 +54,7 @@ SET DEPTH_ANYTHING_V2_TAG=1.0.1
 ::SET CONTROLNETAUX_TAG=1.1.2-rev562
 
 :: Addional files
-SET KJNODES_TAG=1.1.7
+SET KJNODES_TAG=1.1.9
 SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
 
 
