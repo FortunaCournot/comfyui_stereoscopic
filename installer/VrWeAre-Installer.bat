@@ -89,10 +89,10 @@ ECHO OS version %version%
 GOTO Fail
 
 :CheckArch
-reg Query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" > NUL && set OS=32BIT || set OS=64BIT
-if %OS%==32BIT echo [91mThis is a 32bit operating system. Not supported.[0m
-if %OS%==64BIT GOTO CheckGitRegistryEntry
-echo OS Architecture %OS%
+reg Query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" > NUL && set OS2=32BIT || set OS2=64BIT
+if %OS2%==32BIT echo [91mThis is a 32bit operating system. Not supported.[0m
+if %OS2%==64BIT GOTO CheckGitRegistryEntry
+echo OS Architecture: %OS2%
 GOTO Fail
 
 
