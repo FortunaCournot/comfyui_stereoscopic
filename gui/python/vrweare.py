@@ -62,7 +62,7 @@ COLS = 4
 
 pipelinePauseLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelinepause'))
 pipelineActiveLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelineactive'))
-
+pipelineFowardingLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.forwardstop'))
 
 STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/rate", "check/released"]
 subfolder = os.path.join(path, "../../../../custom_nodes/comfyui_stereoscopic/config/tasks")
@@ -115,7 +115,39 @@ def touch(fname):
         os.utime(fname, None)
     else:
         open(fname, 'a').close()
-     
+
+def set_property(file_path: str, key: str, value: str) -> None:
+    """
+    Setzt oder ersetzt in einer Property-Datei (Format: KEY=VALUE) den Eintrag mit dem gegebenen Key.
+    Wenn der Key nicht existiert, wird er am Ende hinzugefügt.
+    """
+    lines = []
+    key_found = False
+    new_line = f"{key}={value}\n"
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            # Kommentare oder leere Zeilen beibehalten
+            if not stripped or stripped.startswith("#"):
+                lines.append(line)
+                continue
+
+            if stripped.split("=", 1)[0] == key:
+                lines.append(new_line)
+                key_found = True
+            else:
+                lines.append(line)
+
+    if not key_found:
+        # Key noch nicht vorhanden → am Ende hinzufügen
+        if not lines or not lines[-1].endswith("\n"):
+            lines.append("\n")
+        lines.append(new_line)
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
 class SpreadsheetApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -128,6 +160,7 @@ class SpreadsheetApp(QMainWindow):
         # Flags for toggles
         self.toogle_stages_expanded = False
         self.toogle_pipeline_active = not os.path.exists(pipelinePauseLockPath)
+        self.toogle_pipeline_isForwarding = config("PIPELINE_AUTOFORWARD", "0") == "1"
 
         # Initialize caches
         self.stageTypes = []
@@ -305,24 +338,31 @@ class SpreadsheetApp(QMainWindow):
             self.toggle_stages_expanded_action.setIcon(self.toggle_stages_expanded_icon_false)
             
     def toggle_pipeline_active_enabled(self, state):
-        if not config("PIPELINE_AUTOFORWARD", "0") == "1":
-            os.startfile(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")))
-        else:        
-            self.toogle_pipeline_active = state
-            if self.toogle_pipeline_active:
-                if os.path.exists(pipelinePauseLockPath): os.remove(pipelinePauseLockPath)
-            else:
-                touch( pipelinePauseLockPath )
+        #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
+        #    os.startfile(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")))
+        #else:        
+        
+        self.toogle_pipeline_active = state
+        if self.toogle_pipeline_active:
+            if os.path.exists(pipelinePauseLockPath): os.remove(pipelinePauseLockPath)
+        else:
+            touch( pipelinePauseLockPath )
 
-            if not config("PIPELINE_AUTOFORWARD", "0") == "1":
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
-            elif self.toogle_pipeline_active:
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+        #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
+        #    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+        #el
+        
+        if self.toogle_pipeline_active:
+            self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+        else:
+            if os.path.exists(pipelineActiveLockPath):
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
             else:
-                if os.path.exists(pipelineActiveLockPath):
-                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
-                else:
-                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+    
+    def toogle_pipeline_forwarding_enabled(self, state):
+        self.toogle_pipeline_isForwarding = state
+        set_property(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")), "PIPELINE_AUTOFORWARD", "1" if self.toogle_pipeline_isForwarding else "0")
 
     def init_toolbar(self):
         self.toolbar = QToolBar("Main Toolbar")
@@ -346,9 +386,10 @@ class SpreadsheetApp(QMainWindow):
         
         # Toggle pipeline active action with icon
         self.toggle_pipeline_active_action = QAction(self)
-        if not config("PIPELINE_AUTOFORWARD", "0") == "1":
-            self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
-        elif self.toogle_pipeline_active:
+        #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
+        #    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+        #el
+        if self.toogle_pipeline_active:
             self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
         else:
             if os.path.exists(pipelineActiveLockPath):
@@ -362,6 +403,20 @@ class SpreadsheetApp(QMainWindow):
         self.toolbar.addAction(self.toggle_pipeline_active_action)    
         self.toolbar.widgetForAction(self.toggle_pipeline_active_action).setCursor(Qt.PointingHandCursor)
 
+        # Toggle pipeline forwarding action with icon
+        self.toggle_pipeline_forwarding_icon_true = QIcon(os.path.join(path, '../../gui/img/forwardon64.png'))
+        self.toggle_pipeline_forwarding_icon_false = QIcon(os.path.join(path, '../../gui/img/forwardoff64.png'))
+        self.toggle_pipeline_forwarding_action = QAction(self)
+        self.toggle_pipeline_forwarding_action.setCheckable(True)
+        if self.toogle_pipeline_isForwarding:
+            self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true)
+        else:
+            self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_false)
+            
+        self.toggle_pipeline_forwarding_action.setChecked(self.toogle_pipeline_isForwarding)
+        self.toggle_pipeline_forwarding_action.triggered.connect(self.toogle_pipeline_forwarding_enabled)
+        self.toolbar.addAction(self.toggle_pipeline_forwarding_action)    
+        self.toolbar.widgetForAction(self.toggle_pipeline_forwarding_action).setCursor(Qt.PointingHandCursor)
 
         self.toolbar.addSeparator()
 
@@ -454,9 +509,18 @@ class SpreadsheetApp(QMainWindow):
             pipeline_status = not os.path.exists(pipelinePauseLockPath)
             self.toogle_pipeline_active = pipeline_status
             self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
-            if not config("PIPELINE_AUTOFORWARD", "0") == "1":
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
-            elif self.toogle_pipeline_active:
+
+            self.toogle_pipeline_isForwarding = config("PIPELINE_AUTOFORWARD", "0") == "1"
+            self.toggle_pipeline_forwarding_action.setChecked(self.toogle_pipeline_isForwarding)
+            if self.toogle_pipeline_isForwarding:
+                self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true)
+            else:
+                self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_false)
+                
+            #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
+            #    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+            #el
+            if self.toogle_pipeline_active:
                 self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
             else:
                 if os.path.exists(pipelineActiveLockPath):
