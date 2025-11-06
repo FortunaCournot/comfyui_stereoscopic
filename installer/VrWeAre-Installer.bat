@@ -743,8 +743,8 @@ echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo\ >>install.sh
 
 :: Clear git files
-echo   rm -rf ComfyUI_windows_portable/ComfyUI/custom_nodes/*/.github >>install.sh
-echo\ >>install.sh
+:: echo   rm -rf ComfyUI_windows_portable/ComfyUI/custom_nodes/*/.github >>install.sh
+::echo\ >>install.sh
 
 :: Other requirements: Install models
 
