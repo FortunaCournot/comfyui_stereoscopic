@@ -20,6 +20,11 @@ if [ -e $CONFIGFILE ] ; then
 	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 fi
 
+PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD=/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-"0"}
+if [ $DEBUG_AUTOFORWARD_RULES -lt 1 ] ; then
+	exit 0
+fi
+
 DEBUG_AUTOFORWARD_RULES=$(awk -F "=" '/DEBUG_AUTOFORWARD_RULES=/ {print $2}' $CONFIGFILE) ; DEBUG_AUTOFORWARD_RULES=${DEBUG_AUTOFORWARD_RULES:-"0"}
 
 # Use Systempath for python by default, but set it explictly for comfyui portable.
