@@ -622,7 +622,7 @@ echo\ >>install.sh
 
 echo "Download license files..." >>install.sh
 :: Download licenses . for tags from /tags/... the other from /heads/main/
-echo  installFile "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/refs/heads/main/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/tags/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/tags/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
 ::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
@@ -715,7 +715,7 @@ echo\ >>install.sh
 )
 
 ::  Download and unpackage comfyui nodes
-echo   installCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
+echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
