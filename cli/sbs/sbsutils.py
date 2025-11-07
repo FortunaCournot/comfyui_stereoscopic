@@ -98,7 +98,8 @@ def merge_with_preset(args: argparse.Namespace, preset_data: dict, cls_type) -> 
         "processors": "n_processors",
         "savers": "n_savers",
         "feeders": "n_feeders",
-        "model": "model_name"
+        "model": "model_name",
+        "quality": "video_quality"
     }
 
     # start with preset
@@ -195,7 +196,7 @@ def prepare_batch(images: list[tuple[int, np.ndarray]], depth_maps: list[np.ndar
     else:
         order = np.argsort(indices).tolist()  # index order in ascending order
 
-    # Сортируем изображения 
+    # sort images
     images_sorted = [images[i][1] for i in order]
     depth_sorted = [depth_maps[i] for i in order]
 
@@ -224,6 +225,7 @@ def validate_config(params, parser=None):
     savers = params.get("n_savers") or params.get("savers")
     codec = params.get("codec")
     preset = params.get("preset") 
+    video_quality = params.get("quality")  or params.get("video_quality")
     
     def fail(msg):
         if parser:
@@ -251,6 +253,9 @@ def validate_config(params, parser=None):
                 os.makedirs(output_path, exist_ok=True)
             except Exception as e:
                 fail(f"Failed to create output directory: {e}")
+        if video_quality:
+            fail(f"--quality is only supported for --input-type=video")
+            
 
     elif input_type == "i2i":
         if input_path and os.path.isfile(input_path):
@@ -272,6 +277,8 @@ def validate_config(params, parser=None):
             fail(f"--codec is only supported for --input-type=video")
         if preset:
             fail(f"Presets are available only for 'video' and 'folder' --input-type.")
+        if video_quality:
+            fail(f"--quality is only supported for --input-type=video")
 
     else:
         fail(f"Unknown input type: {input_type}")
@@ -309,6 +316,8 @@ def debug_report(ctx):
         print(f"Processing threads: {ctx.n_processors}")
         print(f"Savers threads: {ctx.n_savers}")
         print(f"Model: {ctx.model_name}")
+        if ctx.input_type == "video":
+            print(f"Quality: {ctx.video_quality}")
         print(f"Codec: {ctx.codec}")
         print(f"Queue sizes: raw={ctx.r_queue}, input={ctx.in_queue}, "
               f"process={ctx.p_queue}, save={ctx.s_queue}")
