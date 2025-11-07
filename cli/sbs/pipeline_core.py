@@ -81,14 +81,14 @@ class PipelineContext:
     
     # etc
     fatal_error: bool = False
+    video_quality: str = "medium"
     
     @staticmethod
-    def video_worker_thread(save_queue: Queue,video_path, output_path: str, width: int, height: int, fps: float,codec: str,ctx):
+    def video_worker_thread(save_queue: Queue,video_path, output_path: str, width: int, height: int, fps: float,codec: str,crf: int, cq: int,ctx):
         """
         Writes SBS frames from queue to video via FFmpeg, preserving audio if present.
         """
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-        
         ffmpeg_cmd = [
             "ffmpeg",
             "-y",
@@ -106,7 +106,7 @@ class PipelineContext:
             "-map", "1:a:0?",
             # video
             "-c:v", codec,
-            ] + (["-crf", "20"] if codec in ("libx264", "libx265") else ["-cq", "19"]) + [ 
+            ] + (["-crf", str(crf)] if codec in ("libx264", "libx265") else ["-rc:v", "vbr", "-cq:v", str(cq), "-b:v", "0"]) + [ 
             "-pix_fmt", "yuv420p",
             "-c:a", "copy",
             output_path
