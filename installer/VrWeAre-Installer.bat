@@ -25,8 +25,8 @@ SET VRWEARE_VERSION=4.0
 ::SET COMFYUI_SHA=6d17839039e3e70ec7edb757bcf330811fc645ad5c27f958233bf4d46592061e
 ::SET COMFYUI_TAG=v0.3.65
 
-SET COMFYUI_SHA=04a9bbef077c611a33d8a93387a34cc76ce0f5ed7a7f2b073c1aa4b3e5bd6c85
-SET COMFYUI_TAG=v0.3.66
+SET COMFYUI_SHA=cb8a5cff9a1c3bb5dc37e5f1d146e04c385bfc60aa83216312a134cbcf7861ff
+SET COMFYUI_TAG=v0.3.68
 
 SET PYTHON_VERSION=3.13
 
@@ -737,7 +737,7 @@ echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Frame-Inter
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-MMAudio/archive/refs/tags/%MMAUDIO_TAG%.tar.gz" "install/mmaudio.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-KJNodes/archive/refs/tags/%KJNODES_TAG%.tar.gz" "install/kjnodes.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
+echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-KJNodes/archive/refs/tags/%KJNODES_TAG%.tar.gz" "install/kjnodes.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-kjnodes" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 
 echo\ >>install.sh
