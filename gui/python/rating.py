@@ -348,6 +348,11 @@ class RateAndCutDialog(QDialog):
             self.sortfiles_combo.setEditable(False)
             for icon in self.sortfiles_icons:
                 self.sortfiles_combo.addItem(icon, "")
+            self.sortfiles_combo.setItemData(0, "alpha↑", Qt.ToolTipRole)
+            self.sortfiles_combo.setItemData(1, "alpha↓", Qt.ToolTipRole)
+            self.sortfiles_combo.setItemData(2, "time↑", Qt.ToolTipRole)
+            self.sortfiles_combo.setItemData(3, "time↓", Qt.ToolTipRole)
+                
             self.sortfiles_combo.setIconSize(QSize(32,32))
             self.sortfiles_combo.setCurrentIndex(_sortOrderIndex)
             self.sortfiles_combo.setStyleSheet('selection-background-color: rgb(0,0,0)')

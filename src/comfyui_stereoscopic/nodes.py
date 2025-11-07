@@ -287,17 +287,17 @@ except ImportError as e:
             return (f"ERROR: {error}",)
 
 try:
-    from loading import LoadImageWithFilename
-    nodelist=nodelist+", LoadImageWithFilename"
+    from loading import LoadImageAdvanced
+    nodelist=nodelist+", LoadImageAdvanced"
 except ImportError as e:
     LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing LoadImageWithFilename: {e}")
+    print(f"[comfyui_stereoscopic] Error importing LoadImageAdvanced: {e}")
 
     # Create a placeholder class
-    class LoadImageWithFilename:
+    class LoadImageAdvanced:
         @classmethod
         def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading LoadImageWithFilename"})}}
+            return {"required": {"error": ("STRING", {"default": "Error loading LoadImageAdvanced"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
         CATEGORY = "Stereoscopic"
@@ -431,7 +431,7 @@ NODE_CLASS_MAPPINGS = {
     "VRwearePause" : VRwearePause,
     "VRwearePauseLatent" : VRwearePauseLatent,
     "VRweareResume" : VRweareResume,
-    "LoadImageWithFilename": LoadImageWithFilename,
+    "LoadImageAdvanced": LoadImageAdvanced,
     "LoadSingleImageByFilename": LoadSingleImageByFilename,
     "IncrementDirectoryImageLoader": IncrementDirectoryImageLoader,
     "LoopWhileNotFinished": LoopWhileNotFinished,
@@ -458,7 +458,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "VRwearePause": "Pause Pipeline",
     "VRwearePauseLatent": "Pause Pipeline",
     "VRweareResume": "Resume Pipeline",
-    "LoadImageWithFilename": "Load Image + Filename",
+    "LoadImageAdvanced": "Load Image Advanced",
     "LoadSingleImageByFilename": "LoadSingleImageByFilename",
     "IncrementDirectoryImageLoader": "IncrementDirectoryImageLoader",
     "LoopWhileNotFinished": "LoopWhileNotFinished",

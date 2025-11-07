@@ -58,7 +58,7 @@ class JudgeDialog(QDialog):
         self.setGeometry(150, 150, 640, 480)
         self.outer_main_layout = QVBoxLayout()
         self.setLayout(self.outer_main_layout)
-        self.setStyleSheet("background : black; color: white;")
+        self.setStyleSheet("background-color : black;")
         self.sw=1
         self.filter_vid=False
         self.filter_img=False

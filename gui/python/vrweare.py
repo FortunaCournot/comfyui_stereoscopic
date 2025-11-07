@@ -385,7 +385,7 @@ class SpreadsheetApp(QMainWindow):
         self.toggle_pipeline_active_icon_stopped = QIcon(os.path.join(path, '../../gui/img/pipelineStopped.png'))
         
         # Toggle pipeline active action with icon
-        self.toggle_pipeline_active_action = QAction(self)
+        self.toggle_pipeline_active_action = QAction(self.toggle_pipeline_active_icon_transit, "Task Execution Status", self)
         #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
         #    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
         #el
@@ -406,7 +406,7 @@ class SpreadsheetApp(QMainWindow):
         # Toggle pipeline forwarding action with icon
         self.toggle_pipeline_forwarding_icon_true = QIcon(os.path.join(path, '../../gui/img/forwardon64.png'))
         self.toggle_pipeline_forwarding_icon_false = QIcon(os.path.join(path, '../../gui/img/forwardoff64.png'))
-        self.toggle_pipeline_forwarding_action = QAction(self)
+        self.toggle_pipeline_forwarding_action = QAction(self.toggle_pipeline_forwarding_icon_false,"Forwarding Status", self)
         self.toggle_pipeline_forwarding_action.setCheckable(True)
         if self.toogle_pipeline_isForwarding:
             self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true)
