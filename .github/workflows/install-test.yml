@@ -10,6 +10,9 @@ jobs:
     name: Test Installation on Windows
     runs-on: windows-latest
 
+    env:
+      INSTALL_DIR: C:\Users\runneradmin\AppData\Local
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -23,6 +26,11 @@ jobs:
         shell: cmd
         run: |
           "C:\Program Files\7-Zip\7z.exe" i
+
+      - name: Verify FFmpeg Installation
+        shell: cmd
+        run: |
+          ffmpeg -version
 
       - name: Setup Python 3.13
         uses: actions/setup-python@v5
@@ -38,14 +46,14 @@ jobs:
       - name: Run Installation Script
         shell: cmd
         run: |
-          echo Starte Installationsskript...
-          call installer\VrWeAre-Installer.bat C:\Users\runneradmin\AppData\Local
+          echo Starte Installationsskript mit Ziel: %INSTALL_DIR%
+          call installer\VrWeAre-Installer.bat "%INSTALL_DIR%"
 
       - name: Verify Installation Files
         shell: cmd
         run: |
           rem Beispielprüfung auf erfolgreich installierte Dateien
-          if exist "C:\Program Files\MyApp\myapp.exe" (
+          if exist "%INSTALL_DIR%\VrWeAre\myapp.exe" (
               echo Installation erfolgreich.
           ) else (
               echo Installation fehlgeschlagen. && exit /b 1

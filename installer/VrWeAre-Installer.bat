@@ -64,6 +64,7 @@ SET INSTALLATIONTYPE=1
 SET INSTALLATIONNUMBERTEXT=
 SET InstallFolder=%1
 echo Installfolder: %InstallFolder%
+mkdir %InstallFolder%
 SET INTERACTIVE=0
 SET VRWEAREPATH=
 
