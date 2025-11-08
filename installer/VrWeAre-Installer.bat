@@ -505,7 +505,7 @@ echo cleanup() { >>install.sh
 echo  exit_code=$? >>install.sh
 echo  [[ ${exit_code} -eq 0 ]] ^&^& trap - ERR ^&^& echo 0 ^>.installstatus >>install.sh
 echo  [[ ${exit_code} -ne 0 ]] ^&^& echo -e $"\n\e[91m=== PRESS RETURN TO CONTINUE (${exit_code}) ===\e[0m" >>install.sh
-IF %INTERACTIVE% equ 1 echo  [[ ${exit_code} -ne 0 ]] ^&^& [ "$#" -eq 0 ] && read WAITING_FOR_ENTER >>install.sh
+IF %INTERACTIVE% equ 1 echo  [[ ${exit_code} -ne 0 ]] ^&^& [ "$#" -eq 0 ] ^&^& read WAITING_FOR_ENTER >>install.sh
 echo  echo $exit_code ^>.installstatus >>install.sh
 echo } >>install.sh
 echo trap cleanup EXIT >>install.sh
@@ -603,6 +603,13 @@ echo    fi >>install.sh
 echo  else >>install.sh
 echo   echo -e $"$2 already unpacked. \e[92mok\e[0m" >>install.sh
 echo  fi >>install.sh
+echo } >>install.sh
+echo checkoutCustomNodes() { >>install.sh
+echo   git clone  $1 $2  >>install.sh
+echo   CWD=`pwd`  >>install.sh
+echo   cd "$2"  >>install.shl.sh
+echo   git checkout tags/$3  >>instal
+echo   cd "$CWD"  >>install.shl.sh
 echo } >>install.sh
 :: installFile(): URL targetfile [shasum]
 echo installFile() { >>install.sh
@@ -752,7 +759,8 @@ echo\ >>install.sh
 ::  Download and unpackage comfyui nodes
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
+::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
+echo   checkoutCustomNodes "git@github.com:FortunaCournot/comfyui_stereoscopic.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic" "%VRWEARE_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
 ::echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
