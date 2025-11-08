@@ -38,7 +38,7 @@ jobs:
       - name: Run Installation Script
         shell: cmd
         run: |
-          call install.bat
+          call installer\VrWeAre-Installer.bat
 
       - name: Verify Installation Files
         shell: cmd
