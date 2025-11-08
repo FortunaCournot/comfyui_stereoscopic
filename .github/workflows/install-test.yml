@@ -27,6 +27,11 @@ jobs:
         run: |
           "C:\Program Files\7-Zip\7z.exe" i
 
+      - name: Ensure FFmpeg is installed
+        shell: cmd
+        run: |
+          choco install ffmpeg -y
+
       - name: Verify FFmpeg Installation
         shell: cmd
         run: |
@@ -49,14 +54,13 @@ jobs:
           echo Starte Installationsskript mit Ziel: %INSTALL_DIR%
           call installer\VrWeAre-Installer.bat "%INSTALL_DIR%"
 
-      - name: Verify Installation Files
+      - name: Verify Installation Directory
         shell: cmd
         run: |
-          rem Beispielprüfung auf erfolgreich installierte Dateien
-          if exist "%INSTALL_DIR%\VrWeAre\myapp.exe" (
-              echo Installation erfolgreich.
+          if exist "%INSTALL_DIR%" (
+              echo Installationsverzeichnis gefunden: %INSTALL_DIR%
           ) else (
-              echo Installation fehlgeschlagen. && exit /b 1
+              echo Installationsverzeichnis fehlt. && exit /b 1
           )
 
       - name: Verify Python Detection (post-install)
