@@ -819,12 +819,13 @@ echo\ >>install.sh
 :: pass
 
 :: Install default pipeline
-ECHO cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward-template.yaml ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
+ECHO mkdir -p ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic  >>install.sh
+ECHO cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward-template.yaml ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
 :: Apply install options
-IF %PIPELINE_OPTION_SBS% equ 0 ECHO sed -i "s/: tasks\/no-sbs/: fullsbs/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
-IF %PIPELINE_OPTION_FLI2V% equ 0 ECHO sed -i "s/FLIMAGE_TARGET/caption/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
-IF %PIPELINE_OPTION_FLI2V% equ 1 ECHO sed -i "s/FLIMAGE_TARGET/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
-IF %PIPELINE_OPTION_WATERMARK% equ 0 ECHO sed -i "s/watermark\/encrypt/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_SBS% equ 0 ECHO sed -i "s/: tasks\/no-sbs/: fullsbs/g" ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_FLI2V% equ 0 ECHO sed -i "s/FLIMAGE_TARGET/caption/g" ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_FLI2V% equ 1 ECHO sed -i "s/FLIMAGE_TARGET/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
+IF %PIPELINE_OPTION_WATERMARK% equ 0 ECHO sed -i "s/watermark\/encrypt/tasks\/first-last-image/g" ComfyUI_windows_portable/ComfyUI/user/default/comfyui_stereoscopic/default_autoforward.yaml  >>install.sh
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :: Continue installation with bash script

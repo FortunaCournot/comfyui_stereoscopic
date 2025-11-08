@@ -422,7 +422,11 @@ cd ../..
 
 # REBUILD FORWARD PIPELINE
 if [ ! -e "$CONFIGPATH"/"autoforward.yaml" ] ; then
-	cp ./custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml "$CONFIGPATH"/"autoforward.yaml"
+	if [ -e "$CONFIGPATH"/"default_autoforward.yaml" ] ; then
+		cp "$CONFIGPATH"/"default_autoforward.yaml" "$CONFIGPATH"/"autoforward.yaml"	
+	else
+		cp ./custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml "$CONFIGPATH"/"autoforward.yaml"
+	fi
 fi
 echo -e $"\e[2mRebuild forward rules with \e[36m$CONFIGPATH""/autoforward.yaml\e[0m"
 # Clear forward definitions and rebuild.
