@@ -1028,7 +1028,8 @@ if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_st
 :: check test success
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
     ping 127.0.0.1 -n 2 > NUL
-    ECHO [91mTests failed. Fix errors and restart service daemon.[0m Located at:
+    ECHO [91mTests failed. Fix errors and restart service daemon.[0m Fail reason:
+	type "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\errorlog.txt"
     GOTO Fail
 )
 ECHO [92mTests passed.[0m

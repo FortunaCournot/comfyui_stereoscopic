@@ -9,6 +9,8 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
+echo "Test starting..." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
+
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 SHORT_CONFIGFILE=$CONFIGFILE
 CONFIGFILE=`realpath "$CONFIGFILE"`
@@ -35,7 +37,8 @@ if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 0 ]] || [[ $SLIDESBSCOUNT -gt 0 ]] ;
 	echo -e $"\e[91mError:\e[0m All input files must be removed first, then try again."
 	echo "Found $COUNT files in incoming folders:"
 	echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat" && echo "$DUBSFXCOUNT to dub, $WMECOUNT to encrypt, $WMDCOUNT to decrypt"
-	exit
+	echo "Error: All input files must be removed." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
+	exit 1
 fi
 
 
@@ -63,12 +66,14 @@ cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_video.mp4 ./input/vr/
 if [ -e input/vr/fullsbs/test_video.mp4 ] || [ ! -e input/vr/fullsbs/done/test_video.mp4 ] || [ ! -e output/vr/fullsbs/test_video_SBS_LR.mp4 ] ; then
 	echo -e $"\e[91mTest video sbs converter failed.\e[0m"
 	echo -e $"\e[91mTo skip tests, manually delete file '.install' in folder \e[96m./custom_nodes/comfyui_stereoscopic/.test\e[0m"
-	exit
+	echo "Error: Test video sbs converter failed." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
+	exit 1
 fi
 if [ -e input/vr/fullsbs/test_image.png ] || [ ! -e input/vr/fullsbs/done/test_image.png ] || [ ! -e output/vr/fullsbs/test_image_SBS_LR.png ] ; then
 	echo -e $"\e[91mTest image sbs converter failed.\e[0m"
 	echo -e $"\e[91mTo skip tests, manually delete file '.install' in folder \e[96m./custom_nodes/comfyui_stereoscopic/.test\e[0m"
-	exit
+	echo "Error: Test image sbs converter failed." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
+	exit 1
 fi
 mv -f -- output/vr/fullsbs/test_image_SBS_LR.png output/vr/fullsbs/test_video_SBS_LR.mp4 custom_nodes/comfyui_stereoscopic/.test/$INTERNAL_VERSION  2>/dev/null
 rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png output/vr/fullsbs/test_image_SBS_LR.png 2>/dev/null
@@ -85,12 +90,14 @@ cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_video.mp4 ./input/vr/
 if [ -e input/vr/scaling/test_video.mp4 ] || [ ! -e input/vr/scaling/done/test_video.mp4 ] || [ ! -e output/vr/scaling/test_video_x4.mp4 ] ; then
 	echo -e $"\e[91mTest video scale failed.\e[0m"
 	echo -e $"\e[91mTo skip tests, manually delete file '.install' in folder \e[96m./custom_nodes/comfyui_stereoscopic/.test\e[0m"
-	exit
+	echo "Error: Test video scale failed." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
+	exit 1
 fi
 if [ -e input/vr/scaling/test_image.png ] || [ ! -e input/vr/scaling/done/test_image.png ] || [ ! -e output/vr/scaling/test_image_x4_4K.png ] ; then
 	echo -e $"\e[91mTest image scale failed.\e[0m"
 	echo -e $"\e[91mTo skip tests, manually delete file '.install' in folder \e[96m./custom_nodes/comfyui_stereoscopic/.test\e[0m"
-	exit
+	echo "Error: Test image scale failed." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
+	exit 1
 fi
 mv -f -- output/vr/scaling/test_image_x4_4K.png output/vr/scaling/test_video_x4.mp4 custom_nodes/comfyui_stereoscopic/.test/$INTERNAL_VERSION  2>/dev/null
 rm -f -- input/vr/scaling/test_image.png input/vr/scaling/done/test_image.png output/vr/scaling/test_image_x4_4K.png 2>/dev/null
@@ -100,4 +107,5 @@ echo " "
 
 echo -e $"\e[92m####### ALL TESTS SUCCEEDED ######\e[0m"
 rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
+echo "Tests successful." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
 exit 0
