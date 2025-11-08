@@ -797,7 +797,7 @@ ECHO/
 ECHO Continue installation with bash script. Waiting for completion...
 ::"%GITPATH%"git-bash.exe -c 'pwd; echo -e $"\n\e[94m=== PRESS RETURN TO CONTINUE ===\e[0m" ; read x'
 IF %INTERACTIVE% equ 1 "%GITPATH%"git-bash.exe install.sh
-IF %INTERACTIVE% equ 0 "%GITPATH%"bin\bash.exe -c "./install.sh" -y 2>&1 | tee installer_log.txt"
+IF %INTERACTIVE% equ 0 "%GITPATH%"bin\bash.exe -c "./install.sh -y" 2>&1 | tee installer_log.txt"
 set /p CODE=<.installstatus
 DEL .installstatus
 ECHO Script completed. (%CODE%)
