@@ -615,7 +615,7 @@ echo\ >>install.sh
 
 echo COMFYUIHOST=127.0.0.1 >>install.sh
 echo COMFYUIPORT=8188 >>install.sh
-echo "Checking ComfyUI status on $COMFYUIHOST/$COMFYUIPORT (upgrade git if getting stuck here) ..." >>install.sh
+echo echo "Checking ComfyUI status on $COMFYUIHOST/$COMFYUIPORT (upgrade git if getting stuck here) ..." >>install.sh
 echo status=`true ^&^>/dev/null ^</dev/tcp/$COMFYUIHOST/$COMFYUIPORT ^&^& echo open ^|^| echo closed` >>install.sh
 echo if [ "$status" = "open" ]; then >>install.sh
 echo     echo -e $"\e[93m\e[1mComfyUI running\e[0m - Waiting for stop on http://""$COMFYUIHOST"":""$COMFYUIPORT ..." >>install.sh
@@ -626,7 +626,7 @@ echo 	done >>install.sh
 echo fi >>install.sh
 echo\ >>install.sh
 
-echo "Download license files..." >>install.sh
+echo echo "Download license files..." >>install.sh
 :: Download licenses . for tags from /tags/... the other from /heads/main/
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/tags/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/tags/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
@@ -648,7 +648,7 @@ if defined FLAG_INSTALL_FFMPEG (
 echo  installFile "https://raw.githubusercontent.com/FFmpeg/FFmpeg/refs/heads/master/LICENSE.md" "./LICENSE_ffmpeg.md"  >>install.sh
 )
 if defined FLAG_INSTALL_EXIFTOOL (
-echo  "ExifTool by Phil Harvey. This is free software; you can redistribute it and/or modify it under the same terms as Perl itself. https://dev.perl.org/licenses/" ^> ./LICENSE_Exiftool.txt  >>install.sh
+echo  echo "ExifTool by Phil Harvey. This is free software; you can redistribute it and/or modify it under the same terms as Perl itself. https://dev.perl.org/licenses/" ^> ./LICENSE_Exiftool.txt  >>install.sh
 )
 
 :: Ask user for commitment
@@ -669,7 +669,7 @@ echo         * ) echo "Please answer yes or no.";; >>install.sh
 echo     esac >>install.sh
 echo done >>install.sh
 echo mkdir ./LICENSE >>install.sh
-echo mv -- ./LICENSE* ./LICENSE >>install.sh
+echo mv -- ./LICENSE*.* ./LICENSE >>install.sh
 echo clear >>install.sh
 echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installing... ===\e[0m\n" >>install.sh
 echo echo -e $" " >>install.sh
@@ -963,7 +963,7 @@ ECHO TVAI_MODEL_DIR=`cat ./user/default/comfyui_stereoscopic/.TVAI_MODEL_DIR`  >
 	   
 :: Start server and service to complete installation
 :Start
-IF %INTERACTIVE% equ 0 GOTO Final
+::IF %INTERACTIVE% equ 0 GOTO Final
 CLS
 ECHO/
 ECHO [1m=== [92mV[91mR[0m[1m we are %VRWEARE_VERSION% - Start ===[0m
