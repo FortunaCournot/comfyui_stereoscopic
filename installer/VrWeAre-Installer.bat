@@ -505,7 +505,7 @@ echo cleanup() { >>install.sh
 echo  exit_code=$? >>install.sh
 echo  [[ ${exit_code} -eq 0 ]] ^&^& trap - ERR ^&^& echo 0 ^>.installstatus >>install.sh
 echo  [[ ${exit_code} -ne 0 ]] ^&^& echo -e $"\n\e[91m=== PRESS RETURN TO CONTINUE (${exit_code}) ===\e[0m" >>install.sh
-echo  [[ ${exit_code} -ne 0 ]] ^&^& [ "$#" -eq 0 ] && read WAITING_FOR_ENTER >>install.sh
+IF %INTERACTIVE% equ 1 echo  [[ ${exit_code} -ne 0 ]] ^&^& [ "$#" -eq 0 ] && read WAITING_FOR_ENTER >>install.sh
 echo  echo $exit_code ^>.installstatus >>install.sh
 echo } >>install.sh
 echo trap cleanup EXIT >>install.sh
