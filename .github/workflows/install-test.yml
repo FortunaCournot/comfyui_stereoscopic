@@ -39,7 +39,7 @@ jobs:
         shell: cmd
         run: |
           echo Starte Installationsskript...
-          call installer\VrWeAre-Installer.bat
+          call installer\VrWeAre-Installer.bat C:\Users\runneradmin\AppData\Local
 
       - name: Verify Installation Files
         shell: cmd

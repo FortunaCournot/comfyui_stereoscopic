@@ -113,6 +113,7 @@ for %%k in (HKCU HKLM) do (
 )
 ECHO/
 ECHO [91mGit not found. Please install from [96m https://git-scm.com/ [0m
+IF %INTERACTIVE% equ 0 GOTO Fail
 :reinstallgit
 ECHO/ 
 ECHO   Y - Open Browser to [96mhttps://git-scm.com/[0m
@@ -134,6 +135,7 @@ git --version >"%temp%"\version.txt 2> nul
 IF %ERRORLEVEL% == 0 GOTO CHECK_GIT_VERSION
 ECHO * [91mGit to old, you need to update before installing VR we are.[0m
 ECHO/
+IF %INTERACTIVE% equ 0 GOTO Fail
 Goto reinstallgit
 
 :CHECK_GIT_VERSION
@@ -159,6 +161,7 @@ for %%k in (HKCU HKLM) do (
 )
 ECHO/
 ECHO [91m7-Zip not found. Please install it first.[0m
+IF %INTERACTIVE% equ 0 GOTO Fail
 :reinstall7z
 ECHO/ 
 ECHO   Y - Open Browser to [96mhttps://www.7-zip.org/[0m
@@ -179,6 +182,7 @@ SET PATH=%THE7ZIPPATH%;%PATH%
 7z --help >"%temp%"\zversion.txt
 IF %ERRORLEVEL% == 0 GOTO CHECK_7ZIP_VERSION
 ECHO * [91m7-Zip to old, you need to update before installing VR we are.[0m
+IF %INTERACTIVE% equ 0 GOTO Fail
 ECHO/
 ECHO Please deinstall it first. Then...
 Goto reinstall7z
@@ -197,6 +201,7 @@ IF %ERRORLEVEL% == 0 GOTO CHECK_FFMPEG_VERSION
 echo * [94mffmpeg not found.[0m Will be installed locally (+1GB)
 set FLAG_INSTALL_FFMPEG=X
 GOTO CHECK_EXIF_PATH
+::UNUSED ------>
 ECHO/
 echo [91mffmpeg not found in path. Please install it. Homepage: [96mhttps://www.ffmpeg.org/[0m
 call RefreshEnv.cmd
@@ -227,6 +232,7 @@ IF %ERRORLEVEL% == 0 GOTO CHECK_EXIF_VERSION
 echo * [94mexiftool not found.[0m Will be installed locally.
 set FLAG_INSTALL_EXIFTOOL=X
 GOTO CHECK_TVAI
+::UNUSED ------>
 ECHO/
 echo [91mexiftool not found in path. Please install it. Homepage: [96mhttps://exiftool.org/[0m 
 echo You need to rename "exiftool(-k).exe" to "exiftool.exe" for command-line use.
@@ -244,7 +250,6 @@ CLS
 IF ERRORLEVEL 2 GOTO CHECK_EXIF_PATH
 start "" https://sourceforge.net/projects/exiftool/files/exiftool-13.38_64.zip/download
 GOTO CHECK_EXIF_PATH
-
 
 :CHECK_EXIF_VERSION
 set /p Version=<"%temp%"\version.txt
