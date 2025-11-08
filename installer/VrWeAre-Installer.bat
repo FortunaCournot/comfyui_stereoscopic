@@ -524,9 +524,6 @@ echo\ >>install.sh
 :: --- Define cache target path based on second argument ($2) 
 echo   if [ -n "$CACHE_DIR" ]; then >>install.sh
 echo     CACHE_TARGET="$CACHE_DIR/$2" >>install.sh
-echo   fi
-echo\ >>install.sh
-echo   if [ -n "$CACHE_DIR" ]; then >>install.sh
 ::Ensure subdirectory exists (e.g., cache/install)
 echo     mkdir -p "$(dirname "$CACHE_TARGET")" >>install.sh
 echo\ >>install.sh
