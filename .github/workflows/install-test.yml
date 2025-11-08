@@ -1,9 +1,10 @@
-name: Install Test (Develop)
+name: Install Test (Develop & Main)
 
 on:
   push:
     branches:
       - develop
+      - main
 
 jobs:
   test-installation:
@@ -45,32 +46,32 @@ jobs:
       - name: Verify Python Version (pre-install)
         shell: cmd
         run: |
-          echo Überprüfe Python vor der Installation:
+          echo Checking Python before installation:
           python --version
 
       - name: Run Installation Script
         shell: cmd
         run: |
-          echo Starte Installationsskript mit Ziel: %INSTALL_DIR%
+          echo Starting installation script with target: %INSTALL_DIR%
           call installer\VrWeAre-Installer.bat "%INSTALL_DIR%"
 
-      - name: Verify Installation Directory
+      - name: Verify Installation Tests
         shell: cmd
         run: |
-          if exist "%INSTALL_DIR%" (
-              echo Installationsverzeichnis gefunden: %INSTALL_DIR%
+          set TEST_DIR=%INSTALL_DIR%\vrweare\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test
+          set TEST_FILE=%TEST_DIR%\.install
+
+          echo Checking installation test directory:
+          echo %TEST_DIR%
+
+          if exist "%TEST_DIR%" (
+              echo Test directory found.
           ) else (
-              echo Installationsverzeichnis fehlt. && exit /b 1
+              echo ERROR: Test directory not found! && exit /b 1
           )
 
-      - name: Verify Python Detection (post-install)
-        shell: cmd
-        run: |
-          echo Überprüfe, ob Installation Python korrekt erkennt:
-          python --version
-          for /f "tokens=2 delims= " %%v in ('python --version 2^>^&1') do (
-              echo Erkannte Python-Version: %%v
-              if not "%%v"=="3.13." (
-                  echo Falsche Python-Version erkannt. && exit /b 1
-              )
+          if exist "%TEST_FILE%" (
+              echo ERROR: File .install exists – tests NOT successful! && exit /b 1
+          ) else (
+              echo Tests successful – file .install not present.
           )

@@ -392,7 +392,7 @@ GOTO QueryForInstallationType
 ::continue...
 :VRWEARE_END_REG_SEARCH
 :: No Choice - Create new installation...
-::pass
+IF %INTERACTIVE% equ 0 GOTO QueryForInstallationType
 
 :SECOND_INSTALL
 set INSTALLATIONTYPE=2
@@ -426,10 +426,10 @@ if not exist "%InstallFolder%\*" (
 
 
 :QueryForInstallationType
-IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
 SET PIPELINE_OPTION_SBS=1
 SET PIPELINE_OPTION_FLI2V=0
 SET PIPELINE_OPTION_WATERMARK=0
+IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
 :QueryForInstallationTypeCont
 SET PIPELINE_OPTION_SBS_TEXT=On
 SET PIPELINE_OPTION_FLI2V_TEXT=On
