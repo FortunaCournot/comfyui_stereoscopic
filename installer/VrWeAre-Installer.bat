@@ -498,6 +498,20 @@ echo cd "$CWD"  >>install.sh
 ::echo echo THE7ZIPPATH=$THE7ZIPPATH  >>install.sh
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
+echo # --- Detect cache directory --- >>install.sh
+echo if [ -d "$(dirname "$0")/../cache" ]; then >>install.sh
+echo     # Cache detected (running in GitHub Actions) >>install.sh
+echo     CACHE_DIR="$(dirname "$0")/../cache" >>install.sh
+echo else >>install.sh
+echo     # No cache directory (local run) >>install.sh
+echo     CACHE_DIR="" >>install.sh
+echo fi >>install.sh
+echo\ >>install.sh
+echo # --- Define cache target path based on second argument ($2) --- >>install.sh
+echo if [ -n "$CACHE_DIR" ]; then >>install.sh
+echo     CACHE_TARGET="$CACHE_DIR/$2" >>install.sh
+echo fi
+echo\ >>install.sh
 echo clear >>install.sh
 echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installation ===\e[0m\n" >>install.sh
 echo\ >>install.sh
@@ -511,6 +525,20 @@ echo } >>install.sh
 echo trap cleanup EXIT >>install.sh
 :: downloadCheck7z(): URL targetfile targetfolder shasum
 echo downloadCheck7z() { >>install.sh
+echo   # --- Conditional logic: use cache or download --- >>install.sh
+echo   if [ -n "$CACHE_DIR" ]; then >>install.sh
+echo     # Ensure subdirectory exists (e.g., cache/install) >>install.sh
+echo     mkdir -p "$(dirname "$CACHE_TARGET")" >>install.sh
+echo\ >>install.sh
+echo     if [ -f "$CACHE_TARGET" ]; then >>install.sh
+echo         echo "Using cached file: $CACHE_TARGET" >>install.sh
+echo         cp -f "$CACHE_TARGET" "$2" >>install.sh
+echo     else >>install.sh
+echo         echo "Need downloading file: $1" >>install.sh
+echo     fi >>install.sh
+echo   else >>install.sh
+echo     echo "No cache directory found, downloading normally..." >>install.sh
+echo   fi >>install.sh
 echo   if [ -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94m$2 already exists.\e[0m Validating Check-sum on $2 " >>install.sh
 echo      echo "$4 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2" >>install.sh
@@ -525,6 +553,10 @@ echo   fi >>install.sh
 echo   if [ ^^! -s "$2" ] ; then >>install.sh
 echo      echo -e $"\e[91mCheck-sum error. Installation failed.\e[0m" >>install.sh
 echo      return 1 >>install.sh
+echo   fi >>install.sh
+echo   if [ -f "$CACHE_TARGET" ]; then >>install.sh
+echo     echo "Storing file in cache: $CACHE_TARGET" >>install.sh
+echo     cp -f "$2" "$CACHE_TARGET" >>install.sh
 echo   fi >>install.sh
 echo   7z x -y $2 >>install.sh
 echo   if [ $? -ne 0 ]; then >>install.sh
@@ -984,7 +1016,7 @@ START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C C
 :: wait for test to start
 ECHO Waiting for tests to start...
 :TESTS
-timeout /t 1 /nobreak > NUL
+ping 127.0.0.1 -n 2 > NUL
 if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" GOTO TESTS
 
 :: wait for test to complete or fail
@@ -992,13 +1024,13 @@ ECHO Waiting for tests to complete...
 :WAIT_FOR_TEST_FINISH
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
 	if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.signalfail" (
-		timeout /t 1 /nobreak > NUL
+		ping 127.0.0.1 -n 2 > NUL
 		GOTO WAIT_FOR_TEST_FINISH
 	)
 )
 :: check test success
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
-    timeout /t 1 /nobreak > NUL
+    ping 127.0.0.1 -n 2 > NUL
     ECHO [91mTests failed. Fix errors and restart service daemon.[0m Located at:
     GOTO Fail
 )
