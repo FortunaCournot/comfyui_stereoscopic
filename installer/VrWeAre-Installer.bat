@@ -505,7 +505,7 @@ echo cleanup() { >>install.sh
 echo  exit_code=$? >>install.sh
 echo  [[ ${exit_code} -eq 0 ]] ^&^& trap - ERR ^&^& echo 0 ^>.installstatus >>install.sh
 echo  [[ ${exit_code} -ne 0 ]] ^&^& echo -e $"\n\e[91m=== PRESS RETURN TO CONTINUE (${exit_code}) ===\e[0m" >>install.sh
-echo  [[ ${exit_code} -ne 0 ]] ^&^& read WAITING_FOR_ENTER >>install.sh
+echo  [[ ${exit_code} -ne 0 ]] ^&^& [ "$#" -eq 0 ] && read WAITING_FOR_ENTER >>install.sh
 echo  echo $exit_code ^>.installstatus >>install.sh
 echo } >>install.sh
 echo trap cleanup EXIT >>install.sh
@@ -660,7 +660,7 @@ echo echo -e $"This software depends on other software. It's protected by licens
 echo echo -e $"The license files have been downloaded to "`pwd`":" >>install.sh
 echo ls ./LICENSE*.* >>install.sh
 echo echo -e $" " >>install.sh
-echo while true; do >>install.sh
+echo while [ "$#" -eq 0 ]; do >>install.sh
 echo     read -p "Do you commit to them and wish to install this program (y/n)? " yn >>install.sh
 echo     case $yn in >>install.sh
 echo         [Yy]* ) break;; >>install.sh
@@ -797,7 +797,7 @@ ECHO/
 ECHO Continue installation with bash script. Waiting for completion...
 ::"%GITPATH%"git-bash.exe -c 'pwd; echo -e $"\n\e[94m=== PRESS RETURN TO CONTINUE ===\e[0m" ; read x'
 IF %INTERACTIVE% equ 1 "%GITPATH%"git-bash.exe install.sh
-IF %INTERACTIVE% equ 0 "%GITPATH%"bin\bash.exe -c "./install.sh" 2>&1 | tee installer_log.txt"
+IF %INTERACTIVE% equ 0 "%GITPATH%"bin\bash.exe -c "./install.sh" -y 2>&1 | tee installer_log.txt"
 set /p CODE=<.installstatus
 DEL .installstatus
 ECHO Script completed. (%CODE%)
