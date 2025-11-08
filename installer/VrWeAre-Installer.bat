@@ -498,20 +498,6 @@ echo cd "$CWD"  >>install.sh
 ::echo echo THE7ZIPPATH=$THE7ZIPPATH  >>install.sh
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
-echo # --- Detect cache directory --- >>install.sh
-echo if [ -d "$(dirname "$0")/../cache" ]; then >>install.sh
-echo     # Cache detected (running in GitHub Actions) >>install.sh
-echo     CACHE_DIR="$(dirname "$0")/../cache" >>install.sh
-echo else >>install.sh
-echo     # No cache directory (local run) >>install.sh
-echo     CACHE_DIR="" >>install.sh
-echo fi >>install.sh
-echo\ >>install.sh
-echo # --- Define cache target path based on second argument ($2) --- >>install.sh
-echo if [ -n "$CACHE_DIR" ]; then >>install.sh
-echo     CACHE_TARGET="$CACHE_DIR/$2" >>install.sh
-echo fi
-echo\ >>install.sh
 echo clear >>install.sh
 echo echo -e $"\e[1m=== \e[92mV\e[91mR\e[0m\e[1m we are %VRWEARE_VERSION% - Installation ===\e[0m\n" >>install.sh
 echo\ >>install.sh
@@ -525,9 +511,23 @@ echo } >>install.sh
 echo trap cleanup EXIT >>install.sh
 :: downloadCheck7z(): URL targetfile targetfolder shasum
 echo downloadCheck7z() { >>install.sh
-echo   # --- Conditional logic: use cache or download --- >>install.sh
+:: --- Conditional logic: use cache or download ---
+:: --- Detect cache directory ---
+echo   if [ -d "$(dirname "$0")/../cache" ]; then >>install.sh
+echo     # Cache detected (running in GitHub Actions) >>install.sh
+echo     CACHE_DIR="$(dirname "$0")/../cache" >>install.sh
+echo   else >>install.sh
+:: No cache directory (local run)
+echo     CACHE_DIR="" >>install.sh
+echo   fi >>install.sh
+echo\ >>install.sh
+:: --- Define cache target path based on second argument ($2) 
 echo   if [ -n "$CACHE_DIR" ]; then >>install.sh
-echo     # Ensure subdirectory exists (e.g., cache/install) >>install.sh
+echo     CACHE_TARGET="$CACHE_DIR/$2" >>install.sh
+echo   fi
+echo\ >>install.sh
+echo   if [ -n "$CACHE_DIR" ]; then >>install.sh
+::Ensure subdirectory exists (e.g., cache/install)
 echo     mkdir -p "$(dirname "$CACHE_TARGET")" >>install.sh
 echo\ >>install.sh
 echo     if [ -f "$CACHE_TARGET" ]; then >>install.sh
