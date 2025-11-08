@@ -984,7 +984,7 @@ START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C C
 :: wait for test to start
 ECHO Waiting for tests to start...
 :TESTS
-timeout 1 > NUL
+timeout /t 1 /nobreak > NUL
 if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" GOTO TESTS
 
 :: wait for test to complete or fail
@@ -992,13 +992,13 @@ ECHO Waiting for tests to complete...
 :WAIT_FOR_TEST_FINISH
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
 	if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.signalfail" (
-		timeout 1 > NUL
+		timeout /t 1 /nobreak > NUL
 		GOTO WAIT_FOR_TEST_FINISH
 	)
 )
 :: check test success
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
-    timeout 1 > NUL
+    timeout /t 1 /nobreak > NUL
     ECHO [91mTests failed. Fix errors and restart service daemon.[0m Located at:
     GOTO Fail
 )
