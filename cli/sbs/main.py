@@ -100,7 +100,8 @@ def init_pipeline(
     depth_offset: float = 0.0,
     switch_sides: bool = False,
     symetric: bool = False,
-    blur_radius: int = 19
+    blur_radius: int = 19,
+    video_quality: str = "medium"
     ) -> PipelineContext:
         
     """
@@ -131,7 +132,7 @@ def init_pipeline(
     """
         
     # --- Detect and prepare input source ---
-    # Depending on input_type, determine dimensions, FPS, and I/O codec
+    # Depending on input_type, determine dimensions, FPS, and I/O codec, crf
     if input_type == "video":
         cap = cv2.VideoCapture(video_path)
         ok, frame = cap.read()
@@ -144,6 +145,13 @@ def init_pipeline(
             raise RuntimeError("Failed to read first frame")
         H, W = frame.shape[:2]
         cudnn_benchmark = True
+        
+        if video_quality == "low":
+            crf, cq = 30, 35
+        elif video_quality == "medium":
+            crf, cq = 26, 31
+        else:  # high
+            crf, cq = 23, 28
     elif input_type == "folder":
         files = natsorted([f for f in os.listdir(video_path) if f.lower().endswith((".png", ".jpg", ".jpeg"))])
         if not files:
@@ -203,7 +211,8 @@ def init_pipeline(
         symetric=symetric,
         blur_radius=blur_radius,
         input_type=input_type,
-        n_feeders=n_feeders
+        n_feeders=n_feeders,
+        video_quality=video_quality
     )
     
     if debug:
@@ -247,7 +256,7 @@ def init_pipeline(
     
     if input_type == "video":
         for _ in range(n_savers):
-            ctx.savers.append(Thread(target=PipelineContext.video_worker_thread, args=(save_q, video_path, output_path, W*2, H, fps, codec,ctx)))
+            ctx.savers.append(Thread(target=PipelineContext.video_worker_thread, args=(save_q, video_path, output_path, W*2, H, fps, codec,crf, cq,ctx)))
     elif input_type == "folder":
         for _ in range(n_savers):
             ctx.savers.append(Thread(target=PipelineContext.save_worker_thread, args=(save_q, output_path,input_type)))
@@ -348,13 +357,16 @@ if __name__ == "__main__":
                     choices=["libx264", "libx265", "h264_nvenc", "hevc_nvenc"],
                     default=None,
                     help="Codec for output video (CPU: libx264/libx265, GPU: h264_nvenc/hevc_nvenc)")
+    parser.add_argument("--quality", type=str,
+            choices=["low", "medium", "high"],default=None,
+            help="Output video quality (changes the values of -crf or -cq in ffmpeg)")   
     parser.add_argument("--input-type", type=str,
                         choices=["video", "folder", "i2i"], default="video",
                         help=("Processing mode:\n"
                               "  video = single video\n"
                               "  folder = batch same-resolution images\n"
                               "  i2i = images one-by-one (single or mixed-resolution folder)"))
-    parser.add_argument("--debug", "-d", action="store_true",
+    parser.add_argument("--debug", action="store_true",
                     help="Enable debug mode with memory/queue monitoring")
     parser.add_argument("--preset","-p", type=str, choices=["minimum", "balance", "max_quality"],
                         help="Use a predefined configuration preset")
@@ -508,7 +520,8 @@ if __name__ == "__main__":
                 depth_offset=args.depth_offset or 0.0,
                 switch_sides=args.switch_sides or False,
                 symetric=args.symetric or False,
-                blur_radius=args.blur_radius or 19
+                blur_radius=args.blur_radius or 19,
+                video_quality=args.quality or "medium"
             )
             run_pipeline(ctx)
             debug_report(ctx)
