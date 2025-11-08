@@ -1,0 +1,63 @@
+name: Install Test (Develop)
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  test-installation:
+    name: Test Installation on Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify Git Installation
+        shell: cmd
+        run: |
+          git --version
+
+      - name: Verify 7-Zip Installation
+        shell: cmd
+        run: |
+          "C:\Program Files\7-Zip\7z.exe" i
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Verify Python Version (pre-install)
+        shell: cmd
+        run: |
+          echo Überprüfe Python vor der Installation:
+          python --version
+
+      - name: Run Installation Script
+        shell: cmd
+        run: |
+          call install.bat
+
+      - name: Verify Installation Files
+        shell: cmd
+        run: |
+          rem Beispielprüfung auf erfolgreich installierte Dateien
+          if exist "C:\Program Files\MyApp\myapp.exe" (
+              echo Installation erfolgreich.
+          ) else (
+              echo Installation fehlgeschlagen. && exit /b 1
+          )
+
+      - name: Verify Python Detection (post-install)
+        shell: cmd
+        run: |
+          echo Überprüfe, ob Installation Python korrekt erkennt:
+          python --version
+          for /f "tokens=2 delims= " %%v in ('python --version 2^>^&1') do (
+              echo Erkannte Python-Version: %%v
+              if not "%%v"=="3.13." (
+                  echo Falsche Python-Version erkannt. && exit /b 1
+              )
+          )
