@@ -51,12 +51,12 @@ jobs:
 
       - name: Ensure cache directory exists
         shell: cmd
-        run: if not exist cache mkdir cache
+        run: if not exist %INSTALL_DIR%\cache mkdir %INSTALL_DIR%\cache
 
       - name: Restore cached downloads
         uses: actions/cache@v4
         with:
-          path: cache
+          path: %INSTALL_DIR%\cache
           key: ${{ runner.os }}-downloads-${{ hashFiles('download_list.txt') }}
           
       - name: Run Installation Script
