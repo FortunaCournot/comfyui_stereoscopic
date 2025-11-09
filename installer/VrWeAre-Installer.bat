@@ -434,7 +434,7 @@ if not exist "%InstallFolder%\*" (
 SET PIPELINE_OPTION_SBS=1
 SET PIPELINE_OPTION_FLI2V=0
 SET PIPELINE_OPTION_WATERMARK=0
-SET EXTRAS=0
+SET EXTRAS=%INTERACTIVE%
 IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
 :QueryForInstallationTypeCont
 SET PIPELINE_OPTION_SBS_TEXT=On
@@ -459,8 +459,7 @@ ECHO  ComfyUI options:
 ECHO   4 - Add extra packages: [1m%EXTRAS_TEXT%[0m
 ECHO         rgthree, easy-use, ReActor
 ECHO/
-ECHO   This will download & install ComfyUI %COMFYUI_TAG% Portable
-ECHO   for modern Nvidia/CPU with base packages
+ECHO   This will download and install ComfyUI %COMFYUI_TAG% Portable for modern Nvidia/CPU with base packages
 ECHO         depthanything, customscripts, mtb, frameinterpol, mmaudio, florance2, videohelpersuite, crystools
 ECHO/
 ECHO   Y - Yes, Install / N - No, QUIT
@@ -621,9 +620,9 @@ echo checkoutCustomNodes() { >>install.sh
 echo   git clone  $1 $2  >>install.sh
 echo   CWD=`pwd`  >>install.sh
 echo   if [ ^^! -z "$3" ] ; then >>install.sh
-echo     cd "$2"  >>install.shl.sh
-echo     git checkout tags/$3  >>instal
-echo     cd "$CWD"  >>install.shl.sh
+echo     cd "$2"  >>install.sh
+echo     git checkout tags/$3  >>install.sh
+echo     cd "$CWD"  >>install.sh
 echo   fi >>install.sh
 echo } >>install.sh
 :: installFile(): URL targetfile [shasum]
