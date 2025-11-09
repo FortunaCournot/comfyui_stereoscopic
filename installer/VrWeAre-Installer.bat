@@ -535,7 +535,7 @@ echo   fi >>install.sh
 echo\ >>install.sh
 :: --- Define cache target path based on second argument ($2) 
 echo   if [ -n "$CACHE_DIR" ]; then >>install.sh
-echo     CACHE_TARGET="$CACHE_DIR/$2" >>install.sh
+echo     CACHE_TARGET="$CACHE_DIR/$2-$4" >>install.sh
 ::Ensure subdirectory exists (e.g., cache/install)
 echo     mkdir -p "$(dirname "$CACHE_TARGET")" >>install.sh
 echo\ >>install.sh
@@ -678,6 +678,7 @@ echo\ >>install.sh
 
 echo echo "Download license files..." >>install.sh
 :: Download licenses . for tags from /tags/... the other from /heads/main/
+echo  installFile "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/refs/heads/master/LICENSE" "./LICENSE_ComfyUI-portable.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/tags/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/tags/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
 ::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
