@@ -563,7 +563,7 @@ echo   if [ ^^! -s "$2" ] ; then >>install.sh
 echo      echo -e $"\e[91mCheck-sum error. Installation failed.\e[0m" >>install.sh
 echo      return 1 >>install.sh
 echo   fi >>install.sh
-echo   if [ -f "$CACHE_TARGET" ]; then >>install.sh
+echo   if [ ^^! -f "$CACHE_TARGET" ]; then >>install.sh
 echo     echo "Storing file in cache: $CACHE_TARGET" >>install.sh
 echo     cp -f "$2" "$CACHE_TARGET" >>install.sh
 echo   fi >>install.sh
