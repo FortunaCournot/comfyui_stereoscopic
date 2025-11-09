@@ -70,7 +70,8 @@ else
 	VIDEO_FORMAT=$(awk -F "=" '/VIDEO_FORMAT=/ {print $2}' $CONFIGFILE) ; VIDEO_FORMAT=${VIDEO_FORMAT:-"video/h264-mp4"}
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT=/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF=/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
-
+	VIDEOQUALITYPRESET=$(awk -F "=" '/VIDEOQUALITYPRESET=/ {print $2}' $CONFIGFILE) ; VIDEOQUALITYPRESET=${VIDEOQUALITYPRESET:-"high"}
+	
 	CWD=`pwd`
 	CWD=`realpath "$CWD"`
 	
@@ -130,7 +131,7 @@ else
 	
 	#"$DEPTH_MODEL_CKPT" $DEPTH_RESOLUTION $depth_scale $depth_offset $blur_radius "$f"
 	#--preset balance
-	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale $depth_scale --depth-offset $depth_offset --blur-radius $blur_radius --symmetric
+	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" --quality "$VIDEOQUALITYPRESET" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale $depth_scale --depth-offset $depth_offset --blur-radius $blur_radius --symmetric
 	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4"
 	end=`date +%s`
 	

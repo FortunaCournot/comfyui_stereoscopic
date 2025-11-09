@@ -15,7 +15,7 @@ if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell ple
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 # relative to COMFYUIPATH:
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter_cli.sh 
-SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter.sh 
+SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter_cli.sh 
 
 cd $COMFYUIPATH
 
