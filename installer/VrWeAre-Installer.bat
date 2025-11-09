@@ -58,6 +58,11 @@ SET KJNODES_TAG=1.1.9
 SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
 
 
+:: EXTRAS
+SET REACTOR_TAG=v0.6.1
+SET RGTHREE_TAG=
+SET EASYUSE_TAG=v1.3.4
+
 SET INTERACTIVE=1
 if [%1]==[] goto DoChecks
 SET INSTALLATIONTYPE=1
@@ -429,14 +434,17 @@ if not exist "%InstallFolder%\*" (
 SET PIPELINE_OPTION_SBS=1
 SET PIPELINE_OPTION_FLI2V=0
 SET PIPELINE_OPTION_WATERMARK=0
+SET EXTRAS=0
 IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
 :QueryForInstallationTypeCont
 SET PIPELINE_OPTION_SBS_TEXT=On
 SET PIPELINE_OPTION_FLI2V_TEXT=On
 SET PIPELINE_OPTION_WATERMARK_TEXT=On
+SET EXTRAS_TEXT=On
 IF %PIPELINE_OPTION_SBS% equ 0 SET PIPELINE_OPTION_SBS_TEXT=Off
 IF %PIPELINE_OPTION_FLI2V% equ 0 SET PIPELINE_OPTION_FLI2V_TEXT=Off
 IF %PIPELINE_OPTION_WATERMARK% equ 0 SET PIPELINE_OPTION_WATERMARK_TEXT=Off
+IF %EXTRAS% equ 0 SET EXTRAS_TEXT=Off
 CLS
 ECHO/
 ECHO === Basic installation [13 GB] ===
@@ -448,14 +456,19 @@ ECHO  AI-Expert options:
 ECHO   2 - Judging: Pipeline for first/last image: [1m%PIPELINE_OPTION_FLI2V_TEXT%[0m
 ECHO   3 - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATERMARK_TEXT%[0m
 ECHO  ComfyUI options:
-ECHO   Currently no selection available. 
-ECHO   It will install ComfyUI %COMFYUI_TAG% Portable for modern Nvidia/CPU.
+ECHO   4 - Add extra packages: [1m%EXTRAS_TEXT%[0m
+ECHO         rgthree, easy-use, ReActor
+ECHO/
+ECHO   This will download & install ComfyUI %COMFYUI_TAG% Portable
+ECHO   for modern Nvidia/CPU with base packages
+ECHO         depthanything, customscripts, mtb, frameinterpol, mmaudio, florance2, videohelpersuite, crystools
 ECHO/
 ECHO   Y - Yes, Install / N - No, QUIT
 ECHO/
-CHOICE /C 123YN /M " "
-IF ERRORLEVEL 5 GOTO End
-IF ERRORLEVEL 4 GOTO VRWEARE_PARENT_CHECK
+CHOICE /C 1234YN /M " "
+IF ERRORLEVEL 6 GOTO End
+IF ERRORLEVEL 5 GOTO VRWEARE_PARENT_CHECK
+IF ERRORLEVEL 4 SET /A "EXTRAS=1-%EXTRAS%" & GOTO QueryForInstallationTypeCont
 IF ERRORLEVEL 3 SET /A "PIPELINE_OPTION_WATERMARK=1-%PIPELINE_OPTION_WATERMARK%" & GOTO QueryForInstallationTypeCont
 IF ERRORLEVEL 2 SET /A "PIPELINE_OPTION_FLI2V=1-%PIPELINE_OPTION_FLI2V%" & GOTO QueryForInstallationTypeCont
 IF ERRORLEVEL 1 SET /A "PIPELINE_OPTION_SBS=1-%PIPELINE_OPTION_SBS%" & GOTO QueryForInstallationTypeCont
@@ -607,9 +620,11 @@ echo } >>install.sh
 echo checkoutCustomNodes() { >>install.sh
 echo   git clone  $1 $2  >>install.sh
 echo   CWD=`pwd`  >>install.sh
-echo   cd "$2"  >>install.shl.sh
-echo   git checkout tags/$3  >>instal
-echo   cd "$CWD"  >>install.shl.sh
+echo   if [ ^^! -z "$3" ] ; then >>install.sh
+echo     cd "$2"  >>install.shl.sh
+echo     git checkout tags/$3  >>instal
+echo     cd "$CWD"  >>install.shl.sh
+echo   fi >>install.sh
 echo } >>install.sh
 :: installFile(): URL targetfile [shasum]
 echo installFile() { >>install.sh
@@ -686,6 +701,11 @@ echo  installFile "https://raw.githubusercontent.com/FFmpeg/FFmpeg/refs/heads/ma
 if defined FLAG_INSTALL_EXIFTOOL (
 echo  echo "ExifTool by Phil Harvey. This is free software; you can redistribute it and/or modify it under the same terms as Perl itself. https://dev.perl.org/licenses/" ^> ./LICENSE_Exiftool.txt  >>install.sh
 )
+IF %EXTRAS% equ 0 GOTO EXTRAS_LIC_END
+echo  installFile "https://github.com/yolain/ComfyUI-Easy-Use/blob/%EASYUSE_TAG%/LICENSE" "./LICENSE_easy-use.TXT"  >>install.sh
+echo  installFile "https://github.com/rgthree/rgthree-comfy/blob/main/LICENSE" "./LICENSE_rgthree.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/Gourieff/ComfyUI-ReActor/refs/tags/%REACTOR_TAG%/LICENSE" "./LICENSE_ReActor.TXT"  >>install.sh
+:EXTRAS_LIC_END
 
 :: Ask user for commitment
 echo\ >>install.sh
@@ -782,6 +802,14 @@ echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-MMAudio/arc
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-KJNodes/archive/refs/tags/%KJNODES_TAG%.tar.gz" "install/kjnodes.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-kjnodes" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
+
+IF %EXTRAS% equ 0 GOTO EXTRAS_INST_END
+:: IGNORE ERRORS FOR EXTRAS
+
+echo   checkoutCustomNodes "https://github.com/yolain/ComfyUI-Easy-Use.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-easy-use" "%EASYUSE_TAG%"  >>install.sh
+echo   checkoutCustomNodes "https://github.com/rgthree/rgthree-comfy.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/rgthree-comfy" "%RGTHREE_TAG%"  >>install.sh
+echo   checkoutCustomNodes "https://github.com/Gourieff/ComfyUI-ReActor.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-ReActor" "%REACTOR_TAG%"  >>install.sh
+:EXTRAS_INST_END
 
 echo\ >>install.sh
 
@@ -896,11 +924,21 @@ ECHO Apply python fixes...
 .\python_embeded\python -m pip install -I wcwidth decorator platformdirs
 :: ComfyUI-Florence2
 .\python_embeded\python -m pip install -I matplotlib
+:: ComfyUI-kjnodes
+.\python_embeded\python -m pip install color-matcher
 
 :: skip these fixes:
 ::.\python_embeded\python -m pip install --upgrade numpy==2.2
 ::.\python_embeded\python -m pip install -I opencv-python
 
+IF %EXTRAS% equ 0 GOTO EXTRAS_END
+ECHO Apply extra requirements ...
+.\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-easy-use\requirements.txt
+.\python_embeded\python -m pip install -r ComfyUI\custom_nodes\rgthree-comfy\requirements.txt
+:: cause errors: .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\ComfyUI-ReActor\requirements.txt
+.\python_embeded\python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp313-cp313-win_amd64.whl
+.\python_embeded\python -s -m pip install segment_anything
+:EXTRAS_END
 
 DEL %VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 IF "%LOCALPYTHONPATH%" == "" GOTO END_INSTALL_PACKS
