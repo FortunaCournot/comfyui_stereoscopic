@@ -1064,7 +1064,7 @@ ECHO - VR we are - Service Daemon
 ECHO - VR we are - App
 ECHO/
 
-RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test"
+RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test" > NUL
 ::START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" /MIN CMD /K CALL "%GITPATH%"git-bash.exe daemon.sh >NUL
 START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" CMD /C CALL  "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" >NUL
 START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C CALL "%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat" > NUL

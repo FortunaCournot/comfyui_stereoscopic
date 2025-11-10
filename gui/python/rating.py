@@ -583,6 +583,7 @@ class RateAndCutDialog(QDialog):
             self.main_group_box = QGroupBox()
             self.main_group_box.setStyleSheet("QGroupBox{font-size: 20px; background-color : black; color: white;}")
 
+
             self.main_group_box.setLayout(self.main_layout)
 
             #Outer main layout to accomodate the group box
@@ -626,6 +627,151 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True)
 
+        self.reset_timer = QTimer(self)
+        self.reset_timer.setSingleShot(True)
+        self.reset_timer.timeout.connect(self.reset_visual)
+        self.setAcceptDrops(True)  # Enable drop events
+        
+    def style_group_box(self, group_box, color: str):
+        """
+        Apply a styled look to a QGroupBox with the given color for both text and border.
+        
+        Args:
+            group_box (QGroupBox): The target group box.
+            color (str): Any valid CSS color (e.g. '#00FF00', 'red', 'rgb(255,0,0)').
+        """
+        group_box.setStyleSheet(f"""
+            QGroupBox {{
+                font-size: 20px;
+                background-color: black;
+                color: {color};
+                border: 2px solid {color};
+                border-radius: 5px;
+                margin-top: 10px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }}
+        """)
+    
+    def dragEnterEvent(self, event):
+        #print("Formats:", event.mimeData().formats())
+        md = event.mimeData()
+
+        # restart timer; if drag really leaves window, timer will fire and reset color
+
+        if md.hasUrls():
+            # Standardweg (wenn funktioniert)
+            self.drag_file_path = md.urls()[0].toLocalFile()
+            #print("File (URI):", self.drag_file_path)
+            if os.path.isdir(self.drag_file_path):
+                self.style_group_box(self.main_group_box, "#44ff44")
+                self.reset_timer.start(1000)
+                event.acceptProposedAction()
+                return
+            elif os.path.isfile(self.drag_file_path) and any(self.drag_file_path.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
+                self.style_group_box(self.main_group_box, "#44ff44")
+                event.acceptProposedAction()
+                self.reset_timer.start(1000)
+                return
+        
+        self.drag_file_path = None 
+        self.style_group_box(self.main_group_box, "#ff0000")
+        self.reset_timer.start(2000)
+        event.ignore()
+    
+    def reset_visual(self):
+        self.style_group_box(self.main_group_box, "white")
+    
+    def dragMoveEvent(self, event):
+        md = event.mimeData()
+        if not self.drag_file_path is None:
+            self.style_group_box(self.main_group_box, "#44ff44")
+            event.acceptProposedAction()
+        else:
+            self.style_group_box(self.main_group_box, "#ff0000")
+            event.ignore()
+        # restart timer; if drag really leaves window, timer will fire and reset color
+        self.reset_timer.start(1000)
+        
+
+    def dropEvent(self, event):
+        # Retrieve file paths
+        urls = event.mimeData().urls()
+        if not self.drag_file_path is None:
+            #print(f"File dropped:\n{self.drag_file_path}", flush=True)
+            if os.path.isdir(self.drag_file_path):
+                self.switchDirectory(self.drag_file_path, None)
+            elif os.path.isfile(self.drag_file_path) and any(self.drag_file_path.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
+                self.switchDirectory(os.path.dirname(self.drag_file_path), os.path.basename(self.drag_file_path))
+            else:
+                event.ignore()
+        else:
+            event.ignore()
+               
+    def switchDirectory(self, dirpath, filename):
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        cutModeFolderOverrideActive=True
+        thread = threading.Thread(
+            target=self.switchDirectory_worker,
+            args=( cutModeFolderOverrideActive, dirpath, filename, ),
+            daemon=True
+        )
+        thread.start()
+
+    def switchDirectory_worker(self, override, dirpath, filename):
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        startAsyncTask()
+        try:
+            if override:
+                if os.path.isdir(dirpath):
+                    cutModeFolderOverridePath=dirpath
+                    cutModeFolderOverrideActive=True
+                else:
+                    print(f"not a directory: {dirpath}", flush=True)
+                    override=False
+                    cutModeFolderOverrideActive=False   # cancel
+                    dirpath=""                    
+            else:
+                dirpath=""
+                
+            scanFilesToRate()   # can block on some drives
+
+            QTimer.singleShot(0, partial(self.switchDirectory_updater, override, dirpath, filename))
+        except:
+            print(traceback.format_exc(), flush=True) 
+
+    def switchDirectory_updater(self, override, dirpath, filename):
+
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        try:
+            f=getFilesToRate()
+            if len(f) > 0:
+                self.currentIndex=0
+                self.currentFile=f[self.currentIndex]
+                if not filename is None:
+                    try:
+                        self.currentFile=filename
+                        self.currentIndex=f.index(self.currentFile)+1
+                    except ValueError as ve:
+                        self.currentFile=f[self.currentIndex]
+            else:
+                self.currentFile=""
+                self.currentIndex=-1
+                
+            self.rateCurrentFile()
+
+        except:
+            print(traceback.format_exc(), flush=True) 
+        finally:
+            self.folderAction.setChecked(override)
+            self.folderAction.setEnabled(True)
+            self.dirlabel.setText(dirpath)
+            endAsyncTask()
+ 
+ 
     def onSceneFinderAction(self, state):
         if not state and self.sceneFinderDone:
             self.sceneFinderAction.setChecked(self.sceneFinderDone)
@@ -1286,7 +1432,6 @@ class RateAndCutDialog(QDialog):
             self.rateCurrentFile()
         except:
             print(traceback.format_exc(), flush=True) 
-            endAsyncTask()
         finally:
             self.folderAction.setChecked(override)
             self.folderAction.setEnabled(True)
