@@ -116,3 +116,4 @@ node.zip
 # Test / Installation
 .test/
 
+/cache/

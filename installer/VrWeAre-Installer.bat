@@ -8,7 +8,15 @@
 ::   - VRweare install script (executed over ComfyUI from Git Bash script).
 ::   - continue with Windows Installer.
 ::====================================================================
-@ECHO OFF 
+@ECHO OFF
+
+REM --- Determine installer and parent directory ---
+setlocal
+for %%I in ("%~dp0..") do set "PROJECT_DIR=%%~fI"
+echo Installer dir: %~dp0
+echo Project dir: %PROJECT_DIR%
+endlocal
+ 
 :: Windows version check 
 IF NOT "%OS%"=="Windows_NT" GOTO Fail
 :: Keep variable local 
@@ -507,6 +515,7 @@ echo CWD=`pwd`  >>install.sh
 echo cd "$THE7ZIPPATH"  >>install.sh
 echo THE7ZIPPATH=`pwd`  >>install.sh
 echo cd "$CWD"  >>install.sh
+echo PARENT_DIR=$(cygpath "%PARENT_DIR%")  >>install.sh
 ::echo echo THE7ZIPPATH=$THE7ZIPPATH  >>install.sh
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
@@ -525,9 +534,9 @@ echo trap cleanup EXIT >>install.sh
 echo downloadCheck7z() { >>install.sh
 :: --- Conditional logic: use cache or download ---
 :: --- Detect cache directory ---
-echo   if [ -d "$(dirname "$0")/../cache" ]; then >>install.sh
+echo   if [ -d "../cache" ]; then >>install.sh
 echo     # Cache detected (running in GitHub Actions) >>install.sh
-echo     CACHE_DIR="$(dirname "$0")/../cache" >>install.sh
+echo     CACHE_DIR="../cache" >>install.sh
 echo   else >>install.sh
 :: No cache directory (local run)
 echo     CACHE_DIR="" >>install.sh
@@ -566,7 +575,7 @@ echo   fi >>install.sh
 echo   if [ ^^! -f "$CACHE_TARGET" ]; then >>install.sh
 echo     echo "Storing file in cache: $CACHE_TARGET" >>install.sh
 echo     cp -f "$2" "$CACHE_TARGET" >>install.sh
-echo     grep -qxF "$1" "$(dirname "$0")/installer/download_list.txt" 2^>/dev/null  ^|^| echo "$1" ^>^> "$(dirname "$0")/installer/download_list.txt" >>install.sh
+echo     grep -qxF "$1" "$PARENT_DIR/installer/download_list.txt" 2^>/dev/null  ^|^| echo "$1" ^>^> "$PARENT_DIR/installer/download_list.txt" >>install.sh
 echo   fi >>install.sh
 echo   7z x -y $2 >>install.sh
 echo   if [ $? -ne 0 ]; then >>install.sh
@@ -681,7 +690,7 @@ echo echo "Download license files..." >>install.sh
 :: Download licenses . for tags from /tags/... the other from /heads/main/
 echo  installFile "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/refs/heads/master/LICENSE" "./LICENSE_ComfyUI-portable.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/tags/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
-echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/tags/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
+IF %INTERACTIVE% equ 1 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/tags/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
 ::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
@@ -781,7 +790,8 @@ echo\ >>install.sh
 echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
-echo   checkoutCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic" "%VRWEARE_TAG%"  >>install.sh
+IF %INTERACTIVE% equ 1 echo   checkoutCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic" "%VRWEARE_TAG%"  >>install.sh
+IF %INTERACTIVE% equ 0 cp -r "$PROJECT_DIR" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
 ::echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
