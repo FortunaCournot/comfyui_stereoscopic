@@ -566,6 +566,7 @@ echo   fi >>install.sh
 echo   if [ ^^! -f "$CACHE_TARGET" ]; then >>install.sh
 echo     echo "Storing file in cache: $CACHE_TARGET" >>install.sh
 echo     cp -f "$2" "$CACHE_TARGET" >>install.sh
+echo     grep -qxF "$1" "$(dirname "$0")/installer/download_list.txt" 2^>/dev/null  ^|^| echo "$1" ^>^> "$(dirname "$0")/installer/download_list.txt" >>install.sh
 echo   fi >>install.sh
 echo   7z x -y $2 >>install.sh
 echo   if [ $? -ne 0 ]; then >>install.sh
