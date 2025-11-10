@@ -10,6 +10,7 @@ jobs:
   test-installation:
     name: Test Installation on Windows
     runs-on: windows-latest
+    timeout-minutes: 20   # ← beendet den Job nach 20 Minuten
     
     env:
       INSTALL_DIR: C:\Users\runneradmin\AppData\Local

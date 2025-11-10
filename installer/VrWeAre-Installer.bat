@@ -533,12 +533,14 @@ echo trap cleanup EXIT >>install.sh
 echo downloadCheck7z() { >>install.sh
 :: --- Conditional logic: use cache or download ---
 :: --- Detect cache directory ---
-echo   if [ -d "../cache" ]; then >>install.sh
+echo   if [ -d "$PROJECT_DIR/../cache" ]; then >>install.sh
 echo     # Cache detected (running in GitHub Actions) >>install.sh
-echo     CACHE_DIR="../cache" >>install.sh
+echo     CACHE_DIR="$PROJECT_DIR/../cache" >>install.sh
+echo     echo "Cache detected." >>install.sh
 echo   else >>install.sh
 :: No cache directory (local run)
 echo     CACHE_DIR="" >>install.sh
+echo     echo "No runner cache." >>install.sh
 echo   fi >>install.sh
 echo\ >>install.sh
 :: --- Define cache target path based on second argument ($2) 
@@ -571,10 +573,12 @@ echo   if [ ^^! -s "$2" ] ; then >>install.sh
 echo      echo -e $"\e[91mCheck-sum error. Installation failed.\e[0m" >>install.sh
 echo      return 1 >>install.sh
 echo   fi >>install.sh
-echo   if [ ^^! -f "$CACHE_TARGET" ]; then >>install.sh
-echo     echo "Storing file in cache: $CACHE_TARGET" >>install.sh
-echo     cp -f "$2" "$CACHE_TARGET" >>install.sh
-echo     grep -qxF "$1" "$PROJECT_DIR/installer/download_list.txt" 2^>/dev/null  ^|^| echo "$1" ^>^> "$PROJECT_DIR/installer/download_list.txt" >>install.sh
+echo   if [ -n "$CACHE_DIR" ]; then >>install.sh
+echo     if [ ^^! -f "$CACHE_TARGET" ]; then >>install.sh
+echo       echo "Storing file in cache: $CACHE_TARGET" >>install.sh
+echo       cp -f "$2" "$CACHE_TARGET" >>install.sh
+echo       grep -qxF "$1" "$PROJECT_DIR/installer/download_list.txt" 2^>/dev/null  ^|^| echo "$1" ^>^> "$PROJECT_DIR/installer/download_list.txt" >>install.sh
+echo     fi >>install.sh
 echo   fi >>install.sh
 echo   7z x -y $2 >>install.sh
 echo   if [ $? -ne 0 ]; then >>install.sh
