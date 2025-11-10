@@ -533,14 +533,14 @@ echo trap cleanup EXIT >>install.sh
 echo downloadCheck7z() { >>install.sh
 :: --- Conditional logic: use cache or download ---
 :: --- Detect cache directory ---
-echo   if [ -d "$PROJECT_DIR/../cache" ]; then >>install.sh
+echo   if [ -d "$PROJECT_DIR/cache" ]; then >>install.sh
 echo     # Cache detected (running in GitHub Actions) >>install.sh
-echo     CACHE_DIR="$PROJECT_DIR/../cache" >>install.sh
+echo     CACHE_DIR="$PROJECT_DIR/cache" >>install.sh
 echo     echo "Cache detected." >>install.sh
 echo   else >>install.sh
 :: No cache directory (local run)
 echo     CACHE_DIR="" >>install.sh
-echo     echo "No runner cache." >>install.sh
+echo     echo "No runner cache at $PROJECT_DIR/cache" >>install.sh
 echo   fi >>install.sh
 echo\ >>install.sh
 :: --- Define cache target path based on second argument ($2) 
