@@ -10,13 +10,6 @@
 ::====================================================================
 @ECHO OFF
 
-REM --- Determine installer and parent directory ---
-setlocal
-for %%I in ("%~dp0..") do set "PROJECT_DIR=%%~fI"
-echo Installer dir: %~dp0
-echo Project dir: %PROJECT_DIR%
-endlocal
- 
 :: Windows version check 
 IF NOT "%OS%"=="Windows_NT" GOTO Fail
 :: Keep variable local 
@@ -80,6 +73,12 @@ echo Installfolder: %InstallFolder%
 mkdir %InstallFolder%
 SET INTERACTIVE=0
 SET VRWEAREPATH=
+
+REM --- Determine installer and parent directory ---
+for %%I in ("%~dp0..") do set "PROJECT_DIR=%%~fI"
+echo Installer dir: %~dp0
+echo Project dir: %PROJECT_DIR%
+
 
 :DoChecks
 IF %INTERACTIVE% equ 0 GOTO CheckOS
@@ -515,7 +514,7 @@ echo CWD=`pwd`  >>install.sh
 echo cd "$THE7ZIPPATH"  >>install.sh
 echo THE7ZIPPATH=`pwd`  >>install.sh
 echo cd "$CWD"  >>install.sh
-echo PARENT_DIR=$(cygpath "%PARENT_DIR%")  >>install.sh
+echo PROJECT_DIR=`cygpath "%PROJECT_DIR%"`  >>install.sh
 ::echo echo THE7ZIPPATH=$THE7ZIPPATH  >>install.sh
 echo PATH=$PATH":"$THE7ZIPPATH >>install.sh
 echo\ >>install.sh
@@ -575,7 +574,7 @@ echo   fi >>install.sh
 echo   if [ ^^! -f "$CACHE_TARGET" ]; then >>install.sh
 echo     echo "Storing file in cache: $CACHE_TARGET" >>install.sh
 echo     cp -f "$2" "$CACHE_TARGET" >>install.sh
-echo     grep -qxF "$1" "$PARENT_DIR/installer/download_list.txt" 2^>/dev/null  ^|^| echo "$1" ^>^> "$PARENT_DIR/installer/download_list.txt" >>install.sh
+echo     grep -qxF "$1" "$PROJECT_DIR/installer/download_list.txt" 2^>/dev/null  ^|^| echo "$1" ^>^> "$PROJECT_DIR/installer/download_list.txt" >>install.sh
 echo   fi >>install.sh
 echo   7z x -y $2 >>install.sh
 echo   if [ $? -ne 0 ]; then >>install.sh
@@ -791,7 +790,7 @@ echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/arc
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
 IF %INTERACTIVE% equ 1 echo   checkoutCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic" "%VRWEARE_TAG%"  >>install.sh
-IF %INTERACTIVE% equ 0 cp -r "$PROJECT_DIR" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic >>install.sh
+IF %INTERACTIVE% equ 0 echo   cp -r "$PROJECT_DIR" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
 ::echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
@@ -1115,6 +1114,70 @@ ECHO [94mDon't forget to read the documentation. You can open it in the app too
 ECHO [94mor at [96m%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\docs\VR_We_Are_User_Manual.pdf[0m
 IF %INTERACTIVE% equ 1 PAUSE
 
+REM === ------------------------------------------------------------------
+REM === Commit and push updated download_list.txt (only in GitHub Runner)
+REM === ------------------------------------------------------------------
+
+if not defined GITHUB_TOKEN (
+    goto Final
+)
+
+echo running inside GitHub Actions. Doing git commit/push...
+
+echo.
+echo --- Updating download_list.txt in repository ---
+
+setlocal
+
+REM Go to repository root (one level above installer)
+for %%I in ("%~dp0..") do set "REPO_DIR=%%~fI"
+cd /d "%REPO_DIR%"
+
+set "TARGET_FILE=installer\download_list.txt"
+
+REM Check if file exists
+if not exist "%TARGET_FILE%" (
+    echo ERROR: %TARGET_FILE% not found.
+    endlocal
+    exit /B 1
+)
+
+REM Check if there are changes
+git diff --quiet -- "%TARGET_FILE%"
+if %errorlevel%==0 (
+    echo No changes detected in %TARGET_FILE%. Skipping commit.
+    endlocal
+    exit /B 0
+)
+
+REM Stage the file
+git add "%TARGET_FILE%"
+
+REM Configure Git identity if not already set
+git config user.email >nul 2>&1 || git config user.email "actions@github.com"
+git config user.name >nul 2>&1 || git config user.name "GitHub Actions"
+
+REM Commit
+git commit -m "ci: update download_list.txt (cache) [skip ci]"
+
+REM Get branch name
+for /f "delims=" %%B in ('git rev-parse --abbrev-ref HEAD') do set "BRANCH=%%B"
+
+REM Push using GitHub Actions token
+if defined GITHUB_REPOSITORY if defined GITHUB_ACTOR (
+    set "AUTH_REMOTE=https://%GITHUB_ACTOR%:%GITHUB_TOKEN%@github.com/%GITHUB_REPOSITORY%.git"
+    echo Pushing commit to branch %BRANCH% using GITHUB_TOKEN...
+    git push "%AUTH_REMOTE%" HEAD:%BRANCH%
+) else (
+    echo Missing GitHub environment variables - using default remote.
+    git push
+)
+
+endlocal
+echo --- Git push complete ---
+
+
 :Final
 ENDLOCAL
 exit /B 0
+
