@@ -1068,7 +1068,7 @@ ECHO/
 RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test" > NUL
 MKDIR "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test"
 set LOGFILE="%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install.log"
-IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Start-Job {Get-Content -Path '%LOGFILE%' -Wait}"
+::IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Start-Job {Get-Content -Path '%LOGFILE%' -Wait}"
 
 
 IF %INTERACTIVE% equ 0 ping 127.0.0.1 -n 2 > NUL
@@ -1082,12 +1082,14 @@ START /D "%VRWEAREPATH%\ComfyUI_windows_portable" "ComfyUI First Start" CMD /C C
 
 
 :: wait for test to start
-ECHO Waiting for tests to start...
+IF %INTERACTIVE% equ 1 ECHO Waiting for tests to start...
+IF %INTERACTIVE% equ 0 ECHO Waiting for ComfyUI to load custom nodes ...
 :TESTS
 ping 127.0.0.1 -n 2 > NUL
 if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" GOTO TESTS
 
 :: wait for test to complete or fail
+IF %INTERACTIVE% equ 0 GOTO End 
 ECHO Waiting for tests to complete...
 :WAIT_FOR_TEST_FINISH
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
