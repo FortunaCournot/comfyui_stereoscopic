@@ -657,12 +657,32 @@ class RateAndCutDialog(QDialog):
         """)
     
     def dragEnterEvent(self, event):
-        #print("Formats:", event.mimeData().formats())
         md = event.mimeData()
 
         # restart timer; if drag really leaves window, timer will fire and reset color
 
-        if md.hasUrls():
+        if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
+            url = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
+            
+            with urllib.request.urlopen(url) as response:
+                content_type = response.headers.get("Content-Type", "")
+                if content_type.startswith("image/"):
+                    pass
+                elif content_type.startswith("video/"):
+                    pass
+                else:
+                    self.style_group_box(self.main_group_box, "#44ff44")
+                    self.reset_timer.start(1000)
+                    event.acceptProposedAction()
+                    return
+            
+            self.drag_file_path=url
+            self.style_group_box(self.main_group_box, "#44ff44")
+            self.reset_timer.start(1000)
+            event.acceptProposedAction()
+            return
+        elif md.hasUrls():
             # Standardweg (wenn funktioniert)
             self.drag_file_path = md.urls()[0].toLocalFile()
             #print("File (URI):", self.drag_file_path)
@@ -677,6 +697,7 @@ class RateAndCutDialog(QDialog):
                 self.reset_timer.start(1000)
                 return
         
+        print("Formats:", event.mimeData().formats())
         self.drag_file_path = None 
         self.style_group_box(self.main_group_box, "#ff0000")
         self.reset_timer.start(2000)
@@ -699,32 +720,126 @@ class RateAndCutDialog(QDialog):
 
     def dropEvent(self, event):
         # Retrieve file paths
-        urls = event.mimeData().urls()
         if not self.drag_file_path is None:
             #print(f"File dropped:\n{self.drag_file_path}", flush=True)
-            if os.path.isdir(self.drag_file_path):
-                self.switchDirectory(self.drag_file_path, None)
+            md = event.mimeData()
+            if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+                try:
+                    self.downloadAndSwithToimage(self.drag_file_path)
+                except:
+                    event.ignore()
+                    print(traceback.format_exc(), flush=True) 
+            elif os.path.isdir(self.drag_file_path):
+                self.switchDirectory(self.drag_file_path, None, None)
             elif os.path.isfile(self.drag_file_path) and any(self.drag_file_path.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
-                self.switchDirectory(os.path.dirname(self.drag_file_path), os.path.basename(self.drag_file_path))
+                self.switchDirectory(os.path.dirname(self.drag_file_path), os.path.basename(self.drag_file_path), None)
             else:
                 event.ignore()
         else:
             event.ignore()
-               
-    def switchDirectory(self, dirpath, filename):
+
+    def downloadAndSwithToimage(self, url: str):
+        """
+        Download an image from the given URL and save it into target_dir.
+        The filename is automatically derived from the URL.
+        
+        Args:
+            url (str): The image URL (HTTP/HTTPS).
+        """
+        # Parse URL and derive a safe filename
+        parsed = urllib.parse.urlparse(url)
+        filename = os.path.basename(parsed.path)
+        
+        if not filename:
+            raise ValueError("URL does not contain a valid filename")
+
+        self.switchDirectory(None, filename, self.drag_file_path)
+        
+    
+    def switchDirectory(self, dirpath, filename, url):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
-        cutModeFolderOverrideActive=True
+        cutModeFolderOverrideActive= not dirpath is None
         thread = threading.Thread(
             target=self.switchDirectory_worker,
-            args=( cutModeFolderOverrideActive, dirpath, filename, ),
+            args=( cutModeFolderOverrideActive, dirpath, filename, url),
             daemon=True
         )
         thread.start()
 
-    def switchDirectory_worker(self, override, dirpath, filename):
+    def get_safe_unique_filename(self, directory: str, filename: str) -> str:
+        """
+        Generate a sanitized and unique filename within a given directory.
+        
+        Steps:
+          1. Remove problematic shell/batch characters from filename.
+          2. If a file with the same name already exists, append "_N" before the extension,
+             where N is an increasing integer.
+        
+        Args:
+            directory (str): Target directory path.
+            filename (str): Original filename (may contain unsafe characters).
+        
+        Returns:
+            str: A safe, unique filename (not a full path).
+        """
+        # Step 1: sanitize filename (remove unsafe characters)
+        # Keep letters, digits, dot, underscore, hyphen, and space
+        safe_name = re.sub(r'[^A-Za-z0-9._\- ]+', '_', filename)
+        
+        # Prevent hidden or empty names
+        if not safe_name or safe_name.startswith('.'):
+            safe_name = 'file'
+
+        # Separate base and extension
+        base, ext = os.path.splitext(safe_name)
+        if not ext:
+            ext = ""
+
+        # Step 2: ensure uniqueness
+        candidate = safe_name
+        counter = 1
+        while os.path.exists(os.path.join(directory, candidate)):
+            candidate = f"{base}_{counter}{ext}"
+            counter += 1
+
+        return candidate
+    
+    def switchDirectory_worker(self, override, dirpath, filename, url):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         startAsyncTask()
         try:
+            if not url is None:
+                # Download
+                with urllib.request.urlopen(url) as response:
+                    content_type = response.headers.get("Content-Type", "")
+                    
+                    # Optional: fallback extension if missing
+                    if content_type.startswith("image/"):
+                        if '.' not in filename:
+                            filename += ".jpg"
+                    elif content_type.startswith("video/"):
+                        if '.' not in filename:
+                            filename += ".mp4"
+                    else:
+                        raise ValueError(f"URL is not an image (Content-Type: {content_type})")
+                
+                    # Build full output path, ignore dirpath (assume None)
+                    dirpath=None
+                    target_dir = os.path.join(path, "../../../../input/vr/check/rate")
+                    #os.makedirs(target_dir, exist_ok=True)
+                    filename = self.get_safe_unique_filename(target_dir, filename)
+                    output_path = os.path.join(target_dir, filename)
+                    
+                    # Write to file
+                    with open(output_path, "wb") as f:
+                        block_size = 8192
+                        while True:
+                            chunk = response.read(block_size)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+            
+
             if override:
                 if os.path.isdir(dirpath):
                     cutModeFolderOverridePath=dirpath
@@ -736,11 +851,13 @@ class RateAndCutDialog(QDialog):
                     dirpath=""                    
             else:
                 dirpath=""
+                cutModeFolderOverrideActive=False
                 
             scanFilesToRate()   # can block on some drives
 
             QTimer.singleShot(0, partial(self.switchDirectory_updater, override, dirpath, filename))
         except:
+            endAsyncTask()
             print(traceback.format_exc(), flush=True) 
 
     def switchDirectory_updater(self, override, dirpath, filename):
