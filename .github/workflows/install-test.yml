@@ -114,9 +114,6 @@ jobs:
           git fetch origin
           git status
           echo.
-          echo --- Last commit details ---
-          git log -1 --oneline --stat
-          echo.
           echo --- installer\download_list.txt contents ---
           type installer\download_list.txt
         
