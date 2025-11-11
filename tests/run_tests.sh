@@ -49,13 +49,22 @@ echo ""
 
 status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 if [ "$status" = "closed" ]; then
-    echo "Waiting for ComfyUI to start on http://""$COMFYUIHOST"":""$COMFYUIPORT ..."
-    while [ "$status" = "closed" ]; do
-	    sleep 1
-		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-	done
+  echo "Waiting for ComfyUI to start on http://""$COMFYUIHOST"":""$COMFYUIPORT ..."
+  while [ "$status" = "closed" ]; do
+    sleep 1
+    status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+  done
 fi
 echo ""
+echo "ComfyUI is present."
+
+#### SKIP FOR RUNNER
+if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install.log" ] ; then
+	echo Skip tests in runner
+	rm custom_nodes/comfyui_stereoscopic/.test/.install
+	# stdbuf -oL -eL ./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh >> "custom_nodes/comfyui_stereoscopic/.test/.install.log" || exit 1
+fi
+
 
 #### SKIP FOR RUNNER
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install.log" ] ; then
