@@ -1074,6 +1074,13 @@ class RateAndCutDialog(QDialog):
         if not self.isPaused:
             self.button_startpause_video.setFocus()
 
+    def truncate_keep_suffix(self, filename: str, max_length: int = 100) -> str:
+        root, ext = os.path.splitext(filename)
+        if len(filename) <= max_length:
+            return filename
+        cutoff = max_length - len(ext) - 1  # Platz für '~' + Suffix
+        return root[:cutoff] + "~" + ext
+        
     def fileSliderDragStart(self):
         global fileDragged
         fileDragged=True
@@ -1086,7 +1093,7 @@ class RateAndCutDialog(QDialog):
             lastIndex=len(getFilesToRate())
             self.fileDragIndex=index
             self.fileLabel.setText(str(index)+" of "+str(lastIndex))
-            self.main_group_box.setTitle(getFilesToRate()[index-1])
+            self.main_group_box.setTitle(self.truncate_keep_suffix(getFilesToRate()[index-1]))
             self.display.updatePreview( getFilesToRate()[index-1] )
 
     def fileSliderChanged(self):
@@ -1142,7 +1149,8 @@ class RateAndCutDialog(QDialog):
         else:
             if self.cutMode:
                 self.cropWidget.display_sliders(not fileDragged)
-                self.button_cutandclone.setVisible(not fileDragged)
+                self.button_cutandclone.setVisible(True)
+                self.button_cutandclone.setEnabled(not fileDragged)
                 if not self.isVideo:
                     self.button_trima_video.setVisible(False)
                     self.button_trimfirst_video.setVisible(False)
@@ -1161,10 +1169,14 @@ class RateAndCutDialog(QDialog):
                 self.button_return2edit.setEnabled("/" in self.currentFile)
             self.sl.setVisible(self.isVideo and not fileDragged)
             self.button_startpause_video.setVisible(self.isVideo and not fileDragged)
-            self.button_justrate_compress.setVisible(not fileDragged)
-            self.button_prev_file.setVisible(not fileDragged)
-            self.button_next_file.setVisible(not fileDragged)
-            self.button_delete_file.setVisible(not fileDragged)
+            self.button_justrate_compress.setVisible(True)
+            self.button_justrate_compress.setEnabled(not fileDragged)
+            self.button_prev_file.setVisible(True)
+            self.button_prev_file.setEnabled(not fileDragged)
+            self.button_next_file.setVisible(True)
+            self.button_next_file.setEnabled(not fileDragged)
+            self.button_delete_file.setVisible(True)
+            self.button_delete_file.setEnabled(not fileDragged)
             self.fileSlider.setVisible(True)
             
         index=-1
@@ -1178,8 +1190,8 @@ class RateAndCutDialog(QDialog):
                     pass
         except StopIteration as e:
             pass
-        self.button_prev_file.setEnabled(index>1)
-        self.button_next_file.setEnabled(index>0 and index<lastIndex)
+        self.button_prev_file.setEnabled(not fileDragged and index>1)
+        self.button_next_file.setEnabled(not fileDragged and index>0 and index<lastIndex)
         if index>0:
             if not fileDragged:
                 self.fileLabel.setText(str(index)+" of "+str(lastIndex))
@@ -1366,7 +1378,7 @@ class RateAndCutDialog(QDialog):
                 self.loadingOk = True
                 self.fileSlider.setValue(self.currentIndex)
                 self.fileSlider.setEnabled(True)
-                self.main_group_box.setTitle( self.currentFile )
+                self.main_group_box.setTitle( self.truncate_keep_suffix(self.currentFile) )
                 if cutModeFolderOverrideActive:
                     folder=os.path.join(path, cutModeFolderOverridePath)
                 else:
