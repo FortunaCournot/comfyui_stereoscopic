@@ -71,7 +71,7 @@ if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install.log" ] ; then
 	echo Skip tests in runner
 	rm custom_nodes/comfyui_stereoscopic/.test/.install
 	# stdbuf -oL -eL ./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh >> "custom_nodes/comfyui_stereoscopic/.test/.install.log" || exit 1
-i
+fi
 
 
 echo -e $"####### \e[96mTest 1/$TESTCOUNT: SBS converter\e[0m ######"
@@ -126,3 +126,4 @@ echo -e $"\e[92m####### ALL TESTS SUCCEEDED ######\e[0m"
 rm -f -- "custom_nodes/comfyui_stereoscopic/.test/.install" 
 echo "Tests successful." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
 exit 0
+
