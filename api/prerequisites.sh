@@ -137,8 +137,10 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "VIDEO_FORMAT=video/h264-mp4">>"$CONFIGFILE"
 	echo "VIDEO_PIXFMT=yuv420p">>"$CONFIGFILE"
 	echo "VIDEO_CRF=17">>"$CONFIGFILE"
+	echo "# --- CLI  (true/false) ---">>"$CONFIGFILE"
+	echo "CLI_ENABLED=true">>"$CONFIGFILE"
 	echo "# --- CLI Video Output quality: low, medium or high ---">>"$CONFIGFILE"
-	echo "VIDEOQUALITYPRESET=low">>"$CONFIGFILE"
+	echo "VIDEOQUALITYPRESET=high">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- scaling config ---">>"$CONFIGFILE"

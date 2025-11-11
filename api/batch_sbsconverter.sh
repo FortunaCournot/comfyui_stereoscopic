@@ -13,9 +13,6 @@ trap onExit EXIT
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
-# relative to COMFYUIPATH:
-SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter_cli.sh 
-SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter_cli.sh 
 
 cd $COMFYUIPATH
 
@@ -32,6 +29,17 @@ if [ -e $CONFIGFILE ] ; then
 else
     touch "$CONFIGFILE"
     echo "config_version=1">>"$CONFIGFILE"
+fi
+
+
+CLI_ENABLED=$(awk -F "=" '/CLI_ENABLED=/ {print $2}' $CONFIGFILE) ; CLI_ENABLED=${CLI_ENABLED:-"true"}
+# relative to COMFYUIPATH:
+if [ "$CLI_ENABLED" = "true" ]; then
+  SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter_cli.sh 
+  SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter_cli.sh 
+else
+  SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_sbs_converter.sh 
+  SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_sbs_converter.sh 
 fi
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
