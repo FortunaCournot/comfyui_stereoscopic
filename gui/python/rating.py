@@ -214,6 +214,7 @@ class RateAndCutDialog(QDialog):
             self.filter_vid = False
             self.filter_edit = not self.cutMode
             self.loadingOk = True
+            self.drag_file_path = None
             
             setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
             rescanFilesToRate()
@@ -665,23 +666,32 @@ class RateAndCutDialog(QDialog):
             data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
             url = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
             
-            with urllib.request.urlopen(url) as response:
-                content_type = response.headers.get("Content-Type", "")
-                if content_type.startswith("image/"):
-                    pass
-                elif content_type.startswith("video/"):
-                    pass
-                else:
-                    self.style_group_box(self.main_group_box, "#44ff44")
-                    self.reset_timer.start(1000)
-                    event.acceptProposedAction()
-                    return
-            
-            self.drag_file_path=url
-            self.style_group_box(self.main_group_box, "#44ff44")
-            self.reset_timer.start(1000)
-            event.acceptProposedAction()
-            return
+            try:
+                with urllib.request.urlopen(url) as response:
+                    content_type = response.headers.get("Content-Type", "")
+                    if content_type.startswith("image/"):
+                        pass
+                    elif content_type.startswith("video/"):
+                        pass
+                    else:
+                        self.drag_file_path = None 
+                        self.style_group_box(self.main_group_box, "#ff0000")
+                        self.reset_timer.start(2000)
+                        event.ignore()
+                        return
+                
+                self.drag_file_path=url
+                self.style_group_box(self.main_group_box, "#44ff44")
+                self.reset_timer.start(1000)
+                event.acceptProposedAction()
+                return
+            except:
+                self.drag_file_path = None 
+                self.style_group_box(self.main_group_box, "#ff0000")
+                self.reset_timer.start(2000)
+                event.ignore()
+                return                
+                
         elif md.hasUrls():
             # Standardweg (wenn funktioniert)
             self.drag_file_path = md.urls()[0].toLocalFile()

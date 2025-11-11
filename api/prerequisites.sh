@@ -466,15 +466,15 @@ for task in $TASKDIR; do
 	fi
 done
 
-
-# CHECK FOR VERSION UPDATE AND RUN TESTS
-./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
+# CHECK FOR VERSION UPDATE FLAGGED BY __init__.py AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
-	echo -e $"\e[91mError:\e[0m Tests failed."
-	touch "custom_nodes/comfyui_stereoscopic/.test/.signalfail"
-	exit 1
+	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
+	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
+		echo -e $"\e[91mError:\e[0m Tests failed."
+		touch "custom_nodes/comfyui_stereoscopic/.test/.signalfail"
+		exit 1
+	fi
 fi
-
 
 # Do initial auto-forward and cleanup
 if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then

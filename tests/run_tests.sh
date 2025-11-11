@@ -34,10 +34,10 @@ WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.mp4' -o -
 
 COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT ))
 if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 0 ]] || [[ $SLIDESBSCOUNT -gt 0 ]] ; then
-	echo -e $"\e[91mError:\e[0m All input files must be removed first, then try again."
+	echo -e $"\e[91mError:\e[0m All input files must be removed fot tests first, then try again."
 	echo "Found $COUNT files in incoming folders:"
 	echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat" && echo "$DUBSFXCOUNT to dub, $WMECOUNT to encrypt, $WMDCOUNT to decrypt"
-	echo "Error: All input files must be removed." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
+	echo "Error: All input files must be removed fot tests." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
 	exit 1
 fi
 

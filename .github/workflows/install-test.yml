@@ -82,3 +82,41 @@ jobs:
         run: |
           echo Cache key: ${{ runner.os }}-downloads-${{ hashFiles('installer/download_list.txt') }}
 
+      - name: Commit and push updated download list
+        if: env.GITHUB_TOKEN != ''
+        shell: cmd
+        run: |
+          echo --- Committing installer\download_list.txt ---
+          cd "%GITHUB_WORKSPACE%"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          git add installer\download_list.txt
+
+          rem Check if file changed before committing
+          git diff --cached --quiet installer\download_list.txt && echo No changes to commit. && exit /b 0
+
+          git commit -m "ci: update download_list.txt (cache) [skip ci]"
+
+          rem Determine current branch
+          for /f "delims=" %%B in ('git rev-parse --abbrev-ref HEAD') do set "BRANCH=%%B"
+
+          rem Push changes using GitHub token
+          set "AUTH_REMOTE=https://%GITHUB_ACTOR%:%GITHUB_TOKEN%@github.com/%GITHUB_REPOSITORY%.git"
+          echo Pushing to %BRANCH%...
+          git push "%AUTH_REMOTE%" HEAD:%BRANCH%
+
+      - name: Show committed changes (post-push)
+        shell: cmd
+        run: |
+          echo --- Git status after push ---
+          cd "%GITHUB_WORKSPACE%"
+          git fetch origin
+          git status
+          echo.
+          echo --- Last commit details ---
+          git log -1 --oneline --stat
+          echo.
+          echo --- installer\download_list.txt contents ---
+          type installer\download_list.txt
+        
