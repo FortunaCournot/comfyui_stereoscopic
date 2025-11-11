@@ -57,6 +57,14 @@ if [ "$status" = "closed" ]; then
 fi
 echo ""
 
+#### SKIP FOR RUNNER
+if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install.log" ] ; then
+	echo Skip tests in runner
+	rm custom_nodes/comfyui_stereoscopic/.test/.install
+	# stdbuf -oL -eL ./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh >> "custom_nodes/comfyui_stereoscopic/.test/.install.log" || exit 1
+i
+
+
 echo -e $"####### \e[96mTest 1/$TESTCOUNT: SBS converter\e[0m ######"
 rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png input/vr/fullsbs/error/test_image.png output/vr/fullsbs/test_image_x4_4K.png 2>/dev/null
 rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 input/vr/fullsbs/error/test_video.mp4 output/vr/fullsbs/test_video_x4.mp4 2>/dev/null

@@ -20,14 +20,14 @@ VR we are!
 
 ## Installation
 
-[![Install Test – develop](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=develop)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
+[![Install Test – main](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=main)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
 
 You need to install ComfyUI (Python 3.12), Git Bash (for Windows) and FFmpeg. Installing ComfyUI Desktop is simpler for this task, however, this tool has been developed with ComfyUI Portable.
 The tool has many dependencies and you must follow the installation steps in the documentation to succeed. The documentation link (head) is at top and included in the released packages.
 
 ### Development Status
 
-[![Install Test – main](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=main)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
+[![Install Test – develop](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=develop)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
 
 ## Contact
 

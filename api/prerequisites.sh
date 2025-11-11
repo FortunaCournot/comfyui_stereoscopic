@@ -468,20 +468,13 @@ done
 
 
 # CHECK FOR VERSION UPDATE AND RUN TESTS
+./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
-	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install.log" ] ; then
-		echo Skip tests
-		rm custom_nodes/comfyui_stereoscopic/.test/.install
-		# stdbuf -oL -eL ./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh >> "custom_nodes/comfyui_stereoscopic/.test/.install.log" || exit 1
-	else
-		./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
-	fi
-	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
-		echo -e $"\e[91mError:\e[0m Tests failed."
-		touch "custom_nodes/comfyui_stereoscopic/.test/.signalfail"
-		exit 1
-	fi
+	echo -e $"\e[91mError:\e[0m Tests failed."
+	touch "custom_nodes/comfyui_stereoscopic/.test/.signalfail"
+	exit 1
 fi
+
 
 # Do initial auto-forward and cleanup
 if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
