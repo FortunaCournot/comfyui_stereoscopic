@@ -53,10 +53,11 @@ TRACELEVEL=0
 VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts']
 IMAGE_EXTENSIONS = ['.png', '.webp', '.jpg', '.jpeg', '.jfif']
 ALL_EXTENSIONS = VIDEO_EXTENSIONS + IMAGE_EXTENSIONS
-global _readyfiles, _activeExtensions, _filterEdit
+global _readyfiles, _activeExtensions, _filterEdit, _sortOrderIndex
 _readyfiles=[]
 _activeExtensions=ALL_EXTENSIONS
 _filterEdit=False
+_sortOrderIndex=3        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
 
 # global init
 global cutModeActive, cutModeFolderOverrideActive, cutModeFolderOverridePath
@@ -78,6 +79,7 @@ fileDragged=False
 FILESCANTIME = 500
 TASKCHECKTIME = 20
 WAIT_DIALOG_THRESHOLD_TIME=2000
+MAX_WAIT_DIALOG_THRESHOLD_TIME=10000
 
 # ---- Tasks ----
 global taskCounterUI, taskCounterAsync, showWaitDialog
@@ -211,6 +213,8 @@ class RateAndCutDialog(QDialog):
             self.filter_img = False
             self.filter_vid = False
             self.filter_edit = not self.cutMode
+            self.loadingOk = True
+            self.drag_file_path = None
             
             setFileFilter(self.filter_img, self.filter_vid, self.filter_edit)
             rescanFilesToRate()
@@ -292,6 +296,18 @@ class RateAndCutDialog(QDialog):
 
             self.cutMode_toolbar.addSeparator()
 
+            self.iconSceneFinderAction = StyledIcon(os.path.join(path, '../../gui/img/scenefinder64.png'))
+            self.sceneFinderAction = QAction(self.iconSceneFinderAction, "Find scene cuts")
+            self.sceneFinderAction.setCheckable(True)
+            self.sceneFinderDone=False
+            self.sceneFinderAction.setChecked(self.sceneFinderDone)
+            self.sceneFinderAction.setVisible(True)
+            self.sceneFinderAction.triggered.connect(self.onSceneFinderAction)
+            self.cutMode_toolbar.addAction(self.sceneFinderAction)
+            self.cutMode_toolbar.widgetForAction(self.sceneFinderAction).setCursor(Qt.PointingHandCursor)
+
+            self.cutMode_toolbar.addSeparator()
+
             self.toggle_filterimg_icon_false = QIcon(os.path.join(path, '../../gui/img/filterimgoff64.png'))
             self.toggle_filterimg_icon_true = QIcon(os.path.join(path, '../../gui/img/filterimgon64.png'))
             self.filterImgAction = QAction(self.toggle_filterimg_icon_true if self.filter_img else self.toggle_filterimg_icon_false, "Toogle Image Filter")
@@ -321,6 +337,28 @@ class RateAndCutDialog(QDialog):
             self.filterEditAction.triggered.connect(self.onFilterEdit)
             self.cutMode_toolbar.addAction(self.filterEditAction)
             self.cutMode_toolbar.widgetForAction(self.filterEditAction).setCursor(Qt.PointingHandCursor)
+
+            self.cutMode_toolbar.addSeparator()
+
+            self.sortfiles_icons = []
+            self.sortfiles_icons.append( QIcon(os.path.join(path, '../../gui/img/sortaz64.png')) )
+            self.sortfiles_icons.append( QIcon(os.path.join(path, '../../gui/img/sortza64.png')) )
+            self.sortfiles_icons.append( QIcon(os.path.join(path, '../../gui/img/sorttup64.png')) )
+            self.sortfiles_icons.append( QIcon(os.path.join(path, '../../gui/img/sorttdown64.png')) )
+            self.sortfiles_combo = QComboBox()
+            self.sortfiles_combo.setEditable(False)
+            for icon in self.sortfiles_icons:
+                self.sortfiles_combo.addItem(icon, "")
+            self.sortfiles_combo.setItemData(0, "alpha↑", Qt.ToolTipRole)
+            self.sortfiles_combo.setItemData(1, "alpha↓", Qt.ToolTipRole)
+            self.sortfiles_combo.setItemData(2, "time↑", Qt.ToolTipRole)
+            self.sortfiles_combo.setItemData(3, "time↓", Qt.ToolTipRole)
+                
+            self.sortfiles_combo.setIconSize(QSize(32,32))
+            self.sortfiles_combo.setCurrentIndex(_sortOrderIndex)
+            self.sortfiles_combo.setStyleSheet('selection-background-color: rgb(0,0,0)')
+            self.cutMode_toolbar.addWidget(self.sortfiles_combo)
+            self.sortfiles_combo.currentIndexChanged.connect(self.on_sortfiles_combobox_index_changed)
 
             empty = QWidget()
             empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
@@ -546,6 +584,7 @@ class RateAndCutDialog(QDialog):
             self.main_group_box = QGroupBox()
             self.main_group_box.setStyleSheet("QGroupBox{font-size: 20px; background-color : black; color: white;}")
 
+
             self.main_group_box.setLayout(self.main_layout)
 
             #Outer main layout to accomodate the group box
@@ -589,6 +628,299 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True)
 
+        self.reset_timer = QTimer(self)
+        self.reset_timer.setSingleShot(True)
+        self.reset_timer.timeout.connect(self.reset_visual)
+        self.setAcceptDrops(True)  # Enable drop events
+        
+    def style_group_box(self, group_box, color: str):
+        """
+        Apply a styled look to a QGroupBox with the given color for both text and border.
+        
+        Args:
+            group_box (QGroupBox): The target group box.
+            color (str): Any valid CSS color (e.g. '#00FF00', 'red', 'rgb(255,0,0)').
+        """
+        group_box.setStyleSheet(f"""
+            QGroupBox {{
+                font-size: 20px;
+                background-color: black;
+                color: {color};
+                border: 2px solid {color};
+                border-radius: 5px;
+                margin-top: 10px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }}
+        """)
+    
+    def dragEnterEvent(self, event):
+        md = event.mimeData()
+
+        # restart timer; if drag really leaves window, timer will fire and reset color
+
+        if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
+            url = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
+            
+            try:
+                with urllib.request.urlopen(url) as response:
+                    content_type = response.headers.get("Content-Type", "")
+                    if content_type.startswith("image/"):
+                        pass
+                    elif content_type.startswith("video/"):
+                        pass
+                    else:
+                        self.drag_file_path = None 
+                        self.style_group_box(self.main_group_box, "#ff0000")
+                        self.reset_timer.start(2000)
+                        event.ignore()
+                        return
+                
+                self.drag_file_path=url
+                self.style_group_box(self.main_group_box, "#44ff44")
+                self.reset_timer.start(1000)
+                event.acceptProposedAction()
+                return
+            except:
+                self.drag_file_path = None 
+                self.style_group_box(self.main_group_box, "#ff0000")
+                self.reset_timer.start(2000)
+                event.ignore()
+                return                
+                
+        elif md.hasUrls():
+            # Standardweg (wenn funktioniert)
+            self.drag_file_path = md.urls()[0].toLocalFile()
+            #print("File (URI):", self.drag_file_path)
+            if os.path.isdir(self.drag_file_path):
+                self.style_group_box(self.main_group_box, "#44ff44")
+                self.reset_timer.start(1000)
+                event.acceptProposedAction()
+                return
+            elif os.path.isfile(self.drag_file_path) and any(self.drag_file_path.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
+                self.style_group_box(self.main_group_box, "#44ff44")
+                event.acceptProposedAction()
+                self.reset_timer.start(1000)
+                return
+        
+        print("Formats:", event.mimeData().formats())
+        self.drag_file_path = None 
+        self.style_group_box(self.main_group_box, "#ff0000")
+        self.reset_timer.start(2000)
+        event.ignore()
+    
+    def reset_visual(self):
+        self.style_group_box(self.main_group_box, "white")
+    
+    def dragMoveEvent(self, event):
+        md = event.mimeData()
+        if not self.drag_file_path is None:
+            self.style_group_box(self.main_group_box, "#44ff44")
+            event.acceptProposedAction()
+        else:
+            self.style_group_box(self.main_group_box, "#ff0000")
+            event.ignore()
+        # restart timer; if drag really leaves window, timer will fire and reset color
+        self.reset_timer.start(1000)
+        
+
+    def dropEvent(self, event):
+        # Retrieve file paths
+        if not self.drag_file_path is None:
+            #print(f"File dropped:\n{self.drag_file_path}", flush=True)
+            md = event.mimeData()
+            if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+                try:
+                    self.downloadAndSwithToimage(self.drag_file_path)
+                except:
+                    event.ignore()
+                    print(traceback.format_exc(), flush=True) 
+            elif os.path.isdir(self.drag_file_path):
+                self.switchDirectory(self.drag_file_path, None, None)
+            elif os.path.isfile(self.drag_file_path) and any(self.drag_file_path.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
+                self.switchDirectory(os.path.dirname(self.drag_file_path), os.path.basename(self.drag_file_path), None)
+            else:
+                event.ignore()
+        else:
+            event.ignore()
+
+    def downloadAndSwithToimage(self, url: str):
+        """
+        Download an image from the given URL and save it into target_dir.
+        The filename is automatically derived from the URL.
+        
+        Args:
+            url (str): The image URL (HTTP/HTTPS).
+        """
+        # Parse URL and derive a safe filename
+        parsed = urllib.parse.urlparse(url)
+        filename = os.path.basename(parsed.path)
+        
+        if not filename:
+            raise ValueError("URL does not contain a valid filename")
+
+        self.switchDirectory(None, filename, self.drag_file_path)
+        
+    
+    def switchDirectory(self, dirpath, filename, url):
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        cutModeFolderOverrideActive= not dirpath is None
+        thread = threading.Thread(
+            target=self.switchDirectory_worker,
+            args=( cutModeFolderOverrideActive, dirpath, filename, url),
+            daemon=True
+        )
+        thread.start()
+
+    def get_safe_unique_filename(self, directory: str, filename: str) -> str:
+        """
+        Generate a sanitized and unique filename within a given directory.
+        
+        Steps:
+          1. Remove problematic shell/batch characters from filename.
+          2. If a file with the same name already exists, append "_N" before the extension,
+             where N is an increasing integer.
+        
+        Args:
+            directory (str): Target directory path.
+            filename (str): Original filename (may contain unsafe characters).
+        
+        Returns:
+            str: A safe, unique filename (not a full path).
+        """
+        # Step 1: sanitize filename (remove unsafe characters)
+        # Keep letters, digits, dot, underscore, hyphen, and space
+        safe_name = re.sub(r'[^A-Za-z0-9._\- ]+', '_', filename)
+        
+        # Prevent hidden or empty names
+        if not safe_name or safe_name.startswith('.'):
+            safe_name = 'file'
+
+        # Separate base and extension
+        base, ext = os.path.splitext(safe_name)
+        if not ext:
+            ext = ""
+
+        # Step 2: ensure uniqueness
+        candidate = safe_name
+        counter = 1
+        while os.path.exists(os.path.join(directory, candidate)):
+            candidate = f"{base}_{counter}{ext}"
+            counter += 1
+
+        return candidate
+    
+    def switchDirectory_worker(self, override, dirpath, filename, url):
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        startAsyncTask()
+        try:
+            if not url is None:
+                # Download
+                with urllib.request.urlopen(url) as response:
+                    content_type = response.headers.get("Content-Type", "")
+                    
+                    # Optional: fallback extension if missing
+                    if content_type.startswith("image/"):
+                        if '.' not in filename:
+                            filename += ".jpg"
+                    elif content_type.startswith("video/"):
+                        if '.' not in filename:
+                            filename += ".mp4"
+                    else:
+                        raise ValueError(f"URL is not an image (Content-Type: {content_type})")
+                
+                    # Build full output path, ignore dirpath (assume None)
+                    dirpath=None
+                    target_dir = os.path.join(path, "../../../../input/vr/check/rate")
+                    #os.makedirs(target_dir, exist_ok=True)
+                    filename = self.get_safe_unique_filename(target_dir, filename)
+                    output_path = os.path.join(target_dir, filename)
+                    
+                    # Write to file
+                    with open(output_path, "wb") as f:
+                        block_size = 8192
+                        while True:
+                            chunk = response.read(block_size)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+            
+
+            if override:
+                if os.path.isdir(dirpath):
+                    cutModeFolderOverridePath=dirpath
+                    cutModeFolderOverrideActive=True
+                else:
+                    print(f"not a directory: {dirpath}", flush=True)
+                    override=False
+                    cutModeFolderOverrideActive=False   # cancel
+                    dirpath=""                    
+            else:
+                dirpath=""
+                cutModeFolderOverrideActive=False
+                
+            scanFilesToRate()   # can block on some drives
+
+            QTimer.singleShot(0, partial(self.switchDirectory_updater, override, dirpath, filename))
+        except:
+            endAsyncTask()
+            print(traceback.format_exc(), flush=True) 
+
+    def switchDirectory_updater(self, override, dirpath, filename):
+
+        global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        try:
+            f=getFilesToRate()
+            if len(f) > 0:
+                self.currentIndex=0
+                self.currentFile=f[self.currentIndex]
+                if not filename is None:
+                    try:
+                        self.currentFile=filename
+                        self.currentIndex=f.index(self.currentFile)+1
+                    except ValueError as ve:
+                        self.currentFile=f[self.currentIndex]
+            else:
+                self.currentFile=""
+                self.currentIndex=-1
+                
+            self.rateCurrentFile()
+
+        except:
+            print(traceback.format_exc(), flush=True) 
+        finally:
+            self.folderAction.setChecked(override)
+            self.folderAction.setEnabled(True)
+            self.dirlabel.setText(dirpath)
+            endAsyncTask()
+ 
+ 
+    def onSceneFinderAction(self, state):
+        if not state and self.sceneFinderDone:
+            self.sceneFinderAction.setChecked(self.sceneFinderDone)
+        elif state:
+            self.sceneFinderAction.setChecked(False)
+            self.sceneDetection()
+
+    def on_sortfiles_combobox_index_changed(self, index):
+        enterUITask()
+        try:
+            global _sortOrderIndex
+            _sortOrderIndex=index        # 0: A-Z, 1: Z-A, 2: Time Up, 3: Time Down
+            applySortOrder()
+            rescanFilesToRate()
+            f=getFilesToRate()
+            if len(f) > 0:
+                self.currentIndex=0
+                self.currentFile=f[self.currentIndex]
+                self.rateCurrentFile()
+        finally:
+            leaveUITask()
+        
     def show_manual(self, state):
         webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
 
@@ -742,6 +1074,13 @@ class RateAndCutDialog(QDialog):
         if not self.isPaused:
             self.button_startpause_video.setFocus()
 
+    def truncate_keep_suffix(self, filename: str, max_length: int = 100) -> str:
+        root, ext = os.path.splitext(filename)
+        if len(filename) <= max_length:
+            return filename
+        cutoff = max_length - len(ext) - 1  # Platz für '~' + Suffix
+        return root[:cutoff] + "~" + ext
+        
     def fileSliderDragStart(self):
         global fileDragged
         fileDragged=True
@@ -754,10 +1093,12 @@ class RateAndCutDialog(QDialog):
             lastIndex=len(getFilesToRate())
             self.fileDragIndex=index
             self.fileLabel.setText(str(index)+" of "+str(lastIndex))
-            self.main_group_box.setTitle(getFilesToRate()[index-1])
+            self.main_group_box.setTitle(self.truncate_keep_suffix(getFilesToRate()[index-1]))
+            self.display.updatePreview( getFilesToRate()[index-1] )
 
     def fileSliderChanged(self):
         index=self.fileDragIndex
+        self.display.hidePreview()
         if index!=self.currentIndex and index>=1 and index<=len(getFilesToRate()):
             #print("fileSliderChanged to", str(index+1)+" of "+str(len(getFilesToRate())), flush=True)
             self.fileLabel.setStyleSheet("QLabel { background-color : black; color : white; }");
@@ -777,10 +1118,10 @@ class RateAndCutDialog(QDialog):
             self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
 
     def update_filebuttons(self):
-        if self.currentIndex<0:
+        if self.currentIndex<0 or not self.loadingOk:
             l = len(getFilesToRate())
             #print("currentIndex-<0", l, flush=True)
-            if l > 0:
+            if self.currentIndex<0 and l > 0:
                 #print("reset currentIndex=0", l, flush=True)
                 self.currentIndex=0
                 self.currentFile=getFilesToRate()[0]
@@ -798,31 +1139,44 @@ class RateAndCutDialog(QDialog):
                 else:
                     self.rating_widget.setVisible(False)
                     self.button_return2edit.setVisible(False)
+                self.button_startpause_video.setVisible(False)
+                self.sl.setVisible(False)
                 self.button_justrate_compress.setVisible(False)
-                self.button_prev_file.setVisible(False)
-                self.button_next_file.setVisible(False)
-                self.button_delete_file.setVisible(False)
-                self.fileSlider.setVisible(False)
+                self.button_prev_file.setVisible(self.currentIndex>=0)
+                self.button_next_file.setVisible(self.currentIndex>=0)
+                self.button_delete_file.setVisible(self.currentIndex>=0)
+                self.fileSlider.setVisible(self.currentIndex>=0)
         else:
             if self.cutMode:
-                self.cropWidget.display_sliders(True)
+                self.cropWidget.display_sliders(not fileDragged)
                 self.button_cutandclone.setVisible(True)
+                self.button_cutandclone.setEnabled(not fileDragged)
                 if not self.isVideo:
                     self.button_trima_video.setVisible(False)
                     self.button_trimfirst_video.setVisible(False)
                     self.button_trimb_video.setVisible(False)
                     self.button_trimtosnap_video.setVisible(False)
-                self.button_snapshot_from_video.setVisible(self.isVideo)
-                self.button_startframe.setVisible(self.isVideo)
-                self.button_endframe.setVisible(self.isVideo)
+                else:
+                    self.button_trimb_video.setVisible(not fileDragged)
+                self.button_snapshot_from_video.setVisible(self.isVideo and not fileDragged)
+                self.button_startframe.setVisible(self.isVideo and not fileDragged)
+                self.button_endframe.setVisible(self.isVideo and not fileDragged)
+                self.sceneFinderAction.setVisible(self.isVideo and not fileDragged)
             else:
-                self.rating_widget.setVisible(True)
-                self.button_return2edit.setVisible(True)
+                self.sceneFinderAction.setVisible(False)
+                self.rating_widget.setVisible(not fileDragged)
+                self.button_return2edit.setVisible(not fileDragged)
                 self.button_return2edit.setEnabled("/" in self.currentFile)
+            self.sl.setVisible(self.isVideo and not fileDragged)
+            self.button_startpause_video.setVisible(self.isVideo and not fileDragged)
             self.button_justrate_compress.setVisible(True)
+            self.button_justrate_compress.setEnabled(not fileDragged)
             self.button_prev_file.setVisible(True)
+            self.button_prev_file.setEnabled(not fileDragged)
             self.button_next_file.setVisible(True)
+            self.button_next_file.setEnabled(not fileDragged)
             self.button_delete_file.setVisible(True)
+            self.button_delete_file.setEnabled(not fileDragged)
             self.fileSlider.setVisible(True)
             
         index=-1
@@ -836,8 +1190,8 @@ class RateAndCutDialog(QDialog):
                     pass
         except StopIteration as e:
             pass
-        self.button_prev_file.setEnabled(index>1)
-        self.button_next_file.setEnabled(index>0 and index<lastIndex)
+        self.button_prev_file.setEnabled(not fileDragged and index>1)
+        self.button_next_file.setEnabled(not fileDragged and index>0 and index<lastIndex)
         if index>0:
             if not fileDragged:
                 self.fileLabel.setText(str(index)+" of "+str(lastIndex))
@@ -1021,9 +1375,10 @@ class RateAndCutDialog(QDialog):
             QApplication.setOverrideCursor(Qt.WaitCursor)
             global fileDragged
             if self.currentIndex>=0:
+                self.loadingOk = True
                 self.fileSlider.setValue(self.currentIndex)
                 self.fileSlider.setEnabled(True)
-                self.main_group_box.setTitle( self.currentFile )
+                self.main_group_box.setTitle( self.truncate_keep_suffix(self.currentFile) )
                 if cutModeFolderOverrideActive:
                     folder=os.path.join(path, cutModeFolderOverridePath)
                 else:
@@ -1079,7 +1434,7 @@ class RateAndCutDialog(QDialog):
         finally:
             QApplication.restoreOverrideCursor()
             leaveUITask()
-           
+
     def onPlayTypeAction(self, state):
         self.playtype_pingpong = state
         self.iconPlayTypeAction.setIcon(self.toggle_playtype_icon_true if self.playtype_pingpong else self.toggle_playtype_icon_false)
@@ -1216,7 +1571,6 @@ class RateAndCutDialog(QDialog):
             self.rateCurrentFile()
         except:
             print(traceback.format_exc(), flush=True) 
-            endAsyncTask()
         finally:
             self.folderAction.setChecked(override)
             self.folderAction.setEnabled(True)
@@ -1357,6 +1711,9 @@ class RateAndCutDialog(QDialog):
                 self.cropWidget.applySceneIntersections(scene_intersections)
             else:
                 self.display.applySceneIntersections(scene_intersections)
+            self.sceneFinderDone=True
+            self.sceneFinderAction.setChecked(self.sceneFinderDone)
+                
         except:
             print(traceback.format_exc(), flush=True)
         finally:
@@ -1501,15 +1858,11 @@ class RateAndCutDialog(QDialog):
                     cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
                 cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" -shortest \"" + output + "\""
                 print("Executing "  + cmd, flush=True)
-                
                 recreated=os.path.exists(output)
                 thread = threading.Thread(
-                    target=self.trimAndCrop_worker,
-                    args=(cmd, recreated, output, ),
-                    daemon=True
-                )
+                    target=self.trimAndCrop_worker, args=(cmd, recreated, output, ), daemon=True)
                 thread.start()
-                    
+                
             except ValueError as e:
                 pass
         except:
@@ -1517,21 +1870,21 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
 
-
+            
     def trimAndCrop_worker(self, cmd, recreated, output):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, output, True))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, output, True))
 
         except subprocess.CalledProcessError as se:
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, cmd, recreated, output, False))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, output, False))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
 
 
-    def trimAndCrop_updater(self, cmd, recreated, output, success):
+    def trimAndCrop_updater(self, recreated, output, success):
         if success:
             self.log(" Overwritten" if recreated else " OK", QColor("green"))
             if self.display.frame_count<=0:
@@ -1577,9 +1930,10 @@ class RateAndCutDialog(QDialog):
                 x=self.cropWidget.crop_left
                 y=self.cropWidget.crop_top
                 self.log("Create snapshot "+newfilename, QColor("white"))
+                recreated=os.path.exists(output)
+                '''
                 cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \"select=eq(n\\," + frameindex + ")\" -vframes 1 -update 1 \"" + tempfile + "\""
                 cmd2 = "ffmpeg.exe -hide_banner -y -i \"" + tempfile + "\" -vf \"crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y) + "\" \"" + output + "\""
-                recreated=os.path.exists(output)
                 
                 thread = threading.Thread(
                             target=self.takeSnapshot_worker,
@@ -1587,6 +1941,12 @@ class RateAndCutDialog(QDialog):
                             daemon=True
                         )
                 thread.start()
+                '''
+                
+                rect = QRect(x, y, out_w, out_h)
+                cropped_pixmap = self.cropWidget.original_pixmap.copy(rect)        
+                success = cropped_pixmap.save(output)
+                self.takeSnapshot_updater(success, recreated, output, )
                 
             except ValueError as e:
                 pass
@@ -1595,6 +1955,7 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
 
+    '''
     def takeSnapshot_worker(self, cmd1, cmd2, recreated, temporaryfile, output):
         startAsyncTask()
         try:
@@ -1610,6 +1971,7 @@ class RateAndCutDialog(QDialog):
 
         except Exception:
             print(traceback.format_exc(), flush=True) 
+    '''
 
     def takeSnapshot_updater(self, success, recreated, output):
         if success:
@@ -1639,6 +2001,9 @@ class RateAndCutDialog(QDialog):
 
 
     def onVideoLoaded(self, count, fps, length):
+        self.sceneFinderDone=False
+        self.sceneFinderAction.setChecked(self.sceneFinderDone)
+
         if cutModeFolderOverrideActive:
             pass
         else:
@@ -1646,31 +2011,43 @@ class RateAndCutDialog(QDialog):
                 self.logn("Loading video failed. Archiving forced...", QColor("red"))
                 self.justRate=False
                 self.rateOrArchiveAndNext()
+                self.loadingOk = False
                 return
 
+        if count<0:
+            self.logn("Loading video failed.", QColor("red"))
+            self.display.stopAndBlackout()
+            self.loadingOk = False
+            return
+            
         if self.cutMode:
             self.button_trima_video.setVisible(False)
             self.button_trimfirst_video.setVisible(True)
 
         SCENEDETECTION_INPUTLENGTHLIMIT=float(config("SCENEDETECTION_INPUTLENGTHLIMIT", "20.0"))
         if count>0 and length<=SCENEDETECTION_INPUTLENGTHLIMIT:
-            if cutModeFolderOverrideActive:
-                folder=cutModeFolderOverridePath
-            else:
-                folder=os.path.join(path, "../../../../input/vr/check/rate")
-            input=os.path.abspath(os.path.join(folder, self.currentFile))
-            
-            SCENEDETECTION_THRESHOLD_DEFAULT=float(config("SCENEDETECTION_THRESHOLD_DEFAULT", "0.1"))
-            thread = threading.Thread(
-                target=self.sceneFinder_worker,
-                args=(input, SCENEDETECTION_THRESHOLD_DEFAULT,),
-                daemon=True
-            )                            
-            thread.start()
+            self.sceneDetection()
         else:
             if self.cutMode:
                 self.cropWidget.applySceneIntersections([])
 
+
+    def sceneDetection(self):
+        #self.logn("Scene detection...", QColor("grey"))
+        if cutModeFolderOverrideActive:
+            folder=cutModeFolderOverridePath
+        else:
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, self.currentFile))
+        
+        SCENEDETECTION_THRESHOLD_DEFAULT=float(config("SCENEDETECTION_THRESHOLD_DEFAULT", "0.1"))
+        thread = threading.Thread(
+            target=self.sceneFinder_worker,
+            args=(input, SCENEDETECTION_THRESHOLD_DEFAULT,),
+            daemon=True
+        )                            
+        thread.start()
+        
 
     def closeOnError(self, msg):
         if TRACELEVEL >= 1:
@@ -1832,6 +2209,8 @@ class VideoThread(QThread):
         self._run_flag = False
         self.pingPongModeEnabled=pingpong
         self.pingPongReverseState=False
+        self.seekRequest=-1
+        self.busy=False
         #print("Created thread with uid " + str(uid) , flush=True)
 
     def run(self):
@@ -1843,13 +2222,20 @@ class VideoThread(QThread):
         if not os.path.exists(self.filepath):
             print("Failed to open", self.filepath, flush=True)
             self.onVideoLoaded(-1, 1.0, 0.0)
+            self.cap.release()
+            leaveUITask()
             return
             
         self.cap = cv2.VideoCapture(self.filepath)
         if not self.cap.isOpened():
             print("Failed to open", self.filepath, flush=True)
+            try:
+                self.cap.release()
+            except:
+                pass
             self.cap=None
             self.onVideoLoaded(-1, 1.0, 0.0)
+            leaveUITask()
             return
 
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -1885,75 +2271,91 @@ class VideoThread(QThread):
 
         leaveUITask()
 
-        self.onVideoLoaded(self.frame_count, self.fps, vlength)
-        self.update(self.pause)
+        try:
+            self.onVideoLoaded(self.frame_count, self.fps, vlength)
+            self.update(self.pause)
 
-        self.currentFrame=-1      # before start. first frame will be number 0
-        self.lastLoadedFrame= -1
-        while self._run_flag:
-            timestamp=time.time() 
-            if TRACELEVEL >= 4:
-                print("VideoThread run ", self.currentFrame, int(timestamp*1000), flush=True)
-            if not self.pause:
-                if self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame>self.a:
-                    self.currentFrame-=1
-                    self.seek(self.currentFrame)
-                elif self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame<=self.a:
-                    self.pingPongReverseState=False
-                    self.currentFrame=self.a
-                    if self.currentFrame+1<=self.b:
-                        self.currentFrame+=1
+            self.currentFrame=-1      # before start. first frame will be number 0
+            self.lastLoadedFrame= -1
+            self.idle=True
+            
+            while self._run_flag:
+                timestamp=time.time() 
+                if TRACELEVEL >= 4:
+                    print("VideoThread run ", self.currentFrame, int(timestamp*1000), flush=True)
+                self.idle=False
+                if not self.pause:
+                    if self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame>self.a:
+                        self.currentFrame-=1
                         self.seek(self.currentFrame)
-                else:
-                    if self.currentFrame!=self.lastLoadedFrame:
-                        self.seek(self.currentFrame)
-                    elif self.currentFrame+1>self.b:
-                        if self.pingPongModeEnabled:
-                            self.pingPongReverseState=True
-                            if self.b-1 >= self.a:
-                                self.seek(self.b-1)
-                        else:
-                            self.seek(self.a)   # replay
-                    elif self.currentFrame+1<self.a:
-                        self.seek(self.a)
+                    elif self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame<=self.a:
+                        self.pingPongReverseState=False
+                        self.currentFrame=self.a
+                        if self.currentFrame+1<=self.b:
+                            self.currentFrame+=1
+                            self.seek(self.currentFrame)
                     else:
-                        ret, cv_img = self.cap.read()
-                        if self.pause:
-                            print("meanwhile paused. ignore image.", flush=True)
-                            pass # ignore image
-                        elif self._run_flag:
-                            if ret and not cv_img is None:
-                                self.currentFrame+=1
-                                self.lastLoadedFrame=self.currentFrame
-                                self.slider.setValue(self.currentFrame)
-                                self.change_pixmap_signal.emit(cv_img, self.uid)
+                        if self.currentFrame!=self.lastLoadedFrame:
+                            self.seek(self.currentFrame)
+                        elif self.currentFrame+1>self.b:
+                            if self.pingPongModeEnabled:
+                                self.pingPongReverseState=True
+                                if self.b-1 >= self.a:
+                                    self.seek(self.b-1)
                             else:
-                                if self.pingPongModeEnabled:
-                                    self.pingPongReverseState=True
-                                    if self.b-1 >= self.a:
-                                        self.seek(self.b-1)
+                                self.seek(self.a)   # replay
+                        elif self.currentFrame+1<self.a:
+                            self.seek(self.a)
+                        else:
+                            ret, cv_img = self.cap.read()
+                            if self.pause:
+                                print("meanwhile paused. ignore image.", flush=True)
+                                pass # ignore image
+                            elif self._run_flag:
+                                if ret and not cv_img is None:
+                                    self.currentFrame+=1
+                                    self.lastLoadedFrame=self.currentFrame
+                                    self.slider.setValue(self.currentFrame)
+                                    self.change_pixmap_signal.emit(cv_img, self.uid)
                                 else:
-                                    print("Error: failed to load frame", self.currentFrame, flush=True)
-                                    self.cap.release()
-                                    self.cap = cv2.VideoCapture(self.filepath)
-                                    self.seek(self.a)
-
-            elapsed = time.time()-timestamp
-            sleeptime = 1.0/float(self.fps) - elapsed
-            if sleeptime>0:
+                                    if self.pingPongModeEnabled:
+                                        self.pingPongReverseState=True
+                                        if self.b-1 >= self.a:
+                                            self.seek(self.b-1)
+                                    else:
+                                        print("Error: failed to load frame", self.currentFrame, flush=True)
+                                        self.cap.release()
+                                        self.cap = cv2.VideoCapture(self.filepath)
+                                        self.seek(self.a)
+                elif self.seekRequest>=0:
+                    self.idle=True
+                    self.seek(self.seekRequest)
+                    self.seekRequest=-1
+                else:
+                    self.idle=True
+                
+                elapsed = time.time()-timestamp
+                sleeptime = max(0.02, 1.0/float(self.fps) - elapsed)
                 time.sleep(sleeptime)
             
-        self.cap.release()
-        videoActive=False
-        #print("Thread ends.", flush=True)
-        #rememberThread=None
+        except:
+            print(traceback.format_exc(), flush=True)
+        finally:
+            self.cap.release()
+            videoActive=False
+            #print("Thread ends.", flush=True)
+            #rememberThread=None
+             
 
     def requestStop(self):
-        #print("stopping thread...", flush=True)
         self._run_flag=False
         self.change_pixmap_signal.emit(np.array([]), -1)
+        if TRACELEVEL >= 2:
+            print("waiting for thread to stop...", flush=True)
         while videoActive:
             pass
+        if TRACELEVEL >= 2:            
+            print("stopped.", flush=True)
         #print("done.", flush=True)
     
     def getFrameCount(self):
@@ -1970,20 +2372,25 @@ class VideoThread(QThread):
 
     def tooglePause(self):
         self.pause = not self.pause
-        #self.slider.setEnabled(self.pause)
         self.update(self.pause)
 
 
     def seek(self, frame_number):
         if self.currentFrame == frame_number and self.currentFrame == self.lastLoadedFrame:
             return
+        while self.busy:
+            pass
+        self.busy=True
+        try:
+            if TRACELEVEL >= 2:
+                print("seeking for", frame_number, flush=True)
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
+            ret, cv_img = self.cap.read()
+            if TRACELEVEL >= 2:
+                print("seeking done", self.currentFrame, frame_number, ret , self._run_flag, self.pause, flush=True)
+        finally:
+            self.busy=False
             
-        if TRACELEVEL >= 2:
-            print("seeking for", frame_number, flush=True)
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)  # frame_number starts with 0
-        ret, cv_img = self.cap.read()
-        if TRACELEVEL >= 2:
-            print("seeking done", self.currentFrame, frame_number, ret , self._run_flag, self.pause, flush=True)
         if ret and self._run_flag:
             self.currentFrame=frame_number
             self.lastLoadedFrame=frame_number
@@ -2013,6 +2420,7 @@ class VideoThread(QThread):
             if TRACELEVEL >= 1:
                 print("onSliderMouseClick. stop playback and seek", self.slider.value(), flush=True)
             self.pause=True
+            self.seekRequest=self.slider.value()
             self.update(self.pause)
 
             frame=self.slider.value()
@@ -2091,6 +2499,53 @@ class Display(QLabel):
 
         self.closeEvent = self.stopAndBlackout
 
+        # Thumbnail-Label
+        self.thumbnailsize=640
+        self.thumbnail = QLabel(self)
+        self.thumbnail.setFixedSize(self.thumbnailsize, self.thumbnailsize)
+        self.thumbnail.setFrameStyle(QFrame.Box)
+        self.thumbnail.setStyleSheet("background-color: black; border: 2px solid black;")
+        self.thumbnail.hide()
+        
+
+    def hidePreview(self):
+        self.thumbnail.hide()
+
+    def updatePreview(self, relativePath):
+        blackpixmap = QPixmap(self.thumbnailsize, self.thumbnailsize)
+        blackpixmap.fill(Qt.black)
+        self.thumbnail.setPixmap(blackpixmap)
+        self.thumbnail.move(int(self.width()/2 - self.thumbnail.width()/2), int(self.height()/2 - self.thumbnail.height()/2))
+        self.thumbnail.show()
+        self.thumbnail.raise_()  # <-- Bringt die Vorschau in den Vordergrund!
+
+        if cutModeFolderOverrideActive:
+            folder=cutModeFolderOverridePath
+        else:
+            folder=os.path.join(path, "../../../../input/vr/check/rate")
+        input=os.path.abspath(os.path.join(folder, relativePath))
+
+        try:
+            if input.endswith(tuple(VIDEO_EXTENSIONS)):
+                    cap = cv2.VideoCapture(input)
+                    try:
+                        if cap.isOpened():
+                            ret, cv_img = cap.read()
+                            if not ret or cv_img is None:                        
+                                return
+                    finally:
+                        cap.release()
+            else:
+                cv_img  = cv2.imread( input )
+        
+            rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb_image.shape
+            bytes_per_line = ch * w
+            convert_cv_qt_img = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            self.thumbnail.setPixmap( QPixmap.fromImage(convert_cv_qt_img).scaled( self.thumbnailsize, self.thumbnailsize, Qt.KeepAspectRatio ) )
+        except:
+            print(traceback.format_exc(), flush=True)
+        
 
     def setPingPongModeEnabled(self, state):
         self.playtype_pingpong=state
@@ -2137,6 +2592,8 @@ class Display(QLabel):
     def update_image(self, cv_img, uid):
         if TRACELEVEL>=4:
             print("update_image", uid, self.displayUid, time.time() , flush=True)
+        
+        self.thumbnail.hide()
         
         if uid!=self.displayUid:
             self.qt_img = None
@@ -2279,6 +2736,7 @@ class Display(QLabel):
             self.button.clicked.disconnect(self.tooglePausePressed)
             t.change_pixmap_signal.disconnect(self.update_image)
             t.requestStop()
+            t.deleteLater()
             self.update_image(np.array([]), -1)
 
     def onVideoLoaded(self, count, fps, length):
@@ -3314,7 +3772,7 @@ def scanFilesToRate():
 def rescanFilesToRate():
     try:
         #print("rescanFilesToRate", flush=True)
-        global _filesWithoutEdit, _editedfiles, _readyfiles, filesNoCut, filesCut, _cutModeFolderOverrideFiles
+        global _filesWithoutEdit, _editedfiles, _readyfiles, _cutModeFolderOverrideFiles, filesNoCut, filesCut
         _filesWithoutEdit = update_file_list("../../../../input/vr/check/rate", _filesWithoutEdit)
         _editedfiles = update_file_list("../../../../input/vr/check/rate/edit", _editedfiles)
         _readyfiles = update_file_list("../../../../input/vr/check/rate/ready", _readyfiles)
@@ -3372,25 +3830,6 @@ def statMTime(path):
     #print("?", c, m, path, flush=True)
     return m
 
-def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
-    """
-    Erstellt eine sortierte Liste mit Tupeln (Dateiname, Modifikationsdatum).
-    Sortiert nach Modifikationsdatum aufsteigend (alte zuerst).
-    """
-    fullbasepath=os.path.join(path, base_path)
-    if not os.path.exists(fullbasepath):
-        os.makedirs(fullbasepath)
-    
-    bpath = os.path.abspath(fullbasepath)
-    files = []
-    for f in os.listdir(bpath):
-        full_path = os.path.join(bpath, f)
-        if os.path.isfile(full_path) and any(f.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
-            mtime = statMTime(full_path)
-            files.append((f, mtime))    
-
-    return sorted(files, key=lambda x: x[1], reverse=False)
-
 
 def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
     """
@@ -3429,25 +3868,101 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List
         
     return file_list
 
+def _get_sort_key(item: Tuple[str, float]):
+    """
+    Liefert den Sortierschlüssel für ein Element (Dateiname, mtime)
+    basierend auf dem globalen _sortOrderIndex.
+    """
+    global _sortOrderIndex
+
+    if _sortOrderIndex in (0, 1):  # alphabetisch
+        return item[0].lower()
+    elif _sortOrderIndex in (2, 3):  # nach Zeit
+        return item[1]
+    else:
+        # Fallback: Zeit aufsteigend
+        return item[1]
+
+
+def _sort_file_list(file_list: List[Tuple[str, float]]):
+    """
+    Sortiert eine Datei-Liste gemäß der aktuellen globalen Sortierregel.
+    """
+    global _sortOrderIndex
+
+    reverse = _sortOrderIndex in (1, 3)  # 1 = alpha↓, 3 = time↓
+    return sorted(file_list, key=_get_sort_key, reverse=reverse)
+
+def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
+    """
+    Erstellt eine sortierte Liste mit Tupeln (Dateiname, Modifikationsdatum).
+    Sortiert nach Modifikationsdatum aufsteigend (alte zuerst).
+    """
+    fullbasepath=os.path.join(path, base_path)
+    if not os.path.exists(fullbasepath):
+        os.makedirs(fullbasepath)
+    
+    bpath = os.path.abspath(fullbasepath)
+    files = []
+    for f in os.listdir(bpath):
+        full_path = os.path.join(bpath, f)
+        if os.path.isfile(full_path) and any(f.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
+            mtime = statMTime(full_path)
+            files.append((f, mtime))    
+
+    #return sorted(files, key=lambda x: x[1], reverse=False)
+    global _sortOrderIndex
+    reverse = _sortOrderIndex in (1, 3)  # 1 = alpha↓, 3 = time↓
+    return sorted(files, key=_get_sort_key, reverse=reverse)
 
 def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float]):
     """
-    Fügt ein neues Element (Dateiname, Modifikationsdatum) an der richtigen Stelle in eine
-    absteigend sortierte Liste ein, ohne komplette Neusortierung.
+    Fügt ein neues Element (Dateiname, Modifikationsdatum) an der richtigen
+    Stelle in die bestehende Liste ein, basierend auf der aktuellen Sortierlogik.
     """
-    #for file, mtime in file_list:
-    #    print("- ", mtime, file, flush=True)
-    #print("----------------------------------", flush=True)
-    
-    times = [mtime for _, mtime in file_list]
-    pos = bisect.bisect_left(times, new_item[1])
+    global _sortOrderIndex
+
+    if not file_list:
+        file_list.append(new_item)
+        return
+
+    # Bestimme den Sortierschlüssel für das neue Element
+    new_key = _get_sort_key(new_item)
+
+    # Liste der bestehenden Sortierschlüssel erzeugen
+    keys = [_get_sort_key(item) for item in file_list]
+
+    # Je nach Sortierreihenfolge passende Einfügelogik
+    if _sortOrderIndex in (0, 2):  # aufsteigend
+        pos = bisect.bisect_left(keys, new_key)
+    elif _sortOrderIndex in (1, 3):  # absteigend
+        reversed_keys = list(reversed(keys))
+        insert_pos = bisect.bisect_left(reversed_keys, new_key)
+        pos = len(file_list) - insert_pos
+    else:
+        pos = bisect.bisect_left(keys, new_key)
+
     file_list.insert(pos, new_item)
 
-    #for file, mtime in file_list:
-    #    print("+ ", mtime, file, flush=True)
-    #
-    #print("----------------------------------", flush=True)
-    #print("= ", pos, new_item[1], new_item[0], flush=True)
+
+def applySortOrder():
+    """
+    Sortiert alle relevanten globalen Listen anhand der aktuellen Einstellung
+    von _sortOrderIndex neu. Wird aufgerufen, wenn die Sortiermethode geändert wird.
+    """
+    global _filesWithoutEdit, _editedfiles, _readyfiles, _cutModeFolderOverrideFiles
+
+    try:
+        if _filesWithoutEdit is not None:
+            _filesWithoutEdit = _sort_file_list(_filesWithoutEdit)
+        if _editedfiles is not None:
+            _editedfiles = _sort_file_list(_editedfiles)
+        if _readyfiles is not None:
+            _readyfiles = _sort_file_list(_readyfiles)
+        if _cutModeFolderOverrideFiles is not None:
+            _cutModeFolderOverrideFiles = _sort_file_list(_cutModeFolderOverrideFiles)
+    except Exception:
+        print(traceback.format_exc(), flush=True)
 
 
 def pil2pixmap(im):

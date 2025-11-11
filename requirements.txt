@@ -9,3 +9,8 @@ PyQt5
 plantuml
 pyyaml
 send2trash
+numba
+natsort
+psutil
+py-cpuinfo
+matplotlib

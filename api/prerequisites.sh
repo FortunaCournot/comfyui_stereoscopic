@@ -137,6 +137,10 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "VIDEO_FORMAT=video/h264-mp4">>"$CONFIGFILE"
 	echo "VIDEO_PIXFMT=yuv420p">>"$CONFIGFILE"
 	echo "VIDEO_CRF=17">>"$CONFIGFILE"
+	echo "# --- CLI  (true/false) ---">>"$CONFIGFILE"
+	echo "CLI_ENABLED=true">>"$CONFIGFILE"
+	echo "# --- CLI Video Output quality: low, medium or high ---">>"$CONFIGFILE"
+	echo "VIDEOQUALITYPRESET=high">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- scaling config ---">>"$CONFIGFILE"
@@ -422,7 +426,11 @@ cd ../..
 
 # REBUILD FORWARD PIPELINE
 if [ ! -e "$CONFIGPATH"/"autoforward.yaml" ] ; then
-	cp ./custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml "$CONFIGPATH"/"autoforward.yaml"
+	if [ -e "$CONFIGPATH"/"default_autoforward.yaml" ] ; then
+		cp "$CONFIGPATH"/"default_autoforward.yaml" "$CONFIGPATH"/"autoforward.yaml"	
+	else
+		cp ./custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml "$CONFIGPATH"/"autoforward.yaml"
+	fi
 fi
 echo -e $"\e[2mRebuild forward rules with \e[36m$CONFIGPATH""/autoforward.yaml\e[0m"
 # Clear forward definitions and rebuild.
@@ -460,8 +468,7 @@ for task in $TASKDIR; do
 	fi
 done
 
-
-# CHECK FOR VERSION UPDATE AND RUN TESTS
+# CHECK FOR VERSION UPDATE FLAGGED BY __init__.py AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
 	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then

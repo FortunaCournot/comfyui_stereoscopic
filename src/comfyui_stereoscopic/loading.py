@@ -6,7 +6,7 @@ import torch
 import folder_paths
 import comfy.model_management
 
-class LoadImageWithFilename:
+class LoadImageAdvanced:
     @classmethod
     def INPUT_TYPES(cls, **kwargs):
         input_dir = folder_paths.get_input_directory()

@@ -1,0 +1,70 @@
+name: Install Test (Develop & Main)
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  test-installation:
+    name: Test Installation on Windows
+    runs-on: windows-latest
+    timeout-minutes: 20   # ← beendet den Job nach 20 Minuten
+    
+    env:
+      INSTALL_DIR: C:\Users\runneradmin\AppData\Local
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify Git Installation
+        shell: cmd
+        run: |
+          git --version
+
+      - name: Verify 7-Zip Installation
+        shell: cmd
+        run: |
+          "C:\Program Files\7-Zip\7z.exe" i
+
+      - name: Install exiftool
+        shell: cmd
+        run: choco install exiftool -y
+
+      - name: Verify exiftool Installation
+        shell: cmd
+        run: |
+            where exiftool
+            exiftool -ver
+      
+      - name: Ensure FFmpeg is installed
+        shell: cmd
+        run: |
+          choco install ffmpeg -y
+
+      - name: Verify FFmpeg Installation
+        shell: cmd
+        run: |
+          where ffmpeg
+          ffmpeg -version
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Verify Python Version (pre-install)
+        shell: cmd
+        run: |
+          echo Checking Python before installation:
+          where python
+          python --version
+    
+      - name: Run Installation Script
+        shell: cmd
+        run: |
+          echo Starting installation script with target: %INSTALL_DIR%
+          call installer\VrWeAre-Installer.bat "%INSTALL_DIR%"
+
