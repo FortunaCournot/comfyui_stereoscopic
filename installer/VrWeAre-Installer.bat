@@ -1068,7 +1068,12 @@ ECHO/
 RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test" > NUL
 MKDIR "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test"
 set LOGFILE="%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install.log"
-echo "Test Log..." >"%LOGFILE%"
+IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Start-Job {Get-Content -Path '%LOGFILE%' -Wait}"
+
+
+IF %INTERACTIVE% equ 0 ping 127.0.0.1 -n 2 > NUL
+echo Test Log... >"%LOGFILE%"
+IF %INTERACTIVE% equ 1 del "%LOGFILE%"
 
 ::START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" /MIN CMD /K CALL "%GITPATH%"git-bash.exe daemon.sh >NUL
 START /D "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic" "VR we are - Service" CMD /C CALL  "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\daemon.bat" >NUL
@@ -1084,7 +1089,6 @@ if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyu
 
 :: wait for test to complete or fail
 ECHO Waiting for tests to complete...
-powershell -NoProfile -Command "Start-Job {Get-Content -Path '%LOGFILE%' -Wait}"
 :WAIT_FOR_TEST_FINISH
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
 	if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.signalfail" (
@@ -1100,7 +1104,7 @@ if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_st
     GOTO Fail
 )
 ECHO [92mTests passed.[0m
-powershell -NoProfile -Command "Get-Job | Remove-Job -Force"
+IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Get-Job | Remove-Job -Force"
 ECHO/
 
 :: Clean-up

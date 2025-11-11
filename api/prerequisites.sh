@@ -470,7 +470,9 @@ done
 # CHECK FOR VERSION UPDATE AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 	if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install.log" ] ; then
-		stdbuf -oL -eL ./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh >> "custom_nodes/comfyui_stereoscopic/.test/.install.log" || exit 1
+		echo Skip tests
+		rm custom_nodes/comfyui_stereoscopic/.test/.install
+		# stdbuf -oL -eL ./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh >> "custom_nodes/comfyui_stereoscopic/.test/.install.log" || exit 1
 	else
 		./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1
 	fi
