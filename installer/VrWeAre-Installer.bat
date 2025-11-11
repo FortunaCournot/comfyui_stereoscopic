@@ -1089,6 +1089,7 @@ ping 127.0.0.1 -n 2 > NUL
 if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" GOTO TESTS
 
 :: wait for test to complete or fail
+IF %INTERACTIVE% equ 0 RM custom_nodes/comfyui_stereoscopic/.test/.install 
 IF %INTERACTIVE% equ 0 GOTO End 
 ECHO Waiting for tests to complete...
 :WAIT_FOR_TEST_FINISH
