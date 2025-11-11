@@ -66,21 +66,27 @@ jobs:
         shell: cmd
         run: if not exist cache mkdir cache
 
+      - name: Debug cache key
+        run: |
+          echo Cache key: ${{ runner.os }}-downloads-${{ hashFiles('installer/download_list.txt') }}
+          
       - name: Restore cached downloads
         uses: actions/cache@v4
         with:
           path: cache
           key: ${{ runner.os }}-downloads-${{ hashFiles('installer/download_list.txt') }}
-          
+
+      - name: Show cache dir before install
+        shell: cmd
+        run: |
+          echo --- Cache directory before install ---
+          dir /s "%GITHUB_WORKSPACE%\cache" || echo Cache directory missing.
+    
       - name: Run Installation Script
         shell: cmd
         run: |
           echo Starting installation script with target: %INSTALL_DIR%
           call installer\VrWeAre-Installer.bat "%INSTALL_DIR%"
-
-      - name: Debug cache key
-        run: |
-          echo Cache key: ${{ runner.os }}-downloads-${{ hashFiles('installer/download_list.txt') }}
 
       - name: Commit and push updated download list
         if: env.GITHUB_TOKEN != ''
