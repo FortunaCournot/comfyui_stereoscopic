@@ -6,11 +6,12 @@ import re
 import subprocess
 import sys
 import shutil
+import struct
 import tempfile
 import time
 import traceback
 import threading
-import urllib.request
+import urllib.parse, urllib.request
 import webbrowser
 from datetime import timedelta
 from functools import wraps, partial
@@ -19,17 +20,17 @@ from random import randrange
 from typing import List, Tuple
 from urllib.error import HTTPError
 from pathlib import Path
-
 import cv2
 import numpy as np
 import requests
 from numpy import ndarray
 from PIL import Image
 from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint, QPointF,
-                          pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QObject)
+                          pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QObject, 
+                          QMimeData, QUrl)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
-                         QTextCursor)
+                         QTextCursor, QDrag)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QColorDialog, QComboBox, QDesktopWidget, QDialog,
                              QFileDialog, QFrame, QGridLayout, QGroupBox,
@@ -39,6 +40,8 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
                              QPlainTextEdit, QLayout, QStyleOptionSlider, QStyle,
                              QRubberBand)
+
+
 
 USE_TRASHBIN=True
 if USE_TRASHBIN:
@@ -50,7 +53,7 @@ if USE_TRASHBIN:
 TRACELEVEL=0
 
 # Globale statische Liste der erlaubten Suffixe
-VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts']
+VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts', '.flv']
 IMAGE_EXTENSIONS = ['.png', '.webp', '.jpg', '.jpeg', '.jfif']
 ALL_EXTENSIONS = VIDEO_EXTENSIONS + IMAGE_EXTENSIONS
 global _readyfiles, _activeExtensions, _filterEdit, _sortOrderIndex
@@ -633,6 +636,91 @@ class RateAndCutDialog(QDialog):
         self.reset_timer.timeout.connect(self.reset_visual)
         self.setAcceptDrops(True)  # Enable drop events
         
+        self.enable_drag_for_groupbox(self.main_group_box, )
+        
+
+        
+    def enable_drag_for_groupbox(self, box):
+        self.disable_drag_for_groupbox(box)
+        
+        """
+        Enables drag support for an existing QGroupBox.
+        The GroupBox title is treated as a filename inside base_directory.
+        """
+        # Save old handlers so we can restore them later
+        if not hasattr(box, "_original_mousePressEvent"):
+            box._original_mousePressEvent = getattr(box, "mousePressEvent", None)
+            box._original_mouseMoveEvent = getattr(box, "mouseMoveEvent", None)
+
+        global cutModeFolderOverrideActive, cutModeFolderOverridePath
+        if cutModeFolderOverrideActive:
+            box._drag_base = cutModeFolderOverridePath
+        else:
+            box._drag_base = os.path.join(path, "../../../../input/vr/check/rate")
+        box._drag_start_pos = None
+
+        def mousePressEvent(event):
+            if event.button() == Qt.LeftButton:
+                box._drag_start_pos = event.pos()
+            if box._original_mousePressEvent:
+                box._original_mousePressEvent(event)
+
+        def mouseMoveEvent(event):
+            if box._drag_start_pos is None:
+                return
+            if (event.pos() - box._drag_start_pos).manhattanLength() < QApplication.startDragDistance():
+                return
+
+            title = box.title().strip()
+            if not title:
+                return
+
+            file_path = os.path.join(box._drag_base, title)
+            if not os.path.exists(file_path):
+                return
+
+            drag = QDrag(box)
+            
+            url_str = urllib.parse.urljoin('file:', urllib.request.pathname2url(file_path))
+            qurl = QUrl(url_str)
+
+            mime = QMimeData()
+            mime.setUrls([qurl])
+            mime.setText(url_str)
+            
+            drag.setMimeData(mime)
+            drag.exec_(Qt.CopyAction)
+
+            box._drag_start_pos = None
+
+        box.mousePressEvent = mousePressEvent
+        box.mouseMoveEvent = mouseMoveEvent
+        box._drag_enabled = True
+
+
+    def disable_drag_for_groupbox(self, box):
+        """
+        Disables drag support for a QGroupBox that was modified by enable_drag_for_groupbox().
+        Restores original mouse event handlers.
+        """
+        if not getattr(box, "_drag_enabled", False):
+            return
+
+        if hasattr(box, "_original_mousePressEvent"):
+            if box._original_mousePressEvent:
+                box.mousePressEvent = box._original_mousePressEvent
+            del box._original_mousePressEvent
+
+        if hasattr(box, "_original_mouseMoveEvent"):
+            if box._original_mouseMoveEvent:
+                box.mouseMoveEvent = box._original_mouseMoveEvent
+            del box._original_mouseMoveEvent
+
+        for attr in ("_drag_base", "_drag_start_pos", "_drag_enabled"):
+            if hasattr(box, attr):
+                delattr(box, attr)
+
+
     def style_group_box(self, group_box, color: str):
         """
         Apply a styled look to a QGroupBox with the given color for both text and border.
@@ -692,7 +780,7 @@ class RateAndCutDialog(QDialog):
                 event.ignore()
                 return                
                 
-        elif md.hasUrls():
+        elif md.hasUrls() and len(md.urls())>0:
             # Standardweg (wenn funktioniert)
             self.drag_file_path = md.urls()[0].toLocalFile()
             #print("File (URI):", self.drag_file_path)
@@ -834,7 +922,7 @@ class RateAndCutDialog(QDialog):
                         raise ValueError(f"URL is not an image (Content-Type: {content_type})")
                 
                     # Build full output path, ignore dirpath (assume None)
-                    dirpath=None
+                    override=False
                     target_dir = os.path.join(path, "../../../../input/vr/check/rate")
                     #os.makedirs(target_dir, exist_ok=True)
                     filename = self.get_safe_unique_filename(target_dir, filename)
@@ -850,7 +938,7 @@ class RateAndCutDialog(QDialog):
                             f.write(chunk)
             
 
-            if override:
+            if override and not os.path.samefile(dirpath, os.path.join(path, "../../../../input/vr/check/rate") ):
                 if os.path.isdir(dirpath):
                     cutModeFolderOverridePath=dirpath
                     cutModeFolderOverrideActive=True
@@ -1379,6 +1467,7 @@ class RateAndCutDialog(QDialog):
                 self.fileSlider.setValue(self.currentIndex)
                 self.fileSlider.setEnabled(True)
                 self.main_group_box.setTitle( self.truncate_keep_suffix(self.currentFile) )
+                self.enable_drag_for_groupbox(self.main_group_box, )
                 if cutModeFolderOverrideActive:
                     folder=os.path.join(path, cutModeFolderOverridePath)
                 else:
