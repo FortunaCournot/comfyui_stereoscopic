@@ -305,6 +305,101 @@ except ImportError as e:
             return (f"ERROR: {error}",)
 
 try:
+    from tools import LinearFade
+    nodelist=nodelist+", LinearFade"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing LinearFade: {e}")
+
+    # Create a placeholder class
+    class LinearFade:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading LinearFade"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from tools import ColorCorrectBatch
+    nodelist=nodelist+", ColorCorrectBatch"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing ColorCorrectBatch: {e}")
+
+    # Create a placeholder class
+    class ColorCorrectBatch:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading ColorCorrectBatch"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from tools import GetVariant
+    nodelist=nodelist+", GetVariant"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing GetVariant: {e}")
+
+    # Create a placeholder class
+    class GetVariant:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading GetVariant"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from tools import BuildVariantIndex
+    nodelist=nodelist+", BuildVariantIndex"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing BuildVariantIndex: {e}")
+
+    # Create a placeholder class
+    class BuildVariantIndex:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading BuildVariantIndex"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+
+try:
+    from tools import VariantPromptBuilder
+    nodelist=nodelist+", VariantPromptBuilder"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing VariantPromptBuilder: {e}")
+
+    # Create a placeholder class
+    class VariantPromptBuilder:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading VariantPromptBuilder"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+VariantPromptBuilder
+
+
+'''
+try:
     from loading import LoopWhileNotFinished
     nodelist=nodelist+", LoopWhileNotFinished"
 except ImportError as e:
@@ -375,41 +470,8 @@ except ImportError as e:
         CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
+'''
 
-try:
-    from tools import LinearFade
-    nodelist=nodelist+", LinearFade"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing LinearFade: {e}")
-
-    # Create a placeholder class
-    class LinearFade:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading LinearFade"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-try:
-    from tools import ColorCorrectBatch
-    nodelist=nodelist+", ColorCorrectBatch"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing ColorCorrectBatch: {e}")
-
-    # Create a placeholder class
-    class ColorCorrectBatch:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading ColorCorrectBatch"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
 
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
 
@@ -432,12 +494,15 @@ NODE_CLASS_MAPPINGS = {
     "VRwearePauseLatent" : VRwearePauseLatent,
     "VRweareResume" : VRweareResume,
     "LoadImageAdvanced": LoadImageAdvanced,
-    "LoadSingleImageByFilename": LoadSingleImageByFilename,
-    "IncrementDirectoryImageLoader": IncrementDirectoryImageLoader,
-    "LoopWhileNotFinished": LoopWhileNotFinished,
-    "StartLoopTrigger": StartLoopTrigger,
     "LinearFade": LinearFade,
     "ColorCorrectBatch": ColorCorrectBatch,
+    "GetVariant": GetVariant,
+    "BuildVariantIndex": BuildVariantIndex,
+    "VariantPromptBuilder": VariantPromptBuilder,
+    #"LoadSingleImageByFilename": LoadSingleImageByFilename,
+    #"IncrementDirectoryImageLoader": IncrementDirectoryImageLoader,
+    #"LoopWhileNotFinished": LoopWhileNotFinished,
+    #"StartLoopTrigger": StartLoopTrigger,
     
 }
 
@@ -459,11 +524,14 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "VRwearePauseLatent": "Pause Pipeline",
     "VRweareResume": "Resume Pipeline",
     "LoadImageAdvanced": "Load Image Advanced",
-    "LoadSingleImageByFilename": "LoadSingleImageByFilename",
-    "IncrementDirectoryImageLoader": "IncrementDirectoryImageLoader",
-    "LoopWhileNotFinished": "LoopWhileNotFinished",
-    "StartLoopTrigger": "StartLoopTrigger",
     "LinearFade": "Linear Fade",
     "ColorCorrectBatch": "ColorCorrectBatch",
+    "GetVariant": "Get Variant",
+    "BuildVariantIndex": "Build Variant Index",
+    "VariantPromptBuilder": "Variant Prompt Builder",
+    #"LoadSingleImageByFilename": "LoadSingleImageByFilename",
+    #"IncrementDirectoryImageLoader": "IncrementDirectoryImageLoader",
+    #"LoopWhileNotFinished": "LoopWhileNotFinished",
+    #"StartLoopTrigger": "StartLoopTrigger",
     
 }

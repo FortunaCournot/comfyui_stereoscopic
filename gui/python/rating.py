@@ -696,6 +696,7 @@ class RateAndCutDialog(QDialog):
         box.mousePressEvent = mousePressEvent
         box.mouseMoveEvent = mouseMoveEvent
         box._drag_enabled = True
+        box.setCursor(Qt.OpenHandCursor)
 
 
     def disable_drag_for_groupbox(self, box):
@@ -719,6 +720,8 @@ class RateAndCutDialog(QDialog):
         for attr in ("_drag_base", "_drag_start_pos", "_drag_enabled"):
             if hasattr(box, attr):
                 delattr(box, attr)
+        
+        box.unsetCursor()
 
 
     def style_group_box(self, group_box, color: str):
