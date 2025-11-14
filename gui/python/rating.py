@@ -27,7 +27,7 @@ from numpy import ndarray
 from PIL import Image
 from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint, QPointF,
                           pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QObject, 
-                          QMimeData, QUrl)
+                          QMimeData, QUrl, QEvent)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
                          QTextCursor, QDrag)
@@ -593,7 +593,7 @@ class RateAndCutDialog(QDialog):
             #Outer main layout to accomodate the group box
             self.outer_main_layout.addWidget(self.main_group_box)
             self.main_group_box.setContentsMargins(0,0,0,0)
-            
+
             # Timer for updating file buttons
             self.filebutton_timer = QTimer()
             self.filebutton_timer.timeout.connect(self.update_filebuttons)
@@ -638,33 +638,50 @@ class RateAndCutDialog(QDialog):
         
         self.enable_drag_for_groupbox(self.main_group_box, )
         
+    # ---------------------------------------------------------------------------------------------------------------------------
+
 
         
     def enable_drag_for_groupbox(self, box):
         self.disable_drag_for_groupbox(box)
-        
-        """
-        Enables drag support for an existing QGroupBox.
-        The GroupBox title is treated as a filename inside base_directory.
-        """
-        # Save old handlers so we can restore them later
+
+        # Save original event handlers (only once)
         if not hasattr(box, "_original_mousePressEvent"):
             box._original_mousePressEvent = getattr(box, "mousePressEvent", None)
+        if not hasattr(box, "_original_mouseMoveEvent"):
             box._original_mouseMoveEvent = getattr(box, "mouseMoveEvent", None)
+        if not hasattr(box, "_original_hoverMoveEvent"):
+            box._original_hoverMoveEvent = getattr(box, "hoverMoveEvent", None)
+        # Install working hover detection
+        if not hasattr(box, "_hover_filter"):
+            box._hover_filter = GroupBoxHoverFilter(box)
+            QApplication.instance().installEventFilter(box._hover_filter)
+    
+        # Ensure hover and cursor tracking works
+        box.setAttribute(Qt.WA_Hover, True)
+        box.setMouseTracking(True)
 
+        # Also activate mouse tracking for all children
+        for child in box.findChildren(QWidget):
+            child.setMouseTracking(True)
+
+        # Determine base directory
         global cutModeFolderOverrideActive, cutModeFolderOverridePath
         if cutModeFolderOverrideActive:
             box._drag_base = cutModeFolderOverridePath
         else:
             box._drag_base = os.path.join(path, "../../../../input/vr/check/rate")
+
         box._drag_start_pos = None
 
+        # --- Mouse press handler ---
         def mousePressEvent(event):
             if event.button() == Qt.LeftButton:
                 box._drag_start_pos = event.pos()
             if box._original_mousePressEvent:
                 box._original_mousePressEvent(event)
 
+        # --- Mouse move handler (drag start only) ---
         def mouseMoveEvent(event):
             if box._drag_start_pos is None:
                 return
@@ -680,33 +697,41 @@ class RateAndCutDialog(QDialog):
                 return
 
             drag = QDrag(box)
-            
-            url_str = urllib.parse.urljoin('file:', urllib.request.pathname2url(file_path))
-            qurl = QUrl(url_str)
-
             mime = QMimeData()
-            mime.setUrls([qurl])
-            mime.setText(url_str)
-            
+            url = QUrl.fromLocalFile(file_path)
+            mime.setUrls([url])
+            mime.setText(file_path)
+            mime.setData("application/x-vrweare-drag", b"1")            
             drag.setMimeData(mime)
-            drag.exec_(Qt.CopyAction)
 
+            drag.exec_(Qt.CopyAction)
             box._drag_start_pos = None
 
+        # --- Hover move handler (dynamic cursor switching) ---
+        def hoverMoveEvent(event):
+            widget_under = QApplication.widgetAt(QCursor.pos())
+            print(widget_under, flush=True)
+            if widget_under is box:
+                box.setCursor(Qt.DragLinkCursor)
+            else:
+                box.unsetCursor()
+
+            if box._original_hoverMoveEvent:
+                box._original_hoverMoveEvent(event)
+
+        # Install handlers
         box.mousePressEvent = mousePressEvent
         box.mouseMoveEvent = mouseMoveEvent
+        box.hoverMoveEvent = hoverMoveEvent
+
         box._drag_enabled = True
-        box.setCursor(Qt.OpenHandCursor)
 
 
     def disable_drag_for_groupbox(self, box):
-        """
-        Disables drag support for a QGroupBox that was modified by enable_drag_for_groupbox().
-        Restores original mouse event handlers.
-        """
         if not getattr(box, "_drag_enabled", False):
             return
 
+        # Restore original handlers
         if hasattr(box, "_original_mousePressEvent"):
             if box._original_mousePressEvent:
                 box.mousePressEvent = box._original_mousePressEvent
@@ -717,11 +742,24 @@ class RateAndCutDialog(QDialog):
                 box.mouseMoveEvent = box._original_mouseMoveEvent
             del box._original_mouseMoveEvent
 
+        if hasattr(box, "_original_hoverMoveEvent"):
+            if box._original_hoverMoveEvent:
+                box.hoverMoveEvent = box._original_hoverMoveEvent
+            del box._original_hoverMoveEvent
+
+        if hasattr(box, "_hover_filter"):
+            QApplication.instance().removeEventFilter(box._hover_filter)
+            del box._hover_filter
+            
+        # Cleanup attributes
         for attr in ("_drag_base", "_drag_start_pos", "_drag_enabled"):
             if hasattr(box, attr):
                 delattr(box, attr)
-        
+
+        # Reset cursor and disable hover
         box.unsetCursor()
+        box.setAttribute(Qt.WA_Hover, False)
+
 
 
     def style_group_box(self, group_box, color: str):
@@ -753,7 +791,10 @@ class RateAndCutDialog(QDialog):
 
         # restart timer; if drag really leaves window, timer will fire and reset color
 
-        if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+        if md.hasFormat("application/x-vrweare-drag"):
+            event.ignore()
+            return
+        elif md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
             data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
             url = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
             
@@ -809,7 +850,10 @@ class RateAndCutDialog(QDialog):
     
     def dragMoveEvent(self, event):
         md = event.mimeData()
-        if not self.drag_file_path is None:
+        if md.hasFormat("application/x-vrweare-drag"):
+            event.ignore()
+            return
+        elif not self.drag_file_path is None:
             self.style_group_box(self.main_group_box, "#44ff44")
             event.acceptProposedAction()
         else:
@@ -824,7 +868,10 @@ class RateAndCutDialog(QDialog):
         if not self.drag_file_path is None:
             #print(f"File dropped:\n{self.drag_file_path}", flush=True)
             md = event.mimeData()
-            if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            if md.hasFormat("application/x-vrweare-drag"):
+                event.ignore()
+                return
+            elif md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
                 try:
                     self.downloadAndSwithToimage(self.drag_file_path)
                 except:
@@ -2147,6 +2194,28 @@ class RateAndCutDialog(QDialog):
         self.currentIndex=-1
         self.display.stopAndBlackout()
         self.rateCurrentFile()
+
+
+class GroupBoxHoverFilter(QObject):
+    def __init__(self, box):
+        super().__init__()
+        self.box = box
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.MouseMove:
+            pos = QCursor.pos()
+            widget_under = QApplication.widgetAt(pos)
+
+            # Cursor auf GroupBox selbst
+            if widget_under is self.box:
+                self.box.setCursor(Qt.CursorShape.DragLinkCursor)
+            else:
+                # Cursor auf Kind oder außerhalb
+                if self.box.cursor().shape() == Qt.CursorShape.DragLinkCursor:
+                    self.box.unsetCursor()
+
+        return False
+        
 
 class HoverLabel(QLabel):
     """A QLabel that detects hover and click events."""

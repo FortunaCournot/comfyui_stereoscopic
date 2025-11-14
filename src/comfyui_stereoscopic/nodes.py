@@ -395,8 +395,6 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
-VariantPromptBuilder
-
 
 '''
 try:
