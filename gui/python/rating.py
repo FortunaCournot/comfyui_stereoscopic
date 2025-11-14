@@ -692,7 +692,7 @@ class RateAndCutDialog(QDialog):
             if not title:
                 return
 
-            file_path = os.path.join(box._drag_base, title)
+            file_path = os.path.abspath(os.path.join(box._drag_base, title))
             if not os.path.exists(file_path):
                 return
 
