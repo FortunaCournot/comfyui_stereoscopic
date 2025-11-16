@@ -14,3 +14,4 @@ natsort
 psutil
 py-cpuinfo
 matplotlib
+tqdm

@@ -395,6 +395,25 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from tools import JoinVariantProperties
+    nodelist=nodelist+", JoinVariantProperties"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing JoinVariantProperties: {e}")
+
+    # Create a placeholder class
+    class JoinVariantProperties:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading JoinVariantProperties"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+
 
 '''
 try:
@@ -497,12 +516,13 @@ NODE_CLASS_MAPPINGS = {
     "GetVariant": GetVariant,
     "BuildVariantIndex": BuildVariantIndex,
     "VariantPromptBuilder": VariantPromptBuilder,
+    "JoinVariantProperties": JoinVariantProperties,
     #"LoadSingleImageByFilename": LoadSingleImageByFilename,
     #"IncrementDirectoryImageLoader": IncrementDirectoryImageLoader,
     #"LoopWhileNotFinished": LoopWhileNotFinished,
     #"StartLoopTrigger": StartLoopTrigger,
-    
 }
+
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -527,6 +547,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "GetVariant": "Get Variant",
     "BuildVariantIndex": "Build Variant Index",
     "VariantPromptBuilder": "Variant Prompt Builder",
+    "JoinVariantProperties": "Join Variant Properties",
     #"LoadSingleImageByFilename": "LoadSingleImageByFilename",
     #"IncrementDirectoryImageLoader": "IncrementDirectoryImageLoader",
     #"LoopWhileNotFinished": "LoopWhileNotFinished",

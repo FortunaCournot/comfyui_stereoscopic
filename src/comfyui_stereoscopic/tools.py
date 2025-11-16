@@ -6,6 +6,7 @@ import yaml
 import math
 import random
 import time
+from typing import Dict, Any
 
 
 class GetResolutionForVR:
@@ -429,3 +430,34 @@ class VariantPromptBuilder:
         text = text.replace("__LEFT_BRACE__", "{").replace("__RIGHT_BRACE__", "}")
 
         return (text,)
+
+
+
+class JoinVariantProperties:
+    """
+    Custom ComfyUI node that merges two DICT inputs from GetVariant nodes.
+    properties2 overrides properties1 on key collisions.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "properties1": ("DICT", {}),
+                "properties2": ("DICT", {}),
+            }
+        }
+        
+    RETURN_TYPES = ("DICT",)
+    RETURN_NAMES = ("properties",)
+    FUNCTION = "join"
+    CATEGORY = "Stereoscopic"
+
+    def join(self, properties1: Dict[str, Any], properties2: Dict[str, Any]):
+        # Defensive copy
+        merged = {}
+        if isinstance(properties1, dict):
+            merged.update(properties1)
+        if isinstance(properties2, dict):
+            merged.update(properties2)
+        return (merged,)
