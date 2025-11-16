@@ -1,7 +1,7 @@
 {
   "version": "1",
   "blueprint": "workflow-i2i-sdxl-simple",
-  "workflow_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/I2I_BP_SXDL_Recolor.json",
+  "workflow_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/I2I_SXDL_Recolor.json",
   "sdxl_checkpoint": "SDXL/juggernautXL_ragnarokBy.safetensors",
   "input": "image",
   "output": "image",

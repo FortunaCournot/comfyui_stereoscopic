@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "workflow-v2v-simple",
+  "workflow_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/V2V_StabilizeColor.json",
+  "input": "video",
+  "output": "video",
+}
