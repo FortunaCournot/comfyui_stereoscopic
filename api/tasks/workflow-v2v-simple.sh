@@ -180,6 +180,7 @@ else
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 	
 	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
+  	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$ORIGINALINPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$INTERMEDIATE" && echo "tags copied."
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done

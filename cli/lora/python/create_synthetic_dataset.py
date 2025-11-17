@@ -465,7 +465,7 @@ def run_one_test_per_frame(args, workflow_template: Dict[str, Any], test_index: 
     assemble_video_ffmpeg(test_dir, prefix_base, args.target_length, args.fps, args.width, args.height, out_video)
 
     # embed metadata
-    meta_str = f"test_index={test_index}, seed={test_seed}, workflow={Path(args.workflow).name}"
+    meta_str = f"test_index={test_index}, seed={test_seed}, workflow={Path(args.workflow).name}, cfg={args.cfg}, prompt={args.prompt_text}"
     embed_metadata_exiftool(out_video, meta_str)
 
     # cleanup frames
