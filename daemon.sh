@@ -142,6 +142,28 @@ else
 			break
 		fi
 
+    # Check availablity of TVAI server
+		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ]  ; then
+      TMP_FILE=$(mktemp)
+      curl --ssl-no-revoke -v -s -o - -I https://topazlabs.com/ >/dev/null 2>$TMP_FILE
+      SUCCESS_COUNT=`grep "HTTP/1.1 200" $TMP_FILE | wc -l`
+      if [ $loglevel -lt 1 ] ; then
+        echo -ne $"\e[93mWarning: TVAI server not present. "
+        grep "HTTP/1.1 " $TMP_FILE
+				echo -e $"\e[0m"
+        sleep 4
+      else
+        echo "TVAI server present."
+      fi
+      rm "$TMP_FILE"    
+    fi
+
+    # Is there is a limit a TVAI login is valid? Enforce re-login before watermark is applied.
+    #if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [[ $(find "$TVAI_MODEL_DIR"/auth.tpz -mtime +40 -print) ]]; then
+    #  echo "TVAI authentication exists but is older than 40 days - invalidated."
+    #  mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
+    #fi
+
 		while [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ ! -e "$TVAI_MODEL_DIR"/auth.tpz ]  ; do
 			export TVAI_MODEL_DIR
 			"$TVAI_BIN_DIR"/login.exe
