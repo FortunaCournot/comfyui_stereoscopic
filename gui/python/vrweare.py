@@ -541,12 +541,13 @@ class SpreadsheetApp(QMainWindow):
         hostname = get_property(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")), "COMFYUIHOST", "127.0.0.1") 
         port = get_property(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")), "COMFYUIPORT", "8188") 
         url = "http://"+hostname+":"+port+"/queue"
-        data = requests.get(url).json()
-
-        running = len(data.get("queue_running", []))
-        pending = len(data.get("queue_pending", []))
-
-        return running, pending
+        try:
+            data = requests.get(url).json()
+            running = len(data.get("queue_running", []))
+            pending = len(data.get("queue_pending", []))
+            return running, pending
+        except:
+            return 0, 0
         
     def update_comfyui_count(self):
         running, pending = self.get_pending_workflows()
