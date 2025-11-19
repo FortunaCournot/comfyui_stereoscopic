@@ -2217,6 +2217,19 @@ class RateAndCutDialog(QDialog):
         app = QApplication.instance() or QApplication([])
         self.clipboard = app.clipboard()
         self.clipboard.changed.connect(self._on_clipboard_changed)
+        # --- Check if clipboard already contains an image at startup ---
+        mime = self.clipboard.mimeData()
+        if mime and mime.hasImage():
+            img = self.clipboard.image()
+            if isinstance(img, QImage):
+                h = self._compute_hash(img)
+                self._last_clipboard_hash = h
+                # Mark as pending only if it is not already saved
+                self.clipboard_has_image = (h != self._last_saved_hash)
+            else:
+                self.clipboard_has_image = False
+        else:
+            self.clipboard_has_image = False
 
     def _qimage_to_bytes(self, img: QImage) -> bytes:
         """Convert QImage to PNG bytes."""
