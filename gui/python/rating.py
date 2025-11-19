@@ -13,8 +13,9 @@ import traceback
 import threading
 import urllib.parse, urllib.request
 import webbrowser
-from datetime import timedelta
+from datetime import timedelta, datetime
 from functools import wraps, partial
+from hashlib import sha256
 from itertools import chain
 from random import randrange
 from typing import List, Tuple
@@ -27,10 +28,10 @@ from numpy import ndarray
 from PIL import Image
 from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint, QPointF,
                           pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QObject, 
-                          QMimeData, QUrl, QEvent)
+                          QMimeData, QUrl, QEvent, QIODevice)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
-                         QTextCursor, QDrag)
+                         QTextCursor, QDrag, QClipboard)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QColorDialog, QComboBox, QDesktopWidget, QDialog,
                              QFileDialog, QFrame, QGridLayout, QGroupBox,
@@ -84,11 +85,13 @@ TASKCHECKTIME = 20
 WAIT_DIALOG_THRESHOLD_TIME=2000
 MAX_WAIT_DIALOG_THRESHOLD_TIME=10000
 
+
 # ---- Tasks ----
 global taskCounterUI, taskCounterAsync, showWaitDialog
 taskCounterUI=0
 taskCounterAsync=0
 showWaitDialog=False
+
 
 def config(key, default):
         cfgFile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")
@@ -227,6 +230,13 @@ class RateAndCutDialog(QDialog):
             self.isPaused = False
             self.currentFile = None
             self.currentIndex = -1
+
+            # Clipboard state
+            self.clipboard_has_image = False
+            self._last_clipboard_hash = None
+            self._last_saved_hash = None
+
+            self.init_clipboard_monitor()
             
             exifpath=gitbash_to_windows_path(config("EXIFTOOLBINARY", ""))
             if len(exifpath)>0 and os.path.exists(exifpath):
@@ -289,13 +299,22 @@ class RateAndCutDialog(QDialog):
 
             self.cutMode_toolbar.addSeparator()
 
-            self.iconCopyFilepathToClipboardAction = StyledIcon(os.path.join(path, '../../gui/img/clipboard64.png'))
+            self.iconCopyFilepathToClipboardAction = StyledIcon(os.path.join(path, '../../gui/img/clipcopy64.png'))
             self.copyFilepathToClipboardAction = QAction(self.iconCopyFilepathToClipboardAction, "Copy file path")
             self.copyFilepathToClipboardAction.setCheckable(False)
             self.copyFilepathToClipboardAction.setVisible(True)
             self.copyFilepathToClipboardAction.triggered.connect(self.onCopyFilepathToClipboard)
             self.cutMode_toolbar.addAction(self.copyFilepathToClipboardAction)
             self.cutMode_toolbar.widgetForAction(self.copyFilepathToClipboardAction).setCursor(Qt.PointingHandCursor)
+
+            self.iconPasteImageFromClipboardAction = StyledIcon(os.path.join(path, '../../gui/img/clippaste64.png'))
+            self.pasteImageFromClipboardAction = QAction(self.iconPasteImageFromClipboardAction, "Paste image from clipboard")
+            self.pasteImageFromClipboardAction.setCheckable(False)
+            self.pasteImageFromClipboardAction.setVisible(True)
+            self.pasteImageFromClipboardAction.setEnabled(False)
+            self.pasteImageFromClipboardAction.triggered.connect(self.onPasteImageFromClipboard)
+            self.cutMode_toolbar.addAction(self.pasteImageFromClipboardAction)
+            self.cutMode_toolbar.widgetForAction(self.pasteImageFromClipboardAction).setCursor(Qt.PointingHandCursor)
 
             self.cutMode_toolbar.addSeparator()
 
@@ -1343,6 +1362,9 @@ class RateAndCutDialog(QDialog):
                 self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
 
+        self.pasteImageFromClipboardAction.setEnabled(self.clipboard_has_image)
+
+
     def trimFirst(self):
         self.button_trimfirst_video.setVisible(False)
         self.button_trima_video.setVisible(self.isVideo)
@@ -1624,6 +1646,9 @@ class RateAndCutDialog(QDialog):
                 folder=os.path.join(path, "../../../../input/vr/check/rate")
             filepath=os.path.abspath(os.path.join(folder, self.currentFile))
             cb.setText(filepath, mode=cb.Clipboard)
+        
+    def onPasteImageFromClipboard(self, state):
+        self.save_clipboard_image()
         
     def onOpenFolder(self, state):
         if cutModeFolderOverrideActive:
@@ -2187,6 +2212,93 @@ class RateAndCutDialog(QDialog):
         )                            
         thread.start()
         
+    def init_clipboard_monitor(self):
+        """Initialize clipboard monitoring for images."""
+        app = QApplication.instance() or QApplication([])
+        self.clipboard = app.clipboard()
+        self.clipboard.changed.connect(self._on_clipboard_changed)
+
+    def _qimage_to_bytes(self, img: QImage) -> bytes:
+        """Convert QImage to PNG bytes."""
+        buf = QBuffer()
+        buf.open(QIODevice.WriteOnly)
+        img.save(buf, "PNG")
+        return bytes(buf.data())
+
+    def _compute_hash(self, img: QImage) -> str:
+        """Return SHA256 of the PNG representation of QImage."""
+        return sha256(self._qimage_to_bytes(img)).hexdigest()
+
+    def _on_clipboard_changed(self, mode):
+        """React to clipboard changes and update clipboard_has_image."""
+        if mode != QClipboard.Clipboard:
+            return
+
+        mime = self.clipboard.mimeData()
+
+        # No image -> no pending image
+        if not mime or not mime.hasImage():
+            self.clipboard_has_image = False
+            self._last_clipboard_hash = None
+            return
+
+        img = self.clipboard.image()
+        if not isinstance(img, QImage):
+            self.clipboard_has_image = False
+            self._last_clipboard_hash = None
+            return
+
+        # Compute new clipboard hash
+        h = self._compute_hash(img)
+        self._last_clipboard_hash = h
+
+        # Mark new image only if not the last saved
+        self.clipboard_has_image = (h != self._last_saved_hash)
+
+    def save_clipboard_image(self):
+        """
+        Saves clipboard image if it exists and is new.
+        After a successful save clipboard_has_image becomes False.
+        Returns the saved filepath or None.
+        """
+        # Nothing new → nothing to save
+        if not self.clipboard_has_image:
+            return None
+
+        mime = self.clipboard.mimeData()
+        if not mime or not mime.hasImage():
+            self.clipboard_has_image = False
+            return None
+
+        img = self.clipboard.image()
+        if not isinstance(img, QImage):
+            self.clipboard_has_image = False
+            return None
+
+        # Hash again to ensure nothing changed since the event
+        h = self._compute_hash(img)
+
+        # Already saved
+        if h == self._last_saved_hash:
+            self.clipboard_has_image = False
+            return None
+
+        # Build filename: Cut_YYMMDDhhmmss.png
+        ts = datetime.now().strftime("%y%m%d%H%M%S")
+        filename = f"Cut_{ts}.png"
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        filepath = os.path.join(folder, filename)
+
+        # Save image
+        with open(filepath, "wb") as f:
+            f.write(self._qimage_to_bytes(img))
+
+        # Update state
+        self._last_saved_hash = h
+        self.clipboard_has_image = False
+
+        return filepath
+
 
     def closeOnError(self, msg):
         if TRACELEVEL >= 1:
