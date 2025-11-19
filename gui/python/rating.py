@@ -2310,7 +2310,26 @@ class RateAndCutDialog(QDialog):
         self._last_saved_hash = h
         self.clipboard_has_image = False
 
-        return filepath
+        global cutModeFolderOverrideActive
+        cutModeFolderOverrideActive=False
+
+        thread = threading.Thread(
+            target=self.saveClipboardWorker,
+            args=(filename, ),
+            daemon=True
+        )
+        thread.start()
+
+    def saveClipboardWorker(self, filename):
+        try:
+            startAsyncTask()
+
+            scanFilesToRate()   # can block on some drives
+
+            QTimer.singleShot(0, partial(self.switchDirectory_updater, False, "", filename))
+        except:
+            endAsyncTask()
+            print(traceback.format_exc(), flush=True) 
 
 
     def closeOnError(self, msg):
