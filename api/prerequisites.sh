@@ -468,6 +468,17 @@ for task in $TASKDIR; do
 	fi
 done
 
+# check if install enforces a test run and then wait for ComfyUI to be started.
+if [ -e "custom_nodes/comfyui_stereoscopic/.test/.forced" ] ; then
+  echo -e $"\e[94mWairing for ComfyUI to start tests.\e[0m"
+  status="closed"
+  while [ "$status" = "closed" ]; do
+    status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+  done
+  # now .install file should be present.
+  rm -f "custom_nodes/comfyui_stereoscopic/.test/.forced"
+fi
+
 # CHECK FOR VERSION UPDATE FLAGGED BY __init__.py AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 	./custom_nodes/comfyui_stereoscopic/tests/run_tests.sh || exit 1

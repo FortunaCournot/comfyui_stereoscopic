@@ -1101,6 +1101,7 @@ ECHO - VR we are - Service Daemon
 ECHO - VR we are - App
 ECHO/
 
+IF %INTERACTIVE% equ 1 echo "X" >"%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.forced"
 
 RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test" > NUL
 MKDIR "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test"
