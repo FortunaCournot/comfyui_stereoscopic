@@ -1103,7 +1103,8 @@ ECHO/
 
 RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test" > NUL
 MKDIR "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test"
-IF %INTERACTIVE% equ 1 echo "X" >"%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.forced"
+:: REMOVEDTESTDEACTIVATOR IF %INTERACTIVE% equ 1 
+echo "X" >"%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.forced"
 set LOGFILE="%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install.log"
 ::IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Start-Job {Get-Content -Path '%LOGFILE%' -Wait}"
 
@@ -1127,7 +1128,7 @@ if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyu
 
 :: wait for test to complete or fail
 IF %INTERACTIVE% equ 0 RM custom_nodes/comfyui_stereoscopic/.test/.install 
-IF %INTERACTIVE% equ 0 GOTO End 
+:: REMOVEDTESTDEACTIVATOR IF %INTERACTIVE% equ 0 GOTO End 
 ECHO Waiting for tests to complete...
 :WAIT_FOR_TEST_FINISH
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
@@ -1144,7 +1145,7 @@ if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_st
     GOTO Fail
 )
 ECHO [92mTests passed.[0m
-IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Get-Job | Remove-Job -Force"
+:: IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Get-Job | Remove-Job -Force"
 ECHO/
 
 :: Clean-up
