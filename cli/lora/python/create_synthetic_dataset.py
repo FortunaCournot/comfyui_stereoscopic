@@ -95,7 +95,7 @@ def parse_args():
     parser.add_argument("--startvalue", type=float, default=0.0, help="Start value for variation")
     parser.add_argument("--endvalue", type=float, default=1.0, help="End value for variation")
     parser.add_argument("--steps", type=int, default=20, help="Sampler steps injected")
-    parser.add_argument("--cfg", type=float, default=7.0, help="CFG scale injected")
+    parser.add_argument("--cfg", type=float, default=4.0, help="CFG scale injected")
     parser.add_argument("--width", type=int, default=720, help="Render width (int)")
     parser.add_argument("--height", type=int, default=1280, help="Render height (int)")
     parser.add_argument("--fps", type=float, default=16.0, help="FPS for the output video")
