@@ -1,9 +1,6 @@
 # VR we are! (comfyui_stereoscopic nodes and scripts)
 ComfyUI Custom Nodes to create stereoscopic images and movies.
 
-<!-- GitHub release (latest tag) -->
-![Release](https://img.shields.io/github/v/tag/FortunaCournot/comfyui_stereoscopic?label=release)
-
 <!-- License (auto-detects LICENSE file) -->
 ![License](https://img.shields.io/github/license/FortunaCournot/comfyui_stereoscopic)
 Project Landing Page is [![3d-gallery.org](https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/img/home.png)](https://www.3d-gallery.org/)
@@ -25,12 +22,15 @@ VR we are!
 
 ## Installation
 
+Status: 
+<!-- GitHub release (latest tag) -->
+![Release](https://img.shields.io/github/v/tag/FortunaCournot/comfyui_stereoscopic?label=release) 
 [![CI main](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=main)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
 
-[![Get on Civitai](https://img.shields.io/badge/Get%20on-Civitai-0066ff)](https://civitai.com/models/1757677)
+Use the installer for automatic full install.
 
-You need to install ComfyUI (Python 3.12), Git Bash (for Windows) and FFmpeg. Installing ComfyUI Desktop is simpler for this task, however, this tool has been developed with ComfyUI Portable.
-The tool has many dependencies and you must follow the installation steps in the documentation to succeed. The documentation link (head) is at top and included in the released packages.
+If you need just ComfyUI nodes or the CLI command you can install via ComfyUI Manager, or download from 
+
 
 
 ### Development Status
@@ -39,3 +39,4 @@ The tool has many dependencies and you must follow the installation steps in the
 
 ## Contact
 [![Chat on Discord](https://img.shields.io/badge/Chat%20on-Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZegT6Cc8FG)
+[![Get on Civitai](https://img.shields.io/badge/Get%20on-Civitai-0066ff)](https://civitai.com/models/1757677) 
