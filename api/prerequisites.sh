@@ -140,7 +140,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- CLI  (true/false) ---">>"$CONFIGFILE"
 	echo "CLI_ENABLED=true">>"$CONFIGFILE"
 	echo "# --- CLI Video Output quality: low, medium or high ---">>"$CONFIGFILE"
-	echo "VIDEOQUALITYPRESET=high">>"$CONFIGFILE"
+	echo "VIDEOQUALITYPRESET=medium">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- scaling config ---">>"$CONFIGFILE"

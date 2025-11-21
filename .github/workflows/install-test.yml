@@ -121,7 +121,7 @@ jobs:
           TMPDIR="$(mktemp -d "${BASE_TEMP}/ci-results")"
           trap 'rm -rf "$TMPDIR"' EXIT
           python main.py -i ../../tests/input/test_image.png -o $TMPDIR/test_image_sbs.png --input-type i2i --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale 1.0 --depth-offset 0.0 --blur-radius 19 --symmetric
-          python main.py -i ../../tests/input/test_video.mp4 -o $TMPDIR/test_video_sbs.mp4 --quality "high" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale 1.0 --depth-offset 0.0 --blur-radius 19 --symmetric
+          python main.py -i ../../tests/input/test_video.mp4 -o $TMPDIR/test_video_sbs.mp4 --quality "low" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale 1.0 --depth-offset 0.0 --blur-radius 19 --symmetric
       - name: Check test image and video exists
         # Fail the job if $TMPDIR/test_image_sbs.png or $TMPDIR/test_video_sbs.mp4 does not exist
         run: |
