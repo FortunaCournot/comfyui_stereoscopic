@@ -342,7 +342,7 @@ for %%k in (HKCU HKLM) do (
         for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wPython\PythonCore\!PYTHON_VERSION!\InstallPath" /ve  2^> nul') do (
             for /f "tokens=3" %%z in ("%%a") do (
                 set LOCALPYTHONPATH=%%z:%%b
-				echo * Local Python !PYTHON_VERSION![92m ok [0m
+				echo * Local Python !PYTHON_VERSION![92m ok [0m !LOCALPYTHONPATH!
                 goto CHECK_VRWEARE_VERSION
             )
         )
@@ -815,6 +815,12 @@ echo echo "export PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comf
 echo\ >>install.sh
 )
 
+:: Following KronoKnights manual (https://www.reddit.com/r/StableDiffusion/comments/1jle4re/how_to_run_a_rtx_5090_50xx_with_triton_and_sage/)
+:: copy python libs
+echo   installFile "https://github.com/woct0rdho/triton-windows/releases/download/v3.0.0-windows.post1/python_3.13.2_include_libs.zip" "install/v3.0.0-windows.post1/python_3.13.2_include_libs.zip" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then echo "[33mWarning: Failed to download python libraries and includes[0m/" ; fi >>install.sh
+echo   unzip -o -d %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded install/v3.0.0-windows.post1/python_3.13.2_include_libs.zip   >>install.sh
+
 ::  Download and unpackage comfyui nodes
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
 echo   checkoutCustomNodes "https://github.com/Comfy-Org/ComfyUI-Manager.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_TAG%"  >>install.sh
@@ -995,12 +1001,6 @@ DEL %VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 IF "%LOCALPYTHONPATH%" == "" GOTO END_INSTALL_PACKS
 IF "%HAS_NVIDIA_GPU%" == "0" GOTO END_INSTALL_PACKS
 
-:: Following KronoKnights manual (https://www.reddit.com/r/StableDiffusion/comments/1jle4re/how_to_run_a_rtx_5090_50xx_with_triton_and_sage/)
-:: copy python libs
-ECHO Copying Python libs for Sage Attention
-mkdir %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\libs
-copy /B %LOCALPYTHONPATH%libs\*.lib %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\libs
-
 :: sage attention dependencies
 ECHO Installing dependencies for Sage Attention
 .\python_embeded\python -m pip install --force-reinstall --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
@@ -1015,6 +1015,7 @@ ECHO Installing dependencies for Sage Attention
 
 
 ECHO Installing Triton and Sage Attention
+.\python_embeded\python -m pip uninstall triton-windows
 .\python_embeded\python -m pip install -U --pre triton-windows
 cd python_embeded
 :: rem  (using URL instead)  git clone https://github.com/thu-ml/SageAttention
