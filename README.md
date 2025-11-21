@@ -23,15 +23,17 @@ Status:
 ![Release](https://img.shields.io/github/v/tag/FortunaCournot/comfyui_stereoscopic?label=release) 
 [![CI main](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=main)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
 
-Use the installer for automatic full install.
+Use the ![installer](https://downgit.github.io/#/home?url=https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/installer/VrWeAre-Installer.bat)  for automatic full install.
 
-If you need just ComfyUI nodes or the CLI command you can install via ComfyUI Manager, or download from 
+If you need just ComfyUI nodes or the CLI command you can install via ComfyUI Manager, or download from Civitai (see link at bottom).
 
 
 
 ### Development Status
 
 [![CI develop](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=develop)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
+
+Use the ![develop branch installer](https://downgit.github.io/#/home?url=https://github.com/FortunaCournot/comfyui_stereoscopic/blob/develop/installer/VrWeAre-Installer.bat)  for automatic full install.
 
 ## Contact
 [![Chat on Discord](https://img.shields.io/badge/Chat%20on-Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZegT6Cc8FG)
