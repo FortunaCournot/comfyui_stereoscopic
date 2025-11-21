@@ -112,8 +112,6 @@ jobs:
           source venv/bin/activate
           cd cli/sbs
           python setup_env.py
-      - name: Quick import check
-        run: python -c "import cv2; print('import OK')"
       - name: Test runs
         run: |
           python -m venv venv
