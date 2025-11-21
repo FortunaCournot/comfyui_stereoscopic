@@ -107,7 +107,8 @@ jobs:
           source venv/bin/activate
           cd cli/sbs
           pip install -r requirements.txt
-          python setup_env.py
+      - name: Run setup
+        run: python setup_env.py; print('setup OK')"
       - name: Quick import check
         run: python -c "import cv2; print('import OK')"
       - name: Test runs
