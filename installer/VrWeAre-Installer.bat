@@ -817,9 +817,9 @@ echo\ >>install.sh
 
 :: Following KronoKnights manual (https://www.reddit.com/r/StableDiffusion/comments/1jle4re/how_to_run_a_rtx_5090_50xx_with_triton_and_sage/)
 :: copy python libs
-echo   installFile "https://github.com/woct0rdho/triton-windows/releases/download/v3.0.0-windows.post1/python_3.13.2_include_libs.zip" "install/v3.0.0-windows.post1/python_3.13.2_include_libs.zip" >>install.sh
+echo   installFile "https://github.com/woct0rdho/triton-windows/releases/download/v3.0.0-windows.post1/python_3.13.2_include_libs.zip" "install/python_3.13.2_include_libs.zip" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then echo "[33mWarning: Failed to download python libraries and includes[0m/" ; fi >>install.sh
-echo   unzip -o -d %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded install/v3.0.0-windows.post1/python_3.13.2_include_libs.zip   >>install.sh
+echo   unzip -o -d %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded install/python_3.13.2_include_libs.zip   >>install.sh
 
 ::  Download and unpackage comfyui nodes
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
