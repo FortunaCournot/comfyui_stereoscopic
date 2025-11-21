@@ -1021,8 +1021,13 @@ cd python_embeded
 :: rem  (using URL instead)  git clone https://github.com/thu-ml/SageAttention
 cd ..
 .\python_embeded\python -m pip install %SAGEATTENTIONURL%
+
+.\python_embeded\python %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\tests\test_triton.py
+
 echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 echo pause >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+
+
 :END_INSTALL_PACKS
 cd ..
 
