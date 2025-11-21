@@ -100,6 +100,17 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+      - name: Ensure FFmpeg is installed
+        shell: cmd
+        run: |
+          choco install ffmpeg -y
+
+      - name: Verify FFmpeg Installation
+        shell: cmd
+        run: |
+          where ffmpeg
+          ffmpeg -version
+
       - name: Install deps and package
         run: |
           python -m venv venv
