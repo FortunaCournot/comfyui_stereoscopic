@@ -449,6 +449,23 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from tools import RandomThreshold
+    nodelist=nodelist+", RandomThreshold"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing RandomThreshold: {e}")
+
+    # Create a placeholder class
+    class RandomThreshold:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading RandomThreshold"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
 
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
 
@@ -479,6 +496,7 @@ NODE_CLASS_MAPPINGS = {
     "JoinVariantProperties": JoinVariantProperties,
     "BuildThresholdDict": BuildThresholdDict,
     "DefineScalarText": DefineScalarText,
+    "RandomThreshold": RandomThreshold,
 }
 
 
@@ -508,4 +526,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "JoinVariantProperties": "Join Variant Properties",
     "BuildThresholdDict": "Build Threshold Dict",
     "DefineScalarText": "Define Scalar Text",
+    "RandomThreshold": "Random Threshold",
 }
