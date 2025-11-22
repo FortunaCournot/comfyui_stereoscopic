@@ -413,21 +413,18 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
-
-
-'''
 try:
-    from loading import LoopWhileNotFinished
-    nodelist=nodelist+", LoopWhileNotFinished"
+    from tools import BuildThresholdDict
+    nodelist=nodelist+", BuildThresholdDict"
 except ImportError as e:
     LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing LoopWhileNotFinished: {e}")
+    print(f"[comfyui_stereoscopic] Error importing BuildThresholdDict: {e}")
 
     # Create a placeholder class
-    class LoopWhileNotFinished:
+    class BuildThresholdDict:
         @classmethod
         def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading LoopWhileNotFinished"})}}
+            return {"required": {"error": ("STRING", {"default": "Error loading BuildThresholdDict"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
         CATEGORY = "Stereoscopic"
@@ -435,59 +432,22 @@ except ImportError as e:
             return (f"ERROR: {error}",)
 
 try:
-    from loading import IncrementDirectoryImageLoader
-    nodelist=nodelist+", IncrementDirectoryImageLoader"
+    from tools import DefineScalarText
+    nodelist=nodelist+", DefineScalarText"
 except ImportError as e:
     LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing IncrementDirectoryImageLoader: {e}")
+    print(f"[comfyui_stereoscopic] Error importing DefineScalarText: {e}")
 
     # Create a placeholder class
-    class IncrementDirectoryImageLoader:
+    class DefineScalarText:
         @classmethod
         def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading IncrementDirectoryImageLoader"})}}
+            return {"required": {"error": ("STRING", {"default": "Error loading DefineScalarText"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
         CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
-
-try:
-    from loading import StartLoopTrigger
-    nodelist=nodelist+", StartLoopTrigger"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing StartLoopTrigger: {e}")
-
-    # Create a placeholder class
-    class StartLoopTrigger:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading StartLoopTrigger"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
-    from loading import LoadSingleImageByFilename
-    nodelist=nodelist+", LoadSingleImageByFilename"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing LoadSingleImageByFilename: {e}")
-
-    # Create a placeholder class
-    class LoadSingleImageByFilename:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading LoadSingleImageByFilename"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-'''
 
 
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
@@ -517,10 +477,8 @@ NODE_CLASS_MAPPINGS = {
     "BuildVariantIndex": BuildVariantIndex,
     "VariantPromptBuilder": VariantPromptBuilder,
     "JoinVariantProperties": JoinVariantProperties,
-    #"LoadSingleImageByFilename": LoadSingleImageByFilename,
-    #"IncrementDirectoryImageLoader": IncrementDirectoryImageLoader,
-    #"LoopWhileNotFinished": LoopWhileNotFinished,
-    #"StartLoopTrigger": StartLoopTrigger,
+    "BuildThresholdDict": BuildThresholdDict,
+    "DefineScalarText": DefineScalarText,
 }
 
 
@@ -548,9 +506,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BuildVariantIndex": "Build Variant Index",
     "VariantPromptBuilder": "Variant Prompt Builder",
     "JoinVariantProperties": "Join Variant Properties",
-    #"LoadSingleImageByFilename": "LoadSingleImageByFilename",
-    #"IncrementDirectoryImageLoader": "IncrementDirectoryImageLoader",
-    #"LoopWhileNotFinished": "LoopWhileNotFinished",
-    #"StartLoopTrigger": "StartLoopTrigger",
-    
+    "BuildThresholdDict": "Build Threshold Dict",
+    "DefineScalarText": "Define Scalar Text",
 }

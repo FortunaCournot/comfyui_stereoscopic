@@ -6,7 +6,8 @@ import yaml
 import math
 import random
 import time
-from typing import Dict, Any
+from typing import Dict, Any, List
+import json
 
 
 class GetResolutionForVR:
@@ -461,3 +462,82 @@ class JoinVariantProperties:
         if isinstance(properties2, dict):
             merged.update(properties2)
         return (merged,)
+
+
+class DefineScalarText:
+    """
+    UI node producing two parallel lists:
+    - thresholds: list[float]
+    - texts: list[str]
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                # Widgets receive JSON strings (handled by JS)
+                "thresholds": ("STRING", {"default": "[]"}),
+                "texts": ("STRING", {"default": "[]"}),
+            }
+        }
+
+    RETURN_TYPES = ("FLOAT_LIST", "STRING_LIST")
+    RETURN_NAMES = ("thresholds", "texts")
+    FUNCTION = "apply"
+    CATEGORY = "Stereoscopic"
+
+    def apply(self, thresholds, texts):
+        import json
+
+        try:
+            thresholds = json.loads(thresholds)
+        except Exception:
+            thresholds = []
+
+        try:
+            texts = json.loads(texts)
+        except Exception:
+            texts = []
+
+        # safety
+        if len(thresholds) != len(texts):
+            raise ValueError("Thresholds and texts must have same length.")
+
+        # return raw python lists → matches FLOAT_LIST / STRING_LIST
+        return (thresholds, texts)
+        
+        
+
+
+class BuildThresholdDict:
+    """
+    Consumes two parallel list inputs (FLOAT_LIST, STRING_LIST)
+    and builds a list of dicts:
+      [{"threshold": float, "text": str}, ...]
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "thresholds": ("FLOAT_LIST", {}),
+                "texts": ("STRING_LIST", {}),
+            }
+        }
+
+    RETURN_TYPES = ("DICT",)
+    RETURN_NAMES = ("threshold_dict",)
+    FUNCTION = "build"
+    CATEGORY = "Stereoscopic"
+
+    def build(self, thresholds, texts):
+        if len(thresholds) != len(texts):
+            raise ValueError("Threshold and text list lengths do not match.")
+
+        combined = []
+        for thr, txt in zip(thresholds, texts):
+            combined.append({"threshold": thr, "text": txt})
+
+        return (combined,)
+
+
