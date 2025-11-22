@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import os
 import re
+import sys
 import yaml
 import math
 import random
@@ -481,11 +482,13 @@ class DefineScalarText:
             }
         }
 
+    INPUT_IS_LIST = False
+        
     RETURN_TYPES = ("FLOAT_LIST", "STRING_LIST")
     RETURN_NAMES = ("thresholds", "texts")
     FUNCTION = "apply"
     CATEGORY = "Stereoscopic"
-
+    
     def apply(self, thresholds, texts):
         import json
 
@@ -511,15 +514,17 @@ class DefineScalarText:
 
 class BuildThresholdDict:
     """
-    Consumes two parallel list inputs (FLOAT_LIST, STRING_LIST)
-    and builds a list of dicts:
-      [{"threshold": float, "text": str}, ...]
+    Consumes a list of thresholds and corresponding texts,
+    plus a key and a threshold value, and builds a single-key dict.
     """
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "key": ("STRING", {}),          # key for entry
+                "threshold": ("FLOAT", {"min": -sys.float_info.max,
+                    "max": sys.float_info.max}),  # No limits
                 "thresholds": ("FLOAT_LIST", {}),
                 "texts": ("STRING_LIST", {}),
             }
@@ -530,14 +535,64 @@ class BuildThresholdDict:
     FUNCTION = "build"
     CATEGORY = "Stereoscopic"
 
-    def build(self, thresholds, texts):
+    def build(self, key, threshold, thresholds, texts):
         if len(thresholds) != len(texts):
             raise ValueError("Threshold and text list lengths do not match.")
 
-        combined = []
-        for thr, txt in zip(thresholds, texts):
-            combined.append({"threshold": thr, "text": txt})
+        # Find last index where threshold in list <= input threshold
+        idx = None
+        for i, thr in enumerate(thresholds):
+            if thr <= threshold:
+                idx = i
 
-        return (combined,)
+        value = texts[idx] if idx is not None else ""
+        return ({key: value},)
 
+
+class RandomThreshold:
+    """
+    Generates a random float between a minimum and maximum value.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "min_value": ("FLOAT", {
+                    "min": -sys.float_info.max,
+                    "max": sys.float_info.max,
+                    "default": 0.0
+                }),
+                "max_value": ("FLOAT", {
+                    "min": -sys.float_info.max,
+                    "max": sys.float_info.max,
+                    "default": 1.0
+                }),
+                "random_seed": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 2**31 - 1,
+                    "step": 1
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("FLOAT", "INT",)
+    RETURN_NAMES = ("random_float", "used_seed",)
+    FUNCTION = "build"
+    CATEGORY = "Stereoscopic"
+
+    def build(self, min_value, max_value, random_seed: int = 0):
+        if min_value > max_value:
+            # Swap to ensure min <= max
+            min_value, max_value = max_value, min_value
+            
+        if isinstance(random_seed, int) and random_seed > 0:
+            used_seed = random_seed
+        else:
+            used_seed = int(time.time() * 1000) % (2**31 - 1)
+
+        rng = random.Random(used_seed)
+            
+        return (min_value + rng.random()  * (max_value-min_value), used_seed)
 
