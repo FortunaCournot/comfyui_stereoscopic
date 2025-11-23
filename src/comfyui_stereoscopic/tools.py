@@ -9,21 +9,7 @@ import random
 import time
 from typing import Dict, Any, List
 import json
-
-def derive_variant_seed(base_seed, node):
-    # Try typical ComfyUI ID attributes
-    nid = getattr(node, "id",
-          getattr(node, "_id",
-          getattr(node, "unique_id",
-          None)))
-
-    if nid is None:
-        # final deterministic fallback: position hash
-        import hashlib
-        h = hashlib.sha256(str(base_seed).encode()).digest()
-        nid = int.from_bytes(h[:4], "little")
-
-    return int(base_seed) + int(nid)
+import uuid
     
 class GetResolutionForVR:
     @classmethod
@@ -179,6 +165,7 @@ class BuildVariantIndex:
                     "max": 2**31 - 1,
                     "step": 1
                 }),
+                "seed_offset": ("INT", {"default": random.randint(0, 2**31 - 1)})
             }
         }
 
@@ -189,7 +176,7 @@ class BuildVariantIndex:
 
     # ------------------------------------------------------------------
 
-    def build_variant_index(self, yaml_path: str, VariantIndexValues: str = "", random_seed: int = 0):
+    def build_variant_index(self, yaml_path: str, VariantIndexValues: str = "", random_seed: int = 0, seed_offset: int = 0):
         """Generates or validates a VariantSelectionPath for a hierarchical YAML profile."""
 
         # --- RNG setup ---
@@ -198,7 +185,11 @@ class BuildVariantIndex:
         else:
             used_seed = int(time.time() * 1000) % (2**31 - 1)
 
-        used_seed = derive_variant_seed(used_seed, self)
+        # create persistent node-specific id if not already present
+        if not hasattr(self, "instance_id"):
+            self.instance_id = str(uuid.uuid4())
+
+        used_seed = random_seed + seed_offset
         
         rng = random.Random(used_seed)
 
@@ -588,6 +579,8 @@ class RandomThreshold:
                     "max": 2**31 - 1,
                     "step": 1
                 }),
+                "seed_offset": ("INT", {"default": random.randint(0, 2**31 - 1)})
+
             }
         }
 
@@ -596,7 +589,12 @@ class RandomThreshold:
     FUNCTION = "build"
     CATEGORY = "Stereoscopic"
 
-    def build(self, min_value, max_value, random_seed: int = 0):
+    def build(self, min_value, max_value, random_seed: int = 0, seed_offset: int = 0):
+
+        # create persistent node-specific id if not already present
+        if not hasattr(self, "instance_id"):
+            self.instance_id = str(uuid.uuid4())
+            
         if min_value > max_value:
             # Swap to ensure min <= max
             min_value, max_value = max_value, min_value
@@ -605,8 +603,8 @@ class RandomThreshold:
             used_seed = random_seed
         else:
             used_seed = int(time.time() * 1000) % (2**31 - 1)
-        
-        used_seed = derive_variant_seed(used_seed, self)
+
+        used_seed = random_seed + seed_offset
 
         rng = random.Random(used_seed)
             
