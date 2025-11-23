@@ -297,29 +297,33 @@ app.registerExtension({
       }, POLL_MS);
     }
 
-    // attach to existing nodes
-    try {
-      const g = appInstance.graph;
-      if (g && Array.isArray(g._nodes)) {
-        for (const n of g._nodes) {
-          try { attach(n); } catch (e) { console.warn("attach existing failed", e); }
-        }
-      }
-    } catch (e) { console.warn(e); }
+    const origAdd = LiteGraph.LGraph.prototype.add;
 
-    // hook new node creation
-    try {
-      const graph = appInstance.graph;
-      if (graph) {
-        const origAdd = graph.add;
-        graph.add = function(node) {
-          const res = origAdd.apply(this, arguments);
-          try { attach(node); } catch (e) {}
-          return res;
-        };
-      }
-    } catch (e) { console.warn(e); }
+    LiteGraph.LGraph.prototype.add = function(node) {
 
-    console.log("grade_variant_widget initialized");
+      const result = origAdd.apply(this, arguments);
+
+      try {
+          // attach to the node that was just added
+          attach(node);
+      } catch (e) {
+          console.warn("attach(new) failed", e);
+      }
+
+      try {
+          // attach to all nodes in THIS graph (main or subgraph)
+          if (this._nodes && Array.isArray(this._nodes)) {
+              for (const n of this._nodes) {
+                  try { attach(n); }
+                  catch (e) { console.warn("attach(existing) failed", e); }
+              }
+          }
+      } catch (e) {
+          console.warn("scan graph failed", e);
+      }
+
+      console.log("grade_variant_widget initialized");
+      return result;    
+    };
   }
 });
