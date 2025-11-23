@@ -126,7 +126,8 @@ app.registerExtension({
             return size;
         };
 
-        node.flags |= LiteGraph.RESIZEABLE;
+        node.flags = node.flags || {};
+        node.flags.resizable = true;
         node.setSize(node.size);
 
         node.graph.setDirtyCanvas(true, true);

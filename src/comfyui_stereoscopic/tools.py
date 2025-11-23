@@ -10,7 +10,21 @@ import time
 from typing import Dict, Any, List
 import json
 
+def derive_variant_seed(base_seed, node):
+    # Try typical ComfyUI ID attributes
+    nid = getattr(node, "id",
+          getattr(node, "_id",
+          getattr(node, "unique_id",
+          None)))
 
+    if nid is None:
+        # final deterministic fallback: position hash
+        import hashlib
+        h = hashlib.sha256(str(base_seed).encode()).digest()
+        nid = int.from_bytes(h[:4], "little")
+
+    return int(base_seed) + int(nid)
+    
 class GetResolutionForVR:
     @classmethod
     def INPUT_TYPES(cls):
@@ -184,6 +198,8 @@ class BuildVariantIndex:
         else:
             used_seed = int(time.time() * 1000) % (2**31 - 1)
 
+        used_seed = derive_variant_seed(used_seed, self)
+        
         rng = random.Random(used_seed)
 
         # --- Load YAML ---
@@ -482,8 +498,6 @@ class DefineScalarText:
             }
         }
 
-    INPUT_IS_LIST = False
-        
     RETURN_TYPES = ("FLOAT_LIST", "STRING_LIST")
     RETURN_NAMES = ("thresholds", "texts")
     FUNCTION = "apply"
@@ -591,6 +605,8 @@ class RandomThreshold:
             used_seed = random_seed
         else:
             used_seed = int(time.time() * 1000) % (2**31 - 1)
+        
+        used_seed = derive_variant_seed(used_seed, self)
 
         rng = random.Random(used_seed)
             
