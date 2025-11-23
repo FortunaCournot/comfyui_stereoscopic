@@ -467,6 +467,42 @@ except ImportError as e:
         def error(self, error):
             return (f"ERROR: {error}",)
 
+try:
+    from tools import GradeVariant
+    nodelist=nodelist+", GradeVariant"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing GradeVariant: {e}")
+
+    # Create a placeholder class
+    class GradeVariant:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading GradeVariant"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from tools import SpecVariants
+    nodelist=nodelist+", SpecVariants"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing SpecVariants: {e}")
+
+    # Create a placeholder class
+    class SpecVariants:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading SpecVariants"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
 print("[comfyui_stereoscopic] Successfully imported " + nodelist)
 
 # A dictionary that contains all nodes you want to export with their names
@@ -497,6 +533,8 @@ NODE_CLASS_MAPPINGS = {
     "BuildThresholdDict": BuildThresholdDict,
     "DefineScalarText": DefineScalarText,
     "RandomThreshold": RandomThreshold,
+    "GradeVariant": GradeVariant,
+    "SpecVariants": SpecVariants,
 }
 
 
@@ -527,4 +565,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BuildThresholdDict": "Build Threshold Dict",
     "DefineScalarText": "Define Scalar Text",
     "RandomThreshold": "Random Threshold",
+    "GradeVariant": "Grade Variant",
+    "SpecVariants": "Spec Variants",
 }

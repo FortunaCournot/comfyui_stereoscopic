@@ -3,6 +3,7 @@ import { app } from "/scripts/app.js";
 app.registerExtension({
     name: "comfyui_stereoscopic.autoseedoffset",
     async init(appInstance) {
+    
         const graph = appInstance.graph;
 
         if (!graph) return;
@@ -13,7 +14,7 @@ app.registerExtension({
             const res = origAdd.apply(this, arguments);
 
             // Nur für den Node-Typ, bei dem du seed_offset setzen willst
-            if (node.type === "RandomThreshold" || node.type === "BuildVariantIndex") {
+            if (node.type === "RandomThreshold" || node.type === "BuildVariantIndex" || node.type === "GradeVariant" || node.type === "SpecVariants") {
 
                 // setze zufälligen Wert
                 let w = node.widgets?.find(w => w.name === "seed_offset");
