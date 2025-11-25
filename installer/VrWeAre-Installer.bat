@@ -889,7 +889,6 @@ echo   checkoutSoftware "https://github.com/Gourieff/ComfyUI-ReActor.git" "Comfy
 
 IF %TRAINING% equ 0 GOTO TRAINING_INST_END
 echo   cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/installer/templates/*.bat . >>install.sh
-echo   cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/installer/templates/*.ps1 . >>install.sh
 :TRAINING_INST_END
 
 echo\ >>install.sh
@@ -1123,12 +1122,11 @@ echo Starting AI-Toolkit installer...
 cd %VRWEAREPATH%
 CALL .\install_ai-toolkit.bat
 cd %VRWEAREPATH%
-del .\install_ai-toolkit.bat
 echo Starting kohya_ss installer...
 cd "%VRWEAREPATH%\"
 call ".\install_kohya_ss.bat"
 cd "%VRWEAREPATH%\"
-del ".\install_kohya_ss.bat"
+del /Q ".\*install_*.bat"
 echo Training tools installed.
 
 :: Start server and service to complete installation
