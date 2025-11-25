@@ -16,6 +16,12 @@ pipeline:
           conditions:
             - tvai=false
       - rule:
+          to: fullsbs
+          conditions:
+            - sbs=false
+            - height>719
+            - duration>400
+      - rule:
           to: scaling
   - from: tasks/fps-limit-16
     forward:

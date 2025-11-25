@@ -888,7 +888,7 @@ echo   checkoutSoftware "https://github.com/Gourieff/ComfyUI-ReActor.git" "Comfy
 
 IF %TRAINING% equ 0 GOTO TRAINING_INST_END
 echo   checkoutSoftware "https://github.com/FortunaCournot/AI-Toolkit-vrweare-Install.git" "AI-Toolkit-vrweare-Install"  >>install.sh
-echo   checkoutSoftware "https://github.com/FortunaCournot/kohya_ss.git" "kohya_ss"  >>install.sh
+echo   cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/installer/templates/*.bat . >>install.sh
 :TRAINING_INST_END
 
 echo\ >>install.sh
@@ -1121,10 +1121,9 @@ IF %TRAINING% equ 0 GOTO Start
 echo Starting AI-Toolkit installer...
 cd "%VRWEAREPATH%\AI-Toolkit-vrweare-Install\"
 call ".\AI-Toolkit-vrweare-Install.bat"
-cd "%VRWEAREPATH%\kohya_ss\"
+cd "%VRWEAREPATH%\"
 echo Starting kohya_ss installer...
-SET PATH=%VRWEAREPATH%\AI-Toolkit-vrweare-Install\python_embeded;%VRWEAREPATH%\AI-Toolkit-vrweare-Install\python_embeded\Scripts;%PATH%
-call ".\setup_win_embed_headless.bat"
+call ".\install_kohya_ss.bat"
 cd "%VRWEAREPATH%\"
 echo AI-Toolkit installer finished. Continuing...
 
