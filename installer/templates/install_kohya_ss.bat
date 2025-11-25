@@ -5,7 +5,7 @@
 :: MIT-Licensed. (c)2025 Fortuna Cournot
 ::
 @echo on
-cd %~dp0
+cd /D %~dp0
 set ROOT="%CD%"
 
 :: kohaya_ss retieve

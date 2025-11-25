@@ -889,6 +889,7 @@ echo   checkoutSoftware "https://github.com/Gourieff/ComfyUI-ReActor.git" "Comfy
 
 IF %TRAINING% equ 0 GOTO TRAINING_INST_END
 echo   cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/installer/templates/*.bat . >>install.sh
+echo   cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/installer/templates/*.ps1 . >>install.sh
 :TRAINING_INST_END
 
 echo\ >>install.sh

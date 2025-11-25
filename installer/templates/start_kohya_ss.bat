@@ -1,5 +1,5 @@
 @echo on
-cd %~dp0
+cd /D %~dp0
 
 cd kohya_ss\
 set ROOT="%CD%"
