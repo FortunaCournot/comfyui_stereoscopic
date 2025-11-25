@@ -5,8 +5,8 @@
 cd /D %~dp0
 set ROOT=%CD%
 
-:: tested AITOOLGITCOMMITs: c6edd71 3086a58
-set AITOOLGITCOMMITs=c6edd71
+:: tested AITOOLGITCOMMITs: 21bb8a2bf4e3ac08fe89d628e9cc7b3fcf759a65 c6edd71 3086a58
+set AITOOLGITCOMMIT=c6edd71
 set "version_title=AI-Toolkit-Easy-Install v0.3.21 by ivo (modified version by FortunaCournot)"
 Title %version_title%
 
@@ -155,7 +155,7 @@ echo %green%::::::::::::::: Installing%yellow% AI-Toolkit %green%:::::::::::::::
 echo.
 git.exe clone https://github.com/ostris/ai-toolkit.git
 cd ai-toolkit\
-git checkout %AITOOLGITCOMMIT%
+git.exe checkout %AITOOLGITCOMMIT%
 cd %ROOT%\AI-Toolkit
 robocopy ai-toolkit .  /s /e /MOV
 RMDIR /S/Q ai-toolkit
