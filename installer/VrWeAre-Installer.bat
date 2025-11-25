@@ -462,7 +462,8 @@ IF %PIPELINE_OPTION_WATERMARK% equ 0 SET PIPELINE_OPTION_WATERMARK_TEXT=[31mNo
 IF %EXTRAS% equ 0 SET EXTRAS_TEXT=[31mNo
 IF %TRAINING% equ 0 SET TRAINING_TEXT=[31mNo
 SET INSTALLSIZE=14
-IF %TRAINING% equ 1 SET /A "INSTALLSIZE=%INSTALLSIZE%+10"
+SET INSTALLSIZE_TRAINING=20
+IF %TRAINING% equ 1 SET /A "INSTALLSIZE=%INSTALLSIZE%+%INSTALLSIZE_TRAINING%"
 if defined FLAG_INSTALL_FFMPEG (
   SET /A "INSTALLSIZE=%INSTALLSIZE%+1"
 )
@@ -479,7 +480,7 @@ ECHO   [35m3[0m - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATE
 ECHO  ComfyUI options:
 ECHO   [35m4[0m - Add extra packages: [1m%EXTRAS_TEXT%[0m
 ECHO         rgthree, easy-use, ReActor
-ECHO   [35m5[0m - Install Training software: [1m%TRAINING_TEXT%[0m
+ECHO   [35m5[0m - Install Training software (+%INSTALLSIZE_TRAINING%): [1m%TRAINING_TEXT%[0m
 ECHO         AI-Toolkit
 ECHO/
 ECHO   This will download and install ComfyUI %COMFYUI_TAG% Portable for modern Nvidia/CPU with base packages
@@ -887,7 +888,6 @@ echo   checkoutSoftware "https://github.com/Gourieff/ComfyUI-ReActor.git" "Comfy
 :EXTRAS_INST_END
 
 IF %TRAINING% equ 0 GOTO TRAINING_INST_END
-echo   checkoutSoftware "https://github.com/FortunaCournot/AI-Toolkit-vrweare-Install.git" "AI-Toolkit-vrweare-Install"  >>install.sh
 echo   cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/installer/templates/*.bat . >>install.sh
 :TRAINING_INST_END
 
@@ -1119,13 +1119,16 @@ ECHO TVAI_MODEL_DIR=`cat ./user/default/comfyui_stereoscopic/.TVAI_MODEL_DIR`  >
 
 IF %TRAINING% equ 0 GOTO Start
 echo Starting AI-Toolkit installer...
-cd "%VRWEAREPATH%\AI-Toolkit-vrweare-Install\"
-call ".\AI-Toolkit-vrweare-Install.bat"
-cd "%VRWEAREPATH%\"
+cd %VRWEAREPATH%
+CALL .\install_ai-toolkit.bat
+cd %VRWEAREPATH%
+del .\install_ai-toolkit.bat
 echo Starting kohya_ss installer...
+cd "%VRWEAREPATH%\"
 call ".\install_kohya_ss.bat"
 cd "%VRWEAREPATH%\"
-echo AI-Toolkit installer finished. Continuing...
+del ".\install_kohya_ss.bat"
+echo Training tools installed.
 
 :: Start server and service to complete installation
 :Start

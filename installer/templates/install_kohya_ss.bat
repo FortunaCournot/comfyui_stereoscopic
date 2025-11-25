@@ -1,3 +1,9 @@
+:: kohya_ss.git 
+:: 
+:: This file is to be executed in the folder where to install kohaya_ss.
+::
+:: MIT-Licensed. (c)2025 Fortuna Cournot
+::
 @echo on
 cd %~dp0
 set ROOT="%CD%"
@@ -28,11 +34,20 @@ set PATH=%CD%\;%CD%\Scripts\;%PATH%
 cd ..
 python -V
 
+:: Install torch, triton
+python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+python -m pip install poetry-core
+python -m pip install triton-windows==3.4.0.post20
+python -m pip install --upgrade triton-windows
+python -m pip install hf_xet
+
+:: installation of venv
 python -m pip install virtualenv
 python -m virtualenv venv
 call .\venv\Scripts\activate
 pip install easygui
 
+:: Complete installation of kohaya_ss
 call ".\setup.bat" --headless
 
 call .\venv\Scripts\deactivate
