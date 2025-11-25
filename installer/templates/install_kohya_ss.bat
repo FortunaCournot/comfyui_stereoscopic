@@ -6,7 +6,7 @@
 ::
 @echo on
 cd /D %~dp0
-set ROOT="%CD%"
+set ROOT=%CD%
 
 :: kohaya_ss retieve
 git clone --recursive https://github.com/bmaltais/kohya_ss.git 

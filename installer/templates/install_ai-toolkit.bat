@@ -3,7 +3,7 @@
 
 @Echo off
 cd /D %~dp0
-set ROOT="%CD%"
+set ROOT=%CD%
 
 :: tested AITOOLGITCOMMITs: c6edd71 3086a58
 set AITOOLGITCOMMITs=c6edd71
