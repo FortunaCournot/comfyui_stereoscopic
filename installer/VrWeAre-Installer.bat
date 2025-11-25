@@ -69,6 +69,7 @@ SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/downloa
 SET REACTOR_TAG=tags/v0.6.1
 SET EASYUSE_TAG=tags/v1.3.4
 SET RGTHREE_TAG=eadc24e
+SET WD14_TAG=9e0a6e700299182fc05c58b62e7ad9f72182a78b
 
 SET INTERACTIVE=1
 if [%1]==[] goto DoChecks
@@ -479,7 +480,7 @@ ECHO   [35m2[0m - Judging: Pipeline for first/last image: [1m%PIPELINE_OPTION
 ECHO   [35m3[0m - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATERMARK_TEXT%[0m
 ECHO  ComfyUI options:
 ECHO   [35m4[0m - Add extra packages: [1m%EXTRAS_TEXT%[0m
-ECHO         rgthree, easy-use, ReActor
+ECHO         rgthree, easy-use, ReActor, WD14-Tagger
 ECHO   [35m5[0m - Install Training software (+%INSTALLSIZE_TRAINING%): [1m%TRAINING_TEXT%[0m
 ECHO         AI-Toolkit
 ECHO/
@@ -763,6 +764,7 @@ IF %EXTRAS% equ 0 GOTO EXTRAS_LIC_END
 echo  installFile "https://raw.githubusercontent.com/yolain/ComfyUI-Easy-Use/refs/%EASYUSE_TAG%/LICENSE" "./LICENSE_easy-use.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/rgthree/rgthree-comfy/refs/heads/main/LICENSE" "./LICENSE_rgthree.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/Gourieff/ComfyUI-ReActor/refs/%REACTOR_TAG%/LICENSE" "./LICENSE_ReActor.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/pythongosssss/ComfyUI-WD14-Tagger/refs/heads/main/LICENSE" "./LICENSE_WD14-Tagger.TXT"  >>install.sh
 :EXTRAS_LIC_END
 
 :: Ask user for commitment
@@ -885,6 +887,7 @@ IF %EXTRAS% equ 0 GOTO EXTRAS_INST_END
 echo   checkoutSoftware "https://github.com/yolain/ComfyUI-Easy-Use.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-easy-use" "%EASYUSE_TAG%"  >>install.sh
 echo   checkoutSoftware "https://github.com/rgthree/rgthree-comfy.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/rgthree-comfy" "%RGTHREE_TAG%"  >>install.sh
 echo   checkoutSoftware "https://github.com/Gourieff/ComfyUI-ReActor.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-ReActor" "%REACTOR_TAG%"  >>install.sh
+echo   checkoutSoftware "https://github.com/pythongosssss/ComfyUI-WD14-Tagger.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-WD14-Tagger" "%WD14_TAG%"  >>install.sh
 :EXTRAS_INST_END
 
 IF %TRAINING% equ 0 GOTO TRAINING_INST_END

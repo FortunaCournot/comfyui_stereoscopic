@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import io
 import os
 import re
 import sys
@@ -10,6 +11,8 @@ import time
 from typing import Dict, Any, List
 import json
 import uuid
+
+import folder_paths
     
 class GetResolutionForVR:
     @classmethod
@@ -194,6 +197,8 @@ class BuildVariantIndex:
         rng = random.Random(used_seed)
 
         # --- Load YAML ---
+        yaml_path = os.path.realpath( os.path.join( os.path.realpath( folder_paths.get_input_directory() ), yaml_path ) )
+        
         if not yaml_path or not os.path.exists(yaml_path):
             raise FileNotFoundError(f"YAML file not found: {yaml_path}")
 
