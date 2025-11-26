@@ -125,7 +125,7 @@ else
 					fi
 					
 					title=
-					[ -e "$EXIFTOOLBINARY" ] && title=`"$EXIFTOOLBINARY" -title "$newfn" | cut -d ':' -f 2 | xargs`
+					[ -e "$EXIFTOOLBINARY" ] && title=`"$EXIFTOOLBINARY" -s -s -s -title -- "$newfn"`
 					if [ ! -z "$title" ] ; then
 						HAS_SUBTITLES=x
 						echo "$INDEX" >>$INTERMEDIATEFOLDER/subtitles.srt
@@ -157,21 +157,20 @@ else
 			
 		NOW=$( date '+%F_%H%M' )	
 		
-		#set -x
+		set -x
 
 		# To support transparency chhose something different than -pix_fmt yuv420p -vcodec libx264
-		"$FFMPEGPATHPREFIX"ffmpeg -v error -hide_banner -stats -loglevel repeat+level+error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -c:v ffv1 -pix_fmt yuva420p $INTERMEDIATEFOLDER/output.mkv 
+		"$FFMPEGPATHPREFIX"ffmpeg -v error -hide_banner -stats -loglevel repeat+level+error -y $INPUTOPT -filter_complex $FILTEROPT -map "[f$INDEXM2]" -r $FPSRATE -c:v ffv1 -pix_fmt yuva420p10le     -level 3 -g 1 $INTERMEDIATEFOLDER/output.mkv 
 		# Transparency is not keept in next stage. leave mkv in intermediate folder for now
-		if [ ! -z "$HAS_SUBTITLES" ] ; then
-			[ -e "$EXIFTOOLBINARY" ] && "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i $INTERMEDIATEFOLDER/output.mkv  -i $INTERMEDIATEFOLDER/subtitles.srt -c:v libvpx -pix_fmt yuva420p -c:s mov_text -metadata:s:s:0 language=$ISO_639_2_CODE $INTERMEDIATEFOLDER/output-srt.mp4 && mv -f -- $INTERMEDIATEFOLDER/output-srt.mp4 $INTERMEDIATEFOLDER/output.mp4
+		if [ -s $INTERMEDIATEFOLDER/subtitles.srt ] ; then
+			[ -e "$EXIFTOOLBINARY" ] && "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -stats -loglevel repeat+level+error -i $INTERMEDIATEFOLDER/output.mkv -i $INTERMEDIATEFOLDER/subtitles.srt -c:v libsvtav1  -pix_fmt yuva420p10le -crf 10 -b:v 0 -c:s mov_text -metadata:s:s:0 language=$ISO_639_2_CODE $INTERMEDIATEFOLDER/output-srt.mp4 && mv -f -- $INTERMEDIATEFOLDER/output-srt.mp4 $INTERMEDIATEFOLDER/output.mp4
 		else
-			"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -i $INTERMEDIATEFOLDER/output.mkv $INTERMEDIATEFOLDER/output.mp4
+			"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -stats -loglevel repeat+level+error -i $INTERMEDIATEFOLDER/output.mkv $INTERMEDIATEFOLDER/output.mp4
 		fi
-		rm -f $INTERMEDIATEFOLDER/subtitles.srt 2>/dev/null
 		
 		echo -e $"\e[92mdone\e[0m                    "
 		
-		#set +x
+		set +x
 		
 		TARGETPREFIX=${TARGETPREFIX##*/}
 		TARGETPREFIX=${TARGETPREFIX%.*}
@@ -184,14 +183,16 @@ else
 		TARGET=output/vr/slideshow/"$TARGETPREFIX-slideshow-""$NOW""$TAGS"".mp4"
 		mv -f $INTERMEDIATEFOLDER/output.mp4 "$TARGET"
 		rm input/vr/slideshow/BATCHPROGRESS.TXT
-		mkdir -p input/vr/slideshow/done
-		mv input/vr/slideshow/*.* input/vr/slideshow/done
 		if [ ! -e "$TARGET" ] && [ ! -s "$TARGET" ]; then
 			echo -e $"\e[91mError:\e[0m Failed to make slideshow"
+      mkdir -p input/vr/slideshow/error
+      mv input/vr/slideshow/*.* input/vr/slideshow/error
 			sleep 10
-			exit 1
+			exit 0
 		fi
-		
+		mkdir -p input/vr/slideshow/done
+		mv input/vr/slideshow/*.* input/vr/slideshow/done
+  	rm -rf "$INTERMEDIATEFOLDER"/*  >/dev/null 2>&1
 	else
 		# Not enought image files (png|jpg|jpeg) found in input/vr/slideshow. At least 2.
 		echo "Info: No images (2+) for slideshow in input/vr/slideshow"
