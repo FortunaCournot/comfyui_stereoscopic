@@ -311,8 +311,8 @@ else
 											fi
 										done
 									fi
-									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination &&
-									echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+                  capfile="${file%.*}.txt"
+									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination  && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX= && [ -s "$capfile" ] && mv -f -- "$capfile" input/vr/$destination 
 								done
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"

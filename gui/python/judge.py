@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
                              QPlainTextEdit, QLayout)
 
-from rating import StyledIcon
+from rating import StyledIcon, replace_file_suffix
 
 path = os.path.dirname(os.path.abspath(__file__))
 
@@ -43,6 +43,8 @@ if path not in sys.path:
 VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts']
 IMAGE_EXTENSIONS = ['.png', '.webp', '.jpg', '.jpeg', '.jfif']
 
+ 
+    
 class JudgeDialog(QDialog):
 
     def __init__(self):

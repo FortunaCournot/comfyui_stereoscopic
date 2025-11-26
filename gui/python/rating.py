@@ -167,7 +167,24 @@ def endAsyncTask():
         tb=tb[:tb.rfind(',')]
         if TRACELEVEL >= 2:
             print(f". Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms, \"" + tb, flush=True)
-            
+
+def replace_file_suffix(file_path: str, new_suffix: str) -> str:
+    """
+    Replace the file suffix of the given file path with a new suffix.
+
+    :param file_path: The original file path.
+    :param new_suffix: The new suffix (with or without leading dot).
+    :return: The updated file path with the new suffix.
+    """
+    # Normalize suffix to ensure it starts with a dot
+    if not new_suffix.startswith("."):
+        new_suffix = "." + new_suffix
+
+    # Split file path into root and extension
+    root, _ = os.path.splitext(file_path)
+
+    # Combine root with new suffix
+    return root + new_suffix            
    
 class WaitDialog(QDialog):
     def __init__(self, parent=None):
@@ -1403,12 +1420,17 @@ class RateAndCutDialog(QDialog):
                     
                     if index>=0:
                         try:
+                            capfile = replace_file_suffix(input, ".txt")
                             if USE_TRASHBIN:
                                 self.log("Trashing " + os.path.basename(input), QColor("white"))
                                 send2trash.send2trash(input)
+                                if os.path.exists(capfile):
+                                    send2trash.send2trash(capfile)
                             else:
                                 self.log("Deleting " + os.path.basename(input), QColor("white"))
                                 os.remove(input)
+                                if os.path.exists(capfile):
+                                    os.remove(capfile)
                         finally:
                             if os.path.exists(input):
                                 self.logn(" failed", QColor("red"))
@@ -1772,6 +1794,10 @@ class RateAndCutDialog(QDialog):
                 if recreated:
                     os.remove(output)
                 os.rename(input, output)
+                capfile = replace_file_suffix(input, ".txt")
+                if os.path.exists(capfile):
+                    os.rename(capfile, replace_file_suffix(output, ".txt"))
+                
                 self.rating_widget.clear_rating()
                 self.log(" Overwritten" if recreated else " Moved", QColor("green"))
                 
@@ -1808,7 +1834,6 @@ class RateAndCutDialog(QDialog):
 
         except:
             print(traceback.format_exc(), flush=True)
-            self.folderAction.setEnabled(True)
         finally:
             leaveUITask()
 
@@ -1937,8 +1962,11 @@ class RateAndCutDialog(QDialog):
     def move_worker(self, source, destination, index, recreated):
         startAsyncTask()
         try:
+            capfile = replace_file_suffix(source, ".txt")
             print("move from", source, "to", destination, flush=True) 
             shutil.move(source, destination)
+            if not os.path.exists(source) and os.path.exists(capfile):
+                shutil.move(capfile, replace_file_suffix(destination, ".txt"))
             countdown=5
             while os.path.exists(source):
                 countdown=countdown-1
@@ -1947,6 +1975,8 @@ class RateAndCutDialog(QDialog):
                 print("source file still exists. retry ...", flush=True)
                 time.sleep(2)
                 shutil.move(source, destination)
+                if not os.path.exists(source) and os.path.exists(capfile):
+                    shutil.move(capfile, replace_file_suffix(destination, ".txt"))
             if countdown<0:
                 QTimer.singleShot(0, partial(self.move_updater, index, recreated, False))
             else:
@@ -2024,7 +2054,7 @@ class RateAndCutDialog(QDialog):
                 print("Executing "  + cmd, flush=True)
                 recreated=os.path.exists(output)
                 thread = threading.Thread(
-                    target=self.trimAndCrop_worker, args=(cmd, recreated, output, ), daemon=True)
+                    target=self.trimAndCrop_worker, args=(cmd, recreated, input, output, ), daemon=True)
                 thread.start()
                 
             except ValueError as e:
@@ -2035,20 +2065,20 @@ class RateAndCutDialog(QDialog):
             leaveUITask()
 
             
-    def trimAndCrop_worker(self, cmd, recreated, output):
+    def trimAndCrop_worker(self, cmd, recreated, input, output):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, output, True))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, True))
 
         except subprocess.CalledProcessError as se:
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, output, False))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, False))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
 
 
-    def trimAndCrop_updater(self, recreated, output, success):
+    def trimAndCrop_updater(self, recreated, input, output, success):
         if success:
             self.log(" Overwritten" if recreated else " OK", QColor("green"))
             if self.display.frame_count<=0:
@@ -2058,6 +2088,9 @@ class RateAndCutDialog(QDialog):
                 self.logn("+clipboard", QColor("gray"))
             else:
                 self.logn("", QColor("gray"))
+            capfile = replace_file_suffix(input, ".txt")
+            if os.path.exists(capfile):
+                shutil.copyfile(capfile, replace_file_suffix(output, ".txt"))
         else:
             self.logn(" Failed", QColor("red"))
 
