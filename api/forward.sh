@@ -282,7 +282,8 @@ else
 											fi
 										done
 									fi
-									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+                  capfile="${file%.*}.txt"
+									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX= && [ -s "$capfile" ] && mv -f -- "$capfile" input/vr/$destination 
 								done
 							elif  [[ $i == "image" ]] ; then
 								OIFS="$IFS"
