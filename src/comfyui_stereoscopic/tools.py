@@ -662,7 +662,12 @@ class SpecVariants:
                     "max": 2**31 - 1,
                     "step": 1
                 }),
-                "seed_offset": ("INT", {"default": random.randint(0, 2**31 - 1)})
+                "seed_offset": ("INT", {
+                    "default": random.randint(0, 2**31 - 1),
+                    "min": 0,
+                    "max": 2**31 - 1,
+                    "step": 1
+                }),
             }
         }
 
@@ -689,6 +694,8 @@ class SpecVariants:
         used_seed = random_seed + seed_offset
         
         rng = random.Random(used_seed)
+
+        yaml_path = os.path.realpath( os.path.join( os.path.realpath( folder_paths.get_input_directory() ), yaml_path ) )
 
         # --- Load YAML ---
         if not yaml_path or not os.path.exists(yaml_path):
@@ -829,7 +836,12 @@ class GradeVariant:
                     "max": 2**31 - 1,
                     "step": 1
                 }),
-                "seed_offset": ("INT", {"default": random.randint(0, 2**31 - 1)}),
+                "seed_offset": ("INT", {
+                    "default": random.randint(0, 2**31 - 1),
+                    "min": 0,
+                    "max": 2**31 - 1,
+                    "step": 1
+                }),
                 # Widgets receive JSON strings (handled by JS)
                 "weights": ("STRING", {"default": "[]"}),
                 "texts": ("STRING", {"default": "[]"}),
