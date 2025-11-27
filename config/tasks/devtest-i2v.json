@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "blueprint": "workflow-i2v-wan22a14b",
+  "workflow_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/I2V_DevTest.json",
+  "checkpoint": "wan/I2V/wan22RemixT2VI2V_i2vHighV20.safetensors",
+  "prompt": "",
+  "input": "image",
+  "output": "video",
+}
