@@ -108,7 +108,8 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS"`echo $INPUT | grep -oP "$regex"`" =========="
 	
-	mkdir -p output/vr/tasks/intermediate
+  rm -rf -- output/vr/tasks/intermediate
+	mkdir -p  output/vr/tasks/intermediate
 
 	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/tasks/intermediate/probe.txt`
 	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$INPUT" >>output/vr/tasks/intermediate/probe.txt`
@@ -144,14 +145,13 @@ else
 	
 	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 
-	prompt=`cat "$PROMPT" | grep -o '"prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	
 	[ $loglevel -lt 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX" "$prompt"
 	set +x && [ $loglevel -ge 2 ] && set -x
 
 	EXTENSION=".mp4"
-	INTERMEDIATE="$TARGETPREFIX""_00001""$EXTENSION"
 	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
 	
 	start=`date +%s`
@@ -178,20 +178,21 @@ else
 	runtime=$((end-start))
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 	
+	INTERMEDIATE=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*"$EXTENSION" -print`
 	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
   	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$ORIGINALINPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$INTERMEDIATE" && echo "tags copied."
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
+		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
+	  rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 		echo -e $"\e[92mtask done.\e[0m"
 	else
 		echo -e $"\e[91mError:\e[0m Task failed. $INTERMEDIATE missing or zero-length."
-		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 	fi
 	
-	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 
 fi
 exit 0

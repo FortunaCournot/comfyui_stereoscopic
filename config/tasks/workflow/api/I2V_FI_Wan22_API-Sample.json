@@ -90,7 +90,7 @@
   "47": {
     "inputs": {
       "string_a": [
-        "50",
+        "30",
         0
       ],
       "string_b": "_00001_.txt",
@@ -112,36 +112,6 @@
     "class_type": "PreviewAny",
     "_meta": {
       "title": "Preview Caption"
-    }
-  },
-  "49": {
-    "inputs": {
-      "format": "%y%m%d%H%M%S",
-      "anything": [
-        "39:104",
-        0
-      ]
-    },
-    "class_type": "strftime",
-    "_meta": {
-      "title": "strftime"
-    }
-  },
-  "50": {
-    "inputs": {
-      "string_a": [
-        "30",
-        0
-      ],
-      "string_b": [
-        "49",
-        1
-      ],
-      "delimiter": "_"
-    },
-    "class_type": "StringConcatenate",
-    "_meta": {
-      "title": "Concatenate"
     }
   },
   "53": {
@@ -230,13 +200,13 @@
   "60": {
     "inputs": {
       "filename_prefix": [
-        "50",
+        "30",
         0
       ],
       "format": "mp4",
       "codec": "h264",
       "video": [
-        "49",
+        "39:104",
         0
       ]
     },
