@@ -68,9 +68,9 @@ else
 		[ $loglevel -ge 2 ] && set -x
 		[ $loglevel -ge 2 ] && NOLINE="" ; echo $NOLINE
 		config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-#		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-#		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-#		export COMFYUIHOST COMFYUIPORT
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
 	else
 		echo -e $"\e[91mError:\e[0m No config!?"
 		exit 1
@@ -81,12 +81,21 @@ else
 
 	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 
-#	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-#	if [ "$status" = "closed" ]; then
-#		echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-#		exit 1
-#	fi
-
+	until [ "$queuecount" = "0" ]
+	do
+		sleep 1
+		
+	  status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+	  if [ "$status" = "open" ]; then
+      curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+      queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+    else
+		  echo -ne "Waiting for empty queue        \r"
+	  fi
+	done
+  queuecount=
+  echo "                                   "
+  
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
 	if [ -d "../python_embeded" ]; then
@@ -154,6 +163,10 @@ else
 	EXTENSION=".mp4"
 	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
 	FINALTARGETCAP="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}"".txt"
+  num=${TARGETPREFIX##*_}
+  num=${num%_}
+  printf -v TARGETPREFIXNEXT "%s_%05d_" "${TARGETPREFIX%$num*}" "$((num+1))"
+	FINALTARGETIMG="$FINALTARGETFOLDER/""${TARGETPREFIXNEXT##*/}"".png"
 	
 	start=`date +%s`
 	end=`date +%s`
@@ -162,12 +175,6 @@ else
 	do
 		sleep 1
 		
-		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-		if test $# -ne 0
-		then	
-			echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-			exit 1
-		fi
 		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 	
@@ -181,10 +188,12 @@ else
 	
 	INTERMEDIATE=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*"$EXTENSION" -print`
   INTERMEDIATECAP=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".txt" -print`
-	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
+  INTERMEDIATEIMG=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".png" -print`
+	if [ -s "$INTERMEDIATE" ] && [ -s "$INTERMEDIATEIMG" ] ; then
   	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$ORIGINALINPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$INTERMEDIATE" && echo "tags copied."
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
-		mv -- "$INTERMEDIATECAP" "$FINALTARGETCAP"
+		mv -- "$INTERMEDIATEIMG" "$FINALTARGETIMG"
+		#mv -- "$INTERMEDIATECAP" "$FINALTARGETCAP"
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
