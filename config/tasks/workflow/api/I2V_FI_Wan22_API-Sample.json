@@ -103,7 +103,7 @@
   },
   "48": {
     "inputs": {
-      "preview": "1girl, solo, looking_at_viewer, smile, blue_eyes, simple_background, dress, closed_mouth, full_body, sleeveless, sleeveless_dress, outstretched_arms, pink_dress, spread_arms",
+      "preview": "",
       "source": [
         "46",
         0
@@ -194,7 +194,7 @@
   },
   "56": {
     "inputs": {
-      "preview": "1073",
+      "preview": "",
       "source": [
         "55",
         0
@@ -207,7 +207,7 @@
   },
   "58": {
     "inputs": {
-      "preview": "A girl, she looks into the cam.",
+      "preview": "",
       "source": [
         "39:47",
         0
@@ -235,7 +235,6 @@
       ],
       "format": "mp4",
       "codec": "h264",
-      "video-preview": "",
       "video": [
         "49",
         0
@@ -248,7 +247,7 @@
   },
   "61": {
     "inputs": {
-      "preview": "800",
+      "preview": "",
       "source": [
         "53",
         0
@@ -261,7 +260,7 @@
   },
   "62": {
     "inputs": {
-      "preview": "1440",
+      "preview": "",
       "source": [
         "53",
         1
@@ -404,7 +403,7 @@
       ],
       "multithread": true,
       "image_ref": [
-        "39:101",
+        "59",
         0
       ],
       "image_target": [
@@ -441,7 +440,6 @@
       "replace_underscore": false,
       "trailing_comma": false,
       "exclude_tags": "",
-      "tags": "1girl, solo, looking_at_viewer, smile, blue_eyes, simple_background, dress, closed_mouth, full_body, sleeveless, sleeveless_dress, outstretched_arms, pink_dress, spread_arms",
       "image": [
         "39:105",
         0
@@ -501,18 +499,6 @@
     "class_type": "MathExpression|pysssss",
     "_meta": {
       "title": "High Steps"
-    }
-  },
-  "39:101": {
-    "inputs": {
-      "image": [
-        "59",
-        0
-      ]
-    },
-    "class_type": "VRwearePause",
-    "_meta": {
-      "title": "Pause Pipeline"
     }
   },
   "39:57": {
@@ -650,7 +636,7 @@
         0
       ],
       "image": [
-        "39:101",
+        "59",
         0
       ]
     },

@@ -141,12 +141,13 @@ else
 		assertlimit "false" "$parameterkv"
 	done
 	
-
 	
 	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+
+	prompt=`cat "$PROMPT" | grep -o '"prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	
 	[ $loglevel -lt 2 ] && set -x
-	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX"
+	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX" "$prompt"
 	set +x && [ $loglevel -ge 2 ] && set -x
 
 	EXTENSION=".mp4"
