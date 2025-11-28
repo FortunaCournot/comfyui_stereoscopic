@@ -341,43 +341,6 @@ except ImportError as e:
             return (f"ERROR: {error}",)
 
 try:
-    from tools import GetVariant
-    nodelist=nodelist+", GetVariant"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing GetVariant: {e}")
-
-    # Create a placeholder class
-    class GetVariant:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading GetVariant"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
-    from tools import BuildVariantIndex
-    nodelist=nodelist+", BuildVariantIndex"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing BuildVariantIndex: {e}")
-
-    # Create a placeholder class
-    class BuildVariantIndex:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading BuildVariantIndex"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-
-try:
     from tools import VariantPromptBuilder
     nodelist=nodelist+", VariantPromptBuilder"
 except ImportError as e:
@@ -407,60 +370,6 @@ except ImportError as e:
         @classmethod
         def INPUT_TYPES(s):
             return {"required": {"error": ("STRING", {"default": "Error loading JoinVariantProperties"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
-    from tools import BuildThresholdDict
-    nodelist=nodelist+", BuildThresholdDict"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing BuildThresholdDict: {e}")
-
-    # Create a placeholder class
-    class BuildThresholdDict:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading BuildThresholdDict"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
-    from tools import DefineScalarText
-    nodelist=nodelist+", DefineScalarText"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing DefineScalarText: {e}")
-
-    # Create a placeholder class
-    class DefineScalarText:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading DefineScalarText"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
-    from tools import RandomThreshold
-    nodelist=nodelist+", RandomThreshold"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing RandomThreshold: {e}")
-
-    # Create a placeholder class
-    class RandomThreshold:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading RandomThreshold"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
         CATEGORY = "Stereoscopic"
@@ -526,13 +435,8 @@ NODE_CLASS_MAPPINGS = {
     "LoadImageAdvanced": LoadImageAdvanced,
     "LinearFade": LinearFade,
     "ColorCorrectBatch": ColorCorrectBatch,
-    "GetVariant": GetVariant,
-    "BuildVariantIndex": BuildVariantIndex,
     "VariantPromptBuilder": VariantPromptBuilder,
     "JoinVariantProperties": JoinVariantProperties,
-    "BuildThresholdDict": BuildThresholdDict,
-    "DefineScalarText": DefineScalarText,
-    "RandomThreshold": RandomThreshold,
     "GradeVariant": GradeVariant,
     "SpecVariants": SpecVariants,
 }
@@ -558,13 +462,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoadImageAdvanced": "Load Image Advanced",
     "LinearFade": "Linear Fade",
     "ColorCorrectBatch": "ColorCorrectBatch",
-    "GetVariant": "Get Variant",
-    "BuildVariantIndex": "Build Variant Index",
     "VariantPromptBuilder": "Variant Prompt Builder",
     "JoinVariantProperties": "Join Variant Properties",
-    "BuildThresholdDict": "Build Threshold Dict",
-    "DefineScalarText": "Define Scalar Text",
-    "RandomThreshold": "Random Threshold",
     "GradeVariant": "Grade Variant",
     "SpecVariants": "Spec Variants",
 }
