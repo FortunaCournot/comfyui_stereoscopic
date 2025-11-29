@@ -21,10 +21,28 @@ class DepthEstimator:
     ]
     
     def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")  # default CPU
         self.model_id = None
         self.processor = None
         self.model = None
+
+        # auto check CUDA
+        if self._cuda_ok():
+            print("Using CUDA")
+            self.device = torch.device("cuda")
+        else:
+            torch.set_num_threads(os.cpu_count()) 
+            print("Using CPU")
+
+    def _cuda_ok(self) -> bool:
+        if not torch.cuda.is_available():
+            return False
+        try:
+            torch.zeros(1, device="cuda")
+            return True
+        except Exception as e:
+            print("WARN CUDA not usable:", repr(e))
+            return False
 
 
         
