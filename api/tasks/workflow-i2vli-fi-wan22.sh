@@ -161,12 +161,6 @@ else
 	set +x && [ $loglevel -ge 2 ] && set -x
 
 	EXTENSION=".mp4"
-	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
-	FINALTARGETCAP="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}"".txt"
-  num=${TARGETPREFIX##*_}
-  num=${num%_}
-  printf -v TARGETPREFIXNEXT "%s_%05d_" "${TARGETPREFIX%$num*}" "$((num+1))"
-	FINALTARGETIMG="$FINALTARGETFOLDER/""${TARGETPREFIXNEXT##*/}"".png"
 	
 	start=`date +%s`
 	end=`date +%s`
@@ -188,11 +182,21 @@ else
 	
 	INTERMEDIATE=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*"$EXTENSION" -print`
   INTERMEDIATECAP=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".txt" -print`
+  INTERMEDIATEIMG=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".png" -print`
+  if [[ "$TARGETPREFIX" =~ _[0-9]{5}_$ ]]; then
+      # Already matches the pattern; do nothing
+      :
+  else
+      TARGETPREFIX="${TARGETPREFIX}_00001_"
+  fi  
+	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
+	FINALTARGETCAP="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}"".txt"
   tmp=${TARGETPREFIX%_}
   num=${tmp##*_}
   prefix=${tmp%_*}_
   TARGETPREFIXNEXT=$(printf "%s%05d_" "$prefix" "$((num+1))")
-  INTERMEDIATEIMG=`find output/vr/tasks/intermediate -name "${TARGETPREFIXNEXT##*/}"*".png" -print`
+	FINALTARGETIMG="$FINALTARGETFOLDER/""${TARGETPREFIXNEXT##*/}"".png"
+
 	if [ -s "$INTERMEDIATE" ] && [ -s "$INTERMEDIATEIMG" ] ; then
   	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$ORIGINALINPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$INTERMEDIATE" && echo "tags copied."
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
