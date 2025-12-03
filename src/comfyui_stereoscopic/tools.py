@@ -30,7 +30,12 @@ class GetResolutionForVR:
     DESCRIPTION = "Get resolution for depth image from base image."
     
     def execute(self, base_image):
-        return (base_image.shape[2], base_image.shape[1], base_image.shape[0], min(base_image.shape[2], base_image.shape[1]))
+        w = int(base_image.shape[2])
+        h = int(base_image.shape[1])
+        c = int(base_image.shape[0])
+        r = int(min(w, h))
+        print(f"GetResolutionForVR: w={w}, h={h}, c={c}, r={r}", flush=True)
+        return (w, h, c, r)
 
 class LinearFade:
     @classmethod
