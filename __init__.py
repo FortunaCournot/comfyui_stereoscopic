@@ -6,7 +6,7 @@ import shutil
 
 __author__ = """Fortuna Cournot"""
 __email__ = "fortunacournot@gmail.com"
-__version__ = "4.1.0"
+__version__ = "4.2.0"
 
 
 def mkdirs():
