@@ -305,78 +305,6 @@ except ImportError as e:
             return (f"ERROR: {error}",)
 
 try:
-    from loading import LoopWhileNotFinished
-    nodelist=nodelist+", LoopWhileNotFinished"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing LoopWhileNotFinished: {e}")
-
-    # Create a placeholder class
-    class LoopWhileNotFinished:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading LoopWhileNotFinished"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
-    from loading import IncrementDirectoryImageLoader
-    nodelist=nodelist+", IncrementDirectoryImageLoader"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing IncrementDirectoryImageLoader: {e}")
-
-    # Create a placeholder class
-    class IncrementDirectoryImageLoader:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading IncrementDirectoryImageLoader"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
-    from loading import StartLoopTrigger
-    nodelist=nodelist+", StartLoopTrigger"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing StartLoopTrigger: {e}")
-
-    # Create a placeholder class
-    class StartLoopTrigger:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading StartLoopTrigger"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
-    from loading import LoadSingleImageByFilename
-    nodelist=nodelist+", LoadSingleImageByFilename"
-except ImportError as e:
-    LOAD_ERRORS += 1
-    print(f"[comfyui_stereoscopic] Error importing LoadSingleImageByFilename: {e}")
-
-    # Create a placeholder class
-    class LoadSingleImageByFilename:
-        @classmethod
-        def INPUT_TYPES(s):
-            return {"required": {"error": ("STRING", {"default": "Error loading LoadSingleImageByFilename"})}}
-        RETURN_TYPES = ("STRING",)
-        FUNCTION = "error"
-        CATEGORY = "Stereoscopic"
-        def error(self, error):
-            return (f"ERROR: {error}",)
-
-try:
     from tools import LinearFade
     nodelist=nodelist+", LinearFade"
 except ImportError as e:
@@ -393,6 +321,7 @@ except ImportError as e:
         CATEGORY = "Stereoscopic"
         def error(self, error):
             return (f"ERROR: {error}",)
+
 try:
     from tools import ColorCorrectBatch
     nodelist=nodelist+", ColorCorrectBatch"
@@ -405,6 +334,78 @@ except ImportError as e:
         @classmethod
         def INPUT_TYPES(s):
             return {"required": {"error": ("STRING", {"default": "Error loading ColorCorrectBatch"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from tools import VariantPromptBuilder
+    nodelist=nodelist+", VariantPromptBuilder"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing VariantPromptBuilder: {e}")
+
+    # Create a placeholder class
+    class VariantPromptBuilder:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading VariantPromptBuilder"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from tools import JoinVariantProperties
+    nodelist=nodelist+", JoinVariantProperties"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing JoinVariantProperties: {e}")
+
+    # Create a placeholder class
+    class JoinVariantProperties:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading JoinVariantProperties"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from tools import GradeVariant
+    nodelist=nodelist+", GradeVariant"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing GradeVariant: {e}")
+
+    # Create a placeholder class
+    class GradeVariant:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading GradeVariant"})}}
+        RETURN_TYPES = ("STRING",)
+        FUNCTION = "error"
+        CATEGORY = "Stereoscopic"
+        def error(self, error):
+            return (f"ERROR: {error}",)
+
+try:
+    from tools import SpecVariants
+    nodelist=nodelist+", SpecVariants"
+except ImportError as e:
+    LOAD_ERRORS += 1
+    print(f"[comfyui_stereoscopic] Error importing SpecVariants: {e}")
+
+    # Create a placeholder class
+    class SpecVariants:
+        @classmethod
+        def INPUT_TYPES(s):
+            return {"required": {"error": ("STRING", {"default": "Error loading SpecVariants"})}}
         RETURN_TYPES = ("STRING",)
         FUNCTION = "error"
         CATEGORY = "Stereoscopic"
@@ -432,14 +433,14 @@ NODE_CLASS_MAPPINGS = {
     "VRwearePauseLatent" : VRwearePauseLatent,
     "VRweareResume" : VRweareResume,
     "LoadImageAdvanced": LoadImageAdvanced,
-    "LoadSingleImageByFilename": LoadSingleImageByFilename,
-    "IncrementDirectoryImageLoader": IncrementDirectoryImageLoader,
-    "LoopWhileNotFinished": LoopWhileNotFinished,
-    "StartLoopTrigger": StartLoopTrigger,
     "LinearFade": LinearFade,
     "ColorCorrectBatch": ColorCorrectBatch,
-    
+    "VariantPromptBuilder": VariantPromptBuilder,
+    "JoinVariantProperties": JoinVariantProperties,
+    "GradeVariant": GradeVariant,
+    "SpecVariants": SpecVariants,
 }
+
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -459,11 +460,10 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "VRwearePauseLatent": "Pause Pipeline",
     "VRweareResume": "Resume Pipeline",
     "LoadImageAdvanced": "Load Image Advanced",
-    "LoadSingleImageByFilename": "LoadSingleImageByFilename",
-    "IncrementDirectoryImageLoader": "IncrementDirectoryImageLoader",
-    "LoopWhileNotFinished": "LoopWhileNotFinished",
-    "StartLoopTrigger": "StartLoopTrigger",
     "LinearFade": "Linear Fade",
     "ColorCorrectBatch": "ColorCorrectBatch",
-    
+    "VariantPromptBuilder": "Variant Prompt Builder",
+    "JoinVariantProperties": "Join Variant Properties",
+    "GradeVariant": "Grade Variant",
+    "SpecVariants": "Spec Variants",
 }

@@ -1,14 +1,39 @@
 name: Install Test (Develop & Main)
+permissions:
+  contents: read
 
 on:
   push:
-    branches:
-      - develop
-      - main
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+concurrency:
+  group: install-test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test-installation:
-    name: Test Installation on Windows
+  lint:
+    name: Lint & format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt || true
+      - name: Ruff (lint)
+        run: ruff check . || true
+      - name: Black (format check)
+        run: black --check . || true
+
+  install-test-windows:
+    name: Smoke test (Windows)
     runs-on: windows-latest
     timeout-minutes: 20   # ← beendet den Job nach 20 Minuten
     
@@ -68,3 +93,58 @@ jobs:
           echo Starting installation script with target: %INSTALL_DIR%
           call installer\VrWeAre-Installer.bat "%INSTALL_DIR%"
 
+  install-test-linux-sbs-cli-and-nodes:
+    name: Smoke test (Linux) - only SBS-CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version
+      - name: Install deps and package
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run setup
+        run:  |
+          python -m venv venv
+          source venv/bin/activate
+          cd cli/sbs
+          python setup_env.py
+      - name: Test runs
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          cd cli/sbs
+          export BASE_TEMP="${RUNNER_TEMP:-/tmp}"
+          TMPDIR="$(mktemp -d "${BASE_TEMP}/ci-XXXXXX")"
+          trap 'rm -rf "$TMPDIR"' EXIT
+          python main.py -i ../../tests/input/test_image.png -o $TMPDIR/test_image_sbs.png --input-type i2i --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale 1.0 --depth-offset 0.0 --blur-radius 19 --symmetric
+          python main.py -i ../../tests/input/test_video.mp4 -o $TMPDIR/test_video_sbs.mp4 --quality "low" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale 1.0 --depth-offset 0.0 --blur-radius 19 --symmetric
+          
+          # Fail the job if $TMPDIR/test_image_sbs.png or $TMPDIR/test_video_sbs.mp4 does not exist
+          set -euo pipefail
+          if [ -z "${TMPDIR:-}" ]; then
+            echo "Error: TMPDIR is not set; expected images and videos in $TMPDIR" >&2
+            exit 1
+          fi
+          if [ ! -f "$TMPDIR/test_image_sbs.png" ]; then
+            echo "Error: expected test image at $TMPDIR/test_image_sbs.png but it was not found." >&2
+            ls -la "$TMPDIR" || true
+            exit 1
+          fi
+          if [ ! -f "$TMPDIR/test_video_sbs.mp4" ]; then
+            echo "Error: expected test video at $TMPDIR/test_video_sbs.mp4 but it was not found." >&2
+            ls -la "$TMPDIR" || true
+            exit 1
+          fi
+          echo "Found test image: $TMPDIR/test_image_sbs.png"
+          echo "Found test video: $TMPDIR/test_video_sbs.mp4"

@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "workflow-i2v-fi-wan22",
+  "workflow_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/I2V_FI_Wan22_API-Sample.json",
+  "prompt": "A girl, she looks into the cam.",
+  "input": "image",
+  "output": "video",
+}

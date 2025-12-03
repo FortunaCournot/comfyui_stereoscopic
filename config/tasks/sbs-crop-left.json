@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-vf 'crop=iw/2:ih:iw/2:0'",
+  "input": "video;image",
+  "output": "video;image",
+}

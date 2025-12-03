@@ -140,7 +140,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# --- CLI  (true/false) ---">>"$CONFIGFILE"
 	echo "CLI_ENABLED=true">>"$CONFIGFILE"
 	echo "# --- CLI Video Output quality: low, medium or high ---">>"$CONFIGFILE"
-	echo "VIDEOQUALITYPRESET=high">>"$CONFIGFILE"
+	echo "VIDEOQUALITYPRESET=medium">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 	
 	echo "# --- scaling config ---">>"$CONFIGFILE"
@@ -467,6 +467,19 @@ for task in $TASKDIR; do
 		fi
 	fi
 done
+
+# check if install enforces a test run and then wait for ComfyUI to be started.
+if [ -e "custom_nodes/comfyui_stereoscopic/.test/.forced" ] ; then
+  COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+  echo -e $"\e[94mWaiting for ComfyUI on $COMFYUIHOST/$COMFYUIPORT to start tests.\e[0m"
+  status="closed"
+  while [ "$status" = "closed" ]; do
+    status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+  done
+  # now .install file should be present.
+  rm -f "custom_nodes/comfyui_stereoscopic/.test/.forced"
+fi
 
 # CHECK FOR VERSION UPDATE FLAGGED BY __init__.py AND RUN TESTS
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then

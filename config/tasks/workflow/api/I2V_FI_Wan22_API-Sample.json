@@ -1,0 +1,686 @@
+{
+  "3": {
+    "inputs": {
+      "value": 1
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "cfg"
+    }
+  },
+  "4": {
+    "inputs": {
+      "value": 1280
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "height"
+    }
+  },
+  "20": {
+    "inputs": {
+      "value": "A girl, she looks into the cam."
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Positive Prompt"
+    }
+  },
+  "21": {
+    "inputs": {
+      "value": "worst quality, low quality, jpeg artifacts, overexposure, oversaturated skin, ugly, deformed, disfigured, malformed limbs, extra fingers, fused fingers, poorly drawn hands, poorly drawn face, distorted face, bad anatomy, cluttered background, watermark, text, subtitles,\n\nbad skin texture, waxy skin, plastic skin, shiny skin, lowres eyes, asymmetrical eyes\n\n"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Negative Prompt"
+    }
+  },
+  "23": {
+    "inputs": {
+      "value": 720
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "width"
+    }
+  },
+  "24": {
+    "inputs": {
+      "value": -126703905562258
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "seed"
+    }
+  },
+  "25": {
+    "inputs": {
+      "value": 4
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "steps"
+    }
+  },
+  "30": {
+    "inputs": {
+      "value": "vr/tasks/forwarder/variant"
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "filename"
+    }
+  },
+  "46": {
+    "inputs": {
+      "file": [
+        "47",
+        0
+      ],
+      "raw": [
+        "39:51",
+        0
+      ]
+    },
+    "class_type": "SaveStrippedUTF8File",
+    "_meta": {
+      "title": "Save Stripped UTF-8 File"
+    }
+  },
+  "47": {
+    "inputs": {
+      "string_a": [
+        "30",
+        0
+      ],
+      "string_b": "_00001_.txt",
+      "delimiter": ""
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "48": {
+    "inputs": {
+      "preview": "",
+      "source": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "Preview Caption"
+    }
+  },
+  "53": {
+    "inputs": {
+      "width": [
+        "23",
+        0
+      ],
+      "height": [
+        "4",
+        0
+      ],
+      "baseresolution": 720,
+      "factor": [
+        "54",
+        0
+      ],
+      "roundexponent": 4
+    },
+    "class_type": "CalculateDimensions",
+    "_meta": {
+      "title": "Calculate Dimensions by Aspect"
+    }
+  },
+  "54": {
+    "inputs": {
+      "value": 1.5
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Scale Factor Base 720"
+    }
+  },
+  "55": {
+    "inputs": {
+      "expression": "sqrt(a * b)",
+      "a": [
+        "53",
+        0
+      ],
+      "b": [
+        "53",
+        1
+      ]
+    },
+    "class_type": "MathExpression|pysssss",
+    "_meta": {
+      "title": "Resolution Check"
+    }
+  },
+  "56": {
+    "inputs": {
+      "preview": "",
+      "source": [
+        "55",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "Effective Resolution"
+    }
+  },
+  "58": {
+    "inputs": {
+      "preview": "",
+      "source": [
+        "39:47",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "Preview Prompt"
+    }
+  },
+  "59": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Start Image"
+    }
+  },
+  "60": {
+    "inputs": {
+      "filename_prefix": [
+        "30",
+        0
+      ],
+      "format": "mp4",
+      "codec": "h264",
+      "video": [
+        "39:104",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "61": {
+    "inputs": {
+      "preview": "",
+      "source": [
+        "53",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "Effective Width"
+    }
+  },
+  "62": {
+    "inputs": {
+      "preview": "",
+      "source": [
+        "53",
+        1
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "Effective Height"
+    }
+  },
+  "66": {
+    "inputs": {
+      "value": 81
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "length"
+    }
+  },
+  "39:68": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "39:49": {
+    "inputs": {
+      "properties1": [
+        "39:98",
+        0
+      ],
+      "properties2": [
+        "39:97",
+        0
+      ]
+    },
+    "class_type": "JoinVariantProperties",
+    "_meta": {
+      "title": "Join Variant Properties"
+    }
+  },
+  "39:65": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": [
+        "24",
+        0
+      ],
+      "steps": [
+        "25",
+        0
+      ],
+      "cfg": [
+        "3",
+        0
+      ],
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": [
+        "39:88",
+        0
+      ],
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "39:55",
+        0
+      ],
+      "positive": [
+        "39:99",
+        0
+      ],
+      "negative": [
+        "39:99",
+        1
+      ],
+      "latent_image": [
+        "39:99",
+        2
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "39:59": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": [
+        "25",
+        0
+      ],
+      "cfg": [
+        "3",
+        0
+      ],
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": [
+        "39:88",
+        0
+      ],
+      "end_at_step": 4,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "39:62",
+        0
+      ],
+      "positive": [
+        "39:99",
+        0
+      ],
+      "negative": [
+        "39:99",
+        1
+      ],
+      "latent_image": [
+        "39:65",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "39:102": {
+    "inputs": {
+      "method": "hm-mvgd-hm",
+      "strength": [
+        "39:103",
+        1
+      ],
+      "multithread": true,
+      "image_ref": [
+        "59",
+        0
+      ],
+      "image_target": [
+        "39:103",
+        0
+      ]
+    },
+    "class_type": "ColorMatch",
+    "_meta": {
+      "title": "Color Match hm-mvgd-hm"
+    }
+  },
+  "39:103": {
+    "inputs": {
+      "start": 0,
+      "mid": 0,
+      "end": 0,
+      "midpoint": 0,
+      "images": [
+        "39:87",
+        0
+      ]
+    },
+    "class_type": "LinearFade",
+    "_meta": {
+      "title": "Linear Fade"
+    }
+  },
+  "39:50": {
+    "inputs": {
+      "model": "wd-v1-4-moat-tagger-v2",
+      "threshold": 0.35,
+      "character_threshold": 0.85,
+      "replace_underscore": false,
+      "trailing_comma": false,
+      "exclude_tags": "",
+      "image": [
+        "39:105",
+        0
+      ]
+    },
+    "class_type": "WD14Tagger|pysssss",
+    "_meta": {
+      "title": "WD14 Tagger"
+    }
+  },
+  "39:105": {
+    "inputs": {
+      "index": 0,
+      "any": [
+        "39:87",
+        0
+      ]
+    },
+    "class_type": "easy indexAnything",
+    "_meta": {
+      "title": "Index Any"
+    }
+  },
+  "39:87": {
+    "inputs": {
+      "samples": [
+        "39:59",
+        0
+      ],
+      "vae": [
+        "39:54",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "39:54": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "39:88": {
+    "inputs": {
+      "expression": "floor( (a+1) / 2 )",
+      "a": [
+        "25",
+        0
+      ]
+    },
+    "class_type": "MathExpression|pysssss",
+    "_meta": {
+      "title": "High Steps"
+    }
+  },
+  "39:57": {
+    "inputs": {
+      "text": [
+        "21",
+        0
+      ],
+      "clip": [
+        "39:68",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "39:73": {
+    "inputs": {
+      "text": [
+        "39:47",
+        0
+      ],
+      "clip": [
+        "39:68",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "39:99": {
+    "inputs": {
+      "width": [
+        "53",
+        0
+      ],
+      "height": [
+        "53",
+        1
+      ],
+      "length": [
+        "66",
+        0
+      ],
+      "batch_size": 1,
+      "positive": [
+        "39:73",
+        0
+      ],
+      "negative": [
+        "39:57",
+        0
+      ],
+      "vae": [
+        "39:54",
+        0
+      ],
+      "start_image": [
+        "39:107",
+        0
+      ]
+    },
+    "class_type": "WanImageToVideo",
+    "_meta": {
+      "title": "WanImageToVideo"
+    }
+  },
+  "39:71": {
+    "inputs": {
+      "unet_name": "wan\\I2V\\dasiwaWAN22I2V14B_midnightflirtHigh.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "39:72": {
+    "inputs": {
+      "unet_name": "wan\\I2V\\dasiwaWAN22I2V14B_midnightflirtLow.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "39:98": {
+    "inputs": {
+      "yaml_path": "vr\\samples\\scene.yaml",
+      "VariantIndexValues": "",
+      "random_seed": [
+        "24",
+        0
+      ],
+      "seed_offset": 1642308190
+    },
+    "class_type": "SpecVariants",
+    "_meta": {
+      "title": "Spec Variants"
+    }
+  },
+  "39:97": {
+    "inputs": {
+      "yaml_path": "vr\\samples\\human.yaml",
+      "VariantIndexValues": "",
+      "random_seed": [
+        "24",
+        0
+      ],
+      "seed_offset": 5789511
+    },
+    "class_type": "SpecVariants",
+    "_meta": {
+      "title": "Spec Variants"
+    }
+  },
+  "39:106": {
+    "inputs": {
+      "model_name": "RealESRGAN_x2plus.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "39:107": {
+    "inputs": {
+      "upscale_model": [
+        "39:106",
+        0
+      ],
+      "image": [
+        "59",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "Upscale Image (using Model)"
+    }
+  },
+  "39:62": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "39:72",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "39:55": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "39:71",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "39:47": {
+    "inputs": {
+      "prompt_template": [
+        "20",
+        0
+      ],
+      "properties": [
+        "39:49",
+        0
+      ]
+    },
+    "class_type": "VariantPromptBuilder",
+    "_meta": {
+      "title": "Variant Prompt Builder"
+    }
+  },
+  "39:104": {
+    "inputs": {
+      "fps": 16,
+      "images": [
+        "39:102",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "39:51": {
+    "inputs": {
+      "index": 0,
+      "any": [
+        "39:50",
+        0
+      ]
+    },
+    "class_type": "easy indexAnything",
+    "_meta": {
+      "title": "Index Any"
+    }
+  }
+}

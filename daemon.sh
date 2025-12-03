@@ -135,12 +135,39 @@ else
 	[ $loglevel -ge 0 ] && echo " "
 	
 	INITIALRUN=TRUE
+  TVAIREPORTED=-1
 	while true;
 	do
 		# Check for external soft-kill signal
 		if [ ! -e user/default/comfyui_stereoscopic/.daemonactive ]; then
 			break
 		fi
+
+    # Check availablity of TVAI server
+		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ $TVAIREPORTED -ne 0 ] ; then
+      TMP_FILE=$(mktemp)
+      curl --ssl-no-revoke -v -s -o - -I https://topazlabs.com/ >/dev/null 2>$TMP_FILE
+      HTTP_CODE=`grep "HTTP/1.1 " $TMP_FILE | cut -d ' ' -f3`
+      if [ -z "$HTTP_CODE" ] || [ $HTTP_CODE -ge 400 ] ; then
+        if [ $TVAIREPORTED -lt 1 ] ; then
+          TVAIREPORTED=1
+          echo -e $"\e[93mWarning: TVAI server not present ($HTTP_CODE).\e[0m"
+          sleep 4
+        fi
+      else
+        if [ $TVAIREPORTED -gt 0 ] ; then
+          echo -e $"\e[91mInfo:\e[0m TVAI server present again."
+        fi
+        TVAIREPORTED=0
+      fi
+      rm "$TMP_FILE"    
+    fi
+
+    # Is there is a limit a TVAI login is valid? Enforce re-login before watermark is applied.
+    #if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [[ $(find "$TVAI_MODEL_DIR"/auth.tpz -mtime +40 -print) ]]; then
+    #  echo "TVAI authentication exists but is older than 40 days - invalidated."
+    #  mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
+    #fi
 
 		while [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ ! -e "$TVAI_MODEL_DIR"/auth.tpz ]  ; do
 			export TVAI_MODEL_DIR
@@ -228,6 +255,7 @@ else
 				touch user/default/comfyui_stereoscopic/.pipelineactive
 				sleep 1
 
+        TVAIREPORTED=-1
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh || exit 1
 				[ $loglevel -ge 0 ] && echo "****************************************************"
 				[ $loglevel -ge 0 ] && echo "Using ComfyUI on $COMFYUIHOST port $COMFYUIPORT"

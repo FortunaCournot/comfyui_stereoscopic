@@ -24,7 +24,7 @@ from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint,
                           pyqtSignal, pyqtSlot)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
-                         QPalette)
+                         QPalette, QPainterPath, QFontMetrics)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QColorDialog, QComboBox, QDesktopWidget, QDialog,
                              QFileDialog, QFrame, QGridLayout, QGroupBox,
@@ -115,6 +115,35 @@ def touch(fname):
         os.utime(fname, None)
     else:
         open(fname, 'a').close()
+
+def get_property(file_path: str, key: str, default: str = None) -> str:
+    """
+    Reads a key=value property from a simple properties file.
+    Returns the default value if the key is not found.
+    """
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+
+                # ignore empty lines & comments
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+
+                if k == key:
+                    return v
+
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Property file not found: {file_path}")
+
+    # return default if key not found
+    return default
+
 
 def set_property(file_path: str, key: str, value: str) -> None:
     """
@@ -298,6 +327,16 @@ class SpreadsheetApp(QMainWindow):
         except Exception:
             pass
         
+        
+    def get_pending_workflows():
+        url = "http://127.0.0.1:8188/queue"
+        data = requests.get(url).json()
+
+        running = len(data.get("queue_running", []))
+        pending = len(data.get("queue_pending", []))
+
+        return running, pending
+    
     def mousePressEvent(self, event):
         """Wenn auf das MainWindow geklickt wird und der Dialog offen ist → bringe Dialog nach vorne"""
         if not self.dialog is None and self.dialog.isVisible():
@@ -349,16 +388,16 @@ class SpreadsheetApp(QMainWindow):
             touch( pipelinePauseLockPath )
 
         #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
-        #    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+        #    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_stopped)
         #el
         
         if self.toogle_pipeline_active:
-            self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+            self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_true)
         else:
             if os.path.exists(pipelineActiveLockPath):
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
+                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_transit)
             else:
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_false)
     
     def toogle_pipeline_forwarding_enabled(self, state):
         self.toogle_pipeline_isForwarding = state
@@ -385,17 +424,17 @@ class SpreadsheetApp(QMainWindow):
         self.toggle_pipeline_active_icon_stopped = QIcon(os.path.join(path, '../../gui/img/pipelineStopped.png'))
         
         # Toggle pipeline active action with icon
-        self.toggle_pipeline_active_action = QAction(self.toggle_pipeline_active_icon_transit, "Task Execution Status", self)
+        self.toggle_pipeline_active_action = QCounterAction(self.toggle_pipeline_active_icon_transit, "Task Execution Status", self)
         #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
-        #    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+        #    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_stopped)
         #el
         if self.toogle_pipeline_active:
-            self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+            self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_true)
         else:
             if os.path.exists(pipelineActiveLockPath):
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
+                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_transit)
             else:
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_false)
         
         self.toggle_pipeline_active_action.setCheckable(True)
         self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
@@ -498,6 +537,28 @@ class SpreadsheetApp(QMainWindow):
                 pass
         self.button_check_judge_action.setEnabled(count3>0)
 
+    def get_pending_workflows(self):
+        hostname = get_property(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")), "COMFYUIHOST", "127.0.0.1") 
+        port = get_property(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")), "COMFYUIPORT", "8188") 
+        url = "http://"+hostname+":"+port+"/queue"
+        try:
+            data = requests.get(url).json()
+            running = len(data.get("queue_running", []))
+            pending = len(data.get("queue_pending", []))
+            return running, pending
+        except:
+            return 0, 0
+        
+    def update_comfyui_count(self):
+        running, pending = self.get_pending_workflows()
+        count = running + pending
+        if count>999:
+            self.toggle_pipeline_active_action.setCounterText("***")
+        elif count>0:
+            self.toggle_pipeline_active_action.setCounterText(str(count))
+        else:
+            self.toggle_pipeline_active_action.setCounterText("")
+        
     def update_table(self):
         global idletime
 
@@ -509,6 +570,7 @@ class SpreadsheetApp(QMainWindow):
             pipeline_status = not os.path.exists(pipelinePauseLockPath)
             self.toogle_pipeline_active = pipeline_status
             self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
+            self.update_comfyui_count()
 
             self.toogle_pipeline_isForwarding = config("PIPELINE_AUTOFORWARD", "0") == "1"
             self.toggle_pipeline_forwarding_action.setChecked(self.toogle_pipeline_isForwarding)
@@ -518,15 +580,15 @@ class SpreadsheetApp(QMainWindow):
                 self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_false)
                 
             #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
-            #    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_stopped)
+            #    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_stopped)
             #el
             if self.toogle_pipeline_active:
-                self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_true)
+                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_true)
             else:
                 if os.path.exists(pipelineActiveLockPath):
-                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_transit)
+                    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_transit)
                 else:
-                    self.toggle_pipeline_active_action.setIcon(self.toggle_pipeline_active_icon_false)
+                    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_false)
 
 
             if self.idle_container_active:
@@ -982,6 +1044,99 @@ class SpreadsheetApp(QMainWindow):
         editAction.setEnabled(False)
         editthread = PipelineEditThread(window)
         editthread.start()
+
+
+
+class QCounterAction(QAction):
+
+    def __init__(self, icon: QIcon, text: str, parent=None):
+        super().__init__(text, parent)
+
+        # store base icon
+        self._original_icon = icon
+        self._counter_text = ""
+
+        self._update_base_pixmap()
+        self._render_icon()
+
+    def _update_base_pixmap(self):
+        """Extract 80x80 pixmap from the current base icon."""
+        if self._original_icon:
+            self._base_pixmap = self._original_icon.pixmap(80, 80)
+        else:
+            pm = QPixmap(80, 80)
+            pm.fill(QColor(60, 60, 60))
+            self._base_pixmap = pm
+
+    def setBaseIcon(self, icon: QIcon):
+        """Call this instead of setIcon() if the image changes."""
+        self._original_icon = icon
+        self._update_base_pixmap()
+        self._render_icon()
+
+    def setCounterText(self, text: str):
+        if len(text) > 3:
+            text = text[:3]
+        self._counter_text = text
+        self._render_icon()
+
+    def _render_icon(self):
+        """Draw overlay text with a proper outline on a copy of the base pixmap."""
+        pixmap = QPixmap(self._base_pixmap)
+
+        if self._counter_text:
+            painter = QPainter()
+            try:
+                painter.begin(pixmap)
+                painter.setRenderHints(
+                    QPainter.Antialiasing |
+                    QPainter.TextAntialiasing |
+                    QPainter.SmoothPixmapTransform
+                )
+
+                # Auto-scaling for up to 3 characters
+                length = len(self._counter_text)
+                font_size = 38 if length == 1 else 34 if length == 2 else 30
+
+                font = QFont("Arial", font_size)
+                font.setBold(True)
+
+                # Compute centered text placement
+                fm = QFontMetrics(font)
+                rect = pixmap.rect()
+
+                text_width = fm.horizontalAdvance(self._counter_text)
+                text_height = fm.ascent()
+
+                x = (rect.width() - text_width) / 2
+                y = (rect.height() + text_height) / 2
+                # Move text 1 pixel upward
+                y -= 1
+
+                # Create vector outline path
+                path = QPainterPath()
+                path.addText(x, y, font, self._counter_text)
+
+                # 1️⃣ Real outline stroke: thick & black
+                outline_pen = QPen(QColor(0, 0, 0), 6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+                painter.setPen(outline_pen)
+                painter.setBrush(Qt.NoBrush)
+                painter.drawPath(path)
+
+                # 2️⃣ Fill text in white
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor(255, 255, 255))
+                painter.drawPath(path)
+
+            finally:
+                painter.end()
+
+        self.setIcon(QIcon(pixmap))
+
+    def sizeHint(self):
+        return QSize(80, 80)
+
+
 
 class PipelineEditThread(QThread):
     def __init__(self, parent):

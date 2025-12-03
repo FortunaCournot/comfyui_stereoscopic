@@ -6,30 +6,32 @@ import re
 import subprocess
 import sys
 import shutil
+import struct
 import tempfile
 import time
 import traceback
 import threading
-import urllib.request
+import urllib.parse, urllib.request
 import webbrowser
-from datetime import timedelta
+from datetime import timedelta, datetime
 from functools import wraps, partial
+from hashlib import sha256
 from itertools import chain
 from random import randrange
 from typing import List, Tuple
 from urllib.error import HTTPError
 from pathlib import Path
-
 import cv2
 import numpy as np
 import requests
 from numpy import ndarray
 from PIL import Image
 from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint, QPointF,
-                          pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QObject)
+                          pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QObject, 
+                          QMimeData, QUrl, QEvent, QIODevice)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
-                         QTextCursor)
+                         QTextCursor, QDrag, QClipboard)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QColorDialog, QComboBox, QDesktopWidget, QDialog,
                              QFileDialog, QFrame, QGridLayout, QGroupBox,
@@ -39,6 +41,8 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
                              QPlainTextEdit, QLayout, QStyleOptionSlider, QStyle,
                              QRubberBand)
+
+
 
 USE_TRASHBIN=True
 if USE_TRASHBIN:
@@ -50,7 +54,7 @@ if USE_TRASHBIN:
 TRACELEVEL=0
 
 # Globale statische Liste der erlaubten Suffixe
-VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts']
+VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts', '.flv']
 IMAGE_EXTENSIONS = ['.png', '.webp', '.jpg', '.jpeg', '.jfif']
 ALL_EXTENSIONS = VIDEO_EXTENSIONS + IMAGE_EXTENSIONS
 global _readyfiles, _activeExtensions, _filterEdit, _sortOrderIndex
@@ -81,11 +85,13 @@ TASKCHECKTIME = 20
 WAIT_DIALOG_THRESHOLD_TIME=2000
 MAX_WAIT_DIALOG_THRESHOLD_TIME=10000
 
+
 # ---- Tasks ----
 global taskCounterUI, taskCounterAsync, showWaitDialog
 taskCounterUI=0
 taskCounterAsync=0
 showWaitDialog=False
+
 
 def config(key, default):
         cfgFile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")
@@ -161,7 +167,24 @@ def endAsyncTask():
         tb=tb[:tb.rfind(',')]
         if TRACELEVEL >= 2:
             print(f". Async Task executed in { int((time.time()-taskStartAsyc)*1000) }ms, \"" + tb, flush=True)
-            
+
+def replace_file_suffix(file_path: str, new_suffix: str) -> str:
+    """
+    Replace the file suffix of the given file path with a new suffix.
+
+    :param file_path: The original file path.
+    :param new_suffix: The new suffix (with or without leading dot).
+    :return: The updated file path with the new suffix.
+    """
+    # Normalize suffix to ensure it starts with a dot
+    if not new_suffix.startswith("."):
+        new_suffix = "." + new_suffix
+
+    # Split file path into root and extension
+    root, _ = os.path.splitext(file_path)
+
+    # Combine root with new suffix
+    return root + new_suffix            
    
 class WaitDialog(QDialog):
     def __init__(self, parent=None):
@@ -224,6 +247,13 @@ class RateAndCutDialog(QDialog):
             self.isPaused = False
             self.currentFile = None
             self.currentIndex = -1
+
+            # Clipboard state
+            self.clipboard_has_image = False
+            self._last_clipboard_hash = None
+            self._last_saved_hash = None
+
+            self.init_clipboard_monitor()
             
             exifpath=gitbash_to_windows_path(config("EXIFTOOLBINARY", ""))
             if len(exifpath)>0 and os.path.exists(exifpath):
@@ -286,13 +316,22 @@ class RateAndCutDialog(QDialog):
 
             self.cutMode_toolbar.addSeparator()
 
-            self.iconCopyFilepathToClipboardAction = StyledIcon(os.path.join(path, '../../gui/img/clipboard64.png'))
+            self.iconCopyFilepathToClipboardAction = StyledIcon(os.path.join(path, '../../gui/img/clipcopy64.png'))
             self.copyFilepathToClipboardAction = QAction(self.iconCopyFilepathToClipboardAction, "Copy file path")
             self.copyFilepathToClipboardAction.setCheckable(False)
             self.copyFilepathToClipboardAction.setVisible(True)
             self.copyFilepathToClipboardAction.triggered.connect(self.onCopyFilepathToClipboard)
             self.cutMode_toolbar.addAction(self.copyFilepathToClipboardAction)
             self.cutMode_toolbar.widgetForAction(self.copyFilepathToClipboardAction).setCursor(Qt.PointingHandCursor)
+
+            self.iconPasteImageFromClipboardAction = StyledIcon(os.path.join(path, '../../gui/img/clippaste64.png'))
+            self.pasteImageFromClipboardAction = QAction(self.iconPasteImageFromClipboardAction, "Paste image from clipboard")
+            self.pasteImageFromClipboardAction.setCheckable(False)
+            self.pasteImageFromClipboardAction.setVisible(True)
+            self.pasteImageFromClipboardAction.setEnabled(False)
+            self.pasteImageFromClipboardAction.triggered.connect(self.onPasteImageFromClipboard)
+            self.cutMode_toolbar.addAction(self.pasteImageFromClipboardAction)
+            self.cutMode_toolbar.widgetForAction(self.pasteImageFromClipboardAction).setCursor(Qt.PointingHandCursor)
 
             self.cutMode_toolbar.addSeparator()
 
@@ -590,7 +629,7 @@ class RateAndCutDialog(QDialog):
             #Outer main layout to accomodate the group box
             self.outer_main_layout.addWidget(self.main_group_box)
             self.main_group_box.setContentsMargins(0,0,0,0)
-            
+
             # Timer for updating file buttons
             self.filebutton_timer = QTimer()
             self.filebutton_timer.timeout.connect(self.update_filebuttons)
@@ -633,6 +672,132 @@ class RateAndCutDialog(QDialog):
         self.reset_timer.timeout.connect(self.reset_visual)
         self.setAcceptDrops(True)  # Enable drop events
         
+        self.enable_drag_for_groupbox(self.main_group_box, )
+        
+    # ---------------------------------------------------------------------------------------------------------------------------
+
+
+        
+    def enable_drag_for_groupbox(self, box):
+        self.disable_drag_for_groupbox(box)
+
+        # Save original event handlers (only once)
+        if not hasattr(box, "_original_mousePressEvent"):
+            box._original_mousePressEvent = getattr(box, "mousePressEvent", None)
+        if not hasattr(box, "_original_mouseMoveEvent"):
+            box._original_mouseMoveEvent = getattr(box, "mouseMoveEvent", None)
+        if not hasattr(box, "_original_hoverMoveEvent"):
+            box._original_hoverMoveEvent = getattr(box, "hoverMoveEvent", None)
+        # Install working hover detection
+        if not hasattr(box, "_hover_filter"):
+            box._hover_filter = GroupBoxHoverFilter(box)
+            QApplication.instance().installEventFilter(box._hover_filter)
+    
+        # Ensure hover and cursor tracking works
+        box.setAttribute(Qt.WA_Hover, True)
+        box.setMouseTracking(True)
+
+        # Also activate mouse tracking for all children
+        for child in box.findChildren(QWidget):
+            child.setMouseTracking(True)
+
+        # Determine base directory
+        global cutModeFolderOverrideActive, cutModeFolderOverridePath
+        if cutModeFolderOverrideActive:
+            box._drag_base = cutModeFolderOverridePath
+        else:
+            box._drag_base = os.path.join(path, "../../../../input/vr/check/rate")
+
+        box._drag_start_pos = None
+
+        # --- Mouse press handler ---
+        def mousePressEvent(event):
+            if event.button() == Qt.LeftButton:
+                box._drag_start_pos = event.pos()
+            if box._original_mousePressEvent:
+                box._original_mousePressEvent(event)
+
+        # --- Mouse move handler (drag start only) ---
+        def mouseMoveEvent(event):
+            if box._drag_start_pos is None:
+                return
+            if (event.pos() - box._drag_start_pos).manhattanLength() < QApplication.startDragDistance():
+                return
+
+            title = box.title().strip()
+            if not title:
+                return
+
+            file_path = os.path.abspath(os.path.join(box._drag_base, title))
+            if not os.path.exists(file_path):
+                return
+
+            drag = QDrag(box)
+            mime = QMimeData()
+            url = QUrl.fromLocalFile(file_path)
+            mime.setUrls([url])
+            mime.setText(file_path)
+            mime.setData("application/x-vrweare-drag", b"1")            
+            drag.setMimeData(mime)
+
+            drag.exec_(Qt.CopyAction)
+            box._drag_start_pos = None
+
+        # --- Hover move handler (dynamic cursor switching) ---
+        def hoverMoveEvent(event):
+            widget_under = QApplication.widgetAt(QCursor.pos())
+            print(widget_under, flush=True)
+            if widget_under is box:
+                box.setCursor(Qt.DragLinkCursor)
+            else:
+                box.unsetCursor()
+
+            if box._original_hoverMoveEvent:
+                box._original_hoverMoveEvent(event)
+
+        # Install handlers
+        box.mousePressEvent = mousePressEvent
+        box.mouseMoveEvent = mouseMoveEvent
+        box.hoverMoveEvent = hoverMoveEvent
+
+        box._drag_enabled = True
+
+
+    def disable_drag_for_groupbox(self, box):
+        if not getattr(box, "_drag_enabled", False):
+            return
+
+        # Restore original handlers
+        if hasattr(box, "_original_mousePressEvent"):
+            if box._original_mousePressEvent:
+                box.mousePressEvent = box._original_mousePressEvent
+            del box._original_mousePressEvent
+
+        if hasattr(box, "_original_mouseMoveEvent"):
+            if box._original_mouseMoveEvent:
+                box.mouseMoveEvent = box._original_mouseMoveEvent
+            del box._original_mouseMoveEvent
+
+        if hasattr(box, "_original_hoverMoveEvent"):
+            if box._original_hoverMoveEvent:
+                box.hoverMoveEvent = box._original_hoverMoveEvent
+            del box._original_hoverMoveEvent
+
+        if hasattr(box, "_hover_filter"):
+            QApplication.instance().removeEventFilter(box._hover_filter)
+            del box._hover_filter
+            
+        # Cleanup attributes
+        for attr in ("_drag_base", "_drag_start_pos", "_drag_enabled"):
+            if hasattr(box, attr):
+                delattr(box, attr)
+
+        # Reset cursor and disable hover
+        box.unsetCursor()
+        box.setAttribute(Qt.WA_Hover, False)
+
+
+
     def style_group_box(self, group_box, color: str):
         """
         Apply a styled look to a QGroupBox with the given color for both text and border.
@@ -662,7 +827,10 @@ class RateAndCutDialog(QDialog):
 
         # restart timer; if drag really leaves window, timer will fire and reset color
 
-        if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+        if md.hasFormat("application/x-vrweare-drag"):
+            event.ignore()
+            return
+        elif md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
             data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
             url = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
             
@@ -692,7 +860,7 @@ class RateAndCutDialog(QDialog):
                 event.ignore()
                 return                
                 
-        elif md.hasUrls():
+        elif md.hasUrls() and len(md.urls())>0:
             # Standardweg (wenn funktioniert)
             self.drag_file_path = md.urls()[0].toLocalFile()
             #print("File (URI):", self.drag_file_path)
@@ -718,7 +886,10 @@ class RateAndCutDialog(QDialog):
     
     def dragMoveEvent(self, event):
         md = event.mimeData()
-        if not self.drag_file_path is None:
+        if md.hasFormat("application/x-vrweare-drag"):
+            event.ignore()
+            return
+        elif not self.drag_file_path is None:
             self.style_group_box(self.main_group_box, "#44ff44")
             event.acceptProposedAction()
         else:
@@ -733,7 +904,10 @@ class RateAndCutDialog(QDialog):
         if not self.drag_file_path is None:
             #print(f"File dropped:\n{self.drag_file_path}", flush=True)
             md = event.mimeData()
-            if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            if md.hasFormat("application/x-vrweare-drag"):
+                event.ignore()
+                return
+            elif md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
                 try:
                     self.downloadAndSwithToimage(self.drag_file_path)
                 except:
@@ -834,7 +1008,7 @@ class RateAndCutDialog(QDialog):
                         raise ValueError(f"URL is not an image (Content-Type: {content_type})")
                 
                     # Build full output path, ignore dirpath (assume None)
-                    dirpath=None
+                    override=False
                     target_dir = os.path.join(path, "../../../../input/vr/check/rate")
                     #os.makedirs(target_dir, exist_ok=True)
                     filename = self.get_safe_unique_filename(target_dir, filename)
@@ -850,7 +1024,7 @@ class RateAndCutDialog(QDialog):
                             f.write(chunk)
             
 
-            if override:
+            if override and not os.path.samefile(dirpath, os.path.join(path, "../../../../input/vr/check/rate") ):
                 if os.path.isdir(dirpath):
                     cutModeFolderOverridePath=dirpath
                     cutModeFolderOverrideActive=True
@@ -1205,6 +1379,9 @@ class RateAndCutDialog(QDialog):
                 self.button_cutandclone.setEnabled(False)
             self.button_delete_file.setEnabled(False)       
 
+        self.pasteImageFromClipboardAction.setEnabled(self.clipboard_has_image)
+
+
     def trimFirst(self):
         self.button_trimfirst_video.setVisible(False)
         self.button_trima_video.setVisible(self.isVideo)
@@ -1243,12 +1420,17 @@ class RateAndCutDialog(QDialog):
                     
                     if index>=0:
                         try:
+                            capfile = replace_file_suffix(input, ".txt")
                             if USE_TRASHBIN:
                                 self.log("Trashing " + os.path.basename(input), QColor("white"))
                                 send2trash.send2trash(input)
+                                if os.path.exists(capfile):
+                                    send2trash.send2trash(capfile)
                             else:
                                 self.log("Deleting " + os.path.basename(input), QColor("white"))
                                 os.remove(input)
+                                if os.path.exists(capfile):
+                                    os.remove(capfile)
                         finally:
                             if os.path.exists(input):
                                 self.logn(" failed", QColor("red"))
@@ -1379,6 +1561,7 @@ class RateAndCutDialog(QDialog):
                 self.fileSlider.setValue(self.currentIndex)
                 self.fileSlider.setEnabled(True)
                 self.main_group_box.setTitle( self.truncate_keep_suffix(self.currentFile) )
+                self.enable_drag_for_groupbox(self.main_group_box, )
                 if cutModeFolderOverrideActive:
                     folder=os.path.join(path, cutModeFolderOverridePath)
                 else:
@@ -1485,6 +1668,9 @@ class RateAndCutDialog(QDialog):
                 folder=os.path.join(path, "../../../../input/vr/check/rate")
             filepath=os.path.abspath(os.path.join(folder, self.currentFile))
             cb.setText(filepath, mode=cb.Clipboard)
+        
+    def onPasteImageFromClipboard(self, state):
+        self.save_clipboard_image()
         
     def onOpenFolder(self, state):
         if cutModeFolderOverrideActive:
@@ -1608,6 +1794,10 @@ class RateAndCutDialog(QDialog):
                 if recreated:
                     os.remove(output)
                 os.rename(input, output)
+                capfile = replace_file_suffix(input, ".txt")
+                if os.path.exists(capfile):
+                    os.rename(capfile, replace_file_suffix(output, ".txt"))
+                
                 self.rating_widget.clear_rating()
                 self.log(" Overwritten" if recreated else " Moved", QColor("green"))
                 
@@ -1644,7 +1834,6 @@ class RateAndCutDialog(QDialog):
 
         except:
             print(traceback.format_exc(), flush=True)
-            self.folderAction.setEnabled(True)
         finally:
             leaveUITask()
 
@@ -1773,8 +1962,11 @@ class RateAndCutDialog(QDialog):
     def move_worker(self, source, destination, index, recreated):
         startAsyncTask()
         try:
+            capfile = replace_file_suffix(source, ".txt")
             print("move from", source, "to", destination, flush=True) 
             shutil.move(source, destination)
+            if not os.path.exists(source) and os.path.exists(capfile):
+                shutil.move(capfile, replace_file_suffix(destination, ".txt"))
             countdown=5
             while os.path.exists(source):
                 countdown=countdown-1
@@ -1783,6 +1975,8 @@ class RateAndCutDialog(QDialog):
                 print("source file still exists. retry ...", flush=True)
                 time.sleep(2)
                 shutil.move(source, destination)
+                if not os.path.exists(source) and os.path.exists(capfile):
+                    shutil.move(capfile, replace_file_suffix(destination, ".txt"))
             if countdown<0:
                 QTimer.singleShot(0, partial(self.move_updater, index, recreated, False))
             else:
@@ -1860,7 +2054,7 @@ class RateAndCutDialog(QDialog):
                 print("Executing "  + cmd, flush=True)
                 recreated=os.path.exists(output)
                 thread = threading.Thread(
-                    target=self.trimAndCrop_worker, args=(cmd, recreated, output, ), daemon=True)
+                    target=self.trimAndCrop_worker, args=(cmd, recreated, input, output, ), daemon=True)
                 thread.start()
                 
             except ValueError as e:
@@ -1871,20 +2065,20 @@ class RateAndCutDialog(QDialog):
             leaveUITask()
 
             
-    def trimAndCrop_worker(self, cmd, recreated, output):
+    def trimAndCrop_worker(self, cmd, recreated, input, output):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, output, True))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, True))
 
         except subprocess.CalledProcessError as se:
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, output, False))
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, False))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
 
 
-    def trimAndCrop_updater(self, recreated, output, success):
+    def trimAndCrop_updater(self, recreated, input, output, success):
         if success:
             self.log(" Overwritten" if recreated else " OK", QColor("green"))
             if self.display.frame_count<=0:
@@ -1894,6 +2088,9 @@ class RateAndCutDialog(QDialog):
                 self.logn("+clipboard", QColor("gray"))
             else:
                 self.logn("", QColor("gray"))
+            capfile = replace_file_suffix(input, ".txt")
+            if os.path.exists(capfile):
+                shutil.copyfile(capfile, replace_file_suffix(output, ".txt"))
         else:
             self.logn(" Failed", QColor("red"))
 
@@ -2048,6 +2245,125 @@ class RateAndCutDialog(QDialog):
         )                            
         thread.start()
         
+    def init_clipboard_monitor(self):
+        """Initialize clipboard monitoring for images."""
+        app = QApplication.instance() or QApplication([])
+        self.clipboard = app.clipboard()
+        self.clipboard.changed.connect(self._on_clipboard_changed)
+        # --- Check if clipboard already contains an image at startup ---
+        mime = self.clipboard.mimeData()
+        if mime and mime.hasImage():
+            img = self.clipboard.image()
+            if isinstance(img, QImage):
+                h = self._compute_hash(img)
+                self._last_clipboard_hash = h
+                # Mark as pending only if it is not already saved
+                self.clipboard_has_image = (h != self._last_saved_hash)
+            else:
+                self.clipboard_has_image = False
+        else:
+            self.clipboard_has_image = False
+
+    def _qimage_to_bytes(self, img: QImage) -> bytes:
+        """Convert QImage to PNG bytes."""
+        buf = QBuffer()
+        buf.open(QIODevice.WriteOnly)
+        img.save(buf, "PNG")
+        return bytes(buf.data())
+
+    def _compute_hash(self, img: QImage) -> str:
+        """Return SHA256 of the PNG representation of QImage."""
+        return sha256(self._qimage_to_bytes(img)).hexdigest()
+
+    def _on_clipboard_changed(self, mode):
+        """React to clipboard changes and update clipboard_has_image."""
+        if mode != QClipboard.Clipboard:
+            return
+
+        mime = self.clipboard.mimeData()
+
+        # No image -> no pending image
+        if not mime or not mime.hasImage():
+            self.clipboard_has_image = False
+            self._last_clipboard_hash = None
+            return
+
+        img = self.clipboard.image()
+        if not isinstance(img, QImage):
+            self.clipboard_has_image = False
+            self._last_clipboard_hash = None
+            return
+
+        # Compute new clipboard hash
+        h = self._compute_hash(img)
+        self._last_clipboard_hash = h
+
+        # Mark new image only if not the last saved
+        self.clipboard_has_image = (h != self._last_saved_hash)
+
+    def save_clipboard_image(self):
+        """
+        Saves clipboard image if it exists and is new.
+        After a successful save clipboard_has_image becomes False.
+        Returns the saved filepath or None.
+        """
+        # Nothing new → nothing to save
+        if not self.clipboard_has_image:
+            return None
+
+        mime = self.clipboard.mimeData()
+        if not mime or not mime.hasImage():
+            self.clipboard_has_image = False
+            return None
+
+        img = self.clipboard.image()
+        if not isinstance(img, QImage):
+            self.clipboard_has_image = False
+            return None
+
+        # Hash again to ensure nothing changed since the event
+        h = self._compute_hash(img)
+
+        # Already saved
+        if h == self._last_saved_hash:
+            self.clipboard_has_image = False
+            return None
+
+        # Build filename: Cut_YYMMDDhhmmss.png
+        ts = datetime.now().strftime("%y%m%d%H%M%S")
+        filename = f"Cut_{ts}.png"
+        folder=os.path.join(path, "../../../../input/vr/check/rate")
+        filepath = os.path.join(folder, filename)
+
+        # Save image
+        with open(filepath, "wb") as f:
+            f.write(self._qimage_to_bytes(img))
+
+        # Update state
+        self._last_saved_hash = h
+        self.clipboard_has_image = False
+
+        global cutModeFolderOverrideActive
+        cutModeFolderOverrideActive=False
+
+        thread = threading.Thread(
+            target=self.saveClipboardWorker,
+            args=(filename, ),
+            daemon=True
+        )
+        thread.start()
+
+    def saveClipboardWorker(self, filename):
+        try:
+            startAsyncTask()
+
+            scanFilesToRate()   # can block on some drives
+
+            QTimer.singleShot(0, partial(self.switchDirectory_updater, False, "", filename))
+        except:
+            endAsyncTask()
+            print(traceback.format_exc(), flush=True) 
+
 
     def closeOnError(self, msg):
         if TRACELEVEL >= 1:
@@ -2055,6 +2371,28 @@ class RateAndCutDialog(QDialog):
         self.currentIndex=-1
         self.display.stopAndBlackout()
         self.rateCurrentFile()
+
+
+class GroupBoxHoverFilter(QObject):
+    def __init__(self, box):
+        super().__init__()
+        self.box = box
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.MouseMove:
+            pos = QCursor.pos()
+            widget_under = QApplication.widgetAt(pos)
+
+            # Cursor auf GroupBox selbst
+            if widget_under is self.box:
+                self.box.setCursor(Qt.CursorShape.DragLinkCursor)
+            else:
+                # Cursor auf Kind oder außerhalb
+                if self.box.cursor().shape() == Qt.CursorShape.DragLinkCursor:
+                    self.box.unsetCursor()
+
+        return False
+        
 
 class HoverLabel(QLabel):
     """A QLabel that detects hover and click events."""

@@ -1,0 +1,345 @@
+{
+  "5": {
+    "inputs": {
+      "ckpt_name": "SDXL\\juggernautXL_ragnarokBy.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "7": {
+    "inputs": {
+      "control_net_name": "sdxl\\control-lora-recolor-rank256.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "Load ControlNet Model"
+    }
+  },
+  "8": {
+    "inputs": {
+      "strength": 1.0000000000000002,
+      "start_percent": 0,
+      "end_percent": 1,
+      "positive": [
+        "62",
+        0
+      ],
+      "negative": [
+        "58",
+        0
+      ],
+      "control_net": [
+        "7",
+        0
+      ],
+      "image": [
+        "67",
+        0
+      ]
+    },
+    "class_type": "ControlNetApplyAdvanced",
+    "_meta": {
+      "title": "Apply ControlNet"
+    }
+  },
+  "11": {
+    "inputs": {
+      "seed": [
+        "86",
+        0
+      ],
+      "steps": 35,
+      "cfg": 1.5,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "5",
+        0
+      ],
+      "positive": [
+        "8",
+        0
+      ],
+      "negative": [
+        "8",
+        1
+      ],
+      "latent_image": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "15": {
+    "inputs": {
+      "samples": [
+        "11",
+        0
+      ],
+      "vae": [
+        "5",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "17": {
+    "inputs": {
+      "bw_layer": [
+        "67",
+        0
+      ],
+      "color_layer": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "ColorBlend",
+    "_meta": {
+      "title": "Color Blend"
+    }
+  },
+  "20": {
+    "inputs": {
+      "pixels": [
+        "67",
+        0
+      ],
+      "vae": [
+        "5",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "46": {
+    "inputs": {
+      "model": "Florence-2-base",
+      "precision": "fp16",
+      "attention": "sdpa",
+      "convert_to_safetensors": false
+    },
+    "class_type": "Florence2ModelLoader",
+    "_meta": {
+      "title": "Florence2ModelLoader"
+    }
+  },
+  "48": {
+    "inputs": {
+      "value": " DSLR, colour photograph, highly detailed, realistic skintones"
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Postfix"
+    }
+  },
+  "49": {
+    "inputs": {
+      "value": "text, watermark, oversaturated, black and white, greyscale, color cast, faded, old, washed out, low quality, lacluster"
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Negative"
+    }
+  },
+  "55": {
+    "inputs": {
+      "text_input": "",
+      "task": "more_detailed_caption",
+      "fill_mask": false,
+      "keep_model_loaded": false,
+      "max_new_tokens": 1024,
+      "num_beams": 3,
+      "do_sample": false,
+      "output_mask_select": "",
+      "seed": 40905928989676,
+      "image": [
+        "67",
+        0
+      ],
+      "florence2_model": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "Florence2Run",
+    "_meta": {
+      "title": "Florence2Run"
+    }
+  },
+  "56": {
+    "inputs": {
+      "formatted": [
+        "55",
+        2
+      ]
+    },
+    "class_type": "StripXML",
+    "_meta": {
+      "title": "Strip XML"
+    }
+  },
+  "57": {
+    "inputs": {
+      "string_a": [
+        "64",
+        0
+      ],
+      "string_b": [
+        "48",
+        0
+      ],
+      "delimiter": ". "
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "58": {
+    "inputs": {
+      "text": [
+        "49",
+        0
+      ],
+      "clip": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "62": {
+    "inputs": {
+      "text": [
+        "95",
+        0
+      ],
+      "clip": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "63": {
+    "inputs": {
+      "value": " "
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Prefix"
+    }
+  },
+  "64": {
+    "inputs": {
+      "string_a": [
+        "63",
+        0
+      ],
+      "string_b": [
+        "85",
+        0
+      ],
+      "delimiter": ". "
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "67": {
+    "inputs": {
+      "image": "example_40_bw.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "68": {
+    "inputs": {
+      "filename_prefix": "RecoloredImage",
+      "images": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "85": {
+    "inputs": {
+      "string": [
+        "56",
+        0
+      ],
+      "regex_pattern": " black and white ",
+      "repl": " ",
+      "count": 0,
+      "case_insensitive": true,
+      "multiline": false,
+      "dotall": false
+    },
+    "class_type": "RegexSubstitute",
+    "_meta": {
+      "title": "Regex Substitute"
+    }
+  },
+  "86": {
+    "inputs": {
+      "value": 507824198253856
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Seed (fixed Flavor)"
+    }
+  },
+  "95": {
+    "inputs": {
+      "string_a": [
+        "57",
+        0
+      ],
+      "string_b": [
+        "96",
+        0
+      ],
+      "delimiter": ", "
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "96": {
+    "inputs": {
+      "value": "light blue eyes"
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Postfix Appendum"
+    }
+  }
+}

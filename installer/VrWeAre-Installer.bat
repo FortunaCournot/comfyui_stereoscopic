@@ -10,6 +10,10 @@
 ::====================================================================
 @ECHO OFF
 
+:: VR we are TAG to be checked out, default heads/develop
+SET VRWEARE_TAG=heads/develop
+
+
 :: Windows version check 
 IF NOT "%OS%"=="Windows_NT" GOTO Fail
 :: Keep variable local 
@@ -31,38 +35,41 @@ SET COMFYUI_TAG=v0.3.68
 
 SET PYTHON_VERSION=3.13
 
+:: Files ouside of my authority checked out using git
+SET MANAGER_TAG=tags/3.37
+SET CUSTOMSCRIPTS_TAG=tags/1.2.5
+SET MTB_TAG=dev/0.6.0
+:: Crystools is missing tag for 1.27.4:
+SET CRYSTOOLS_TAG=2f18256
+SET FLORENCE2_TAG=tags/1.0.6
+SET VHS_TAG=tags/1.7.7
+SET FRAMEINTERPOL_TAG=tags/1.0.7
+SET MMAUDIO_TAG=tags/1.0.3
+SET DEPTH_ANYTHING_V2_TAG=tags/1.0.1
+
 :: Files ouside of my authority where i provided checksum:
 
 :: tar.gz from https://github.com/Comfy-Org/ComfyUI-Manager/tags
 :: SET MANAGER_SHA=74829f5be66b4b3934f47bb0170e241b2e4b6617d05448b9232e818b511b7bf7
 ::SET MANAGER_TAG=3.35
-SET MANAGER_SHA=98bcaac52fa5218459981c69ee0d4ef5955f5f60f41a84f3876f6f8c490f9be9
-SET MANAGER_TAG=3.37
+::SET MANAGER_SHA=98bcaac52fa5218459981c69ee0d4ef5955f5f60f41a84f3876f6f8c490f9be9
 
 SET FFMPEG_SHA=48ca5e824d2660a94f89fd55287b7c35129b55bbe680c4330efeed5269c4820f
 SET FFMPEG_TAG=8.0
 
 :: Files redistributed through released forks:
-SET VRWEARE_TAG=4.0.1
-SET CUSTOMSCRIPTS_TAG=1.2.5
-SET MTB_TAG=0.6.0-dev
-SET CRYSTOOLS_TAG=1.27.3
-SET FLORENCE2_TAG=1.0.6
-SET VHS_TAG=1.7.7
-SET FRAMEINTERPOL_TAG=1.0.7
-SET MMAUDIO_TAG=1.0.3
-SET DEPTH_ANYTHING_V2_TAG=1.0.1
 ::SET CONTROLNETAUX_TAG=1.1.2-rev562
 
 :: Addional files
-SET KJNODES_TAG=1.1.9
+SET KJNODES_TAG=tags/1.1.9
 SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
 
 
-:: EXTRAS
-SET REACTOR_TAG=v0.6.1
-SET RGTHREE_TAG=
-SET EASYUSE_TAG=v1.3.4
+:: TAGS
+SET REACTOR_TAG=tags/v0.6.1
+SET EASYUSE_TAG=tags/v1.3.4
+SET RGTHREE_TAG=eadc24e
+SET WD14_TAG=9e0a6e700299182fc05c58b62e7ad9f72182a78b
 
 SET INTERACTIVE=1
 if [%1]==[] goto DoChecks
@@ -336,7 +343,7 @@ for %%k in (HKCU HKLM) do (
         for /f "skip=2 delims=: tokens=1*" %%a in ('reg query "%%k\SOFTWARE%%wPython\PythonCore\!PYTHON_VERSION!\InstallPath" /ve  2^> nul') do (
             for /f "tokens=3" %%z in ("%%a") do (
                 set LOCALPYTHONPATH=%%z:%%b
-				echo * Local Python !PYTHON_VERSION![92m ok [0m
+				echo * Local Python !PYTHON_VERSION![92m ok [0m !LOCALPYTHONPATH!
                 goto CHECK_VRWEARE_VERSION
             )
         )
@@ -442,38 +449,56 @@ SET PIPELINE_OPTION_SBS=1
 SET PIPELINE_OPTION_FLI2V=0
 SET PIPELINE_OPTION_WATERMARK=0
 SET EXTRAS=%INTERACTIVE%
+SET TRAINING=0
 IF %INTERACTIVE% equ 0 GOTO VRWEARE_PARENT_CHECK
 :QueryForInstallationTypeCont
-SET PIPELINE_OPTION_SBS_TEXT=On
-SET PIPELINE_OPTION_FLI2V_TEXT=On
-SET PIPELINE_OPTION_WATERMARK_TEXT=On
-SET EXTRAS_TEXT=On
-IF %PIPELINE_OPTION_SBS% equ 0 SET PIPELINE_OPTION_SBS_TEXT=Off
-IF %PIPELINE_OPTION_FLI2V% equ 0 SET PIPELINE_OPTION_FLI2V_TEXT=Off
-IF %PIPELINE_OPTION_WATERMARK% equ 0 SET PIPELINE_OPTION_WATERMARK_TEXT=Off
-IF %EXTRAS% equ 0 SET EXTRAS_TEXT=Off
+SET PIPELINE_OPTION_SBS_TEXT=[32mYes
+SET PIPELINE_OPTION_FLI2V_TEXT=[32mYes
+SET PIPELINE_OPTION_WATERMARK_TEXT=[32mYes
+SET EXTRAS_TEXT=[32mYes
+SET TRAINING_TEXT=[32mYes
+IF %PIPELINE_OPTION_SBS% equ 0 SET PIPELINE_OPTION_SBS_TEXT=[31mNo
+IF %PIPELINE_OPTION_FLI2V% equ 0 SET PIPELINE_OPTION_FLI2V_TEXT=[31mNo
+IF %PIPELINE_OPTION_WATERMARK% equ 0 SET PIPELINE_OPTION_WATERMARK_TEXT=[31mNo
+IF %EXTRAS% equ 0 SET EXTRAS_TEXT=[31mNo
+IF %TRAINING% equ 0 SET TRAINING_TEXT=[31mNo
+SET INSTALLSIZE=14
+SET INSTALLSIZE_TRAINING=20
+IF %TRAINING% equ 1 SET /A "INSTALLSIZE=%INSTALLSIZE%+%INSTALLSIZE_TRAINING%"
+if defined FLAG_INSTALL_FFMPEG (
+  SET /A "INSTALLSIZE=%INSTALLSIZE%+1"
+)
 CLS
 ECHO/
-ECHO === Basic installation [13 GB] ===
-ECHO Please choose the installation options:
+ECHO === Installation [%INSTALLSIZE% GB] ===
+ECHO Please choose the installation options (or keep this defaults):
 ECHO/ 
 ECHO  General options:
-ECHO   1 - Pipeline with SBS-Converter: [1m%PIPELINE_OPTION_SBS_TEXT%[0m (for VR devices)
+ECHO   [35m1[0m - Pipeline with SBS-Converter: [1m%PIPELINE_OPTION_SBS_TEXT%[0m (for VR devices)
 ECHO  AI-Expert options:
-ECHO   2 - Judging: Pipeline for first/last image: [1m%PIPELINE_OPTION_FLI2V_TEXT%[0m
-ECHO   3 - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATERMARK_TEXT%[0m
+ECHO   [35m2[0m - Judging: Pipeline for first/last image: [1m%PIPELINE_OPTION_FLI2V_TEXT%[0m
+ECHO   [35m3[0m - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATERMARK_TEXT%[0m
 ECHO  ComfyUI options:
-ECHO   4 - Add extra packages: [1m%EXTRAS_TEXT%[0m
-ECHO         rgthree, easy-use, ReActor
+ECHO   [35m4[0m - Add extra packages: [1m%EXTRAS_TEXT%[0m
+ECHO         rgthree, easy-use, ReActor, WD14-Tagger
+ECHO   [35m5[0m - Install Training software (+%INSTALLSIZE_TRAINING%): [1m%TRAINING_TEXT%[0m
+ECHO         AI-Toolkit
 ECHO/
 ECHO   This will download and install ComfyUI %COMFYUI_TAG% Portable for modern Nvidia/CPU with base packages
 ECHO         depthanything, customscripts, mtb, frameinterpol, mmaudio, florance2, videohelpersuite, crystools
+if defined FLAG_INSTALL_FFMPEG (
+  ECHO   This will download and install ffmpeg.
+)
+if defined FLAG_INSTALL_EXIFTOOL (
+  ECHO   This will download and install ExifTool.
+)
 ECHO/
-ECHO   Y - Yes, Install / N - No, QUIT
+ECHO   [32mY[0m - Yes, Install / [31mQ[0m - QUIT
 ECHO/
-CHOICE /C 1234YN /M " "
-IF ERRORLEVEL 6 GOTO End
-IF ERRORLEVEL 5 GOTO VRWEARE_PARENT_CHECK
+CHOICE /C 12345YQ /M " "
+IF ERRORLEVEL 7 GOTO End
+IF ERRORLEVEL 6 GOTO VRWEARE_PARENT_CHECK
+IF ERRORLEVEL 5 SET /A "TRAINING=1-%TRAINING%" & GOTO QueryForInstallationTypeCont
 IF ERRORLEVEL 4 SET /A "EXTRAS=1-%EXTRAS%" & GOTO QueryForInstallationTypeCont
 IF ERRORLEVEL 3 SET /A "PIPELINE_OPTION_WATERMARK=1-%PIPELINE_OPTION_WATERMARK%" & GOTO QueryForInstallationTypeCont
 IF ERRORLEVEL 2 SET /A "PIPELINE_OPTION_FLI2V=1-%PIPELINE_OPTION_FLI2V%" & GOTO QueryForInstallationTypeCont
@@ -629,16 +654,23 @@ echo  else >>install.sh
 echo   echo -e $"$2 already unpacked. \e[92mok\e[0m" >>install.sh
 echo  fi >>install.sh
 echo } >>install.sh
-echo checkoutCustomNodes() { >>install.sh
+:: checkoutSoftware(): URL targetfolder [checkouttagpath]
+echo checkoutSoftware() { >>install.sh
 echo   git clone  $1 $2  >>install.sh
 echo   CWD=`pwd`  >>install.sh
 echo   if [ ^^! -z "$3" ] ; then >>install.sh
+echo     set -x  >>install.sh
 echo     cd "$2"  >>install.sh
-echo     git checkout tags/$3  >>install.sh
+echo     COUTPATH="$3"  >>install.sh
+echo     if [ "${COUTPATH:0:6}" == "heads/" ] ; then >>install.sh
+echo       git checkout ${COUTPATH:6}  >>install.sh
+echo     else >>install.sh
+echo       git checkout $COUTPATH  >>install.sh
+echo     fi >>install.sh
 echo     cd "$CWD"  >>install.sh
 echo   fi >>install.sh
 echo } >>install.sh
-:: installFile(): URL targetfile [shasum]
+:: installFile(): URL targetfile [shasum [installcachepath]]
 echo installFile() { >>install.sh
 echo    if [ -s "$2" ] ; then >>install.sh
 echo      if [ ^^! -z "$3" ] ; then >>install.sh
@@ -649,6 +681,15 @@ echo      	echo -e $"\e[92mok\e[0m"  >>install.sh
 echo      fi >>install.sh
 echo    fi >>install.sh
 echo    if [ ^^! -s "$2" ] ; then >>install.sh
+echo      if [ ^^! -s "$4" ] ; then >>install.sh
+echo        if [ ^^! -z "$3" ] ; then >>install.sh
+echo          echo -n "Validating Check-sum " >>install.sh
+echo          cp "$4" "$2" >>install.sh
+echo          echo "$3 $2" ^| sha256sum --check --status ^&^& echo -ne $"\e[92mcached\e[0m," ^|^| rm -f "$4" "$2" >>install.sh
+echo        fi >>install.sh
+echo      fi >>install.sh
+echo    fi >>install.sh
+echo    if [ ^^! -s "$2" ] ; then >>install.sh
 echo      echo -ne $"\e[94mDownloading $1\e[0m " >>install.sh
 echo      curl --fail --ssl-revoke-best-effort -A "Wget" -L $1 ^>$2 >>install.sh
 echo      [ ^^! $? = 0 ] ^&^& echo rm -f "$2" ^&^& echo -e $"\e[91mError during download.\e[0m" >>install.sh
@@ -656,6 +697,11 @@ echo      if [ -s "$2" ] ; then >>install.sh
 echo        if [ ^^! -z "$3" ] ; then >>install.sh
 echo          echo -n "Validating Check-sum " >>install.sh
 echo          echo "$3 $2" ^| sha256sum --check --status ^&^& echo -e $"\e[92mok\e[0m" ^|^| rm -f "$2"  >>install.sh
+echo          if [ ^^! -z "$4" ] ; then >>install.sh
+echo            if [ -s "$2" ] ; then >>install.sh
+echo              cp "$2" "$4" >>install.sh
+echo            fi >>install.sh
+echo          fi >>install.sh
 echo        fi >>install.sh
 echo      fi >>install.sh
 echo      if [ -s "$2" ] ; then >>install.sh
@@ -693,7 +739,7 @@ echo echo "Download license files..." >>install.sh
 :: Download licenses . for tags from /tags/... the other from /heads/main/
 echo  installFile "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/refs/heads/master/LICENSE" "./LICENSE_ComfyUI-portable.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/tags/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
-IF %INTERACTIVE% equ 1 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/tags/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
+IF %INTERACTIVE% equ 1 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
 ::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
@@ -715,9 +761,10 @@ if defined FLAG_INSTALL_EXIFTOOL (
 echo  echo "ExifTool by Phil Harvey. This is free software; you can redistribute it and/or modify it under the same terms as Perl itself. https://dev.perl.org/licenses/" ^> ./LICENSE_Exiftool.txt  >>install.sh
 )
 IF %EXTRAS% equ 0 GOTO EXTRAS_LIC_END
-echo  installFile "https://github.com/yolain/ComfyUI-Easy-Use/blob/%EASYUSE_TAG%/LICENSE" "./LICENSE_easy-use.TXT"  >>install.sh
-echo  installFile "https://github.com/rgthree/rgthree-comfy/blob/main/LICENSE" "./LICENSE_rgthree.TXT"  >>install.sh
-echo  installFile "https://raw.githubusercontent.com/Gourieff/ComfyUI-ReActor/refs/tags/%REACTOR_TAG%/LICENSE" "./LICENSE_ReActor.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/yolain/ComfyUI-Easy-Use/refs/%EASYUSE_TAG%/LICENSE" "./LICENSE_easy-use.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/rgthree/rgthree-comfy/refs/heads/main/LICENSE" "./LICENSE_rgthree.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/Gourieff/ComfyUI-ReActor/refs/%REACTOR_TAG%/LICENSE" "./LICENSE_ReActor.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/pythongosssss/ComfyUI-WD14-Tagger/refs/heads/main/LICENSE" "./LICENSE_WD14-Tagger.TXT"  >>install.sh
 :EXTRAS_LIC_END
 
 :: Ask user for commitment
@@ -730,7 +777,7 @@ echo echo -e $"The license files have been downloaded to "`pwd`":" >>install.sh
 echo ls ./LICENSE*.* >>install.sh
 echo echo -e $" " >>install.sh
 echo while [ "$#" -eq 0 ]; do >>install.sh
-echo     read -p "Do you commit to them and wish to install this program (y/n)? " yn >>install.sh
+echo     read -p "Do you commit to them and wish to install this program ([32my[0m/[31mn[0m)? " yn >>install.sh
 echo     case $yn in >>install.sh
 echo         [Yy]* ) break;; >>install.sh
 echo         [Nn]* ) exit 1;; >>install.sh
@@ -789,41 +836,63 @@ echo echo "export PATH" ^>^>./ComfyUI_windows_portable/ComfyUI/user/default/comf
 echo\ >>install.sh
 )
 
+:: Following KronoKnights manual (https://www.reddit.com/r/StableDiffusion/comments/1jle4re/how_to_run_a_rtx_5090_50xx_with_triton_and_sage/)
+:: copy python libs
+echo   installFile "https://github.com/woct0rdho/triton-windows/releases/download/v3.0.0-windows.post1/python_3.13.2_include_libs.zip" "install/python_3.13.2_include_libs.zip" >>install.sh
+echo   if [ ^^! $? = 0 ] ; then echo "[33mWarning: Failed to download python libraries and includes[0m/" ; fi >>install.sh
+echo   unzip -o -d %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded install/python_3.13.2_include_libs.zip   >>install.sh
+
 ::  Download and unpackage comfyui nodes
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
+echo   checkoutSoftware "https://github.com/Comfy-Org/ComfyUI-Manager.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic/archive/refs/tags/%VRWEARE_TAG%.tar.gz" "install/stereoscopic.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic"  >>install.sh 
-IF %INTERACTIVE% equ 1 echo   checkoutCustomNodes "https://github.com/FortunaCournot/comfyui_stereoscopic.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic" "%VRWEARE_TAG%"  >>install.sh
+IF %INTERACTIVE% equ 1 echo   checkoutSoftware "https://github.com/FortunaCournot/comfyui_stereoscopic.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic" "%VRWEARE_TAG%"  >>install.sh
 IF %INTERACTIVE% equ 0 echo   cp -r "$PROJECT_DIR" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
 ::echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-DepthAnythingV2/archive/refs/tags/%DEPTH_ANYTHING_V2_TAG%.tar.gz"  "install/depthanythingv2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" >>install.sh
+
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-DepthAnythingV2/archive/refs/tags/%DEPTH_ANYTHING_V2_TAG%.tar.gz"  "install/depthanythingv2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" >>install.sh
+echo   checkoutSoftware "https://github.com/kijai/ComfyUI-DepthAnythingV2.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" "%DEPTH_ANYTHING_V2_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Custom-Scripts/archive/refs/tags/%CUSTOMSCRIPTS_TAG%.tar.gz" "install/customscripts.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-custom-scripts" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Custom-Scripts/archive/refs/tags/%CUSTOMSCRIPTS_TAG%.tar.gz" "install/customscripts.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-custom-scripts" >>install.sh
+echo   checkoutSoftware "https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-custom-scripts" "%CUSTOMSCRIPTS_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/comfy_mtb/archive/refs/tags/%MTB_TAG%.tar.gz" "install/mtb.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfy-mtb" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/comfy_mtb/archive/refs/tags/%MTB_TAG%.tar.gz" "install/mtb.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfy-mtb" >>install.sh
+echo   checkoutSoftware "https://github.com/melMass/comfy_mtb.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfy-mtb" "%MTB_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Crystools/archive/refs/tags/%CRYSTOOLS_TAG%.tar.gz" "install/crystools.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Crystools/archive/refs/tags/%CRYSTOOLS_TAG%.tar.gz" "install/crystools.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" >>install.sh
+echo   checkoutSoftware "https://github.com/crystian/ComfyUI-Crystools.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" "%CRYSTOOLS_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Florence2/archive/refs/tags/%FLORENCE2_TAG%.tar.gz" "install/florence2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-florence2" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Florence2/archive/refs/tags/%FLORENCE2_TAG%.tar.gz" "install/florence2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-florence2" >>install.sh
+echo   checkoutSoftware "https://github.com/kijai/ComfyUI-Florence2.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-florence2" "%FLORENCE2_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-VideoHelperSuite/archive/refs/tags/%VHS_TAG%.tar.gz" "install/vhs.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-videohelpersuite" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-VideoHelperSuite/archive/refs/tags/%VHS_TAG%.tar.gz" "install/vhs.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-videohelpersuite" >>install.sh
+echo   checkoutSoftware "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-videohelpersuite" "%VHS_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Frame-Interpolation/archive/refs/tags/%FRAMEINTERPOL_TAG%.tar.gz" "install/frameinterpol.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-frame-interpolation" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Frame-Interpolation/archive/refs/tags/%FRAMEINTERPOL_TAG%.tar.gz" "install/frameinterpol.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-frame-interpolation" >>install.sh
+echo   checkoutSoftware "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-frame-interpolation" "%FRAMEINTERPOL_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-MMAudio/archive/refs/tags/%MMAUDIO_TAG%.tar.gz" "install/mmaudio.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-MMAudio/archive/refs/tags/%MMAUDIO_TAG%.tar.gz" "install/mmaudio.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" >>install.sh
+echo   checkoutSoftware "https://github.com/kijai/ComfyUI-MMAudio.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-mmaudio" "%MMAUDIO_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-KJNodes/archive/refs/tags/%KJNODES_TAG%.tar.gz" "install/kjnodes.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-kjnodes" >>install.sh
+::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-KJNodes/archive/refs/tags/%KJNODES_TAG%.tar.gz" "install/kjnodes.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-kjnodes" >>install.sh
+echo   checkoutSoftware "https://github.com/kijai/ComfyUI-KJNodes.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-kjnodes" "%KJNODES_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 
 IF %EXTRAS% equ 0 GOTO EXTRAS_INST_END
 :: IGNORE ERRORS FOR EXTRAS
 
-echo   checkoutCustomNodes "https://github.com/yolain/ComfyUI-Easy-Use.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-easy-use" "%EASYUSE_TAG%"  >>install.sh
-echo   checkoutCustomNodes "https://github.com/rgthree/rgthree-comfy.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/rgthree-comfy" "%RGTHREE_TAG%"  >>install.sh
-echo   checkoutCustomNodes "https://github.com/Gourieff/ComfyUI-ReActor.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-ReActor" "%REACTOR_TAG%"  >>install.sh
+echo   checkoutSoftware "https://github.com/yolain/ComfyUI-Easy-Use.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-easy-use" "%EASYUSE_TAG%"  >>install.sh
+echo   checkoutSoftware "https://github.com/rgthree/rgthree-comfy.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/rgthree-comfy" "%RGTHREE_TAG%"  >>install.sh
+echo   checkoutSoftware "https://github.com/Gourieff/ComfyUI-ReActor.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-ReActor" "%REACTOR_TAG%"  >>install.sh
+echo   checkoutSoftware "https://github.com/pythongosssss/ComfyUI-WD14-Tagger.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-WD14-Tagger" "%WD14_TAG%"  >>install.sh
 :EXTRAS_INST_END
+
+IF %TRAINING% equ 0 GOTO TRAINING_INST_END
+echo   cp ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/installer/templates/*.bat . >>install.sh
+:TRAINING_INST_END
 
 echo\ >>install.sh
 
@@ -836,26 +905,26 @@ echo\ >>install.sh
 :: Audio
 echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/mmaudio  >>install.sh
 :: MMAudio models MIT License - Copyright (c) 2024 Sony Research Inc.
-echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" "d8ad903a79adc2b29bacfeedabfa3d78b03d36d3b4dcb885c0649fe8c5d763cb" >>install.sh
+echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" "d8ad903a79adc2b29bacfeedabfa3d78b03d36d3b4dcb885c0649fe8c5d763cb" "install/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_large_44k_v2_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_large_44k_v2_fp16.safetensors" "a61378951ba4e8bfde2e977c0ad8211a7e02e1e92fd6a5b1c258a6464c1d102f" >>install.sh
+echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_large_44k_v2_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_large_44k_v2_fp16.safetensors" "a61378951ba4e8bfde2e977c0ad8211a7e02e1e92fd6a5b1c258a6464c1d102f" "install/mmaudio_large_44k_v2_fp16.safetensors" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_synchformer_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_synchformer_fp16.safetensors" "b8d05128c76da6ee88720a89d25a5f86c603589883d02b53f563c3c66afe3581" >>install.sh
+echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_synchformer_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_synchformer_fp16.safetensors" "b8d05128c76da6ee88720a89d25a5f86c603589883d02b53f563c3c66afe3581" "install/mmaudio_synchformer_fp16.safetensors" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_vae_44k_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_vae_44k_fp16.safetensors" "2598189f081bd10c86975106e5b6e2490168667429a75b52d77671283f245649" >>install.sh
+echo   installFile "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_vae_44k_fp16.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/mmaudio/mmaudio_vae_44k_fp16.safetensors" "2598189f081bd10c86975106e5b6e2490168667429a75b52d77671283f245649" "install/mmaudio_vae_44k_fp16.safetensors" >>install.sh
 echo\ >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 
 :: LICENSE_Real-ESRGAN upscaling - BSD 3-Clause License - Copyright (c) 2021, Xintao Wang
-echo   installFile "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth" "ComfyUI_windows_portable/ComfyUI/models/upscale_models/RealESRGAN_x2plus.pth" "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb" >>install.sh
+echo   installFile "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth" "ComfyUI_windows_portable/ComfyUI/models/upscale_models/RealESRGAN_x2plus.pth" "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb" "install/RealESRGAN_x2plus.safetensors" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-echo   installFile "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth" "ComfyUI_windows_portable/ComfyUI/models/upscale_models/RealESRGAN_x4plus.pth" "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1" >>install.sh
+echo   installFile "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth" "ComfyUI_windows_portable/ComfyUI/models/upscale_models/RealESRGAN_x4plus.pth" "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1" "install/RealESRGAN_x4plus.safetensors" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo\ >>install.sh
 
 :: STABILITY AI CONTROL-LORA - COMMUNITY LICENSE AGREEMENT
 echo mkdir -p ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl  >>install.sh
-echo   installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/control-LoRAs-rank256/control-lora-recolor-rank256.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl/control-lora-recolor-rank256.safetensors" "b0bf3c163b6f578b3a73e9cf61c3e4219ae9c2a06903663205d1251cf2498925" >>install.sh
+echo   installFile "https://huggingface.co/stabilityai/control-lora/resolve/main/control-LoRAs-rank256/control-lora-recolor-rank256.safetensors?download=true" "ComfyUI_windows_portable/ComfyUI/models/controlnet/sdxl/control-lora-recolor-rank256.safetensors" "b0bf3c163b6f578b3a73e9cf61c3e4219ae9c2a06903663205d1251cf2498925" "install/control-lora-recolor-rank256.safetensors" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 echo\ >>install.sh
 :: pass
@@ -958,12 +1027,6 @@ DEL %VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 IF "%LOCALPYTHONPATH%" == "" GOTO END_INSTALL_PACKS
 IF "%HAS_NVIDIA_GPU%" == "0" GOTO END_INSTALL_PACKS
 
-:: Following KronoKnights manual (https://www.reddit.com/r/StableDiffusion/comments/1jle4re/how_to_run_a_rtx_5090_50xx_with_triton_and_sage/)
-:: copy python libs
-ECHO Copying Python libs for Sage Attention
-mkdir %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\libs
-copy /B %LOCALPYTHONPATH%libs\*.lib %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded\libs
-
 :: sage attention dependencies
 ECHO Installing dependencies for Sage Attention
 .\python_embeded\python -m pip install --force-reinstall --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
@@ -978,13 +1041,19 @@ ECHO Installing dependencies for Sage Attention
 
 
 ECHO Installing Triton and Sage Attention
+.\python_embeded\python -m pip uninstall triton-windows
 .\python_embeded\python -m pip install -U --pre triton-windows
 cd python_embeded
 :: rem  (using URL instead)  git clone https://github.com/thu-ml/SageAttention
 cd ..
 .\python_embeded\python -m pip install %SAGEATTENTIONURL%
+
+.\python_embeded\python %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\tests\test_triton.py
+
 echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 echo pause >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+
+
 :END_INSTALL_PACKS
 cd ..
 
@@ -1050,7 +1119,19 @@ IF TVAI_MODELERROR == 1 ECHO %TVAI_BIN_DIR% > "%VRWEAREPATH%\ComfyUI_windows_por
 ECHO # Bash Profile for Configuration Installer > "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
 ECHO TVAI_BIN_DIR=`cat ./user/default/comfyui_stereoscopic/.TVAI_BIN_DIR`  >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
 ECHO TVAI_MODEL_DIR=`cat ./user/default/comfyui_stereoscopic/.TVAI_MODEL_DIR`  >> "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\user\default\comfyui_stereoscopic\.installprofile"
-	   
+
+IF %TRAINING% equ 0 GOTO Start
+echo Starting AI-Toolkit installer...
+cd %VRWEAREPATH%
+CALL .\install_ai-toolkit.bat
+cd %VRWEAREPATH%
+echo Starting kohya_ss installer...
+cd "%VRWEAREPATH%\"
+call ".\install_kohya_ss.bat"
+cd "%VRWEAREPATH%\"
+del /Q ".\*install_*.bat"
+echo Training tools installed.
+
 :: Start server and service to complete installation
 :Start
 ::IF %INTERACTIVE% equ 0 GOTO Final
@@ -1064,9 +1145,10 @@ ECHO - VR we are - Service Daemon
 ECHO - VR we are - App
 ECHO/
 
-
 RMDIR /S /Q "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test" > NUL
 MKDIR "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test"
+:: REMOVEDTESTDEACTIVATOR IF %INTERACTIVE% equ 1 
+echo "X" >"%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.forced"
 set LOGFILE="%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install.log"
 ::IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Start-Job {Get-Content -Path '%LOGFILE%' -Wait}"
 
@@ -1090,7 +1172,7 @@ if not exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyu
 
 :: wait for test to complete or fail
 IF %INTERACTIVE% equ 0 RM custom_nodes/comfyui_stereoscopic/.test/.install 
-IF %INTERACTIVE% equ 0 GOTO End 
+:: REMOVEDTESTDEACTIVATOR IF %INTERACTIVE% equ 0 GOTO End 
 ECHO Waiting for tests to complete...
 :WAIT_FOR_TEST_FINISH
 if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\.test\.install" (
@@ -1107,13 +1189,13 @@ if exist "%VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_st
     GOTO Fail
 )
 ECHO [92mTests passed.[0m
-IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Get-Job | Remove-Job -Force"
+:: IF %INTERACTIVE% equ 0 powershell -NoProfile -Command "Get-Job | Remove-Job -Force"
 ECHO/
 
 :: Clean-up
 ::ECHO You can clear install folder now to free space.
-DEL install.sh
-RMDIR /S /Q install
+IF NOT "%VRWEARE_TAG%" == "heads/develop" DEL install.sh
+IF NOT "%VRWEARE_TAG%" == "heads/develop" RMDIR /S /Q install
 GOTO End
 
 :Fail 

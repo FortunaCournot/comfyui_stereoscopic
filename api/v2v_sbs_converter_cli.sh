@@ -86,7 +86,7 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS""convert sbs "`echo $INPUT | grep -oP "$regex"`" =========="
 
-	uuid=$(openssl rand -hex 16)
+	uuid=$(openssl rand -hex 8)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
 	TARGETPREFIX_SBS=${TARGETPREFIX%.*}"_SBS_LR"

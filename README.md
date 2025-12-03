@@ -1,11 +1,10 @@
 # VR we are! (comfyui_stereoscopic nodes and scripts)
 ComfyUI Custom Nodes to create stereoscopic images and movies.
 
-Project Landing Page is [![3d-gallery.org](https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/img/home.png)](https://www.3d-gallery.org/)
+![License](https://img.shields.io/github/license/FortunaCournot/comfyui_stereoscopic)
 
 Documentation and download is available here ([latest doc](https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf)), 
 and on Civitai: [![VR we are!](https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/advertising/VR-we-are-title.png)](https://civitai.com/models/1757677)
-
 
 ## Summary
 
@@ -20,15 +19,25 @@ VR we are!
 
 ## Installation
 
-[![Install Test – main](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=main)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
+Status: 
+![Release](https://img.shields.io/github/v/tag/FortunaCournot/comfyui_stereoscopic?label=release) 
+[![CI main](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=main)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
 
-You need to install ComfyUI (Python 3.12), Git Bash (for Windows) and FFmpeg. Installing ComfyUI Desktop is simpler for this task, however, this tool has been developed with ComfyUI Portable.
-The tool has many dependencies and you must follow the installation steps in the documentation to succeed. The documentation link (head) is at top and included in the released packages.
+Use the [installer](https://downgit.github.io/#/home?url=https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/installer/VrWeAre-Installer.bat)  for automatic full install.
+
+If you need just ComfyUI nodes or the CLI command you can install via ComfyUI Manager, or download from Civitai (see link at bottom).
+
+
 
 ### Development Status
 
-[![Install Test – develop](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=develop)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
+[![CI develop](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml/badge.svg?branch=develop)](https://github.com/FortunaCournot/comfyui_stereoscopic/actions/workflows/install-test.yml)
+
+Use the [develop branch installer](https://downgit.github.io/#/home?url=https://github.com/FortunaCournot/comfyui_stereoscopic/blob/develop/installer/VrWeAre-Installer.bat)  for automatic full install.
 
 ## Contact
+[![Chat on Discord](https://img.shields.io/badge/Chat%20on-Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZegT6Cc8FG)
+[![Get on Civitai](https://img.shields.io/badge/Get%20on-Civitai-0066ff)](https://civitai.com/models/1757677) 
 
-Discord: [Activation Link](https://discord.gg/ZegT6Cc8FG)
+Project Landing Page is [![3d-gallery.org](https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/img/home.png)](https://www.3d-gallery.org/)
+
