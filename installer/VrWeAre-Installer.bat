@@ -11,7 +11,7 @@
 @ECHO OFF
 
 :: VR we are TAG to be checked out, default heads/develop
-SET VRWEARE_TAG=heads/develop
+SET VRWEARE_TAG=tags/4.1.0
 
 
 :: Windows version check 
@@ -1280,4 +1280,5 @@ echo --- Git push complete ---
 :Final
 ENDLOCAL
 exit /B 0
+
 
