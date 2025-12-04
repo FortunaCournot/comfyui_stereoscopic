@@ -65,7 +65,7 @@ SET FFMPEG_TAG=8.0
 
 :: Addional files
 SET KJNODES_TAG=tags/1.1.9
-SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
+::SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
 
 
 :: TAGS
@@ -1024,7 +1024,13 @@ ECHO Apply extra requirements ...
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-easy-use\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\rgthree-comfy\requirements.txt
 :: cause errors: .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\ComfyUI-ReActor\requirements.txt
-.\python_embeded\python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp313-cp313-win_amd64.whl
+
+.\python_embeded\python -m pip install --upgrade pip setuptools wheel build cython setuptools_scm
+.\python_embeded\python -m pip install --force-reinstall "stringzilla==4.4.0"
+.\python_embeded\python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp313-cp313-win_amd64.whl --no-deps
+.\python_embeded\python -m pip install albumentations
+.\python_embeded\python -c "import importlib; m=importlib.import_module('insightface.model_zoo.model_zoo'); print('HAS_PICKABLE', 'PickableInferenceSession' in dir(m)); print('insightface', getattr(importlib.import_module('insightface'),'__version__',None))"
+
 .\python_embeded\python -s -m pip install segment_anything
 :EXTRAS_END
 
@@ -1044,19 +1050,20 @@ ECHO Installing dependencies for Sage Attention
 .\python_embeded\python -s -m pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/packaging/onnxruntime-cuda-12/pypi/simple/
 
 
-ECHO Installing Triton and Sage Attention
+ECHO Installing Triton 
+:: and Sage Attention (DEACTIVATED IN 0.3.76 due to failing)
 .\python_embeded\python -m pip uninstall triton-windows
 .\python_embeded\python -m pip install -U --pre triton-windows
 cd python_embeded
 :: rem  (using URL instead)  git clone https://github.com/thu-ml/SageAttention
 cd ..
-.\python_embeded\python -m pip install %SAGEATTENTIONURL%
+::.\python_embeded\python -m pip install %SAGEATTENTIONURL%
 
-.\python_embeded\python %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\tests\test_triton.py
-
-echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build  >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+::  echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 echo pause >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 
+.\python_embeded\python %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\tests\test_triton.py
 
 :END_INSTALL_PACKS
 cd ..
