@@ -6,6 +6,6 @@ psutil
 py-cpuinfo
 matplotlib
 transformers
-
+nvidia-ml-py
 
 
