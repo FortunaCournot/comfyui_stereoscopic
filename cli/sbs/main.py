@@ -326,8 +326,9 @@ def run_pipeline(ctx: PipelineContext):
     ctx.t_end = time.perf_counter()
     print(f"Process time: {ctx.t_end - ctx.t_start:.4f} sec")
 
-
-        
+    if ctx.fatal_error == True:
+        sys.exit(1)
+ 
 # --- Command-line interface ---
 if __name__ == "__main__":
     import argparse
@@ -527,4 +528,5 @@ if __name__ == "__main__":
             debug_report(ctx)
             print(f"Conversion complete. Output saved to: {ctx.output_path}")
         
+
 
