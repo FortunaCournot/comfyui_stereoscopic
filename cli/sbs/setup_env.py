@@ -3,61 +3,48 @@ import sys
 import re
 import shutil
 import os
+import importlib
 
-def get_cuda_version():
-    """Detect installed CUDA version using nvidia-smi"""
-    try:
-        output = subprocess.check_output(["nvidia-smi"], encoding="utf-8")
-        match = re.search(r"CUDA Version: (\d+\.\d+)", output)
-        if match:
-            return match.group(1)
-    except Exception:
-        return None
 
-def try_install_torch(cuda_ver):
-    cu_str = cuda_ver.replace(".", "")
-    print(f"Trying to install PyTorch for cu{cu_str}...")
+def install_torch_auto():
+    """
+    Install PyTorch using install command from torch_detect.py.
+    """
+
     try:
-        subprocess.check_call([
-            sys.executable, "-m", "pip", "install", "-q",
-            "torch", "torchvision",
-            "--index-url", f"https://download.pytorch.org/whl/cu{cu_str}"
-        ])
-        return True
-    except subprocess.CalledProcessError:
+        import torch_detect
+    except Exception as e:
+        print(f"Error: cannot import torch_detect.py: {e}")
+        print("Make sure torch_detect.py is in the same folder.")
         return False
 
-def install_torch(cuda_ver):
-    """Try to install a matching PyTorch wheel for a specific CUDA version."""
-    if not cuda_ver:
-        print("CUDA not found, installing CPU version...")
-        subprocess.check_call([
-            sys.executable, "-m", "pip", "install",
-            "torch", "torchvision",
-            "--index-url", "https://download.pytorch.org/whl/cpu"
-        ])
-        return
+    print("\nDetecting best PyTorch build for your GPU...")
+    choice = torch_detect.main()
 
-    print(f"Detected CUDA {cuda_ver}")
-    ver = float(cuda_ver)
-    tried = set()
+    # CPU fallback
+    if not choice:
+        print("Installing CPU version of PyTorch...")
+        cpu_cmd = f"{sys.executable} -m pip install torch --index-url https://download.pytorch.org/whl/cpu"
 
-    while ver >= 10.0:
-        ver_str = f"{ver:.1f}"
-        if ver_str in tried:
-            break
-        tried.add(ver_str)
-        if try_install_torch(ver_str):
-            print(f"Successfully installed for CUDA {ver_str}")
-            return
-        ver = round(ver - 0.1, 1)
+        try:
+            subprocess.check_call(cpu_cmd, shell=True)
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"CPU installation failed: {e}")
+            return False
 
-    print("No compatible CUDA wheel found, installing CPU version...")
-    subprocess.check_call([
-        sys.executable, "-m", "pip", "install",
-        "torch", "torchvision",
-        "--index-url", "https://download.pytorch.org/whl/cpu"
-    ])
+    try:
+        subprocess.check_call(choice["cmd"], shell=True)
+        print("PyTorch installation completed!")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        print(f"Installation failed: {e}")
+        print("Falling back to CPU version...")
+
+        cpu_cmd = f"{sys.executable} -m pip install torch  --index-url https://download.pytorch.org/whl/cpu"
+        subprocess.check_call(cpu_cmd, shell=True)
+        return True
 
 def test_torch():
     """Verify that PyTorch is installed and CUDA works."""
@@ -100,16 +87,17 @@ def test_ffmpeg():
             "  https://github.com/aaatipamula/ffmpeg-install"
         )
         
-def install_requirements():
+def install_requirements_and_refresh():
     """
-    Install packages from requirements.txt located in the same folder as this script.
+    Install packages from requirements.txt located in the same folder as this script
+    and refresh Python's import system.
     """
     script_dir = os.path.dirname(os.path.abspath(__file__))
     req_file = os.path.join(script_dir, "requirements.txt")
 
     if not os.path.exists(req_file):
         print(f"requirements.txt not found in {script_dir}")
-        return
+        return False
 
     print(f"Installing packages from {req_file} ...")
     try:
@@ -117,11 +105,18 @@ def install_requirements():
         print("All packages from requirements.txt installed successfully!")
     except subprocess.CalledProcessError as e:
         print(f"Error installing requirements: {e}")
+        return False
+
+    # refresh
+    importlib.invalidate_caches()
+    if hasattr(sys, 'path_importer_cache'):
+        sys.path_importer_cache.clear()
+
+    return True
 
 if __name__ == "__main__":
-    install_requirements()
-    cuda_ver = get_cuda_version()
-    install_torch(cuda_ver)
+    install_requirements_and_refresh()
+    install_torch_auto()
     test_torch()
     test_ffmpeg()
 
