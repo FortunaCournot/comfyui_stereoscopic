@@ -741,7 +741,7 @@ echo\ >>install.sh
 echo echo "Download license files..." >>install.sh
 :: Download licenses . for tags from /tags/... the other from /heads/main/
 echo  installFile "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/refs/heads/master/LICENSE" "./LICENSE_ComfyUI-portable.TXT"  >>install.sh
-echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/tags/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 IF %INTERACTIVE% equ 1 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
 ::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
