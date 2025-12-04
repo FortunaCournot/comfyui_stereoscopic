@@ -843,7 +843,9 @@ echo\ >>install.sh
 :: copy python libs
 echo   installFile "https://github.com/woct0rdho/triton-windows/releases/download/v3.0.0-windows.post1/python_3.13.2_include_libs.zip" "install/python_3.13.2_include_libs.zip" >>install.sh
 echo   if [ ^^! $? = 0 ] ; then echo "[33mWarning: Failed to download python libraries and includes[0m/" ; fi >>install.sh
-echo   unzip -o -d %VRWEAREPATH%\ComfyUI_windows_portable\python_embeded install/python_3.13.2_include_libs.zip   >>install.sh
+echo   cd ComfyUI_windows_portable/python_embeded   >>install.sh
+echo   unzip -o ../../install/python_3.13.2_include_libs.zip   >>install.sh
+echo   cd ../..   >>install.sh
 
 ::  Download and unpackage comfyui nodes
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Manager/archive/refs/tags/%MANAGER_TAG%.tar.gz" "install/manager.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-manager" "%MANAGER_SHA%" >>install.sh
@@ -1032,7 +1034,6 @@ IF "%HAS_NVIDIA_GPU%" == "0" GOTO END_INSTALL_PACKS
 
 :: sage attention dependencies
 ECHO Installing dependencies for Sage Attention
-.\python_embeded\python -m pip install --force-reinstall --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
 .\python_embeded\python -m pip install bitsandbytes
 .\python_embeded\python -s -m pip install "accelerate >= 1.4.0"
 .\python_embeded\python -s -m pip install "diffusers >= 0.32.2"
