@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "workflow-i2vli-fi-wan22",
+  "workflow_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/I2V_FFLF_WD14_Wan22_API.json",
+  "prompt": "",
+  "input": "image",
+  "output": "video,image",
+}
