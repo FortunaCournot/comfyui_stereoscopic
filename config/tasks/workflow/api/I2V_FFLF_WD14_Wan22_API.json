@@ -380,6 +380,28 @@
       "title": "KSampler (Advanced)"
     }
   },
+  "39:102": {
+    "inputs": {
+      "method": "hm-mvgd-hm",
+      "strength": [
+        "39:103",
+        1
+      ],
+      "multithread": true,
+      "image_ref": [
+        "59",
+        0
+      ],
+      "image_target": [
+        "39:103",
+        0
+      ]
+    },
+    "class_type": "ColorMatch",
+    "_meta": {
+      "title": "Color Match hm-mvgd-hm"
+    }
+  },
   "39:50": {
     "inputs": {
       "model": "wd-v1-4-moat-tagger-v2",
@@ -537,7 +559,7 @@
     "inputs": {
       "fps": 16,
       "images": [
-        "59",
+        "39:102",
         0
       ]
     },
@@ -711,6 +733,22 @@
     "class_type": "easy indexAnything",
     "_meta": {
       "title": "Index Any"
+    }
+  },
+  "39:103": {
+    "inputs": {
+      "start": 0,
+      "mid": 0,
+      "end": 0,
+      "midpoint": 0,
+      "images": [
+        "39:87",
+        0
+      ]
+    },
+    "class_type": "LinearFade",
+    "_meta": {
+      "title": "Linear Fade"
     }
   }
 }
