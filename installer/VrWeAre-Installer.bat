@@ -870,6 +870,7 @@ echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Crystools/archive/refs/tags/%CRYSTOOLS_TAG%.tar.gz" "install/crystools.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" >>install.sh
 echo   checkoutSoftware "https://github.com/crystian/ComfyUI-Crystools.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" "%CRYSTOOLS_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
+:: fix crystools crash problems - set default for GPU display to off.
 setlocal DISABLEDELAYEDEXPANSION
 echo   FILE="ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools/web/monitor.ts" >>install.sh
 echo   sed -E -i '/const monitorGPUNElement:[^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
