@@ -876,6 +876,10 @@ echo   FILE="ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools/web
 echo   sed -E -i '/const monitorGPUNElement:[^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
 echo   sed -E -i '/const monitorVRAMNElement:[^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
 echo   sed -E -i '/const monitorTemperatureNElement:[^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+echo   FILE="ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools/web/monitor.js" >>install.sh
+echo   sed -E -i '/const monitorGPUNElement [^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+echo   sed -E -i '/const monitorVRAMNElement [^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+echo   sed -E -i '/const monitorTemperatureNElement [^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
 endlocal
 
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Florence2/archive/refs/tags/%FLORENCE2_TAG%.tar.gz" "install/florence2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-florence2" >>install.sh
