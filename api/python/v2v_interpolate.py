@@ -104,7 +104,7 @@ prompt_text = """
   "11": {
     "inputs": {
       "filename_prefix": "vr/interpolate/intermediate/result",
-      "format": "mp4",
+      "format": "auto",
       "codec": "h264",
       "video": [
         "10",

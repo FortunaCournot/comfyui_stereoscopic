@@ -87,7 +87,7 @@ prompt_text = """
         "160",
         0
       ],
-      "format": "mp4",
+      "format": "auto",
       "codec": "h264",
       "video": [
         "198",

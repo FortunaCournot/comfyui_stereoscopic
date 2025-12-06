@@ -189,7 +189,7 @@ prompt_text = """
   "69": {
     "inputs": {
       "filename_prefix": "vr/outpaint/intermediate/result",
-      "format": "mp4",
+      "format": "auto",
       "codec": "h264",
       "video-preview": "",
       "video": [

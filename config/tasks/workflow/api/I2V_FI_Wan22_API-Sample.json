@@ -203,7 +203,7 @@
         "30",
         0
       ],
-      "format": "mp4",
+      "format": "auto",
       "codec": "h264",
       "video": [
         "39:104",
