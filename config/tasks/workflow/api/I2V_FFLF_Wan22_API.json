@@ -14,7 +14,7 @@
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "height"
+      "title": "height (custom aspect)"
     }
   },
   "20": {
@@ -41,7 +41,7 @@
     },
     "class_type": "PrimitiveInt",
     "_meta": {
-      "title": "width"
+      "title": "width (custom aspect)"
     }
   },
   "24": {
@@ -103,7 +103,7 @@
   },
   "48": {
     "inputs": {
-      "preview": "1girl, solo, looking_at_viewer, smile, simple_background, dress, closed_mouth, full_body, sleeveless, sleeveless_dress, outstretched_arms, pink_dress, spread_arms",
+      "preview": "",
       "source": [
         "46",
         0
@@ -133,7 +133,7 @@
     },
     "class_type": "CalculateDimensions",
     "_meta": {
-      "title": "Calculate Dimensions by Aspect"
+      "title": "Calc Dim by Factor and Aspect"
     }
   },
   "54": {
@@ -164,7 +164,7 @@
   },
   "56": {
     "inputs": {
-      "preview": "1073",
+      "preview": "",
       "source": [
         "55",
         0
@@ -177,7 +177,7 @@
   },
   "58": {
     "inputs": {
-      "preview": "A girl, she looks into the cam.",
+      "preview": "",
       "source": [
         "39:47",
         0
@@ -205,7 +205,6 @@
       ],
       "format": "auto",
       "codec": "h264",
-      "video-preview": "",
       "video": [
         "39:104",
         0
@@ -218,7 +217,7 @@
   },
   "61": {
     "inputs": {
-      "preview": "800",
+      "preview": "",
       "source": [
         "53",
         0
@@ -231,7 +230,7 @@
   },
   "62": {
     "inputs": {
-      "preview": "1440",
+      "preview": "",
       "source": [
         "53",
         1
@@ -403,22 +402,6 @@
       "title": "Color Match hm-mvgd-hm"
     }
   },
-  "39:103": {
-    "inputs": {
-      "start": 0,
-      "mid": 0,
-      "end": 0,
-      "midpoint": 0,
-      "images": [
-        "39:87",
-        0
-      ]
-    },
-    "class_type": "LinearFade",
-    "_meta": {
-      "title": "Linear Fade"
-    }
-  },
   "39:50": {
     "inputs": {
       "model": "wd-v1-4-moat-tagger-v2",
@@ -427,7 +410,6 @@
       "replace_underscore": false,
       "trailing_comma": false,
       "exclude_tags": "",
-      "tags": "1girl, solo, looking_at_viewer, smile, simple_background, dress, closed_mouth, full_body, sleeveless, sleeveless_dress, outstretched_arms, pink_dress, spread_arms",
       "image": [
         "39:105",
         0
@@ -520,7 +502,7 @@
         0
       ],
       "start_image": [
-        "39:107",
+        "59",
         0
       ]
     },
@@ -579,36 +561,11 @@
       "title": "Spec Variants"
     }
   },
-  "39:106": {
-    "inputs": {
-      "model_name": "RealESRGAN_x2plus.pth"
-    },
-    "class_type": "UpscaleModelLoader",
-    "_meta": {
-      "title": "Load Upscale Model"
-    }
-  },
-  "39:107": {
-    "inputs": {
-      "upscale_model": [
-        "39:106",
-        0
-      ],
-      "image": [
-        "59",
-        0
-      ]
-    },
-    "class_type": "ImageUpscaleWithModel",
-    "_meta": {
-      "title": "Upscale Image (using Model)"
-    }
-  },
   "39:62": {
     "inputs": {
       "shift": 5.000000000000001,
       "model": [
-        "39:118",
+        "39:72",
         0
       ]
     },
@@ -621,7 +578,7 @@
     "inputs": {
       "shift": 5.000000000000001,
       "model": [
-        "39:119",
+        "39:71",
         0
       ]
     },
@@ -644,19 +601,6 @@
     "class_type": "VariantPromptBuilder",
     "_meta": {
       "title": "Variant Prompt Builder"
-    }
-  },
-  "39:104": {
-    "inputs": {
-      "fps": 16,
-      "images": [
-        "39:102",
-        0
-      ]
-    },
-    "class_type": "CreateVideo",
-    "_meta": {
-      "title": "Create Video"
     }
   },
   "39:51": {
@@ -730,88 +674,33 @@
       "title": "VAE Decode"
     }
   },
-  "39:113": {
+  "39:103": {
     "inputs": {
-      "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
-      "strength_model": 1.0000000000000002,
-      "model": [
-        "39:72",
+      "start": 0,
+      "mid": 0,
+      "end": 0,
+      "midpoint": 0,
+      "images": [
+        "39:87",
         0
       ]
     },
-    "class_type": "LoraLoaderModelOnly",
+    "class_type": "LinearFade",
     "_meta": {
-      "title": "LoraLoaderModelOnly"
+      "title": "Linear Fade"
     }
   },
-  "39:119": {
+  "39:104": {
     "inputs": {
-      "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
-      "strength_model": 1,
-      "model": [
-        "39:114",
+      "fps": 16,
+      "images": [
+        "39:102",
         0
       ]
     },
-    "class_type": "LoraLoaderModelOnly",
+    "class_type": "CreateVideo",
     "_meta": {
-      "title": "LoraLoaderModelOnly"
-    }
-  },
-  "39:118": {
-    "inputs": {
-      "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
-      "strength_model": 1,
-      "model": [
-        "39:115",
-        0
-      ]
-    },
-    "class_type": "LoraLoaderModelOnly",
-    "_meta": {
-      "title": "LoraLoaderModelOnly"
-    }
-  },
-  "39:114": {
-    "inputs": {
-      "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
-      "strength_model": 1,
-      "model": [
-        "39:112",
-        0
-      ]
-    },
-    "class_type": "LoraLoaderModelOnly",
-    "_meta": {
-      "title": "LoraLoaderModelOnly"
-    }
-  },
-  "39:115": {
-    "inputs": {
-      "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
-      "strength_model": 1,
-      "model": [
-        "39:113",
-        0
-      ]
-    },
-    "class_type": "LoraLoaderModelOnly",
-    "_meta": {
-      "title": "LoraLoaderModelOnly"
-    }
-  },
-  "39:112": {
-    "inputs": {
-      "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
-      "strength_model": 1,
-      "model": [
-        "39:71",
-        0
-      ]
-    },
-    "class_type": "LoraLoaderModelOnly",
-    "_meta": {
-      "title": "LoraLoaderModelOnly"
+      "title": "Create Video"
     }
   }
 }
