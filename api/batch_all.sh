@@ -73,6 +73,17 @@ elif [ -d "custom_nodes" ]; then
 	#./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+	CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
+	if [ $CAPCOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh caption || exit 1 )
+		rm -f user/default/comfyui_stereoscopic/.daemonstatus
+	fi
+
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
@@ -130,6 +141,17 @@ elif [ -d "custom_nodes" ]; then
 		./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh $SBS_DEPTH_SCALE $SBS_DEPTH_OFFSET
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh fullsbs || exit 1 )
+	fi
+
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+	INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	if [ $INTERPOLATECOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "****** INTERPOLATE *******"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_interpolate.sh || exit 1
+		rm -f user/default/comfyui_stereoscopic/.daemonstatus
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh interpolate || exit 1 )
 	fi
 
 
@@ -218,29 +240,6 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_watermark_decrypt.sh || exit 1
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
-	fi
-
-	### SKIP IF CONFIG CHECK FAILED ###
-	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
-	if [ $CAPCOUNT -gt 0 ] ; then
-		[ $loglevel -ge 1 ] && echo "**************************"
-		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
-		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh || exit 1
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh caption || exit 1 )
-		rm -f user/default/comfyui_stereoscopic/.daemonstatus
-	fi
-
-	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
-	if [ $INTERPOLATECOUNT -gt 0 ] ; then
-		[ $loglevel -ge 1 ] && echo "**************************"
-		[ $loglevel -ge 0 ] && echo "****** INTERPOLATE *******"
-		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_interpolate.sh || exit 1
-		rm -f user/default/comfyui_stereoscopic/.daemonstatus
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh interpolate || exit 1 )
 	fi
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
