@@ -455,7 +455,8 @@ fi
 echo -e $"\e[2mCleaning up unprotected done folders\e[0m"
 for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
 	if [ ! -f input/vr/$stagepath/done/.nocleanup ] ; then
-		rm -f -- input/vr/$stagepath/done/* 2>/dev/null
+		#rm -f -- input/vr/$stagepath/done/* 2>/dev/null
+    powershell -NoProfile -Command "param([string]\$stage); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr' -ChildPath \$stage; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$stagepath" 2>/dev/null
 	fi
 done
 TASKDIR=`find input/vr/tasks -maxdepth 1 -type d`
