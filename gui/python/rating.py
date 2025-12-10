@@ -2549,6 +2549,7 @@ class VideoThread(QThread):
         self.pingPongReverseState=False
         self.seekRequest=-1
         self.busy=False
+        self.WarnOdd=False
         #print("Created thread with uid " + str(uid) , flush=True)
 
     def run(self):
@@ -2577,6 +2578,8 @@ class VideoThread(QThread):
             return
 
         self.frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) % 2 != 0:
+            self.WarnOdd=True
         self.a = 0
         self.b = self.frame_count - 1
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
@@ -2646,6 +2649,10 @@ class VideoThread(QThread):
                             self.seek(self.a)
                         else:
                             ret, cv_img = self.cap.read()
+                            if not self.is_frame_valid(ret, cv_img):
+                                # Fehlerbehandlung: EOF, defekter Frame oder Lesefehler
+                                print("Fehler beim Laden des Frames", flush=True)
+                            
                             if self.pause:
                                 print("meanwhile paused. ignore image.", flush=True)
                                 pass # ignore image
@@ -2743,6 +2750,24 @@ class VideoThread(QThread):
     #def seekUpdate(self, cv_img):
     #    self.change_pixmap_signal.emit(cv_img, self.uid)
         
+    def is_frame_valid(self, ret, frame) -> bool:
+        """
+        Robust prüfen, ob cap.read() ein gültiges Bild geliefert hat.
+        - ret: bool (Rückgabewert von cap.read())
+        - frame: ndarray oder None
+        """
+        if not bool(ret):
+            return False
+        if frame is None:
+            return False
+        # ndarray hat .size: 0 bedeutet kein Pixelinhalt
+        if getattr(frame, "size", 0) == 0:
+            return False
+        # optional: sicherstellen, dass es ein numpy-array ist mit min. 2 Dimensionen (H,W[,C])
+        if not isinstance(frame, np.ndarray) or frame.ndim < 2:
+            return False
+        return True
+    
     def setPingPongModeEnabled(self, state):
         self.pingPongModeEnabled=state
         self.pingPongReverseState=False
