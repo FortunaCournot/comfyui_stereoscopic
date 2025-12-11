@@ -194,7 +194,7 @@ else
   tmp=${TARGETPREFIX%_}
   num=${tmp##*_}
   prefix=${tmp%_*}_
-  TARGETPREFIXNEXT=$(printf "%s%05d_" "$prefix" "$((num+1))")
+  TARGETPREFIXNEXT=$(printf "%s%05d_" "$prefix" "$((10#$num+1))")
 	FINALTARGETIMG="$FINALTARGETFOLDER/""${TARGETPREFIXNEXT##*/}"".png"
 
 	if [ -s "$INTERMEDIATE" ] && [ -s "$INTERMEDIATEIMG" ] ; then
