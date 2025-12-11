@@ -55,7 +55,7 @@ CheckProbeValue() {
 		if [[ "$file" = *"_SBS_LR"* ]] ; then echo "_SBS_LR check true for $file"; else echo "_SBS_LR check false for $file" ; fi
 	elif [ "$key" = "image" ] ; then
 		lcfile="${file,,}"
-		if [[ "$lcfile" = *".mp4" ]] || [[ "$lcfile" = *".webm" ]] || [[ "$lcfile" = *".ts" ]] ; then value1="false" ; else value1="true" ; fi
+		if [[ "$lcfile" = *".png" ]] || [[ "$lcfile" = *".webp" ]] || [[ "$lcfile" = *".jpg" ]] || [[ "$lcfile" = *".jpeg" ]] || [[ "$lcfile" = *".gif" ]] ; then value1="true" ; else value1="false" ; fi
 	elif [ "$key" = "video" ] ; then
 		lcfile="${file,,}"
 		if [[ "$lcfile" = *".mp4" ]] || [[ "$lcfile" = *".webm" ]] || [[ "$lcfile" = *".ts" ]] ; then value1="true" ; else value1="false" ; fi
@@ -167,7 +167,7 @@ else
 		temp="${temp%\"*}"
 		temp="${temp#*\"}"
 		outputrule="${temp%,*}"
-		#[ $loglevel -ge 1 ] && echo "forward output rule = $outputrule"
+		[ $loglevel -ge 1 ] && echo "forward output rule = $outputrule"
 
 		DELAY=0
 		temp=`grep forward_delay $sourcedef`
@@ -184,8 +184,8 @@ else
 			destination=`echo $destination`
 			[ !  -z "$destination" ] && [ "${destination:0:1}" = "#" ] && continue
 			conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
-			[ $LOGRULES -gt 0 ] && echo "destination: '""$destination""'"
-			[ $LOGRULES -gt 0 ] && echo "conditionalrules: '""$destination""'"
+			[ $LOGRULES -gt 0 ] && echo "Rule: '""$destination""'"
+			[ $LOGRULES -gt 0 ] && echo "conditionalrules: '""$conditionalrules""'"
 			destination=${destination##*\]}
 			[ $LOGRULES -gt 0 ] && echo "destination: '""$destination""'"
 			mkdir -p input/vr/$destination 2>/dev/null
@@ -245,7 +245,7 @@ else
 					
 				fi
 				
-				#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
+				[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo "forward input rule rules = $inputrule"
 				
 				mkdir -p user/default/comfyui_stereoscopic
 				MOVEMSGPREFIX=$'\n'
@@ -253,6 +253,7 @@ else
 				do
 					for o in ${outputrule//;/ }
 					do
+            [ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo "$i :: $o"
 						if [[ $i == $o ]] ; then
 							if [[ $i == "video" ]] ; then
 								OIFS="$IFS"
