@@ -54,7 +54,7 @@ if USE_TRASHBIN:
 TRACELEVEL=0
 
 # Globale statische Liste der erlaubten Suffixe
-VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts', '.flv']
+VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts', '.flv', '.mkv']
 IMAGE_EXTENSIONS = ['.png', '.webp', '.jpg', '.jpeg', '.jfif']
 ALL_EXTENSIONS = VIDEO_EXTENSIONS + IMAGE_EXTENSIONS
 global _readyfiles, _activeExtensions, _filterEdit, _sortOrderIndex
