@@ -380,16 +380,22 @@ then
 fi
 taskdefinitions=`ls "$CONFIGPATH"/tasks/*.json 2>/dev/null` 
 for task in $taskdefinitions ; do
-	taskname=${task##*/}
-	taskname=${taskname%.json}
-	taskname=${taskname//[^[:alnum:].-]/_}
-	taskname=${taskname// /_}
-	taskname=${taskname//\(/_}
-	taskname=${taskname//\)/_}
-	version=`cat "$task" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-	if [ $version -eq 1 ] ; then
-		mkdir -p input/vr/tasks/"_"$taskname output/vr/tasks/"_"$taskname
-	fi
+  if [ -e "$task" ] ; then
+    taskname=${task##*/}
+    taskname=${taskname%.json}
+    taskname=${taskname//[^[:alnum:].-]/_}
+    taskname=${taskname// /_}
+    taskname=${taskname//\(/_}
+    taskname=${taskname//\)/_}
+    version=`cat "$task" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+    if [ -z "$version" ] ; then
+      version=0
+      echo -e $"\e[93mWarning: Invalid Version definition: $task \e[0m"
+    fi
+    if [ $version -eq 1 ] ; then
+      mkdir -p input/vr/tasks/"_"$taskname output/vr/tasks/"_"$taskname
+    fi
+  fi
 done
 
 # PLACE HINT FILES
