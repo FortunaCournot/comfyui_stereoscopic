@@ -78,7 +78,7 @@ if path not in sys.path:
 # File Global
 global videoActive, rememberThread, fileDragged, FILESCANTIME, TASKCHECKTIME, WAIT_DIALOG_THRESHOLD_TIME
 videoActive=False
-rememberThread=None
+rememberThread=[]
 fileDragged=False
 FILESCANTIME = 500
 TASKCHECKTIME = 20
@@ -185,7 +185,28 @@ def replace_file_suffix(file_path: str, new_suffix: str) -> str:
 
     # Combine root with new suffix
     return root + new_suffix            
-   
+
+def print_exception_stack_with_locals(exc):
+    tb = exc.__traceback__
+    i = 0
+    while tb is not None:
+        frame = tb.tb_frame
+        lineno = tb.tb_lineno
+        func = frame.f_code.co_name
+        filename = frame.f_code.co_filename
+        # source line if available
+        try:
+            line = traceback.extract_tb(tb, limit=1)[0].line
+        except Exception:
+            line = None
+        print(f"#{i} {func} @ {filename}:{lineno} -> {line}")
+        # show locals at the frame where exception happened (optional, might be large)
+        for name, val in frame.f_locals.items():
+            print(f"      {name} = {val!r}")
+        tb = tb.tb_next
+        i += 1
+
+
 class WaitDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent, Qt.FramelessWindowHint)
@@ -2544,7 +2565,7 @@ class VideoThread(QThread):
         self.currentFrame=-1
         self.frame_count=-1
         self.fps=1
-        self._run_flag = False
+        self._run_flag = True
         self.pingPongModeEnabled=pingpong
         self.pingPongReverseState=False
         self.seekRequest=-1
@@ -2607,7 +2628,6 @@ class VideoThread(QThread):
         self.slider.valueChanged.connect(self.sliderChanged)
         self.slider.registerForMouseEvent(self.onSliderMouseClick)
 
-        self._run_flag = True
         videoActive=True
 
         leaveUITask()
@@ -2689,7 +2709,9 @@ class VideoThread(QThread):
             self.cap.release()
             videoActive=False
             #print("Thread ends.", flush=True)
-            #rememberThread=None
+
+            global rememberThread
+            rememberThread.remove(self)
              
 
     def requestStop(self):
@@ -3016,6 +3038,8 @@ class Display(QLabel):
 
     def showFile(self, filepath):
         self.stopAndBlackout()
+        #print("Show file "  + filepath, flush=True) 
+
         if filepath.endswith(tuple(VIDEO_EXTENSIONS)):
             self.setVideo(filepath)
             return "video"
@@ -3078,7 +3102,7 @@ class Display(QLabel):
             self.button.setVisible(True)
             self.thread = VideoThread(self, self.filepath, uid, self.slider, self.updatePaused, self.onVideoLoaded, self.playtype_pingpong)
             global rememberThread
-            rememberThread=self.thread
+            rememberThread.append(self.thread)
             self.trimAFrame=0
             self.trimBFrame=-1
             self.slider.resetAB()
@@ -3093,14 +3117,17 @@ class Display(QLabel):
             
             
     def releaseVideo(self):
-        if self.thread:
-            t=self.thread
-            self.thread=None
-            self.button.clicked.disconnect(self.tooglePausePressed)
-            t.change_pixmap_signal.disconnect(self.update_image)
-            t.requestStop()
-            t.deleteLater()
-            self.update_image(np.array([]), -1)
+        try:
+            if self.thread:
+                t=self.thread
+                self.thread=None
+                self.button.clicked.disconnect(self.tooglePausePressed)
+                t.change_pixmap_signal.disconnect(self.update_image)
+                t.requestStop()
+                # t.deleteLater()
+                self.update_image(np.array([]), -1)
+        except:
+            print(traceback.format_exc(), flush=True)
 
     def onVideoLoaded(self, count, fps, length):
         if self.thread:
