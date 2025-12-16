@@ -120,19 +120,7 @@ def merge_with_preset(args: argparse.Namespace, preset_data: dict, cls_type) -> 
             print(f"Type mismatch for key '{k}' — expected {expected_types}, got {type(v)}")
 
         merged[k] = v
-        
-    # Optional NVENC auto-switch
-    if (
-        preset_data.get("codec", "").startswith("libx")
-        and args_dict.get("codec") is None
-        and preset_data.get("input_type", "video") == "video"
-    ):
-        if detect_nvenc_support():
-            merged["codec"] = "h264_nvenc"
-            print("NVENC available — using GPU encoder (h264_nvenc).")
-        else:
-            print(f"Using CPU encoder: {preset_data.get('codec', 'libx264')}")
-        
+                
     # overwrite from CLI
     for k, v in args_dict.items():
         if v is None:
