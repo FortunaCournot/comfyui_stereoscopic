@@ -1,7 +1,7 @@
 # VR we are! (CLI)
 
 Fast, cross-platform **video → stereoscopic SBS** converter powered by **Depth Anything V2**.
-Built for batch work, tuned for GPUs, and designed with a **multi-stage**, **multi-threaded** pipeline that keeps your CPU, GPU and I/O busy.
+Built for batch work, tuned for GPUs, and designed with a **multi-threaded** pipeline that keeps your CPU, GPU and I/O busy.
 
 
 
@@ -44,14 +44,12 @@ Creation venv
 ```bash
 python -m venv venv
 ```
-Activating venv
+Activating venv *Windows*
 ```bash
-# Windows
 venv\Scripts\activate
 ```
-or
+or *Linux*
 ```bash
-# Linux
 source venv/bin/activate
 ```
 
@@ -100,9 +98,9 @@ python main.py -i ./Images -o ./out --input-type i2i
 
 ### Debug mode
 
-To see detailed performance stats and system info, add `-d`:
+To see detailed performance stats and system info, add `--debug`:
 ```bash
-python main.py -i input.mp4 -o output_sbs.mp4 --preset balance -d
+python main.py -i input.mp4 -o output_sbs.mp4 --preset balance --debug
 ```
 
 
@@ -110,6 +108,15 @@ python main.py -i input.mp4 -o output_sbs.mp4 --preset balance -d
 ## ⚡ Performance Presets (Full HD, Depth-Anything-V2)
 Benchmarks measured on **AMD Ryzen 7 7700X + NVIDIA GeForce RTX 5090 + 32 GB DDR5**  
 *(Windows 10, CUDA 12, Python 3.12)*  
+
+> **Note:**
+> 
+> Presets are designed for convenience and to provide stable performance baselines.
+> This pipeline does not impose strict limits on RAM, VRAM, or other system resources - if something crashes due to lack of resources, it will usually not be prevented automatically.
+>
+> Therefore, it is highly recommended to use presets as a starting point (for fine-tuning via `--debug`), but do not assume you will get identical performance results, as many variables affect it - most importantly, the balance of your hardware and operating system.
+
+
 
 ###  Presets - Folder Mode (Full HD)
 
@@ -148,10 +155,12 @@ Benchmarks measured on **AMD Ryzen 7 7700X + NVIDIA GeForce RTX 5090 + 32 GB DDR
 ├─ pipeline_core.py      # Worker threads (feeder → preprocess → GPU → process → save)
 ├─ depthestimator.py     # Depth Anything V2 (HF Transformers + PyTorch)
 ├─ converter.py          # SBS image conversion (Numba + OpenCV)
-├─ utils.py              # NVENC detect, presets merge, system info, debug report
+├─ sbsutils.py           # NVENC detect, presets merge, system info, debug report
 ├─ monitor.py            # Queue/Memory monitors + plots
 ├─ presets.json          # Ready presets (video/folder)
+├─ test_cli.py           # Testing operational
 ├─ setup_env.py          # Bootstrap PyTorch/FFmpeg and requirements
+├─ torch_detect.py       # Torch check (setup_env.py component)
 ├─ requirements.txt
 └─ README.md
 ```
@@ -159,14 +168,18 @@ Benchmarks measured on **AMD Ryzen 7 7700X + NVIDIA GeForce RTX 5090 + 32 GB DDR
 ## Credits
 
 * **Fortuna** - original ComfyUI nodes, docs, and project leadership
-* **Sam Seen** - ComfyUI_SSStereoscope inspiration
 * Community testers and artists who shared feedback and examples
 
+## Acknowledgements
 
+This project uses the following open-source Python libraries:
+`numpy`, `numba`, `opencv-python`, `natsort`, `psutil`, `py-cpuinfo`,
+`matplotlib`, and `transformers`.
+
+It also uses models from the project:
+[Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2).
 
 ## 💬 Contact
 
 * GitHub Issues: [https://github.com/Iablunoshka/VR-we-are-CLI/issues](https://github.com/Iablunoshka/VR-we-are-CLI/issues)
 * Discord: [Activation Link](https://discord.gg/ZegT6Cc8FG)
-
-
