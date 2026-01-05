@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2i",
+  "options": "-vf select=eq\(n\,$frame_count-1\) -vframes 1",
+  "extension": "_lf.png",
+  "input": "video",
+  "output": "image",
+}
