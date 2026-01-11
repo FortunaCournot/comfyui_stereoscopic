@@ -78,6 +78,7 @@ if path not in sys.path:
 # File Global
 global videoActive, rememberThread, fileDragged, FILESCANTIME, TASKCHECKTIME, WAIT_DIALOG_THRESHOLD_TIME
 videoActive=False
+videoPauseRequested=False
 rememberThread=[]
 fileDragged=False
 FILESCANTIME = 500
@@ -1174,16 +1175,19 @@ class RateAndCutDialog(QDialog):
             elif event.key() == Qt.Key_U:
                 if self.display.slider.isEnabled() and self.display.slider.isVisible() and not self.display.slider.hasFocus():
                     self.display.slider.setFocus()
-            elif event.key() == Qt.Key_PageUp:
-                if self.display.slider.isEnabled() and self.display.slider.isVisible() and not self.display.slider.hasFocus():
-                    if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible() and not self.display.isPaused():
-                        self.display.tooglePausePressed()
-                    self.display.slider.setFocus()
-            elif event.key() == Qt.Key_PageDown:
-                if self.display.slider.isEnabled() and self.display.slider.isVisible() and not self.display.slider.hasFocus():
-                    if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible() and not self.display.isPaused():
-                        self.display.tooglePausePressed()
-                    self.display.slider.setFocus()
+            elif event.key() == Qt.Key_PageUp or event.key() == Qt.Key_PageDown:
+                if self.display.slider.isEnabled() and self.display.slider.isVisible():
+                    if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible():
+                        if not self.display.isPaused():
+                            global videoPauseRequested
+                            if not videoPauseRequested:
+                                videoPauseRequested=True
+                                startAsyncTask()
+                            self.display.tooglePausePressed()
+                        else:
+                            pass
+                    if not self.display.slider.hasFocus():
+                        self.display.slider.setFocus()
             #elif event.key() == Qt.Key_:
             #    if self.button_snapshot_from_video.isEnabled() and self.button_snapshot_from_video.isVisible():
             #        self.createSnapshot()
@@ -2578,6 +2582,7 @@ class VideoThread(QThread):
         
         global videoActive
         global rememberThread
+        global videoPauseRequested
         
         if not os.path.exists(self.filepath):
             print("Failed to open", self.filepath, flush=True)
@@ -2698,6 +2703,9 @@ class VideoThread(QThread):
                     self.seekRequest=-1
                 else:
                     self.idle=True
+                    if videoPauseRequested:
+                        videoPauseRequested=False
+                        endAsyncTask()
                 
                 elapsed = time.time()-timestamp
                 sleeptime = max(0.02, 1.0/float(self.fps) - elapsed)
@@ -2709,6 +2717,10 @@ class VideoThread(QThread):
             self.cap.release()
             videoActive=False
             #print("Thread ends.", flush=True)
+
+            if videoPauseRequested:
+                videoPauseRequested=False
+                endAsyncTask()
 
             global rememberThread
             rememberThread.remove(self)
