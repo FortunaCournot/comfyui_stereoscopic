@@ -2041,7 +2041,7 @@ class RateAndCutDialog(QDialog):
             fnum=1
             while os.path.exists(outputBase + str(fnum) + outputSuffix):
                 fnum+=1
-            return inputRelative[:inputRelative.rindex('.')] + "_" + str(fnum) + outputSuffix
+            return outputBase + str(fnum) + outputSuffix
         
 
     def createTrimmedAndCroppedCopy(self):
