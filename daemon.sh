@@ -40,7 +40,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K input/vr/caption input/vr/check/rate input/vr/check/released
+mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/dubbing/music input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K input/vr/caption input/vr/check/rate input/vr/check/released
 mkdir -p output/vr/check/rate output/vr/check/released
 
 source ./user/default/comfyui_stereoscopic/.environment
@@ -218,8 +218,10 @@ else
 			SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
 			if [ -x "$(command -v nvidia-smi)" ]; then
 				DUBSFXCOUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+				DUBMUSICCOUNT=`find input/vr/dubbing/music -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
 			else
 				DUBSFXCOUNT=0
+				DUBMUSICCOUNT=0
 			fi
 			SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
@@ -240,7 +242,7 @@ else
 				fi
 			fi
 			
-			COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + INTERPOLATECOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT + CAPCOUNT + TASKCOUNT ))
+			COUNT=$(( DUBSFXCOUNT + DUBMUSICCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + INTERPOLATECOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT + CAPCOUNT + TASKCOUNT ))
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
 			COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
 			if [ -e user/default/comfyui_stereoscopic/.pipelinepause ] ; then

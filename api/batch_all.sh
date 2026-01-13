@@ -222,6 +222,29 @@ elif [ -d "custom_nodes" ]; then
 		mv -fv input/vr/dubbing/sfx/*.mp4 input/vr/dubbing/sfx/error
 	fi
 
+	### SKIP IF DEPENDENCY CHECK FAILED ###
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+	DUBCOUNTMUSIC=`find input/vr/dubbing/music -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
+	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTMUSIC -gt 0 ]; then
+		if [ -x "$(command -v nvidia-smi)" ]; then
+			# DUBBING: Video -> Video with music
+			# In:  input/vr/dubbing/music
+			# Out: output/vr/dubbing/music
+			[ $loglevel -ge 1 ] && echo "**************************"
+			[ $loglevel -ge 0 ] && echo "***** DUBBING MUSIC ******"
+			[ $loglevel -ge 1 ] && echo "**************************"
+			./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_music.sh || exit 1
+			rm -f user/default/comfyui_stereoscopic/.daemonstatus
+			[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh dubbing/music || exit 1 )
+		else
+			echo 'Warning: nvidea-smi is not installed. Dubbing required CUDA.'
+		fi
+
+	elif [ $DUBCOUNTMUSIC -gt 0 ]; then
+		mkdir -p input/vr/dubbing/music/error
+		mv -fv input/vr/dubbing/music/*.mp4 input/vr/dubbing/music/error
+	fi
+
 	### SKIP IF CONFIG CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`

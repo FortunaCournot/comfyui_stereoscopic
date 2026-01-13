@@ -60,6 +60,50 @@ else
 		IMGANDVIDFILES=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4'`
 		echo "concat" >user/default/comfyui_stereoscopic/.daemonstatus
 	
+    MINW=3840
+    MINH=2160
+    MAXW=0
+    MAXH=0
+		for nextinputfile in $IMGANDVIDFILES ; do
+			INDEX+=1
+			newfn=part_$INDEX.mp4
+			cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
+			
+			if [ -e "output/vr/concat/intermediate/$newfn" ]
+			then
+				echo "file $newfn" >>output/vr/concat/intermediate/mylist.txt
+      
+        RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $newfn`
+        RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $newfn`
+        if [ `echo $RESW | wc -l` -ne 1 ] || [ `echo $RESH | wc -l` -ne 1 ] ; then
+          echo -e $"\e[91mError:\e[0m Can't process video. please resample."
+				  exit 1
+        fi
+        if [ $RESW -lt $MINW ] ; then
+          MINW=$RESW
+        fi
+        if [ $RESH -lt $MINH ] ; then
+          MINH=$RESH
+        fi
+        if [ $RESW -gt $MAXW ] ; then
+          MAXW=$RESW
+        fi
+        if [ $RESH -gt $MAXH ] ; then
+          MAXH=$RESH
+        fi
+			else
+				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/concat/intermediate/$newfn"
+				exit 1
+			fi						
+    done
+
+    if [ $MINW -ne $MAXW ] || [ $MINH -ne $MAXH ] ; then
+      echo -e $"\e[94mInfo:\e[0m Resolutions do no match. need padding... (TODO)"
+      #nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=$MAXFPS "$SPLITINPUTFPS"
+      #nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$newfn" -vf pad=$MAXW:$MAXH:(iw-ow)/2:(ih-oh)/2 "$TMPOUT"
+      exit 1
+    fi
+    
 		echo "" >output/vr/concat/intermediate/mylist.txt
 		for nextinputfile in $IMGANDVIDFILES ; do
 			INDEX+=1

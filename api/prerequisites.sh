@@ -408,7 +408,7 @@ mkdir -p input/vr/singleloop/error
 mkdir -p input/vr
 cd input/vr
 if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
-	for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
+	for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx dubbing/music watermark/encrypt watermark/decrypt caption interpolate ; do
 		mkdir -p $stagepath/done
 	done
 	TASKDIR=`find tasks -maxdepth 1 -type d`
@@ -427,7 +427,7 @@ cd ../..
 # Initialize folders
 mkdir -p output/vr
 cd output/vr
-mkdir -p caption fullsbs scaling dubbing/sfx interpolate watermark/encrypt watermark/decrypt slides concat singleloop slideshow
+mkdir -p caption fullsbs scaling dubbing/sfx dubbing/music interpolate watermark/encrypt watermark/decrypt slides concat singleloop slideshow
 cd ../..
 
 # REBUILD FORWARD PIPELINE
@@ -459,7 +459,7 @@ fi
 
 # Cleanup
 echo -e $"\e[2mCleaning up unprotected done folders\e[0m"
-for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
+for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx dubbing/music watermark/encrypt watermark/decrypt caption interpolate ; do
 	if [ ! -f input/vr/$stagepath/done/.nocleanup ] ; then
 		#rm -f -- input/vr/$stagepath/done/* 2>/dev/null
     powershell -NoProfile -Command "param([string]\$stage); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr' -ChildPath \$stage; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$stagepath" 2>/dev/null
@@ -537,6 +537,16 @@ fi
 if [ ! -e "$NEGATIVEPSFXATH" ]
 then
 	echo "music, voice, crying, squeaking." >$NEGATIVESFXPATH
+fi
+POSITIVEMUSICPATH="$CONFIGPATH/dubbing_music_positive.txt"
+NEGATIVEMUSICPATH="$CONFIGPATH/dubbing_music_negative.txt"
+if [ ! -e "$POSITIVEMUSICPATH" ]
+then
+	echo "cinematic film soundtrack music plays." >$POSITIVEMUSICPATH
+fi
+if [ ! -e "$NEGATIVEMUSICPATH" ]
+then
+	echo "sfx, voice, crying, squeaking." >$NEGATIVEMUSICPATH
 fi
 
 [ $loglevel -ge 0 ] && echo -e $"\e[2mFor processings read docs. \e[36mhttps://www.3d-gallery.org\e[0m"

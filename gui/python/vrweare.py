@@ -64,7 +64,7 @@ pipelinePauseLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 
 pipelineActiveLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelineactive'))
 pipelineFowardingLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.forwardstop'))
 
-STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/rate", "check/released"]
+STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/music", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/rate", "check/released"]
 subfolder = os.path.join(path, "../../../../custom_nodes/comfyui_stereoscopic/config/tasks")
 if os.path.exists(subfolder):
     onlyfiles = next(os.walk(subfolder))[2]
