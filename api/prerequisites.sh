@@ -542,11 +542,11 @@ POSITIVEMUSICPATH="$CONFIGPATH/dubbing_music_positive.txt"
 NEGATIVEMUSICPATH="$CONFIGPATH/dubbing_music_negative.txt"
 if [ ! -e "$POSITIVEMUSICPATH" ]
 then
-	echo "cinematic film soundtrack music plays." >$POSITIVEMUSICPATH
+	echo "cinematic film orchestral soundtrack music ." >$POSITIVEMUSICPATH
 fi
 if [ ! -e "$NEGATIVEMUSICPATH" ]
 then
-	echo "sfx, voice, crying, squeaking." >$NEGATIVEMUSICPATH
+	echo "crying, squeaking." >$NEGATIVEMUSICPATH
 fi
 
 [ $loglevel -ge 0 ] && echo -e $"\e[2mFor processings read docs. \e[36mhttps://www.3d-gallery.org\e[0m"
