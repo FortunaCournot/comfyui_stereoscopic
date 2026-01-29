@@ -124,6 +124,13 @@ else
     temp="${temp%,*}"
 	FPS=$(( temp ))
 	TARGETFPS=$(( multiplicator * $FPS ))
+
+	temp=`grep duration output/vr/interpolate/intermediate/probe.txt`
+	temp=${temp#*:}
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+    temp="${temp%,*}"
+	duration=`echo "$temp" | awk '{print $1 * 1000000 }'`
 	
 	if [ `echo $RESW | wc -l` -ne 1 ] || [ `echo $RESH | wc -l` -ne 1 ] ; then
 		echo -e $"\e[91mError:\e[0m Can't process video. please resample ${INPUT##*/} from input/vr/interpolate/error"
@@ -165,11 +172,27 @@ else
 		echo "--- $INDEX $inputfile"
 		echo "Reencode input..."
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$inputfile" -vcodec libx264 -crf 18 -qscale:v 2 -acodec aac -ac 2 -async 1 -strict experimental -threads 0 "$TARGETPREFIX""-rep-part""$INDEX"".mp4"
-		
-		echo "Interpolate..."
-		set -x
-		nice "$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$TARGETPREFIX""-rep-part""$INDEX"".mp4" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING_IP" "$TARGETPREFIX""-part""$INDEX"".mkv"
-		set +x
+
+    durdiff=1000000
+    trycount=0
+    while [[ $durdiff -ge 1000000 ]]; do
+      trycount=$(( trycount + 1 ))
+      echo "-- Interpolate... (part $INDEX, attemp $trycount) --"
+      set -x
+      nice "$TVAI_BIN_DIR"/ffmpeg.exe -hide_banner -stats  -nostdin -y -strict 2 -hwaccel auto -i "$TARGETPREFIX""-rep-part""$INDEX"".mp4" -c:v libvpx-vp9 -g 300 -crf 19 -b:v 2000k -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov -filter_complex "$TVAI_FILTER_STRING_IP" "$TARGETPREFIX""-part""$INDEX"".mkv"
+      set +x
+
+      `"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams v:0 -show_entries stream=codec_type,codec_name,bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$TARGETPREFIX""-part""$INDEX"".mkv" >output/vr/interpolate/intermediate/probe2.txt`
+      temp=`grep duration output/vr/interpolate/intermediate/probe.txt`
+      temp=${temp#*:}
+      temp="${temp%\"*}"
+        temp="${temp#*\"}"
+        temp="${temp%,*}"
+      duration2=`echo "$temp" | awk '{print $1 * 1000000 }'`
+      durdiff=$(( duration - duration2 ))
+      echo -e $"\e[0msource/interpolated: $duration/$duration2, delta=$durdiff (<1000000?)"
+    done
+    
 		rm -f -- "$TARGETPREFIX""-rep-part""$INDEX"".mp4"
 		if [ ! -e "$TARGETPREFIX""-part""$INDEX".mkv ] ; then
 			echo -e $"\e[91mError:\e[0m TVAI generation failed. Please check TVAI_FILTER_STRING_IP in $CONFIGFILE"
@@ -178,7 +201,7 @@ else
 			exit 0
 		fi
 		
-		echo "Reencode output..."
+		echo "-- Reencode output... (part $INDEX) --"
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX""-part""$INDEX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p "$TARGETPREFIX""-part""$INDEX"".mp4"
 		if [ ! -e "$TARGETPREFIX"-part"$INDEX".mp4 ] ; then
 			echo -e $"\e[91mError:\e[0m TVAI generation failed. Check for error messages."
