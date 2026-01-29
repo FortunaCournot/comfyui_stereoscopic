@@ -101,6 +101,8 @@ else
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	mkdir -p output/vr/scaling/intermediate
 	
+  set -x
+  
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT=/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF=/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
 	
@@ -129,8 +131,8 @@ else
 	fi
 
 
-	if [ $PIXEL -le $LIMIT2X ]; then
-		if [ $PIXEL -le $LIMIT4X ]; then
+	if [ $PIXEL -le $LIMIT2X ] || [ $RESH -lt 2160 ] ; then
+		if [ $PIXEL -le $LIMIT4X ] || [ $RESH -lt 1080 ] ; then
 			TARGETPREFIX="$TARGETPREFIX""_x4"
 			UPSCALEFACTOR=4
 			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP4X"

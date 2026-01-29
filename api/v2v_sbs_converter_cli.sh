@@ -97,8 +97,8 @@ else
 	
 	INPUT2="$INPUT"
 	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT2`
-	if [ $RESW -gt 1920 ] ; then
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=1920:-2" "$INTERMEDIATEPREFIX""-dw"".mp4" 
+	if [ $RESW -gt 3840 ] ; then
+		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=3840:-2" "$INTERMEDIATEPREFIX""-dw"".mp4" 
 		if [ ! -s "$INTERMEDIATEPREFIX""-dw"".mp4" ] ; then
 			echo -e $"\e[91mError\e[0m: Rescale width failed."
 			mkdir -p $CWD/input/vr/fullsbs/error
