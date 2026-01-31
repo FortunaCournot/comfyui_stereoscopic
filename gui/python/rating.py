@@ -114,6 +114,62 @@ def config(key, default):
 def isTaskActive():
     return taskCounterUI + taskCounterAsync > 0
 
+
+def safe_imread(path: str):
+    """Read image robustly when path contains special characters.
+
+    Tries cv2.imread first; if that returns None, falls back to reading
+    the file bytes and decoding with cv2.imdecode which avoids some
+    filename-encoding issues on Windows.
+    """
+    try:
+        img = cv2.imread(path)
+        if img is None or getattr(img, 'size', 0) == 0:
+            with open(path, 'rb') as f:
+                data = f.read()
+            arr = np.frombuffer(data, np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        return img
+    except Exception:
+        try:
+            with open(path, 'rb') as f:
+                data = f.read()
+            arr = np.frombuffer(data, np.uint8)
+            return cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        except Exception:
+            return None
+
+
+def open_videocapture_with_tmp(path: str):
+    """Open cv2.VideoCapture robustly for paths with special characters.
+
+    Returns a tuple (cap, tmp_path). tmp_path is None when no temporary
+    copy was created. If open fails, returns (cap, tmp_path) where cap
+    may be unopened.
+    """
+    cap = cv2.VideoCapture(path)
+    if cap.isOpened():
+        return cap, None
+
+    # Try copying to a temporary file with a safe name and reopen
+    try:
+        suffix = os.path.splitext(path)[1]
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        tmp.close()
+        shutil.copyfile(path, tmp.name)
+        cap2 = cv2.VideoCapture(tmp.name)
+        if cap2.isOpened():
+            return cap2, tmp.name
+        else:
+            try:
+                cap2.release()
+            except Exception:
+                pass
+            os.unlink(tmp.name)
+    except Exception:
+        pass
+    return cap, None
+
 def needsWaitDialog():
     global showWaitDialog
     
@@ -2587,18 +2643,27 @@ class VideoThread(QThread):
         if not os.path.exists(self.filepath):
             print("Failed to open", self.filepath, flush=True)
             self.onVideoLoaded(-1, 1.0, 0.0)
-            self.cap.release()
             leaveUITask()
             return
-            
-        self.cap = cv2.VideoCapture(self.filepath)
+
+        # Try opening normally, fall back to a temporary ASCII-named copy
+        cap, tmp_video = open_videocapture_with_tmp(self.filepath)
+        self.cap = cap
+        if tmp_video:
+            self._temp_video_file = tmp_video
         if not self.cap.isOpened():
             print("Failed to open", self.filepath, flush=True)
             try:
                 self.cap.release()
             except:
                 pass
-            self.cap=None
+            # cleanup temp copy if present
+            if getattr(self, '_temp_video_file', None):
+                try:
+                    os.unlink(self._temp_video_file)
+                except Exception:
+                    pass
+            self.cap = None
             self.onVideoLoaded(-1, 1.0, 0.0)
             leaveUITask()
             return
@@ -2694,8 +2759,20 @@ class VideoThread(QThread):
                                             self.seek(self.b-1)
                                     else:
                                         print("Error: failed to load frame", self.currentFrame, flush=True)
-                                        self.cap.release()
-                                        self.cap = cv2.VideoCapture(self.filepath)
+                                        try:
+                                            self.cap.release()
+                                        except Exception:
+                                            pass
+                                        cap2, tmp_video2 = open_videocapture_with_tmp(self.filepath)
+                                        self.cap = cap2
+                                        if tmp_video2:
+                                            # remove previous temp if any
+                                            if getattr(self, '_temp_video_file', None):
+                                                try:
+                                                    os.unlink(self._temp_video_file)
+                                                except Exception:
+                                                    pass
+                                            self._temp_video_file = tmp_video2
                                         self.seek(self.a)
                 elif self.seekRequest>=0:
                     self.idle=True
@@ -2714,7 +2791,20 @@ class VideoThread(QThread):
         except:
             print(traceback.format_exc(), flush=True)
         finally:
-            self.cap.release()
+            try:
+                if self.cap is not None:
+                    try:
+                        self.cap.release()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            # Remove any temporary video copy we created
+            if getattr(self, '_temp_video_file', None):
+                try:
+                    os.unlink(self._temp_video_file)
+                except Exception:
+                    pass
             videoActive=False
             #print("Thread ends.", flush=True)
 
@@ -2983,16 +3073,26 @@ class Display(QLabel):
 
         try:
             if input.endswith(tuple(VIDEO_EXTENSIONS)):
-                    cap = cv2.VideoCapture(input)
+                    cap, tmp_video = open_videocapture_with_tmp(input)
                     try:
                         if cap.isOpened():
                             ret, cv_img = cap.read()
-                            if not ret or cv_img is None:                        
+                            if not ret or cv_img is None:
                                 return
+                        else:
+                            return
                     finally:
-                        cap.release()
+                        try:
+                            cap.release()
+                        except Exception:
+                            pass
+                        if 'tmp_video' in locals() and tmp_video:
+                            try:
+                                os.unlink(tmp_video)
+                            except Exception:
+                                pass
             else:
-                cv_img  = cv2.imread( input )
+                cv_img  = safe_imread(input)
         
             rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_image.shape
@@ -3132,7 +3232,7 @@ class Display(QLabel):
         self.displayUid+=1
         if self.onUpdateFile:
             self.onUpdateFile()
-        cv_img  = cv2.imread(self.filepath)
+        cv_img  = safe_imread(self.filepath)
         #print("setImage from cv2", flush=True)
         self.update_image(cv_img, self.displayUid)        
 
