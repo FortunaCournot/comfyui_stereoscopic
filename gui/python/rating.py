@@ -2854,6 +2854,65 @@ class VideoThread(QThread):
             self.a=self.b
 
     
+class QRubberBandCustom(QRubberBand):
+    def __init__(self, shape, parent=None):
+        super().__init__(shape, parent)
+        # Make the widget background translucent so a semi-transparent
+        # fill is composited over the parent (the image) instead of
+        # painting over an opaque widget background.
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        # Ensure Qt knows the paintEvent is non-opaque so composition works
+        self.setAttribute(Qt.WA_OpaquePaintEvent, False)
+        self.setAutoFillBackground(False)
+
+        # Default colors (QColor). Alpha in QColor is 0-255.
+        self._border_qcolor = QColor("#0078D7")
+        # use a semi-transparent default fill (alpha 50)
+        self._fill_qcolor = QColor(0, 120, 215, 50)
+
+    def setColor(self, border_color: str, fill_color: str = None):
+        """Set the border and optional fill color for the rubber band.
+
+        Args:
+            border_color: color string understood by QColor (e.g. '#FF0000' or 'red').
+            fill_color: optional fill color string (e.g. 'rgba(255,0,0,50)').
+        """
+        try:
+            self._border_qcolor = QColor(border_color)
+        except Exception:
+            # keep existing color if conversion fails
+            pass
+        if fill_color is not None:
+            try:
+                self._fill_qcolor = QColor(fill_color)
+            except Exception:
+                pass
+        # Schedule a repaint with the new colors
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        # Ensure semi-transparent painting is composited over parent
+        painter.setCompositionMode(QPainter.CompositionMode_Source)
+        painter.setBackgroundMode(Qt.TransparentMode)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = self.rect()
+
+        # Fill (if any alpha > 0) — use fillRect to ensure proper composition
+        # if self._fill_qcolor is not None and self._fill_qcolor.alpha() > 0:
+        #     painter.setPen(Qt.NoPen)
+        #    painter.fillRect(rect, self._fill_qcolor)
+
+        # Border
+        pen = QPen(self._border_qcolor)
+        pen.setWidth(2)
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(pen)
+        # drawRect uses inclusive coordinates; adjust so 1px border is visible
+        painter.drawRect(rect.adjusted(0, 0, -1, -1))
+
+
 class Display(QLabel):
 
     def __init__(self, cutMode, pushbutton, slider, updatePaused, loaded, rectSelected, parentUpdate, pingpong, onBlackout):
@@ -2888,7 +2947,7 @@ class Display(QLabel):
         if cutMode:
             self.setCursor(Qt.CrossCursor)
         
-        self.rubberBand = QRubberBand(QRubberBand.Line, self)
+        self.rubberBand = QRubberBandCustom(QRubberBand.Line, self)
         self.origin = QPoint()
         self.selection_rect = QRect()
         
@@ -3268,6 +3327,36 @@ class Display(QLabel):
         if self.thread:
             self.thread.posB()
 
+    def applyRubberBandColor(self):
+        sel_rect = self.rubberBand.geometry()
+        w = sel_rect.width()
+        h = sel_rect.height()
+        if w>0 and h>0:
+            aspect = float(w) / float(h)
+            min_aspect = 9.0 / 16.0
+            max_aspect = 16.0 / 9.0
+
+        if  w>0 and h>0 and (aspect < min_aspect or aspect > max_aspect):
+            # print("applyRubberBandColor: setting OUT_OF_RANGE style", flush=True)
+            # Use the custom API to set border + fill
+            try:
+                self.rubberBand.setColor("#FF3F00", "rgba(255, 63, 0, 50)")
+            except Exception:
+                # Fallback to stylesheet if rubberBand is not the custom class
+                self.rubberBand.setStyleSheet(
+                    "border: 1px solid #FFFFFF; background-color: rgba(255, 255, 255, 50);"
+                )
+
+        else:
+            # print("applyRubberBandColor: setting NORMAL style", flush=True)
+            # Windows 11 style: Blue border, light blue fill, thin line
+            try:
+                self.rubberBand.setColor("#0078D7", "rgba(0, 120, 215, 50)")
+            except Exception:
+                self.rubberBand.setStyleSheet(
+                    "border: 1px solid #0078D7; background-color: rgba(0, 120, 215, 50);"
+                )
+
     def enterEvent(self, event):
         self.setMouseTracking(True)
         super().enterEvent(event)
@@ -3284,6 +3373,8 @@ class Display(QLabel):
                 # start selecting rect
                 self.origin = event.pos()
                 self.rubberBand.setGeometry(QRect(self.origin, QSize()))
+                self.applyRubberBandColor()
+                self.rubberBand.setGeometry(QRect(self.origin, QSize()))
                 self.rubberBand.show()
                 #print("show!", flush=True)
 
@@ -3296,6 +3387,8 @@ class Display(QLabel):
             if not self.origin == None and not self.origin.isNull():
                 current_pos = event.pos()
                 rect = QRect(self.origin, current_pos).normalized()
+                self.rubberBand.setGeometry(rect)
+                self.applyRubberBandColor()
                 self.rubberBand.setGeometry(rect)
                 #print("setGeometry!", flush=True)
                 
@@ -3973,8 +4066,20 @@ class CropWidget(QWidget):
 
                 temp_pixmap=self.darken_outside_area(self.original_pixmap, crop_rect)
 
+                # Rahmenfarbe anpassen
+                cw = crop_rect.width()
+                ch = crop_rect.height()
+                if cw>0 and ch>0:
+                    aspect = float(cw) / float(ch)
+                    min_aspect = 9.0 / 16.0
+                    max_aspect = 16.0 / 9.0
+
+                if  cw>0 and ch>0 and (aspect < min_aspect or aspect > max_aspect):
+                    self.frame_color = QColor(255, 63, 0)  # Orange
+                else:
+                    self.frame_color = QColor(255, 255, 255)  # Weiß
+
                 # Rahmen zeichnen
-                
                 painter = QPainter(temp_pixmap)
                 painter.setRenderHint(QPainter.Antialiasing)
                 painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
