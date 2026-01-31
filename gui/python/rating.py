@@ -2960,14 +2960,18 @@ class QRubberBandCustom(QRubberBand):
         self._border_qcolor = QColor("#0078D7")
         # use a semi-transparent default fill (alpha 50)
         self._fill_qcolor = QColor(0, 120, 215, 50)
+        self.frame_thickness = 1
 
-    def setColor(self, border_color: str, fill_color: str = None):
+    def setColor(self, border_color: str, fill_color: str = None, frame_thickness: int = 1):
         """Set the border and optional fill color for the rubber band.
 
         Args:
             border_color: color string understood by QColor (e.g. '#FF0000' or 'red').
             fill_color: optional fill color string (e.g. 'rgba(255,0,0,50)').
         """
+
+        self.frame_thickness = frame_thickness
+        
         try:
             self._border_qcolor = QColor(border_color)
         except Exception:
@@ -2996,7 +3000,7 @@ class QRubberBandCustom(QRubberBand):
 
         # Border
         pen = QPen(self._border_qcolor)
-        pen.setWidth(2)
+        pen.setWidth(self.frame_thickness)
         painter.setBrush(Qt.NoBrush)
         painter.setPen(pen)
         # drawRect uses inclusive coordinates; adjust so 1px border is visible
@@ -3440,7 +3444,7 @@ class Display(QLabel):
             # print("applyRubberBandColor: setting OUT_OF_RANGE style", flush=True)
             # Use the custom API to set border + fill
             try:
-                self.rubberBand.setColor("#FF3F00", "rgba(255, 63, 0, 50)")
+                self.rubberBand.setColor("#FF3F00", "rgba(255, 63, 0, 50)", 5)
             except Exception:
                 # Fallback to stylesheet if rubberBand is not the custom class
                 self.rubberBand.setStyleSheet(
@@ -3451,7 +3455,7 @@ class Display(QLabel):
             # print("applyRubberBandColor: setting NORMAL style", flush=True)
             # Windows 11 style: Blue border, light blue fill, thin line
             try:
-                self.rubberBand.setColor("#0078D7", "rgba(0, 120, 215, 50)")
+                self.rubberBand.setColor("#0078D7", "rgba(0, 120, 215, 50)", 1)
             except Exception:
                 self.rubberBand.setStyleSheet(
                     "border: 1px solid #0078D7; background-color: rgba(0, 120, 215, 50);"
@@ -4176,8 +4180,10 @@ class CropWidget(QWidget):
 
                 if  cw>0 and ch>0 and (aspect < min_aspect or aspect > max_aspect):
                     self.frame_color = QColor(255, 63, 0)  # Orange
+                    self.frame_thickness = 5
                 else:
                     self.frame_color = QColor(255, 255, 255)  # Weiß
+                    self.frame_thickness = 1
 
                 # Rahmen zeichnen
                 painter = QPainter(temp_pixmap)
