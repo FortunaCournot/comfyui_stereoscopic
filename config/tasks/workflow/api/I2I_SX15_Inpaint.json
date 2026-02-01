@@ -1,0 +1,334 @@
+{
+  "5": {
+    "inputs": {
+      "ckpt_name": "512-inpainting-ema.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "11": {
+    "inputs": {
+      "seed": [
+        "86",
+        0
+      ],
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "uni_pc_bh2",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "5",
+        0
+      ],
+      "positive": [
+        "62",
+        0
+      ],
+      "negative": [
+        "58",
+        0
+      ],
+      "latent_image": [
+        "103",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "15": {
+    "inputs": {
+      "samples": [
+        "11",
+        0
+      ],
+      "vae": [
+        "5",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "46": {
+    "inputs": {
+      "model": "Florence-2-base",
+      "precision": "fp16",
+      "attention": "sdpa",
+      "convert_to_safetensors": false
+    },
+    "class_type": "Florence2ModelLoader",
+    "_meta": {
+      "title": "Florence2ModelLoader"
+    }
+  },
+  "48": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Postfix"
+    }
+  },
+  "49": {
+    "inputs": {
+      "value": "text, watermark, oversaturated, black and white, greyscale, color cast, faded, old, washed out, low quality, lacluster"
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Negative"
+    }
+  },
+  "55": {
+    "inputs": {
+      "text_input": "",
+      "task": "more_detailed_caption",
+      "fill_mask": false,
+      "keep_model_loaded": false,
+      "max_new_tokens": 1024,
+      "num_beams": 3,
+      "do_sample": false,
+      "output_mask_select": "",
+      "seed": 35472081919481,
+      "image": [
+        "67",
+        0
+      ],
+      "florence2_model": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "Florence2Run",
+    "_meta": {
+      "title": "Florence2Run"
+    }
+  },
+  "56": {
+    "inputs": {
+      "formatted": [
+        "55",
+        2
+      ]
+    },
+    "class_type": "StripXML",
+    "_meta": {
+      "title": "Strip XML"
+    }
+  },
+  "57": {
+    "inputs": {
+      "string_a": [
+        "64",
+        0
+      ],
+      "string_b": [
+        "48",
+        0
+      ],
+      "delimiter": ". "
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "58": {
+    "inputs": {
+      "text": [
+        "49",
+        0
+      ],
+      "clip": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "62": {
+    "inputs": {
+      "text": [
+        "95",
+        0
+      ],
+      "clip": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "63": {
+    "inputs": {
+      "value": " "
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Prefix"
+    }
+  },
+  "64": {
+    "inputs": {
+      "string_a": [
+        "63",
+        0
+      ],
+      "string_b": [
+        "85",
+        0
+      ],
+      "delimiter": ". "
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "67": {
+    "inputs": {
+      "image": "example_10_bw.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "68": {
+    "inputs": {
+      "filename_prefix": "RecoloredImage",
+      "images": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "85": {
+    "inputs": {
+      "string": [
+        "56",
+        0
+      ],
+      "regex_pattern": " black and white ",
+      "repl": " ",
+      "count": 0,
+      "case_insensitive": true,
+      "multiline": false,
+      "dotall": false
+    },
+    "class_type": "RegexSubstitute",
+    "_meta": {
+      "title": "Regex Substitute"
+    }
+  },
+  "86": {
+    "inputs": {
+      "value": 507824198253856
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Seed"
+    }
+  },
+  "95": {
+    "inputs": {
+      "string_a": [
+        "57",
+        0
+      ],
+      "string_b": [
+        "96",
+        0
+      ],
+      "delimiter": ", "
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "96": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Postfix Appendum"
+    }
+  },
+  "100": {
+    "inputs": {
+      "image": "example_10_bw.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Mask"
+    }
+  },
+  "103": {
+    "inputs": {
+      "grow_mask_by": 6,
+      "pixels": [
+        "67",
+        0
+      ],
+      "vae": [
+        "5",
+        2
+      ],
+      "mask": [
+        "104",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE Encode (for Inpainting)"
+    }
+  },
+  "104": {
+    "inputs": {
+      "min": 0,
+      "max": 1,
+      "mask": [
+        "105",
+        0
+      ]
+    },
+    "class_type": "RemapMaskRange",
+    "_meta": {
+      "title": "Remap Mask Range"
+    }
+  },
+  "105": {
+    "inputs": {
+      "channel": "red",
+      "image": [
+        "100",
+        0
+      ]
+    },
+    "class_type": "ImageToMask",
+    "_meta": {
+      "title": "Convert Image to Mask"
+    }
+  }
+}
