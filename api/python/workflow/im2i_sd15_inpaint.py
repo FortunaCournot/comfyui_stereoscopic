@@ -29,7 +29,7 @@ else:
 
     prompt["5"]["inputs"]["ckpt_name"] = sys.argv[2]
     prompt["67"]["inputs"]["image"] = sys.argv[3]
-    prompt["100"]["inputs"]["mask"] = sys.argv[4]
+    prompt["100"]["inputs"]["image"] = sys.argv[4]
     prompt["68"]["inputs"]["filename_prefix"] = sys.argv[5] 
     
     queue_prompt(prompt)

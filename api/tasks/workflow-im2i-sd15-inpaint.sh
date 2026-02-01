@@ -126,20 +126,28 @@ else
 	INTERMEDIATE_INPUT_FOLDER=input/vr/tasks/intermediate/$uuid
 	mkdir -p $INTERMEDIATE_INPUT_FOLDER
 	EXTENSION="${INPUT##*.}"
+	if [ "$EXTENSION" = "bmp" ] ; then
+		# skip bmp input files (mask)
+		exit 0
+	fi
 	IMAGEINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmp-input.$EXTENSION
 	cp -fv $INPUT $IMAGEINTERMEDIATE
 	INPUT="$IMAGEINTERMEDIATE"
 	INPUT=`realpath "$INPUT"`
 
-	MASK="${INPUT%.*}.bmp"
-	MASK=`realpath "$INPUT"`
-	if [ -e "$MASK" ]
+	MASK="${ORIGINALINPUT%.*}.bmp"
+	if [ ! -e "$MASK" ]
 	then
 		echo -e $"\e[31mMask file missing:\e[0m Skip processing and forwarding to error."
-		mkdir "${INPUT##*/}"/error
-		mv -vf -- "$INPUT" "${INPUT##*/}"/error
+		mkdir -p input/vr/tasks/$TASKNAME/error
+		mv -vf -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
 		exit 0
 	fi
+	ORIGINALMASK="$MASK"
+	MASKINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmp-input.bmp
+	cp -fv $ORIGINALMASK $MASKINTERMEDIATE
+	MASK="$MASKINTERMEDIATE"
+	MASK=`realpath "$MASK"`
 
 	upperlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"upperlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	for parameterkv in $(echo $upperlimits | sed "s/,/ /g")
@@ -154,7 +162,6 @@ else
 	done
 	
 
-	
 	model_checkpoint=`cat "$BLUEPRINTCONFIG" | grep -o '"model_checkpoint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	model_checkpoint="${model_checkpoint////\\}"
 	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
@@ -195,17 +202,16 @@ else
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
-		mv -- $MASK input/vr/tasks/$TASKNAME/done
+		mv -- $ORIGINALMASK input/vr/tasks/$TASKNAME/done
 		echo -e $"\e[92mtask done.\e[0m"
+		rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 	else
 		echo -e $"\e[91mError:\e[0m Task failed. $INTERMEDIATE missing or zero-length."
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
-		mv -- $MASK input/vr/tasks/$TASKNAME/error
+		mv -- $ORIGINALMASK input/vr/tasks/$TASKNAME/error
 	fi
-	
-	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 
 fi
 exit 0
