@@ -4043,6 +4043,11 @@ class InpaintOverlay(QWidget):
         self._init_mask()
         self.drawing = False
         self.brush_size = 25
+        # UI controls (created but hidden by default)
+        self.control_widget = None
+        self.brush_slider = None
+        self.brush_label = None
+        self._create_controls()
 
     def _init_mask(self, size=None):
         if size is None and self.parent() is not None:
@@ -4056,6 +4061,9 @@ class InpaintOverlay(QWidget):
         if self.mask.size() != size:
             self._init_mask(size)
             self.update()
+            # adjust control widget geometry if present
+            if self.control_widget is not None:
+                self._position_controls()
 
     def clear_mask(self):
         self.mask.fill(Qt.transparent)
@@ -4080,6 +4088,121 @@ class InpaintOverlay(QWidget):
         painter.drawEllipse(pos, r, r)
         painter.end()
         self.update()
+
+    def _create_controls(self):
+        try:
+            self.control_widget = QWidget(self)
+            # Container with black background and gold border
+            self.control_widget.setStyleSheet("background-color: black; border: 2px solid gold; border-radius: 6px;")
+            vlayout = QVBoxLayout(self.control_widget)
+            # left-align children so controls sit aligned to the left edge
+            try:
+                vlayout.setAlignment(Qt.AlignLeft)
+            except Exception:
+                pass
+            layout1 = QHBoxLayout()
+            layout1.setContentsMargins(8, 6, 8, 6)
+            try:
+                layout1.setAlignment(Qt.AlignLeft)
+            except Exception:
+                pass
+            # Brush label (transparent background to let container show)
+            self.brush_label = QLabel(f"Brush: {self.brush_size}", self.control_widget)
+            self.brush_label.setStyleSheet("color: white; border: none;")
+            self.brush_label.setFixedWidth(70)
+            # Slider for brush size
+            self.brush_slider = QSlider(Qt.Horizontal, self.control_widget)
+            self.brush_slider.setStyleSheet("color: white; border: none;")
+            self.brush_slider.setRange(1, 200)
+            self.brush_slider.setValue(self.brush_size)
+            self.brush_slider.setFixedWidth(160)
+            # Clear mask button (no gold border; container shows gold)
+            self.clear_button = QPushButton("Clear Mask", self.control_widget)
+            self.clear_button.setStyleSheet("color: white; background-color: black; border: none; padding: 4px; border-radius: 4px;")
+            self.clear_button.setFixedWidth(100)
+            # Add widgets to layout
+            layout1.addWidget(self.brush_label)
+            layout1.addWidget(self.brush_slider)
+            vlayout.addLayout(layout1)
+            layout2 = QHBoxLayout()
+            layout2.setContentsMargins(8, 6, 8, 6)
+            try:
+                layout2.setAlignment(Qt.AlignLeft)
+            except Exception:
+                pass
+            layout2.addWidget(self.clear_button)
+            vlayout.addLayout(layout2)
+            self.control_widget.hide()
+            # Connect signals
+            self.brush_slider.valueChanged.connect(self._on_brush_slider_changed)
+            self.clear_button.clicked.connect(lambda: self.clear_mask())
+            # compute control widget width to avoid overlap
+            self._position_controls()
+        except Exception:
+            self.control_widget = None
+            self.brush_slider = None
+            self.brush_label = None
+
+    def _position_controls(self):
+        if self.control_widget is None:
+            return
+        w = self.width()
+        h = self.height()
+        layout = self.control_widget.layout()
+        # calculate width from children preferred/fixed sizes plus margins and spacing
+        try:
+            left = layout.contentsMargins().left()
+            right = layout.contentsMargins().right()
+            spacing = layout.spacing()
+        except Exception:
+            left = right = spacing = 8
+
+        # Prefer actual widget sizes (fixed widths) otherwise fall back to sizeHint
+        try:
+            lw = self.brush_label.width() if self.brush_label is not None else 0
+            if lw == 0 and self.brush_label is not None:
+                lw = self.brush_label.sizeHint().width()
+        except Exception:
+            lw = 0
+        try:
+            sw = self.brush_slider.width() if self.brush_slider is not None else 0
+            if sw == 0 and self.brush_slider is not None:
+                sw = self.brush_slider.sizeHint().width()
+        except Exception:
+            sw = 0
+        try:
+            bw = self.clear_button.width() if self.clear_button is not None else 0
+            if bw == 0 and self.clear_button is not None:
+                bw = self.clear_button.sizeHint().width()
+        except Exception:
+            bw = 0
+
+        cw = left + lw + spacing + sw + spacing + bw + right
+        # minimal safety width
+        if cw < 160:
+            cw = 160
+
+        # compute control height from layout/content or fallback
+        ch = self.control_widget.sizeHint().height() if self.control_widget.sizeHint().height() > 0 else 36
+
+        # place bottom-left with margin
+        margin = 8
+        x = margin
+        y = max(0, h - ch - margin)
+        self.control_widget.setGeometry(x, y, cw, ch)
+        # ensure it's on top of overlay
+        try:
+            self.control_widget.raise_()
+        except Exception:
+            pass
+
+    def _on_brush_slider_changed(self, val):
+        try:
+            self.brush_size = int(val)
+            if self.brush_label:
+                self.brush_label.setText(f"Brush: {self.brush_size}")
+        except Exception:
+            pass
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton and not self.testAttribute(Qt.WA_TransparentForMouseEvents):
@@ -4129,14 +4252,44 @@ class InpaintCropWidget(CropWidget):
         self.inpaint_mode = bool(enabled)
         if self.overlay is None:
             return
-        # When enabled, accept mouse events on overlay; otherwise ignore them
-        self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents, not self.inpaint_mode)
-        if self.inpaint_mode:
+        # Keep overlay visible so mask is always shown; intercept events only in inpaint mode
+        try:
             self.overlay.show()
-            self.overlay.setCursor(QCursor(Qt.CrossCursor))
-        else:
-            # Keep overlay visible (shows mask) but don't intercept mouse events
-            self.overlay.setCursor(QCursor(Qt.ArrowCursor))
+        except Exception:
+            pass
+
+        # Toggle event transparency so overlay intercepts events only when inpaint_mode
+        self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents, not self.inpaint_mode)
+
+        try:
+            if self.inpaint_mode:
+                self.overlay.setCursor(QCursor(Qt.CrossCursor))
+            else:
+                self.overlay.setCursor(QCursor(Qt.ArrowCursor))
+        except Exception:
+            pass
+
+        # Show/hide control widget, position it and ensure it accepts mouse events when visible
+        try:
+            if hasattr(self.overlay, 'control_widget') and self.overlay.control_widget is not None:
+                if self.inpaint_mode:
+                    try:
+                        self.overlay.control_widget.show()
+                        # reposition and size correctly
+                        self.overlay._position_controls()
+                        # make sure it's on top and accepts events
+                        self.overlay.control_widget.raise_()
+                        self.overlay.control_widget.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        self.overlay.control_widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+                        self.overlay.control_widget.hide()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     def getInpaintMask(self) -> QImage:
         """Return the current inpaint mask as QImage (transparent = not masked)."""
