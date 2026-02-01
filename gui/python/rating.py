@@ -314,6 +314,8 @@ class RateAndCutDialog(QDialog):
             self.filter_img = False
             self.filter_vid = False
             self.filter_edit = not self.cutMode
+            # inpaint mode flag (toggled by toolbar button)
+            self.inpaint_mode = False
             self.loadingOk = True
             self.drag_file_path = None
             
@@ -477,6 +479,19 @@ class RateAndCutDialog(QDialog):
             self.cutMode_toolbar.addWidget(self.sortfiles_combo)
             self.sortfiles_combo.currentIndexChanged.connect(self.on_sortfiles_combobox_index_changed)
 
+            # --- Inpaint Mode toggle (placed after sort selection) ---
+            try:
+                self.iconInpaintMode = StyledIcon(os.path.join(path, '../../gui/img/inpaintmode64.png'))
+            except Exception:
+                self.iconInpaintMode = QIcon(os.path.join(path, '../../gui/img/inpaintmode64.png'))
+            self.inpaintModeAction = QAction(self.iconInpaintMode, "Inpaint Mode")
+            self.inpaintModeAction.setCheckable(True)
+            self.inpaintModeAction.setChecked(self.inpaint_mode)
+            self.inpaintModeAction.setVisible(True)
+            self.inpaintModeAction.triggered.connect(self.onToggleInpaintMode)
+            self.cutMode_toolbar.addAction(self.inpaintModeAction)
+            self.cutMode_toolbar.widgetForAction(self.inpaintModeAction).setCursor(Qt.PointingHandCursor)
+
             empty = QWidget()
             empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
             self.cutMode_toolbar.addWidget(empty)
@@ -486,6 +501,7 @@ class RateAndCutDialog(QDialog):
             self.button_show_manual_action.triggered.connect(self.show_manual)
             self.cutMode_toolbar.addAction(self.button_show_manual_action)    
             self.cutMode_toolbar.widgetForAction(self.button_show_manual_action).setCursor(Qt.PointingHandCursor)
+
 
             self.outer_main_layout.addWidget(self.cutMode_toolbar)
             self.cutMode_toolbar.setContentsMargins(0,0,0,0)
@@ -1172,6 +1188,19 @@ class RateAndCutDialog(QDialog):
                 self.rateCurrentFile()
         finally:
             leaveUITask()
+
+    def onToggleInpaintMode(self, state):
+        """Toggle the inpaint mode flag. UI state (checked) is handled by QAction.
+
+        The actual inpaint behavior will be implemented later; for now we only
+        maintain the boolean flag and expose it for other code to use.
+        """
+        try:
+            self.inpaint_mode = bool(state)
+        except Exception:
+            self.inpaint_mode = False
+        if TRACELEVEL >= 1:
+            print("Inpaint mode set to", self.inpaint_mode, flush=True)
         
     def show_manual(self, state):
         webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
