@@ -4145,6 +4145,8 @@ class CropWidget(QWidget):
     def apply_crop(self):
         if not self.original_pixmap:
             return
+        if self.sourceWidth == 0 or self.sourceHeight == 0:
+            return
 
         try:
                 
