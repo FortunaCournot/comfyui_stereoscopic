@@ -1753,7 +1753,12 @@ class RateAndCutDialog(QDialog):
                 self.button_snapshot_from_video.setEnabled(False)
                 self.button_justrate_compress.setEnabled(True)
                 self.button_justrate_compress.setIcon(self.icon_justrate)
+                self.inpaintModeAction.setEnabled(not self.isVideo)
+                self.inpaintModeAction.setChecked(False)
+                self.inpaint_mode=False
+                self.cropWidget.setInpaintMode(False)
                 self.justRate=True
+
             else:
                 self.button_justrate_compress.setEnabled(True)
                 self.button_justrate_compress.setIcon(self.icon_compress)
@@ -4370,11 +4375,15 @@ class InpaintCropWidget(CropWidget):
 
     def setInpaintMode(self, enabled: bool):
         self.inpaint_mode = bool(enabled)
+        self.overlay.clear_mask()
         if self.overlay is None:
             return
         # Keep overlay visible so mask is always shown; intercept events only in inpaint mode
         try:
-            self.overlay.show()
+            if enabled:
+                self.overlay.show()
+            else:
+                self.overlay.hide()
         except Exception:
             pass
 
