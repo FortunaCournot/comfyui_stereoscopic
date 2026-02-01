@@ -51,7 +51,7 @@ if USE_TRASHBIN:
     except ImportError:
         USE_TRASHBIN=False
 
-TRACELEVEL=0
+TRACELEVEL=1
 
 # Globale statische Liste der erlaubten Suffixe
 VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts', '.flv', '.mkv']
@@ -4034,6 +4034,7 @@ class CropWidget(QWidget):
 
 class InpaintOverlay(QWidget):
     """Transparent overlay used for painting an inpaint mask on top of the image label."""
+    executeRequested = pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
@@ -4043,6 +4044,7 @@ class InpaintOverlay(QWidget):
         self._init_mask()
         self.drawing = False
         self.brush_size = 25
+        self._last_pos = None
         # UI controls (created but hidden by default)
         self.control_widget = None
         self.brush_slider = None
@@ -4074,6 +4076,11 @@ class InpaintOverlay(QWidget):
             return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
+        # Show mask semi-transparently while mask itself stores full-opacity coverage
+        try:
+            painter.setOpacity(0.55)
+        except Exception:
+            pass
         painter.drawImage(0, 0, self.mask)
         painter.end()
 
@@ -4083,12 +4090,39 @@ class InpaintOverlay(QWidget):
         painter = QPainter(self.mask)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(255, 0, 0, 140))
+        # paint fully opaque mask pixels (alpha=255) to ensure contiguous coverage
+        painter.setBrush(QColor(255, 0, 0, 255))
         r = int(self.brush_size / 2)
         painter.drawEllipse(pos, r, r)
         painter.end()
 
         # Ensure we didn't draw outside the visible pixmap area
+        try:
+            self._clear_outside_mask_area()
+        except Exception:
+            pass
+
+        self.update()
+
+    def _draw_line(self, p1, p2):
+        """Draw a continuous stroke between p1 and p2 using a pen with round cap."""
+        if self.mask is None:
+            return
+        painter = QPainter(self.mask)
+        try:
+            painter.setRenderHint(QPainter.Antialiasing)
+            # pen uses full alpha so mask becomes continuous; visualization opacity
+            # is handled in paintEvent above.
+            pen = QPen(QColor(255, 0, 0, 255))
+            pen.setWidth(int(self.brush_size))
+            pen.setCapStyle(Qt.RoundCap)
+            pen.setJoinStyle(Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawLine(p1, p2)
+        finally:
+            painter.end()
+
         try:
             self._clear_outside_mask_area()
         except Exception:
@@ -4183,6 +4217,10 @@ class InpaintOverlay(QWidget):
             self.clear_button = QPushButton("Clear Mask", self.control_widget)
             self.clear_button.setStyleSheet("color: white; background-color: black; border: none; padding: 4px; border-radius: 4px;")
             self.clear_button.setFixedWidth(100)
+            # Execute button: will later perform more than just saving the mask
+            self.execute_button = QPushButton("Execute", self.control_widget)
+            self.execute_button.setStyleSheet("color: white; background-color: black; border: none; padding: 4px; border-radius: 4px;")
+            self.execute_button.setFixedWidth(100)
             # Add widgets to layout
             layout1.addWidget(self.brush_label)
             layout1.addWidget(self.brush_slider)
@@ -4193,12 +4231,16 @@ class InpaintOverlay(QWidget):
                 layout2.setAlignment(Qt.AlignLeft)
             except Exception:
                 pass
+            # Place Execute then Clear so Execute is readily accessible
             layout2.addWidget(self.clear_button)
+            layout2.addWidget(self.execute_button)
             vlayout.addLayout(layout2)
             self.control_widget.hide()
             # Connect signals
             self.brush_slider.valueChanged.connect(self._on_brush_slider_changed)
             self.clear_button.clicked.connect(lambda: self.clear_mask())
+            # Emit signal when Execute pressed; handler lives in InpaintCropWidget
+            self.execute_button.clicked.connect(lambda: self.executeRequested.emit())
             # compute control widget width to avoid overlap
             self._position_controls()
         except Exception:
@@ -4270,15 +4312,25 @@ class InpaintOverlay(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton and not self.testAttribute(Qt.WA_TransparentForMouseEvents):
             self.drawing = True
-            self._draw_circle(event.pos())
+            pos = event.pos()
+            self._last_pos = pos
+            self._draw_circle(pos)
 
     def mouseMoveEvent(self, event):
         if self.drawing and not self.testAttribute(Qt.WA_TransparentForMouseEvents):
-            self._draw_circle(event.pos())
+            pos = event.pos()
+            if self._last_pos is None:
+                self._draw_circle(pos)
+                self._last_pos = pos
+            else:
+                # draw continuous line between last and current
+                self._draw_line(self._last_pos, pos)
+                self._last_pos = pos
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.drawing = False
+            self._last_pos = None
 
 
 class InpaintCropWidget(CropWidget):
@@ -4291,6 +4343,11 @@ class InpaintCropWidget(CropWidget):
             self.overlay = InpaintOverlay(self.image_label)
             self.overlay.setGeometry(0, 0, self.image_label.width(), self.image_label.height())
             self.overlay.hide()
+            # connect Execute signal if overlay provides it
+            try:
+                self.overlay.executeRequested.connect(self._on_execute)
+            except Exception:
+                pass
         except Exception:
             self.overlay = None
 
@@ -4359,6 +4416,71 @@ class InpaintCropWidget(CropWidget):
         if self.overlay is None:
             return QImage()
         return self.overlay.mask
+
+    def _on_execute(self):
+        """Save the current inpaint mask as BMP in original-image resolution,
+        cropped to the current crop rectangle. Filename uses the same base
+        name as the currently displayed image, with .bmp extension.
+        """
+        try:
+            if self.overlay is None or self.original_pixmap is None:
+                return
+            # Use image_label.filepath for the source filename
+            filepath = getattr(self.image_label, 'filepath', '')
+            if not filepath:
+                return
+
+            mask = self.overlay.mask
+            if mask is None:
+                return
+
+            # Determine overlay/label and displayed pixmap geometry
+            lw = self.overlay.width()
+            lh = self.overlay.height()
+            pix = self.image_label.pixmap()
+            if pix is None or pix.isNull():
+                return
+            pw = pix.width()
+            ph = pix.height()
+
+            # compute offsets (pixmap centered in label)
+            offset_x = int((lw - pw) / 2)
+            offset_y = int((lh - ph) / 2)
+
+            # extract mask region corresponding to the displayed pixmap
+            display_mask = mask.copy(offset_x, offset_y, pw, ph)
+
+            # scale mask to original image resolution
+            w_orig = self.original_pixmap.width()
+            h_orig = self.original_pixmap.height()
+            if pw <= 0 or ph <= 0 or w_orig <= 0 or h_orig <= 0:
+                return
+            scaled_mask = display_mask.scaled(w_orig, h_orig, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+
+            # compute crop rectangle in original coordinates
+            x0 = int(self.crop_left)
+            y0 = int(self.crop_top)
+            x1 = int(w_orig - self.crop_right)
+            y1 = int(h_orig - self.crop_bottom)
+            if x1 <= x0 or y1 <= y0:
+                return
+            crop_w = x1 - x0
+            crop_h = y1 - y0
+
+            cropped_mask = scaled_mask.copy(x0, y0, crop_w, crop_h)
+
+            # prepare output path: same directory, same basename, .bmp
+            dirpath = os.path.dirname(filepath)
+            base = os.path.splitext(os.path.basename(filepath))[0]
+            outpath = os.path.join(dirpath, base + ".bmp")
+
+            # save as BMP
+            cropped_mask.save(outpath, "BMP")
+            if TRACELEVEL >= 1:
+                print(f"Execute: saved mask to {outpath}", flush=True)
+
+        except Exception:
+            print(traceback.format_exc(), flush=True)
 
 
 
