@@ -4087,7 +4087,70 @@ class InpaintOverlay(QWidget):
         r = int(self.brush_size / 2)
         painter.drawEllipse(pos, r, r)
         painter.end()
+
+        # Ensure we didn't draw outside the visible pixmap area
+        try:
+            self._clear_outside_mask_area()
+        except Exception:
+            pass
+
         self.update()
+
+    def _clear_outside_mask_area(self):
+        """Clear mask pixels that lie outside the displayed pixmap region.
+
+        The overlay covers the entire QLabel (`self.parent()`); the actual image
+        may be centered with padding. Compute the pixmap rect inside the label
+        and clear any mask pixels outside that rect.
+        """
+        if self.mask is None:
+            return
+        parent = self.parent()
+        if parent is None:
+            return
+        pix = None
+        try:
+            pix = parent.pixmap()
+        except Exception:
+            pix = None
+        if pix is None or pix.isNull():
+            return
+
+        lw = self.width()
+        lh = self.height()
+        pw = pix.width()
+        ph = pix.height()
+
+        # compute offsets (pixmap is centered in the label due to alignment)
+        offset_x = int((lw - pw) / 2)
+        offset_y = int((lh - ph) / 2)
+
+        # clamp values
+        if pw <= 0 or ph <= 0:
+            return
+
+        left_w = max(0, offset_x)
+        top_h = max(0, offset_y)
+        right_x = max(0, offset_x + pw)
+        bottom_y = max(0, offset_y + ph)
+
+        painter = QPainter(self.mask)
+        try:
+            painter.setCompositionMode(QPainter.CompositionMode_Clear)
+            # top strip
+            if top_h > 0:
+                painter.fillRect(0, 0, lw, top_h, QColor(0, 0, 0, 0))
+            # bottom strip
+            if bottom_y < lh:
+                painter.fillRect(0, bottom_y, lw, lh - bottom_y, QColor(0, 0, 0, 0))
+            # left strip
+            if left_w > 0:
+                painter.fillRect(0, top_h, left_w, max(0, ph), QColor(0, 0, 0, 0))
+            # right strip
+            if right_x < lw:
+                painter.fillRect(right_x, top_h, lw - right_x, max(0, ph), QColor(0, 0, 0, 0))
+        finally:
+            painter.end()
 
     def _create_controls(self):
         try:
