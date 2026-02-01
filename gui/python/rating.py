@@ -489,6 +489,10 @@ class RateAndCutDialog(QDialog):
             self.inpaintModeAction.setChecked(self.inpaint_mode)
             self.inpaintModeAction.setVisible(True)
             self.inpaintModeAction.triggered.connect(self.onToggleInpaintMode)
+            # Only allow toggling inpaint mode when in cutMode; otherwise keep it disabled
+            self.inpaintModeAction.setEnabled(self.cutMode)
+            if not self.cutMode:
+                self.inpaintModeAction.setChecked(False)
             self.cutMode_toolbar.addAction(self.inpaintModeAction)
             self.cutMode_toolbar.widgetForAction(self.inpaintModeAction).setCursor(Qt.PointingHandCursor)
 
@@ -616,7 +620,13 @@ class RateAndCutDialog(QDialog):
             self.display_layout = QHBoxLayout()
             self.display.registerForTrimUpdate(self.onCropOrTrim)
             if cutMode:
-                self.cropWidget=CropWidget(self.display)
+                # Use Inpaint-capable CropWidget when in cutMode
+                self.cropWidget=InpaintCropWidget(self.display)
+                # Initialize CropWidget inpaint state from dialog
+                try:
+                    self.cropWidget.inpaint_mode = self.inpaint_mode
+                except Exception:
+                    setattr(self.cropWidget, 'inpaint_mode', self.inpaint_mode)
                 self.display_layout.addWidget(self.cropWidget)
                 self.cropWidget.registerForUpdate(self.onCropOrTrim)
             else:
@@ -1195,10 +1205,37 @@ class RateAndCutDialog(QDialog):
         The actual inpaint behavior will be implemented later; for now we only
         maintain the boolean flag and expose it for other code to use.
         """
+        # Guard: only allow enabling inpaint when in cut mode
+        if not getattr(self, 'cutMode', False):
+            # Ensure the action remains unchecked/disabled if not in cut mode
+            try:
+                self.inpaintModeAction.setChecked(False)
+            except Exception:
+                pass
+            self.inpaint_mode = False
+            if TRACELEVEL >= 2:
+                print("Inpaint mode toggle ignored (not in cutMode)", flush=True)
+            return
+
         try:
             self.inpaint_mode = bool(state)
         except Exception:
             self.inpaint_mode = False
+
+        # Propagate state to CropWidget if present. CropWidget will implement the rest.
+        try:
+            if hasattr(self, 'cropWidget') and self.cropWidget is not None:
+                # Prefer explicit setter if provided
+                if hasattr(self.cropWidget, 'setInpaintMode') and callable(self.cropWidget.setInpaintMode):
+                    self.cropWidget.setInpaintMode(self.inpaint_mode)
+                else:
+                    try:
+                        self.cropWidget.inpaint_mode = self.inpaint_mode
+                    except Exception:
+                        setattr(self.cropWidget, 'inpaint_mode', self.inpaint_mode)
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+
         if TRACELEVEL >= 1:
             print("Inpaint mode set to", self.inpaint_mode, flush=True)
         
@@ -3993,6 +4030,119 @@ class CropWidget(QWidget):
         self.resizeEvent(None)
         
         self.main_layout.invalidate()
+
+
+class InpaintOverlay(QWidget):
+    """Transparent overlay used for painting an inpaint mask on top of the image label."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setMouseTracking(True)
+        self._init_mask()
+        self.drawing = False
+        self.brush_size = 25
+
+    def _init_mask(self, size=None):
+        if size is None and self.parent() is not None:
+            size = self.parent().size()
+        if size is None:
+            size = QSize(1, 1)
+        self.mask = QImage(size, QImage.Format_ARGB32)
+        self.mask.fill(Qt.transparent)
+
+    def ensure_mask_size(self, size):
+        if self.mask.size() != size:
+            self._init_mask(size)
+            self.update()
+
+    def clear_mask(self):
+        self.mask.fill(Qt.transparent)
+        self.update()
+
+    def paintEvent(self, event):
+        if self.mask is None:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.drawImage(0, 0, self.mask)
+        painter.end()
+
+    def _draw_circle(self, pos):
+        if self.mask is None:
+            return
+        painter = QPainter(self.mask)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(255, 0, 0, 140))
+        r = int(self.brush_size / 2)
+        painter.drawEllipse(pos, r, r)
+        painter.end()
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and not self.testAttribute(Qt.WA_TransparentForMouseEvents):
+            self.drawing = True
+            self._draw_circle(event.pos())
+
+    def mouseMoveEvent(self, event):
+        if self.drawing and not self.testAttribute(Qt.WA_TransparentForMouseEvents):
+            self._draw_circle(event.pos())
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.drawing = False
+
+
+class InpaintCropWidget(CropWidget):
+    """CropWidget variant that supports painting an inpaint mask via an overlay."""
+    def __init__(self, display, parent=None):
+        super().__init__(display, parent)
+        self.inpaint_mode = False
+        # Create overlay as a child of the image_label so it sits on top
+        try:
+            self.overlay = InpaintOverlay(self.image_label)
+            self.overlay.setGeometry(0, 0, self.image_label.width(), self.image_label.height())
+            self.overlay.hide()
+        except Exception:
+            self.overlay = None
+
+        # Watch for resizes of the underlying image_label
+        try:
+            self.image_label.installEventFilter(self)
+        except Exception:
+            pass
+
+    def eventFilter(self, obj, event):
+        # Keep overlay sized to image_label
+        try:
+            if obj is self.image_label and event.type() == QEvent.Resize and self.overlay:
+                new_size = event.size()
+                self.overlay.setGeometry(0, 0, new_size.width(), new_size.height())
+                self.overlay.ensure_mask_size(new_size)
+        except Exception:
+            pass
+        return super().eventFilter(obj, event)
+
+    def setInpaintMode(self, enabled: bool):
+        self.inpaint_mode = bool(enabled)
+        if self.overlay is None:
+            return
+        # When enabled, accept mouse events on overlay; otherwise ignore them
+        self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents, not self.inpaint_mode)
+        if self.inpaint_mode:
+            self.overlay.show()
+            self.overlay.setCursor(QCursor(Qt.CrossCursor))
+        else:
+            # Keep overlay visible (shows mask) but don't intercept mouse events
+            self.overlay.setCursor(QCursor(Qt.ArrowCursor))
+
+    def getInpaintMask(self) -> QImage:
+        """Return the current inpaint mask as QImage (transparent = not masked)."""
+        if self.overlay is None:
+            return QImage()
+        return self.overlay.mask
 
 
 
