@@ -4220,12 +4220,14 @@ class InpaintOverlay(QWidget):
             self.brush_slider.setFixedWidth(160)
             # Clear mask button (no gold border; container shows gold)
             self.clear_button = QPushButton("Clear Mask", self.control_widget)
-            self.clear_button.setStyleSheet("color: white; background-color: black; border: none; padding: 4px; border-radius: 4px;")
+            self.clear_button.setStyleSheet("color: white; background-color: black; border: 1px solid white; padding: 4px; border-radius: 4px;")
             self.clear_button.setFixedWidth(100)
+            self.clear_button.setCursor(Qt.PointingHandCursor)
             # Execute button: will later perform more than just saving the mask
             self.execute_button = QPushButton("Execute", self.control_widget)
-            self.execute_button.setStyleSheet("color: white; background-color: black; border: none; padding: 4px; border-radius: 4px;")
+            self.execute_button.setStyleSheet("color: white; background-color: black; border: 1px solid white; padding: 4px; border-radius: 4px;")
             self.execute_button.setFixedWidth(100)
+            self.execute_button.setCursor(Qt.PointingHandCursor)
             # Add widgets to layout
             layout1.addWidget(self.brush_label)
             layout1.addWidget(self.brush_slider)
@@ -4391,10 +4393,8 @@ class InpaintCropWidget(CropWidget):
         self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents, not self.inpaint_mode)
 
         try:
-            if self.inpaint_mode:
-                self.overlay.setCursor(QCursor(Qt.CrossCursor))
-            else:
-                self.overlay.setCursor(QCursor(Qt.ArrowCursor))
+            # Always use ArrowCursor in the drawing area
+            self.overlay.setCursor(QCursor(Qt.ArrowCursor))
         except Exception:
             pass
 

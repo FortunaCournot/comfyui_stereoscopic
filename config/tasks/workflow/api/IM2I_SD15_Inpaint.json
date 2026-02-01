@@ -57,18 +57,6 @@
       "title": "VAE Decode"
     }
   },
-  "46": {
-    "inputs": {
-      "model": "Florence-2-base",
-      "precision": "fp16",
-      "attention": "sdpa",
-      "convert_to_safetensors": false
-    },
-    "class_type": "Florence2ModelLoader",
-    "_meta": {
-      "title": "Florence2ModelLoader"
-    }
-  },
   "48": {
     "inputs": {
       "value": ""
@@ -85,60 +73,6 @@
     "class_type": "PrimitiveString",
     "_meta": {
       "title": "Negative"
-    }
-  },
-  "55": {
-    "inputs": {
-      "text_input": "",
-      "task": "more_detailed_caption",
-      "fill_mask": false,
-      "keep_model_loaded": false,
-      "max_new_tokens": 1024,
-      "num_beams": 3,
-      "do_sample": false,
-      "output_mask_select": "",
-      "seed": 35472081919481,
-      "image": [
-        "67",
-        0
-      ],
-      "florence2_model": [
-        "46",
-        0
-      ]
-    },
-    "class_type": "Florence2Run",
-    "_meta": {
-      "title": "Florence2Run"
-    }
-  },
-  "56": {
-    "inputs": {
-      "formatted": [
-        "55",
-        2
-      ]
-    },
-    "class_type": "StripXML",
-    "_meta": {
-      "title": "Strip XML"
-    }
-  },
-  "57": {
-    "inputs": {
-      "string_a": [
-        "64",
-        0
-      ],
-      "string_b": [
-        "48",
-        0
-      ],
-      "delimiter": ". "
-    },
-    "class_type": "StringConcatenate",
-    "_meta": {
-      "title": "Concatenate"
     }
   },
   "58": {
@@ -160,7 +94,7 @@
   "62": {
     "inputs": {
       "text": [
-        "95",
+        "63",
         0
       ],
       "clip": [
@@ -180,23 +114,6 @@
     "class_type": "PrimitiveString",
     "_meta": {
       "title": "Positive Prefix"
-    }
-  },
-  "64": {
-    "inputs": {
-      "string_a": [
-        "63",
-        0
-      ],
-      "string_b": [
-        "85",
-        0
-      ],
-      "delimiter": ". "
-    },
-    "class_type": "StringConcatenate",
-    "_meta": {
-      "title": "Concatenate"
     }
   },
   "67": {
@@ -221,24 +138,6 @@
       "title": "Save Image"
     }
   },
-  "85": {
-    "inputs": {
-      "string": [
-        "56",
-        0
-      ],
-      "regex_pattern": " black and white ",
-      "repl": " ",
-      "count": 0,
-      "case_insensitive": true,
-      "multiline": false,
-      "dotall": false
-    },
-    "class_type": "RegexSubstitute",
-    "_meta": {
-      "title": "Regex Substitute"
-    }
-  },
   "86": {
     "inputs": {
       "value": 507824198253856
@@ -246,23 +145,6 @@
     "class_type": "PrimitiveInt",
     "_meta": {
       "title": "Seed"
-    }
-  },
-  "95": {
-    "inputs": {
-      "string_a": [
-        "57",
-        0
-      ],
-      "string_b": [
-        "96",
-        0
-      ],
-      "delimiter": ", "
-    },
-    "class_type": "StringConcatenate",
-    "_meta": {
-      "title": "Concatenate"
     }
   },
   "96": {
