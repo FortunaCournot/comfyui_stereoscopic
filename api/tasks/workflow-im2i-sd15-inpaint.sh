@@ -195,12 +195,14 @@ else
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
+		mv -- $MASK input/vr/tasks/$TASKNAME/done
 		echo -e $"\e[92mtask done.\e[0m"
 	else
 		echo -e $"\e[91mError:\e[0m Task failed. $INTERMEDIATE missing or zero-length."
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+		mv -- $MASK input/vr/tasks/$TASKNAME/error
 	fi
 	
 	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
