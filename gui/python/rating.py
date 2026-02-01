@@ -4427,7 +4427,10 @@ class InpaintCropWidget(CropWidget):
         return self.overlay.mask
 
     def _on_execute(self):
-        """Save the current inpaint mask as BMP in original-image resolution,
+        """Save the cropped background image and inpaint mask.
+        
+        First saves the cropped background image as PNG to rfolder+"/edit" with _N suffix.
+        Then saves the current inpaint mask as BMP in original-image resolution,
         cropped to the current crop rectangle. Filename uses the same base
         name as the currently displayed image, with .bmp extension.
         """
@@ -4476,17 +4479,60 @@ class InpaintCropWidget(CropWidget):
             crop_w = x1 - x0
             crop_h = y1 - y0
 
+            target_folder = os.path.join(path, "../../../../input/vr/tasks/inpaint-sd15")
+
+            # ========== STEP 1: Save cropped background image ==========
+            # Crop the original image to the crop rectangle
+            crop_rect = QRect(x0, y0, crop_w, crop_h)
+            cropped_image = self.original_pixmap.copy(crop_rect)
+
+            # Determine output directory for background image
+            rfolder = os.path.join(path, "../../../../input/vr/check/rate")
+            bg_dirpath = os.path.join(rfolder, "edit")
+            os.makedirs(bg_dirpath, exist_ok=True)
+
+            # Build unique filename with _N suffix
+            # Check in edit, inpaint-sd15, and inpaint-sd15/done folders
+            base = os.path.splitext(os.path.basename(filepath))[0]
+            n = 1
+            while (os.path.exists(os.path.join(bg_dirpath, f"{base}_{n}.png")) or
+                   os.path.exists(os.path.join(target_folder, f"{base}_{n}.png")) or
+                   os.path.exists(os.path.join(target_folder, "done", f"{base}_{n}.png"))):
+                n += 1
+            bg_outpath = os.path.join(bg_dirpath, f"{base}_{n}.png")
+
+            # Save cropped background as PNG
+            cropped_image.save(bg_outpath, "PNG")
+            if TRACELEVEL >= 1:
+                print(f"Execute: saved cropped background to {bg_outpath}", flush=True)
+
+            # ========== STEP 2: Save cropped mask ==========
             cropped_mask = scaled_mask.copy(x0, y0, crop_w, crop_h)
 
-            # prepare output path: same directory, same basename, .bmp
-            dirpath = os.path.dirname(filepath)
-            base = os.path.splitext(os.path.basename(filepath))[0]
-            outpath = os.path.join(dirpath, base + ".bmp")
+            # Use same base filename as background image, but with .bmp extension
+            mask_outpath = os.path.splitext(bg_outpath)[0] + ".bmp"
 
             # save as BMP
-            cropped_mask.save(outpath, "BMP")
+            cropped_mask.save(mask_outpath, "BMP")
             if TRACELEVEL >= 1:
-                print(f"Execute: saved mask to {outpath}", flush=True)
+                print(f"Execute: saved mask to {mask_outpath}", flush=True)
+
+            # ========== STEP 3: Move both files to inpaint-sd15 folder ==========
+            os.makedirs(target_folder, exist_ok=True)
+
+            # Determine final paths
+            final_bg_path = os.path.join(target_folder, os.path.basename(bg_outpath))
+            final_mask_path = os.path.join(target_folder, os.path.basename(mask_outpath))
+
+            # Move background image
+            shutil.move(bg_outpath, final_bg_path)
+            if TRACELEVEL >= 1:
+                print(f"Execute: moved background to {final_bg_path}", flush=True)
+
+            # Move mask
+            shutil.move(mask_outpath, final_mask_path)
+            if TRACELEVEL >= 1:
+                print(f"Execute: moved mask to {final_mask_path}", flush=True)
 
         except Exception:
             print(traceback.format_exc(), flush=True)
