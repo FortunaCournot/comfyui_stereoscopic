@@ -4095,6 +4095,14 @@ class InpaintOverlay(QWidget):
     def clear_mask(self):
         self.mask.fill(Qt.transparent)
         self.update()
+        try:
+            # Disable export button when mask is cleared
+            if hasattr(self, 'execute_button') and self.execute_button is not None:
+                self.execute_button.setEnabled(False)
+            if hasattr(self, 'clear_button') and self.clear_button is not None:
+                self.clear_button.setEnabled(False)
+        except Exception:
+            pass
 
     def paintEvent(self, event):
         if self.mask is None:
@@ -4128,6 +4136,14 @@ class InpaintOverlay(QWidget):
             pass
 
         self.update()
+        try:
+            # Enable Export button when painting occurs
+            if hasattr(self, 'execute_button') and self.execute_button is not None:
+                self.execute_button.setEnabled(True)
+            if hasattr(self, 'clear_button') and self.clear_button is not None:
+                self.clear_button.setEnabled(True)
+        except Exception:
+            pass
 
     def _draw_line(self, p1, p2):
         """Draw a continuous stroke between p1 and p2 using a pen with round cap."""
@@ -4154,6 +4170,14 @@ class InpaintOverlay(QWidget):
             pass
 
         self.update()
+        try:
+            # Enable Export button when painting occurs
+            if hasattr(self, 'execute_button') and self.execute_button is not None:
+                self.execute_button.setEnabled(True)
+            if hasattr(self, 'clear_button') and self.clear_button is not None:
+                self.clear_button.setEnabled(True)
+        except Exception:
+            pass
 
     def _clear_outside_mask_area(self):
         """Clear mask pixels that lie outside the displayed pixmap region.
@@ -4240,14 +4264,25 @@ class InpaintOverlay(QWidget):
             self.brush_slider.setFixedWidth(160)
             # Clear mask button (no gold border; container shows gold)
             self.clear_button = QPushButton("Clear Mask", self.control_widget)
-            self.clear_button.setStyleSheet("color: white; background-color: black; border: 1px solid white; padding: 4px; border-radius: 4px;")
+            self.clear_button.setStyleSheet(
+                "QPushButton { color: white; background-color: black; border: 1px solid white; padding: 4px; border-radius: 4px; }"
+                "QPushButton:disabled { color: #777777; background-color: #444444; border: 1px solid #666666; }"
+            )
             self.clear_button.setFixedWidth(100)
             self.clear_button.setCursor(Qt.PointingHandCursor)
-            # Execute button: will later perform more than just saving the mask
-            self.execute_button = QPushButton("Execute", self.control_widget)
-            self.execute_button.setStyleSheet("color: white; background-color: black; border: 1px solid white; padding: 4px; border-radius: 4px;")
+            # Execute/Export button: will later perform export of mask/background
+            self.execute_button = QPushButton("Export", self.control_widget)
+            self.execute_button.setStyleSheet(
+                "QPushButton { color: white; background-color: black; border: 1px solid white; padding: 4px; border-radius: 4px; }"
+                "QPushButton:disabled { color: #777777; background-color: #444444; border: 1px solid #666666; }"
+            )
             self.execute_button.setFixedWidth(100)
             self.execute_button.setCursor(Qt.PointingHandCursor)
+            # start disabled until user paints
+            try:
+                self.execute_button.setEnabled(False)
+            except Exception:
+                pass
             # Add widgets to layout
             layout1.addWidget(self.brush_label)
             layout1.addWidget(self.brush_slider)
@@ -4258,10 +4293,19 @@ class InpaintOverlay(QWidget):
                 layout2.setAlignment(Qt.AlignLeft)
             except Exception:
                 pass
-            # Place Execute then Clear so Execute is readily accessible
+            # Place Clear on this row
             layout2.addWidget(self.clear_button)
-            layout2.addWidget(self.execute_button)
             vlayout.addLayout(layout2)
+
+            # Third row: Export button alone
+            layout3 = QHBoxLayout()
+            layout3.setContentsMargins(8, 6, 8, 6)
+            try:
+                layout3.setAlignment(Qt.AlignLeft)
+            except Exception:
+                pass
+            layout3.addWidget(self.execute_button)
+            vlayout.addLayout(layout3)
             self.control_widget.hide()
             # Connect signals
             self.brush_slider.valueChanged.connect(self._on_brush_slider_changed)
@@ -4553,6 +4597,15 @@ class InpaintCropWidget(CropWidget):
             shutil.move(mask_outpath, final_mask_path)
             if TRACELEVEL >= 1:
                 print(f"Execute: moved mask to {final_mask_path}", flush=True)
+
+            # Disable Export and Clear buttons after successful export
+            try:
+                if hasattr(self, 'execute_button') and self.execute_button is not None:
+                    self.execute_button.setEnabled(False)
+                if hasattr(self, 'clear_button') and self.clear_button is not None:
+                    self.clear_button.setEnabled(False)
+            except Exception:
+                pass
 
         except Exception:
             print(traceback.format_exc(), flush=True)
