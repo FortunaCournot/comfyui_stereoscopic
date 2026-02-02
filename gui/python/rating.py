@@ -374,6 +374,18 @@ class RateAndCutDialog(QDialog):
             self.cutMode_toolbar.addAction(self.openFolderAction)
             self.cutMode_toolbar.widgetForAction(self.openFolderAction).setCursor(Qt.PointingHandCursor)
 
+            # --- Open Edit Folder Action (opens the 'edit' subfolder) ---
+            try:
+                self.iconOpenEditAction = StyledIcon(os.path.join(path, '../../gui/img/editfolder64.png'))
+            except Exception:
+                self.iconOpenEditAction = QIcon(os.path.join(path, '../../gui/img/editfolder64.png'))
+            self.openEditAction = QAction(self.iconOpenEditAction, "Open Edit Folder")
+            self.openEditAction.setCheckable(False)
+            self.openEditAction.setVisible(True)
+            self.openEditAction.triggered.connect(self.onOpenEdit)
+            self.cutMode_toolbar.addAction(self.openEditAction)
+            self.cutMode_toolbar.widgetForAction(self.openEditAction).setCursor(Qt.PointingHandCursor)
+
             self.iconOpenArchiveAction = StyledIcon(os.path.join(path, '../../gui/img/openarchive64.png'))
             self.openArchiveAction = QAction(self.iconOpenArchiveAction, "Open Archive")
             self.openArchiveAction.setCheckable(False)
@@ -1836,6 +1848,14 @@ class RateAndCutDialog(QDialog):
         dirPath=srcfolder=os.path.join(path, "../../../../input/vr/check/rate/done")
         os.system("start \"\" " + os.path.abspath(dirPath))
         # subprocess.Popen(["explorer", os.path.abspath(dirPath) ], close_fds=True) - generates zombies
+        
+    def onOpenEdit(self, state):
+        """Open the edit subfolder of the current input folder in Explorer."""
+        if cutModeFolderOverrideActive:
+            dirPath = os.path.join(cutModeFolderOverridePath, "edit")
+        else:
+            dirPath = os.path.join(path, "../../../../input/vr/check/rate", "edit")
+        os.system("start \"\" " + os.path.abspath(dirPath))
          
     def onSelectFolder(self, state):
         enterUITask()
