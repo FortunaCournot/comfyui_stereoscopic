@@ -93,6 +93,18 @@ taskCounterUI=0
 taskCounterAsync=0
 showWaitDialog=False
 
+# Currently selected inpaint task (persisted at runtime)
+global selected_inpaint_task
+selected_inpaint_task = "inpaint-sd15"
+
+def set_selected_inpaint_task(name: str):
+    global selected_inpaint_task
+    try:
+        if name and isinstance(name, str):
+            selected_inpaint_task = name
+    except Exception:
+        pass
+
 
 def config(key, default):
         cfgFile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")
@@ -4060,6 +4072,60 @@ class CropWidget(QWidget):
 class InpaintOverlay(QWidget):
     """Transparent overlay used for painting an inpaint mask on top of the image label."""
     executeRequested = pyqtSignal()
+    
+    class TaskComboBox(QComboBox):
+        """ComboBox that (re)populates with available tasks containing 'inpaint' when opened."""
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self.setCursor(Qt.PointingHandCursor)
+            self.setEditable(False)
+            self.populate()
+
+        def populate(self):
+            try:
+                self.blockSignals(True)
+                self.clear()
+                tasks_dir = os.path.join(path, "../../../../input/vr/tasks")
+                names = []
+                if os.path.exists(tasks_dir):
+                    for name in sorted(os.listdir(tasks_dir)):
+                        if "inpaint" in name.lower():
+                            names.append(name)
+                # prefer explicit 'inpaint-sd15' as the startup default if present
+                preferred = "inpaint-sd15"
+                # ensure stored selection exists in list; if not, add it
+                if selected_inpaint_task and selected_inpaint_task not in names:
+                    names.insert(0, selected_inpaint_task)
+                for n in names:
+                    self.addItem(n)
+                # choose startup selection: prefer 'inpaint-sd15' if available
+                try:
+                    idx = -1
+                    if preferred in names:
+                        idx = self.findText(preferred)
+                        # also update global selection to preferred
+                        set_selected_inpaint_task(preferred)
+                    elif selected_inpaint_task and selected_inpaint_task in names:
+                        idx = self.findText(selected_inpaint_task)
+                    if idx >= 0:
+                        self.setCurrentIndex(idx)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            finally:
+                try:
+                    self.blockSignals(False)
+                except Exception:
+                    pass
+
+        def showPopup(self):
+            # refresh list each time the user opens the dropdown
+            try:
+                self.populate()
+            except Exception:
+                pass
+            super().showPopup()
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
@@ -4278,9 +4344,10 @@ class InpaintOverlay(QWidget):
             )
             self.execute_button.setFixedWidth(100)
             self.execute_button.setCursor(Qt.PointingHandCursor)
-            # start disabled until user paints
+            # start disabled until user paints (both Export and Clear)
             try:
                 self.execute_button.setEnabled(False)
+                self.clear_button.setEnabled(False)
             except Exception:
                 pass
             # Add widgets to layout
@@ -4297,13 +4364,24 @@ class InpaintOverlay(QWidget):
             layout2.addWidget(self.clear_button)
             vlayout.addLayout(layout2)
 
-            # Third row: Export button alone
+            # Third row: Task dropdown + Export button
             layout3 = QHBoxLayout()
             layout3.setContentsMargins(8, 6, 8, 6)
             try:
                 layout3.setAlignment(Qt.AlignLeft)
             except Exception:
                 pass
+            # Task selector: shows available tasks containing 'inpaint'
+            try:
+                self.task_combo = InpaintOverlay.TaskComboBox(self.control_widget)
+                self.task_combo.setFixedWidth(180)
+                self.task_combo.setStyleSheet("color: white; background-color: black; border: 1px solid white; padding: 2px; border-radius: 4px;")
+                # update global when selection changes
+                self.task_combo.currentTextChanged.connect(lambda txt: set_selected_inpaint_task(txt))
+                layout3.addWidget(self.task_combo)
+            except Exception:
+                self.task_combo = None
+
             layout3.addWidget(self.execute_button)
             vlayout.addLayout(layout3)
             self.control_widget.hide()
@@ -4543,7 +4621,8 @@ class InpaintCropWidget(CropWidget):
             crop_w = x1 - x0
             crop_h = y1 - y0
 
-            target_folder = os.path.join(path, "../../../../input/vr/tasks/inpaint-sd15")
+            # Use the currently selected inpaint task (stored in `selected_inpaint_task`)
+            target_folder = os.path.join(path, "../../../../input/vr/tasks", selected_inpaint_task)
 
             # ========== STEP 1: Save cropped background image ==========
             # Crop the original image to the crop rectangle
@@ -4556,13 +4635,13 @@ class InpaintCropWidget(CropWidget):
             os.makedirs(bg_dirpath, exist_ok=True)
 
             # Build unique filename with _N suffix
-            # Check in edit, inpaint-sd15, and inpaint-sd15/done folders
+            # Check in edit, selected task folder, and selected task's done folder
             base = os.path.splitext(os.path.basename(filepath))[0]
             n = 1
             while (os.path.exists(os.path.join(bg_dirpath, f"{base}_{n}.png")) or
-                   os.path.exists(os.path.join(target_folder, f"{base}_{n}.png")) or
-                   os.path.exists(os.path.join(target_folder, "done", f"{base}_{n}.png"))):
-                n += 1
+                        os.path.exists(os.path.join(target_folder, f"{base}_{n}.png")) or
+                        os.path.exists(os.path.join(target_folder, "done", f"{base}_{n}.png"))):
+                    n += 1
             bg_outpath = os.path.join(bg_dirpath, f"{base}_{n}.png")
 
             # Save cropped background as PNG
@@ -4581,7 +4660,7 @@ class InpaintCropWidget(CropWidget):
             if TRACELEVEL >= 1:
                 print(f"Execute: saved mask to {mask_outpath}", flush=True)
 
-            # ========== STEP 3: Move both files to inpaint-sd15 folder ==========
+            # ========== STEP 3: Move both files to selected inpaint task folder ==========
             os.makedirs(target_folder, exist_ok=True)
 
             # Determine final paths
