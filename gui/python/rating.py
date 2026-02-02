@@ -1863,10 +1863,7 @@ class RateAndCutDialog(QDialog):
         
     def onOpenEdit(self, state):
         """Open the edit subfolder of the current input folder in Explorer."""
-        if cutModeFolderOverrideActive:
-            dirPath = os.path.join(cutModeFolderOverridePath, "edit")
-        else:
-            dirPath = os.path.join(path, "../../../../input/vr/check/rate", "edit")
+        dirPath=srcfolder=os.path.join(path, "../../../../input/vr/check/rate/edit")
         os.system("start \"\" " + os.path.abspath(dirPath))
          
     def onSelectFolder(self, state):
