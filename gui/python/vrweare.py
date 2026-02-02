@@ -1227,7 +1227,7 @@ class PipelineEditThread(QThread):
             rc = process.wait()
             process.stdout.close()
             process.stderr.close()        
-            return (rc, msgboxtext)
+        return (rc, msgboxtext)
 
 class HoverTableWidget(QTableWidget):
     def __init__(self, rows, cols, isCellClickable, onCellClick, parent=None):
