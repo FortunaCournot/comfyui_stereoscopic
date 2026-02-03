@@ -228,6 +228,9 @@ else
 		fi
 		last_frame=$((last_frame - 1))
 		# iterate scenes and print each scene time (will be used later to build segments_json)
+		# initialize segments_json accumulator
+		segments_json="["
+		segments_first=1
 		if [ -e "$SCENES_FILE" ]; then
 			idx=0
 			prev_frame=0
@@ -244,24 +247,46 @@ else
 					continue
 				fi
 				seg_frames=$seg_target_frames
-				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
-					idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
-					echo "$idx $idx_a $idx_b $SCENE_SEG_MAX_FRAMES"
-					idx=$((idx+1))
-					idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
-					seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
-					seg_frames=$((seg_frames - SCENE_SEG_MAX_FRAMES))
-				done
-				echo "$idx $idx_a $idx_b $seg_frames"
+					while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
+						idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
+						echo "$idx $idx_a $idx_b $SCENE_SEG_MAX_FRAMES"
+						# append fourth value to segments_json
+						if [ $segments_first -eq 1 ] ; then
+							segments_json="${segments_json}${SCENE_SEG_MAX_FRAMES}"
+							segments_first=0
+						else
+							segments_json="${segments_json},${SCENE_SEG_MAX_FRAMES}"
+						fi
+						idx=$((idx+1))
+						idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
+						seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
+						seg_frames=$((seg_frames - SCENE_SEG_MAX_FRAMES))
+					done
+					echo "$idx $idx_a $idx_b $seg_frames"
+					# append fourth value (seg_frames) to segments_json
+					if [ $segments_first -eq 1 ] ; then
+						segments_json="${segments_json}${seg_frames}"
+						segments_first=0
+					else
+						segments_json="${segments_json},${seg_frames}"
+					fi
 				prev_frame=$frame_index
 				idx=$((idx+1))
 			done < "$SCENES_FILE"
 			seg_target_frames=$((last_frame - prev_frame + 1))
 			echo "$idx $prev_frame $last_frame $seg_target_frames"  # final segment till end of video
+			# append final segment length to segments_json
+			if [ $segments_first -eq 1 ] ; then
+				segments_json="${segments_json}${seg_target_frames}"
+				segments_first=0
+			else
+				segments_json="${segments_json},${seg_target_frames}"
+			fi
 		else
 			echo "(no scenes)"
 		fi
-		# Write skeleton workplan (scenes filled, segments left empty) and include source
+		# close segments_json and write skeleton workplan (scenes filled, segments left empty) and include source
+		segments_json="${segments_json}]"
 		echo "{\"source\": \"${ORIG_BASENAME}\", \"scenes\": $scenes_json, \"segments\": $segments_json}" > "$WORKPLAN_FILE"
 		echo "Wrote workplan -> $WORKPLAN_FILE"
 		echo "---"
