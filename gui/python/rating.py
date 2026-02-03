@@ -43,7 +43,6 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QRubberBand)
 
 
-
 USE_TRASHBIN=True
 if USE_TRASHBIN:
     try:
@@ -51,7 +50,7 @@ if USE_TRASHBIN:
     except ImportError:
         USE_TRASHBIN=False
 
-TRACELEVEL=1
+TRACELEVEL=3
 
 # Globale statische Liste der erlaubten Suffixe
 VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts', '.flv', '.mkv']
@@ -2047,11 +2046,12 @@ class RateAndCutDialog(QDialog):
         out.close()
         try:
             cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + pathtofile + "\" -filter:v \"select='gt(scene,"  + str(threshold) + ")',showinfo\" -f null - 2>> "+tmp.name
-            cmd2 = "grep showinfo \"" + tmp.name + "\" | grep pts_time:[0-9.]* -o | grep [0-9.]* -o > " + out.name
-            
+            cmd2 = "grep showinfo \"" + tmp.name + "\" | grep pts_time:[0-9.]\* -o | grep [0-9.]\* -o >> " + out.name
+
             if TRACELEVEL >= 3:
                 print("Executing", cmd1, flush=True)
             cp = subprocess.run(cmd1, shell=True, check=True, close_fds=True)
+            time.sleep(1)   
             if TRACELEVEL >= 3:
                 print("Executing", cmd2, flush=True)
             cp = subprocess.run(cmd2, shell=True, check=False, close_fds=True)
