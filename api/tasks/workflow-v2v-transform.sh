@@ -243,6 +243,7 @@ else
 				if [ $seg_effectiveframes -lt 1 ] ; then
 					continue
 				fi
+				seg_frames=$seg_target_frames
 				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
 					idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
 					echo "$idx $idx_a $idx_b $SCENE_SEG_MAX_FRAMES"
@@ -255,7 +256,8 @@ else
 				prev_frame=$frame_index
 				idx=$((idx+1))
 			done < "$SCENES_FILE"
-			echo "$idx $prev_frame $last_frame"  # final segment till end of video
+			seg_target_frames=$((last_frame - prev_frame + 1))
+			echo "$idx $prev_frame $last_frame $seg_target_frames"  # final segment till end of video
 		else
 			echo "(no scenes)"
 		fi
