@@ -146,7 +146,7 @@ else
 	REUSE_WORKPLAN=""
 	
 	#rm -rf -- input/vr/tasks/intermediate/*
-	#rm -rf -- output/vr/tasks/intermediate/*
+	rm -rf -- output/vr/tasks/intermediate/*
 	
 	for d in input/vr/tasks/intermediate/* ; do
 		if [ -d "$d" ] && [ -e "$d/workplan.json" ] ; then
@@ -462,6 +462,15 @@ else
 	done
 
 	# SECTION: generate video segements based transformed images according to work plan using configured FL2V workflow.
+	for d in "$INTERMEDIATE_INPUT_FOLDER"/segment-*; do
+		if [ ! -d "$d" ]; then
+			# no segments found (glob didn't match)
+			break
+		fi
+		seg_index=${d##*-}
+
+		
+	done
 
 	# SECTION: concat video segements to final video, and apply audio from source video.
 
