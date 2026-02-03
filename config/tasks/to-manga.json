@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "workflow-v2v-transform",
+  "workflow_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/I2I_SXDL_Recolor.json",
+  "sdxl_checkpoint": "SDXL/juggernautXL_ragnarokBy.safetensors",
+  "input": "video",
+  "output": "video",
+}
