@@ -164,6 +164,9 @@ else
 		INTERMEDIATE_INPUT_FOLDER=input/vr/tasks/intermediate/$uuid
 		mkdir -p $INTERMEDIATE_INPUT_FOLDER
 	fi
+	# create corresponding output-side intermediate folder (output/..)
+	INTERMEDIATE_OUTPUT_FOLDER=$(echo "$INTERMEDIATE_INPUT_FOLDER" | sed 's#^input/#output/#')
+	mkdir -p "$INTERMEDIATE_OUTPUT_FOLDER"
 	EXTENSION="${INPUT##*.}"
 	VIDEOINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmp-input.$EXTENSION
 	if [ -z "$REUSE_WORKPLAN" ] ; then
@@ -363,10 +366,83 @@ else
 			done
 		fi
 	else
-		echo "Workplan not found: $WORKPLAN_FILE"
+		echo -e $"\e[91mError:\e[0m Workplan not found: $WORKPLAN_FILE"
+		mkdir -p input/vr/tasks/$TASKNAME/error
+		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+		rm -rf -- $INTERMEDIATE_INPUT_FOLDER/*
+		exit 1
 	fi
 
 	# SECTION: generate transformed images accoording to workplan using the configured i2i workflow via api,
+	# Iterate segments and run ComfyUI workflow for start/end images (placeholder)
+	for d in "$INTERMEDIATE_INPUT_FOLDER"/segment-*; do
+		if [ ! -d "$d" ]; then
+			# no segments found (glob didn't match)
+			break
+		fi
+		seg_index=${d##*-}
+		# check if i2i outputs already exist (first/last filenames); skip if present
+		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
+		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
+		if [ -f "$first_img" ] && [ -f "$last_img" ]; then
+			# i2i outputs already present for this segment, skip
+			continue
+		fi
+		# iterate the two representative images for the segment (input images)
+		for img in "$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png" "$INTERMEDIATE_INPUT_FOLDER/end_${seg_index}.png"; do
+			if [ ! -f "$img" ]; then
+				# missing input image -> skip
+				continue
+			fi
+			# Placeholder: call the ComfyUI i2i workflow on $img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
+			# Example (to implement later): python3 "$SCRIPTPATH" --task transform --input "$img" --output "$INTERMEDIATE_OUTPUT_FOLDER/$(basename "$img")"
+			echo "running i2i workflow for segment $seg_index -> $img"
+
+			i2i_api=`cat "$BLUEPRINTCONFIG" | grep -o '"i2i_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+			
+			[ $loglevel -lt 2 ] && set -x
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$i2i_api" "$img" "$TARGETPREFIX"
+			set +x && [ $loglevel -ge 2 ] && set -x
+
+			start=`date +%s`
+			end=`date +%s`
+			secs=0
+			until [ "$queuecount" = "0" ]
+			do
+				sleep 1
+				
+				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+				if test $# -ne 0
+				then	
+					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+					exit 1
+				fi
+				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+			
+				end=`date +%s`
+				secs=$((end-start))
+				itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+				echo -ne "$itertimemsg         \r"
+			done
+			runtime=$((end-start))
+			[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
+
+			EXTENSION=".mp4"
+			INTERMEDIATE="$TARGETPREFIX""_00001""$EXTENSION"
+
+			if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
+				if echo "$(basename "$img")" | grep -q '^start_' ; then
+					mv -vf -- "$INTERMEDIATE" "$first_img"
+				else
+					mv -vf -- "$INTERMEDIATE" "$last_img"
+				fi
+				echo -e $"\e[92mstep done.\e[0m"
+			else
+				echo -e $"\e[91mError:\e[0m Step failed. $INTERMEDIATE missing or zero-length."
+			fi
+		done
+	done
 
 	# SECTION: generate video segements based transformed images according to work plan using configured FL2V workflow.
 
