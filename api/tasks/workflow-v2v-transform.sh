@@ -58,7 +58,7 @@ else
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 	# API relative to COMFYUIPATH, or absolute path:
-	SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/workflow/v2v_simple.py
+	SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/workflow/i2i_transition.py
 
 	NOLINE=-ne
 	
@@ -137,9 +137,6 @@ else
 
 
 	ORIGINALINPUT="$INPUT"
-	TARGETPREFIX=${INPUT##*/}
-	TARGETPREFIX=output/vr/tasks/intermediate/${TARGETPREFIX%.*}
-	TARGETPREFIX=`realpath "$TARGETPREFIX"`
 	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
 	mkdir -p $FINALTARGETFOLDER
 
@@ -147,7 +144,10 @@ else
 	ORIGINALINPUT="$INPUT"
 	ORIG_BASENAME=$(basename "$ORIGINALINPUT")
 	REUSE_WORKPLAN=""
-	rm -rf -- input/vr/tasks/intermediate/*
+	
+	#rm -rf -- input/vr/tasks/intermediate/*
+	#rm -rf -- output/vr/tasks/intermediate/*
+	
 	for d in input/vr/tasks/intermediate/* ; do
 		if [ -d "$d" ] && [ -e "$d/workplan.json" ] ; then
 			# Only accept workplans that explicitly declare this video as "source"
@@ -167,6 +167,9 @@ else
 	# create corresponding output-side intermediate folder (output/..)
 	INTERMEDIATE_OUTPUT_FOLDER=$(echo "$INTERMEDIATE_INPUT_FOLDER" | sed 's#^input/#output/#')
 	mkdir -p "$INTERMEDIATE_OUTPUT_FOLDER"
+	INTERMEDIATE_OUTPUT_FOLDER=`realpath "$INTERMEDIATE_OUTPUT_FOLDER"`
+	TARGETPREFIX=${INPUT##*/}
+	TARGETPREFIX=$INTERMEDIATE_OUTPUT_FOLDER/${TARGETPREFIX%.*}
 	EXTENSION="${INPUT##*.}"
 	VIDEOINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmp-input.$EXTENSION
 	if [ -z "$REUSE_WORKPLAN" ] ; then
@@ -390,23 +393,38 @@ else
 		fi
 		# iterate the two representative images for the segment (input images)
 		for img in "$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png" "$INTERMEDIATE_INPUT_FOLDER/end_${seg_index}.png"; do
-			if [ ! -f "$img" ]; then
-				# missing input image -> skip
+			if echo "$(basename "$img")" | grep -q '^start_' ; then
+				target_img="$first_img"
+			else
+				target_img="$last_img"
+			fi
+
+			if [ -f "$target_img" ]; then
+				echo "Resuming. image already exists: $target_img"
 				continue
 			fi
-			# Placeholder: call the ComfyUI i2i workflow on $img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
-			# Example (to implement later): python3 "$SCRIPTPATH" --task transform --input "$img" --output "$INTERMEDIATE_OUTPUT_FOLDER/$(basename "$img")"
-			echo "running i2i workflow for segment $seg_index -> $img"
+
+			if [ ! -f "$img" ]; then
+				echo -e $"\e[91mError:\e[0m Task failed. input image $img missing."
+				mkdir -p input/vr/tasks/$TASKNAME/error
+				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+				exit 1
+			fi
+
+			# call the ComfyUI i2i workflow on $img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
+			echo "--- running i2i workflow for segment $seg_index -> $img"
 
 			i2i_api=`cat "$BLUEPRINTCONFIG" | grep -o '"i2i_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 			
+			INPUT=`realpath "$img"`
 			[ $loglevel -lt 2 ] && set -x
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$i2i_api" "$img" "$TARGETPREFIX"
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted"
 			set +x && [ $loglevel -ge 2 ] && set -x
 
 			start=`date +%s`
 			end=`date +%s`
 			secs=0
+			queuecount=""
 			until [ "$queuecount" = "0" ]
 			do
 				sleep 1
@@ -429,17 +447,16 @@ else
 			[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 
 			EXTENSION=".mp4"
-			INTERMEDIATE="$TARGETPREFIX""_00001""$EXTENSION"
+			INTERMEDIATE="$INTERMEDIATE_OUTPUT_FOLDER/converted""_00001_"".png"
 
 			if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
-				if echo "$(basename "$img")" | grep -q '^start_' ; then
-					mv -vf -- "$INTERMEDIATE" "$first_img"
-				else
-					mv -vf -- "$INTERMEDIATE" "$last_img"
-				fi
+				mv -vf -- "$INTERMEDIATE" "$target_img"
 				echo -e $"\e[92mstep done.\e[0m"
 			else
 				echo -e $"\e[91mError:\e[0m Step failed. $INTERMEDIATE missing or zero-length."
+				mkdir -p input/vr/tasks/$TASKNAME/error
+				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+				exit 1
 			fi
 		done
 	done
