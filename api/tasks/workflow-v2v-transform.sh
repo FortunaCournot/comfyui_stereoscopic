@@ -228,8 +228,10 @@ else
 		fi
 		last_frame=$((last_frame - 1))
 		# iterate scenes and print each scene time (will be used later to build segments_json)
-		# initialize segments_json accumulator
-		segments_json="["
+		# initialize segments arrays: frame counts, start indices, end indices
+		segments_framecount_json="["
+		segments_start_json="["
+		segments_end_json="["
 		segments_first=1
 		if [ -e "$SCENES_FILE" ]; then
 			idx=0
@@ -241,65 +243,128 @@ else
 				seg_target_frames=$((frame_index - prev_frame))
 				idx_a=$((prev_frame + SCENE_OFFSET_START))
 				idx_b=$((frame_index - 1 - SCENE_OFFSET_END))
+				idx_seg_end=$idx_b
 				# output: index previous_frame_index current_frame_index
 				seg_effectiveframes=$((idx_b - idx_a))
 				if [ $seg_effectiveframes -lt 1 ] ; then
 					continue
 				fi
 				seg_frames=$seg_target_frames
-					while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
-						idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
-						echo "$idx $idx_a $idx_b $SCENE_SEG_MAX_FRAMES"
-						# append fourth value to segments_json
-						if [ $segments_first -eq 1 ] ; then
-							segments_json="${segments_json}${SCENE_SEG_MAX_FRAMES}"
-							segments_first=0
-						else
-							segments_json="${segments_json},${SCENE_SEG_MAX_FRAMES}"
-						fi
-						idx=$((idx+1))
-						idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
-						seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
-						seg_frames=$((seg_frames - SCENE_SEG_MAX_FRAMES))
-					done
-					echo "$idx $idx_a $idx_b $seg_frames"
-					# append fourth value (seg_frames) to segments_json
+				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
+					idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
+					# append values to arrays: framecount, start, end
 					if [ $segments_first -eq 1 ] ; then
-						segments_json="${segments_json}${seg_frames}"
+						segments_framecount_json="${segments_framecount_json}${SCENE_SEG_MAX_FRAMES}"
+						segments_start_json="${segments_start_json}${idx_a}"
+						segments_end_json="${segments_end_json}${idx_b}"
 						segments_first=0
 					else
-						segments_json="${segments_json},${seg_frames}"
+						segments_framecount_json="${segments_framecount_json},${SCENE_SEG_MAX_FRAMES}"
+						segments_start_json="${segments_start_json},${idx_a}"
+						segments_end_json="${segments_end_json},${idx_b}"
 					fi
+					idx=$((idx+1))
+					idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
+					seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
+					seg_frames=$((seg_frames - SCENE_SEG_MAX_FRAMES))
+				done
+				# append remaining chunk values to arrays
+				if [ $segments_first -eq 1 ] ; then
+					segments_framecount_json="${segments_framecount_json}${seg_frames}"
+					segments_start_json="${segments_start_json}${idx_a}"
+					segments_end_json="${segments_end_json}${idx_seg_end}"
+					segments_first=0
+				else
+					segments_framecount_json="${segments_framecount_json},${seg_frames}"
+					segments_start_json="${segments_start_json},${idx_a}"
+					segments_end_json="${segments_end_json},${idx_seg_end}"
+				fi
 				prev_frame=$frame_index
 				idx=$((idx+1))
 			done < "$SCENES_FILE"
-			seg_target_frames=$((last_frame - prev_frame + 1))
-			echo "$idx $prev_frame $last_frame $seg_target_frames"  # final segment till end of video
-			# append final segment length to segments_json
+			# compute final segment start/end with offsets
+			final_start=$((prev_frame + SCENE_OFFSET_START))
+			final_end=$((last_frame - SCENE_OFFSET_END))
+			seg_target_frames=$((final_end - final_start + 1))
+			# append final segment values to arrays
 			if [ $segments_first -eq 1 ] ; then
-				segments_json="${segments_json}${seg_target_frames}"
+				segments_framecount_json="${segments_framecount_json}${seg_target_frames}"
+				segments_start_json="${segments_start_json}${final_start}"
+				segments_end_json="${segments_end_json}${final_end}"
 				segments_first=0
 			else
-				segments_json="${segments_json},${seg_target_frames}"
+				segments_framecount_json="${segments_framecount_json},${seg_target_frames}"
+				segments_start_json="${segments_start_json},${final_start}"
+				segments_end_json="${segments_end_json},${final_end}"
 			fi
 		else
 			echo "(no scenes)"
 		fi
-		# close segments_json and write skeleton workplan (scenes filled, segments left empty) and include source
-		segments_json="${segments_json}]"
-		echo "{\"source\": \"${ORIG_BASENAME}\", \"scenes\": $scenes_json, \"segments\": $segments_json}" > "$WORKPLAN_FILE"
+		# close segments arrays and write skeleton workplan (scenes filled, segments left empty) and include source
+		segments_framecount_json="${segments_framecount_json}]"
+		segments_start_json="${segments_start_json}]"
+		segments_end_json="${segments_end_json}]"
+		echo "{\"source\": \"${ORIG_BASENAME}\", \"scenes\": $scenes_json, \"segments_framecount\": $segments_framecount_json, \"segments_start\": $segments_start_json, \"segments_end\": $segments_end_json}" > "$WORKPLAN_FILE"
 		echo "Wrote workplan -> $WORKPLAN_FILE"
 		echo "---"
 		cat "$WORKPLAN_FILE"
 		echo "---"
 	fi
 
-
-
-	
-
-
 	# SECTION: generate input images accoording to work plan ,
+
+	# Prepare loop: read `segments_start` and `segments_end` from workplan and iterate
+	# Workplan is at $WORKPLAN_FILE (created above in intermediate folder)
+	if [ -e "$WORKPLAN_FILE" ]; then
+		# extract numeric lists inside the brackets
+		segments_start_vals=$(grep -o '"segments_start"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
+		segments_end_vals=$(grep -o '"segments_end"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
+		# if either is empty, treat as none
+		if [ -z "$segments_start_vals" ] || [ -z "$segments_end_vals" ]; then
+			echo "No segments found in $WORKPLAN_FILE"
+		else
+			# count entries by number of commas (+1)
+			seg_count=1
+			if echo "$segments_start_vals" | grep -q ','; then
+				seg_count=$(echo "$segments_start_vals" | awk -F, '{print NF}')
+			fi
+			# iterate by index (1-based fields for cut)
+			for idx in $(seq 1 $seg_count); do
+				start=$(echo "$segments_start_vals" | cut -d',' -f$idx | tr -d '[:space:]')
+				end=$(echo "$segments_end_vals" | cut -d',' -f$idx | tr -d '[:space:]')
+				seg_index=$((idx-1))
+				# skip if both images already exist (quiet check at loop start)
+				tgt_start_img="$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png"
+				tgt_end_img="$INTERMEDIATE_INPUT_FOLDER/end_${seg_index}.png"
+				if [ -f "$tgt_start_img" ] && [ -f "$tgt_end_img" ]; then
+					# already extracted
+					continue
+				fi
+				echo "Preparing segment $seg_index: start=$start end=$end"
+				# create segment helper dir and metadata
+				sb_dir="$INTERMEDIATE_INPUT_FOLDER/segment-$seg_index"
+				mkdir -p "$sb_dir"
+				echo "$start" > "$sb_dir/start.txt"
+				echo "$end" > "$sb_dir/end.txt"
+				# extract start frame if missing
+				if [ ! -f "$tgt_start_img" ]; then
+					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$start)" -vframes 1 -q:v 2 "$tgt_start_img"
+					if [ $? -ne 0 ]; then
+						echo "Warning: failed extracting start frame $start for segment $seg_index"
+					fi
+				fi
+				# extract end frame if missing
+				if [ ! -f "$tgt_end_img" ]; then
+					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$end)" -vframes 1 -q:v 2 "$tgt_end_img"
+					if [ $? -ne 0 ]; then
+						echo "Warning: failed extracting end frame $end for segment $seg_index"
+					fi
+				fi
+			done
+		fi
+	else
+		echo "Workplan not found: $WORKPLAN_FILE"
+	fi
 
 	# SECTION: generate transformed images accoording to workplan using the configured i2i workflow via api,
 
