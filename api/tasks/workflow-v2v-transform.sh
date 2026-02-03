@@ -81,6 +81,16 @@ else
 
 	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
 
+	# workflow config variables
+	SCENE_OFFSET_START=$(awk -F "=" '/SCENE_OFFSET_START=/ {print $2}' $CONFIGFILE)
+	SCENE_OFFSET_START=${SCENE_OFFSET_START:-1}
+	SCENE_OFFSET_END=$(awk -F "=" '/SCENE_OFFSET_END=/ {print $2}' $CONFIGFILE)
+	SCENE_OFFSET_END=${SCENE_OFFSET_END:-1}
+	SCENE_SEG_MAX_FRAMES=$(awk -F "=" '/SCENE_SEG_MAX_FRAMES=/ {print $2}' $CONFIGFILE)
+	SCENE_SEG_MAX_FRAMES=${SCENE_SEG_MAX_FRAMES:-48}
+	SCENE_WORKFLOW_FPS=$(awk -F "=" '/SCENE_WORKFLOW_FPS=/ {print $2}' $CONFIGFILE)
+	SCENE_WORKFLOW_FPS=${SCENE_WORKFLOW_FPS:-16}
+
 #	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 #	if [ "$status" = "closed" ]; then
 #		echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
@@ -157,11 +167,11 @@ else
 	EXTENSION="${INPUT##*.}"
 	VIDEOINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmp-input.$EXTENSION
 	if [ -z "$REUSE_WORKPLAN" ] ; then
-		# Re-encode input to a stable 16 FPS intermediate file to avoid frame-rate issues
-		echo "Converting input to 16 FPS -> $VIDEOINTERMEDIATE"
-		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$INPUT" -filter:v "fps=16" -c:v libx264 -preset veryfast -crf 18 -c:a copy "$VIDEOINTERMEDIATE"
+		# Re-encode input to a workflow-specific FPS intermediate file to avoid frame-rate issues
+		echo "Converting input to $SCENE_WORKFLOW_FPS FPS -> $VIDEOINTERMEDIATE"
+		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$INPUT" -filter:v "fps=$SCENE_WORKFLOW_FPS" -c:v libx264 -preset veryfast -crf 18 -c:a copy "$VIDEOINTERMEDIATE"
 		if [ $? -ne 0 ]; then
-			echo -e $"\e[91mError:\e[0m ffmpeg failed converting to 16 FPS"
+			echo -e $"\e[91mError:\e[0m ffmpeg failed converting to $SCENE_WORKFLOW_FPS FPS"
 			mkdir -p input/vr/tasks/$TASKNAME/error
 			mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 			rm -rf -- $INTERMEDIATE_INPUT_FOLDER
@@ -204,11 +214,6 @@ else
 			scenes_json="[]"
 		fi
 		# --- Build `segments` based on `scenes` and optional offsets
-		# Offsets can be set in the config as SCENE_OFFSET_START/SCENE_OFFSET_END (defaults 1)
-		SCENE_OFFSET_START=$(awk -F "=" '/SCENE_OFFSET_START=/ {print $2}' $CONFIGFILE)
-		SCENE_OFFSET_START=${SCENE_OFFSET_START:-1}
-		SCENE_OFFSET_END=$(awk -F "=" '/SCENE_OFFSET_END=/ {print $2}' $CONFIGFILE)
-		SCENE_OFFSET_END=${SCENE_OFFSET_END:-1}
 		# last frame index (for final segment)., subtract 1 from count so last_frame is zero-based (index of last frame)
 		set -x
 		`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=nb_frames -of json -i "$VIDEOINTERMEDIATE" >$INTERMEDIATE_INPUT_FOLDER/probe.txt`
@@ -227,8 +232,8 @@ else
 			idx=0
 			prev_frame=0
 			while IFS= read -r scene_time || [ -n "$scene_time" ]; do
-				# compute frame index for the scene time (intermediate video is 16 FPS)
-				frame_index=$(awk -v t="$scene_time" 'BEGIN{printf "%d", int(t*16+0.5)}')
+				# compute frame index for the scene time (intermediate video uses $SCENE_WORKFLOW_FPS FPS)
+				frame_index=$(awk -v t="$scene_time" -v fps="$SCENE_WORKFLOW_FPS" 'BEGIN{printf "%d", int(t*fps+0.5)}')
 				# calculate number of target frames
 				seg_target_frames=$((frame_index - prev_frame))
 				idx_a=$((prev_frame + SCENE_OFFSET_START))
@@ -238,6 +243,14 @@ else
 				if [ $seg_effectiveframes -lt 1 ] ; then
 					continue
 				fi
+				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
+					idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
+					echo "$idx $idx_a $idx_b $SCENE_SEG_MAX_FRAMES"
+					idx=$((idx+1))
+					idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
+					seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
+					seg_frames=$((seg_frames - SCENE_SEG_MAX_FRAMES))
+				done
 				echo "$idx $idx_a $idx_b $seg_frames"
 				prev_frame=$frame_index
 				idx=$((idx+1))
