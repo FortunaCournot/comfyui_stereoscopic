@@ -327,6 +327,7 @@ else
 					continue
 				fi
 				seg_frames=$seg_target_frames
+				# split for SCENE_SEG_MAX_FRAMES
 				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
 					idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
 					# append values to arrays: framecount, start, end
@@ -362,17 +363,37 @@ else
 			# compute final segment start/end with offsets
 			final_start=$((prev_frame + SCENE_OFFSET_START))
 			final_end=$((last_frame - SCENE_OFFSET_END))
-			seg_target_frames=$((final_end - final_start + 1))
-			# append final segment values to arrays
-			if [ $segments_first -eq 1 ] ; then
-				segments_framecount_json="${segments_framecount_json}${seg_target_frames}"
-				segments_start_json="${segments_start_json}${final_start}"
-				segments_end_json="${segments_end_json}${final_end}"
-				segments_first=0
-			else
-				segments_framecount_json="${segments_framecount_json},${seg_target_frames}"
-				segments_start_json="${segments_start_json},${final_start}"
-				segments_end_json="${segments_end_json},${final_end}"
+			seg_effectiveframes=$((final_end - final_start + 1))
+			idx_a=$final_start
+			# split final segment into chunks of at most SCENE_SEG_MAX_FRAMES
+			while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
+				idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
+				if [ $segments_first -eq 1 ] ; then
+					segments_framecount_json="${segments_framecount_json}${SCENE_SEG_MAX_FRAMES}"
+					segments_start_json="${segments_start_json}${idx_a}"
+					segments_end_json="${segments_end_json}${idx_b}"
+					segments_first=0
+				else
+					segments_framecount_json="${segments_framecount_json},${SCENE_SEG_MAX_FRAMES}"
+					segments_start_json="${segments_start_json},${idx_a}"
+					segments_end_json="${segments_end_json},${idx_b}"
+				fi
+				idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
+				seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
+			done
+			# append remaining frames (if any)
+			if [ $seg_effectiveframes -gt 0 ] ; then
+				idx_b=$((idx_a + seg_effectiveframes - 1))
+				if [ $segments_first -eq 1 ] ; then
+					segments_framecount_json="${segments_framecount_json}${seg_effectiveframes}"
+					segments_start_json="${segments_start_json}${idx_a}"
+					segments_end_json="${segments_end_json}${idx_b}"
+					segments_first=0
+				else
+					segments_framecount_json="${segments_framecount_json},${seg_effectiveframes}"
+					segments_start_json="${segments_start_json},${idx_a}"
+					segments_end_json="${segments_end_json},${idx_b}"
+				fi
 			fi
 		else
 			echo "(no scenes)"
@@ -676,8 +697,74 @@ else
 
 	# SECTION: concat video segements to final video, and apply audio from source video.
 
-				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+	# Build concat list from chunk_*.mp4 in numeric order (chunk_0, chunk_1, ...)
+	concat_list="$INTERMEDIATE_INPUT_FOLDER/concat_list.txt"
+	rm -f "$concat_list"
+	i=0
+	found=0
+	while : ; do
+		chunk="$INTERMEDIATE_INPUT_FOLDER/chunk_${i}.mp4"
+		if [ -f "$chunk" ]; then
+			# write basename only so ffmpeg resolves the file relative to the concat file directory
+			echo "file '$(basename "$chunk")'" >> "$concat_list"
+			found=1
+			i=$((i+1))
+		else
+			break
+		fi
+	done
 
+	if [ $found -eq 0 ]; then
+		echo -e $"\e[91mError:\e[0m No chunk_*.mp4 files found in $INTERMEDIATE_INPUT_FOLDER."
+		mkdir -p input/vr/tasks/$TASKNAME/error
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
+		exit 1
+	fi
+
+	concat_video="$INTERMEDIATE_INPUT_FOLDER/concat_video.mp4"
+	rm -f "$concat_video"
+
+	# Try concat with stream copy; fall back to re-encode if that fails
+	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -f concat -safe 0 -i "$concat_list" -c copy "$concat_video"
+	if [ $? -ne 0 ]; then
+		echo "Warning: concat (stream copy) failed, retrying with re-encode"
+		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -f concat -safe 0 -i "$concat_list" -c:v libx264 -preset veryfast -crf 18 -c:a copy "$concat_video"
+		if [ $? -ne 0 ]; then
+			echo -e $"\e[91mError:\e[0m Failed creating concatenated video"
+			mkdir -p input/vr/tasks/$TASKNAME/error
+			mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
+			exit 1
+		fi
+	fi
+
+	# Final output path
+	FINALVIDEO="$FINALTARGETFOLDER/${ORIG_BASENAME%.*}_transformed.mp4"
+
+	# If source has audio, mux it; otherwise just move concat_video
+	# Detect audio stream in original input
+	audio_exists=0
+	"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams a:0 -show_entries stream=index -of csv=p=0 "$ORIGINALINPUT" >/dev/null 2>&1 && audio_exists=1 || audio_exists=0
+
+	if [ $audio_exists -eq 1 ]; then
+		# Map video from concat and audio from original; re-encode audio to AAC
+		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
+		if [ $? -ne 0 ]; then
+			echo -e $"\e[91mError:\e[0m Failed muxing audio into final video"
+			mkdir -p input/vr/tasks/$TASKNAME/error
+			mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
+			exit 1
+		fi
+	else
+		# No audio: move or copy concat_video to final location
+		mkdir -p "$FINALTARGETFOLDER"
+		mv -vf -- "$concat_video" "$FINALVIDEO"
+	fi
+
+	echo -e $"\e[92mSuccess:\e[0m Final video written -> $FINALVIDEO"
+	mkdir -p input/vr/tasks/$TASKNAME/done
+	mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
+	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
+	rm
 
 fi
 exit 0
