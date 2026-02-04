@@ -741,13 +741,12 @@ else
 	FINALVIDEO="$FINALTARGETFOLDER/${ORIG_BASENAME%.*}_transformed.mp4"
 
 	# If source has audio, mux it; otherwise just move concat_video
-	# Detect audio stream in original input
-	audio_exists=0
-	"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams a:0 -show_entries stream=index -of csv=p=0 "$ORIGINALINPUT" >/dev/null 2>&1 && audio_exists=1 || audio_exists=0
+	# Detect audio stream index in original input (if any)
+	audio_stream_index=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$ORIGINALINPUT" 2>/dev/null | head -n1`
 
-	if [ $audio_exists -eq 1 ]; then
-		# Map video from concat and audio from original; re-encode audio to AAC
-		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
+	if [ -n "$audio_stream_index" ]; then
+		# Map video from concat and the detected audio stream from original; re-encode audio to AAC
+		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:$audio_stream_index -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
 		if [ $? -ne 0 ]; then
 			echo -e $"\e[91mError:\e[0m Failed muxing audio into final video"
 			mkdir -p input/vr/tasks/$TASKNAME/error
