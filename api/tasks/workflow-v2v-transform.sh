@@ -56,15 +56,15 @@ iv2v_generate() {
 	# frames_to_generate is a count; compute inclusive end index (0-based)
 	end=$((start + frames_to_generate - 1))
 
-	idx_p=$(printf "%04d" "$chunk_index")
-	control_chunk="$INTERMEDIATE_INPUT_FOLDER/control_${idx_p}.mp4"
+		# Detect whether original input has any audio streams
+		has_audio=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$ORIGINALINPUT" 2>/dev/null | head -n1`
 
 	# extract range of frames from VIDEOINTERMEDIATE into control_chunk
 	echo "Extracting control chunk $control_chunk from $VIDEOINTERMEDIATE frames $start-$end"
-	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -vf "select='between(n\,$start\,$end)'" -vsync 0 -c:v libx264 -preset veryfast -crf 18 -an "$control_chunk"
-	if [ $? -ne 0 ] || [ ! -s "$control_chunk" ]; then
-		echo -e $"\e[91mError:\e[0m Failed creating control chunk $control_chunk"
-		mkdir -p input/vr/tasks/$TASKNAME/error
+		if [ -n "$has_audio" ]; then
+			# Map video from concat and the first audio stream of the original; re-encode audio to AAC
+			set -x
+			"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 		exit 1
 	fi
@@ -747,8 +747,12 @@ else
 	concat_video="$INTERMEDIATE_INPUT_FOLDER/concat_video.mp4"
 	rm -f "$concat_video"
 
+	echo "--- concat_video segments to $concat_video"
+
 	# Try concat with stream copy; fall back to re-encode if that fails
+	set -x
 	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -f concat -safe 0 -i "$concat_list" -c copy "$concat_video"
+	set +x
 	if [ $? -ne 0 ]; then
 		echo "Warning: concat (stream copy) failed, retrying with re-encode"
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -f concat -safe 0 -i "$concat_list" -c:v libx264 -preset veryfast -crf 18 -c:a copy "$concat_video"
@@ -767,9 +771,13 @@ else
 	# Detect audio stream index in original input (if any)
 	audio_stream_index=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$ORIGINALINPUT" 2>/dev/null | head -n1`
 
+	echo "--- adding audio to $concat_video"
+
 	if [ -n "$audio_stream_index" ]; then
-		# Map video from concat and the detected audio stream from original; re-encode audio to AAC
-		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:${audio_stream_index}? -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
+		# Map video from concat and the first audio stream of the original; re-encode audio to AAC
+		set -x
+		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
+		set +x
 		if [ $? -ne 0 ]; then
 			echo -e $"\e[91mError:\e[0m Failed muxing audio into final video"
 			mkdir -p input/vr/tasks/$TASKNAME/error
@@ -778,6 +786,7 @@ else
 		fi
 	else
 		# No audio: move or copy concat_video to final location
+		echo "No audio stream found in source video."
 		mkdir -p "$FINALTARGETFOLDER"
 		mv -vf -- "$concat_video" "$FINALVIDEO"
 	fi
