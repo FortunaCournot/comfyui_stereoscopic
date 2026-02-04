@@ -44,6 +44,72 @@ assertlimit() {
 	fi
 } 
 
+# Helper: run FL2V transition workflow to produce a chunk file
+iv2v_generate() {
+	img1="$1"
+	img2="$2"
+	chunk_file="$3"
+	frames_to_generate="$4"
+	start="$5"
+	prompt="$6"
+	end=$((start + frames_to_generate))
+
+	control_chunk="$INTERMEDIATE_INPUT_FOLDER/control_${chunk_index}.mp4"
+
+	# extract range of frames from VIDEOINTERMEDIATE into control_chunk
+	echo "Extracting control chunk $control_chunk from $VIDEOINTERMEDIATE frames $start-$end"
+	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -vf "select='between(n\,$start\,$end)'" -vsync 0 -c:v libx264 -preset veryfast -crf 18 -an "$control_chunk"
+	if [ $? -ne 0 ] || [ ! -s "$control_chunk" ]; then
+		echo -e $"\e[91mError:\e[0m Failed creating control chunk $control_chunk"
+		mkdir -p input/vr/tasks/$TASKNAME/error
+		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+		exit 1
+	fi
+
+	iv2v_api=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+
+	img1=`realpath "$img1"`
+	control_chunk=`realpath "$control_chunk"`
+
+	[ $loglevel -lt 2 ] && set -x
+	"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt"
+	set +x && [ $loglevel -ge 2 ] && set -x
+
+	start=`date +%s`
+	end=`date +%s`
+	secs=0
+	queuecount=""
+	until [ "$queuecount" = "0" ]
+	do
+		sleep 1
+		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+		if [ "$status" = "closed" ] ; then
+			echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+			return 1
+		fi
+		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+
+		end=`date +%s`
+		secs=$((end-start))
+		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+		echo -ne "$itertimemsg         \r"
+	done
+	runtime=$((end-start))
+	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
+
+	EXTENSION=".mp4"
+	INTERMEDIATE="$INTERMEDIATE_OUTPUT_FOLDER/converted""_00001_""${EXTENSION}"
+
+	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
+		mv -vf -- "$INTERMEDIATE" "$chunk_file"
+		echo -e $"\e[92mstep done.\e[0m"
+		return 0
+	else
+		echo -e $"\e[91mError:\e[0m Step failed. $INTERMEDIATE missing or zero-length."
+		return 2
+	fi
+}
 
 COMFYUIPATH=`realpath $(dirname "$0")/../../../..`
 
@@ -59,6 +125,7 @@ else
 
 	# API relative to COMFYUIPATH, or absolute path:
 	SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/workflow/i2i_transition.py
+	SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/python/workflow/iv2v_transition.py
 
 	NOLINE=-ne
 	
@@ -168,6 +235,9 @@ else
 	INTERMEDIATE_OUTPUT_FOLDER=$(echo "$INTERMEDIATE_INPUT_FOLDER" | sed 's#^input/#output/#')
 	mkdir -p "$INTERMEDIATE_OUTPUT_FOLDER"
 	INTERMEDIATE_OUTPUT_FOLDER=`realpath "$INTERMEDIATE_OUTPUT_FOLDER"`
+
+
+
 	TARGETPREFIX=${INPUT##*/}
 	TARGETPREFIX=$INTERMEDIATE_OUTPUT_FOLDER/${TARGETPREFIX%.*}
 	EXTENSION="${INPUT##*.}"
@@ -387,12 +457,12 @@ else
 		# check if i2i outputs already exist (first/last filenames); skip if present
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
-		if [ -f "$first_img" ] && [ -f "$last_img" ]; then
+		if [ -f "$first_img" ] ; then   # deactivated: && [ -f "$last_img" ]
 			# i2i outputs already present for this segment, skip
 			continue
 		fi
 		# iterate the two representative images for the segment (input images)
-		for img in "$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png" "$INTERMEDIATE_INPUT_FOLDER/end_${seg_index}.png"; do
+		for img in "$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png" ; do   # deactivated "$INTERMEDIATE_INPUT_FOLDER/end_${seg_index}.png"
 			if echo "$(basename "$img")" | grep -q '^start_' ; then
 				target_img="$first_img"
 			else
@@ -446,8 +516,8 @@ else
 			runtime=$((end-start))
 			[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 
-			EXTENSION=".mp4"
-			INTERMEDIATE="$INTERMEDIATE_OUTPUT_FOLDER/converted""_00001_"".png"
+			EXTENSION=".png"
+			INTERMEDIATE="$INTERMEDIATE_OUTPUT_FOLDER/converted""_00001_""${EXTENSION}"
 
 			if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
 				mv -vf -- "$INTERMEDIATE" "$target_img"
@@ -461,19 +531,142 @@ else
 		done
 	done
 
-	# SECTION: generate video segements based transformed images according to work plan using configured FL2V workflow.
+	# SECTION: generate video segements based transformed images according to work plan using configured IV2V workflow.
+	# chunk_index: global counter for produced video chunks (one or two per segment)
+	chunk_index=0
 	for d in "$INTERMEDIATE_INPUT_FOLDER"/segment-*; do
 		if [ ! -d "$d" ]; then
 			# no segments found (glob didn't match)
 			break
 		fi
 		seg_index=${d##*-}
+		# Get frame count for this segment from workplan.json (1-based field index)
+		next_index=$((seg_index + 1))
+		if [ -e "$WORKPLAN_FILE" ]; then
+			framecounts=$(grep -o '"segments_framecount"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
+			if [ -n "$framecounts" ]; then
+				num_frames=$(echo "$framecounts" | cut -d',' -f$next_index | tr -d '[:space:]')
+			else
+				num_frames="?"
+			fi
+		else
+			num_frames="?"
+		fi
+		# first/last generated images from previous step
+		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
+		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
 
-		
+		# Check contiguity early: while processing the current segment, test whether a *following*
+		# segment exists and if that next segment's start == this segment's end + 1.
+		if [ -e "$WORKPLAN_FILE" ]; then
+			starts=$(grep -o '"segments_start"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
+			ends=$(grep -o '"segments_end"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
+			if [ -n "$starts" ] && [ -n "$ends" ]; then
+				# determine total segments (fields count)
+				seg_total=1
+				if echo "$starts" | grep -q ','; then
+					seg_total=$(echo "$starts" | awk -F, '{print NF}')
+				fi
+				# next field index (1-based) is next_index+1
+				check_field=$((next_index + 1))
+				trans_frames=0
+				if [ "$check_field" -le "$seg_total" ]; then
+					# current segment's end (1-based field = next_index)
+					cur_end=$(echo "$ends" | cut -d',' -f$next_index | tr -d '[:space:]')
+					next_start=$(echo "$starts" | cut -d',' -f$check_field | tr -d '[:space:]')
+					if [ -n "$cur_end" ] && [ -n "$next_start" ]; then
+						if expr "$cur_end" : '[-0-9]*$' >/dev/null && expr "$next_start" : '[-0-9]*$' >/dev/null ; then
+							if [ "$next_start" -eq $((cur_end + 1)) ]; then
+								# echo "Contiguous: segment $((seg_index+1)) start ($next_start) == previous end ($cur_end) + 1"
+								# Subtract 4 from num_frames for this segment when contiguous.
+								if expr "${num_frames:-}" : '[-0-9]*$' >/dev/null ; then
+									# ensure numeric and non-negative result
+									if [ "$num_frames" -ge 4 ] 2>/dev/null ; then
+										trans_frames=0 # set to zero to disable transition frames
+										num_frames=$((num_frames - trans_frames))
+									else
+										num_frames=0
+									fi
+								fi
+							fi
+						fi
+					fi
+				fi
+			fi
+		fi
+
+		# lfi2v call to generate video segment from first_img to last_img
+		if [ "$num_frames" -ge 1 ] 2>/dev/null ; then
+			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${chunk_index}.mp4"
+			if [ -e "$chunk_file" ]; then
+				echo "Skipping generation; chunk already exists: $chunk_file"
+			else
+				echo "--- generating video chunk $chunk_index for segment $seg_index -> frames=$num_frames"
+				echo "Segment $seg_index: frames=${num_frames} first=${first_img} last=${last_img} -> will write $chunk_file"
+				# call the ComfyUI FL2V workflow to create $chunk_file from $first_img .. $last_img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
+				img1="$first_img"
+				img2="$last_img"
+
+				# generate chunk via fl2v helper
+				# determine start frame for this segment from workplan
+				start_frame=0
+				if [ -e "$WORKPLAN_FILE" ]; then
+					starts=$(grep -o '"segments_start"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
+					if [ -n "$starts" ]; then
+						start_frame=$(echo "$starts" | cut -d',' -f$next_index | tr -d '[:space:]')
+					fi
+				fi
+				if ! iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame" ""; then
+					mkdir -p input/vr/tasks/$TASKNAME/error
+					mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+					exit 1
+				fi
+			fi
+			chunk_index=$((chunk_index+1))
+		fi
+
+		# lfi2v call to generate video segment from last_img to first_img_of_next (transition chunk)
+		if [ "$trans_frames" -ge 1 ] 2>/dev/null ; then
+			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${chunk_index}.mp4"
+			if [ -e "$chunk_file" ]; then
+				echo "Skipping transition generation; chunk already exists: $chunk_file"
+			else
+				echo "--- generating video chunk $chunk_index for segment transition $seg_index/$next_index -> frames=$trans_frames"
+				first_img_of_next="$INTERMEDIATE_INPUT_FOLDER/first_${next_index}.png"
+				echo "Segment transition: frames=${trans_frames} first=${last_img} last=${first_img_of_next} -> will write $chunk_file"
+				# call the ComfyUI FL2V workflow to create $chunk_file from $last_img .. $first_img_of_next and write outputs into INTERMEDIATE_OUTPUT_FOLDER
+				img1="$last_img"
+				img2="$first_img_of_next"
+
+				# generate chunk via fl2v helper
+				# determine start frame for transition chunk: use current segment end - trans_frames + 1
+				start_frame=0
+				if [ -e "$WORKPLAN_FILE" ]; then
+					ends=$(grep -o '"segments_end"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
+					if [ -n "$ends" ]; then
+						cur_end=$(echo "$ends" | cut -d',' -f$next_index | tr -d '[:space:]')
+						if expr "$cur_end" : '[-0-9]*$' >/dev/null ; then
+							start_frame=$((cur_end - trans_frames + 1))
+							if [ "$start_frame" -lt 0 ] 2>/dev/null ; then
+								start_frame=0
+							fi
+						fi
+					fi
+				fi
+				if ! iv2v_generate "$img1" "$control_chunk" "$chunk_file" "$trans_frames" "$start_frame" ""; then
+					mkdir -p input/vr/tasks/$TASKNAME/error
+					mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+					exit 1
+				fi
+			fi
+			chunk_index=$((chunk_index+1))
+		fi
+
 	done
 
 	# SECTION: concat video segements to final video, and apply audio from source video.
 
+				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 
 
 fi

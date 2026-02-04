@@ -1,0 +1,380 @@
+{
+  "162": {
+    "inputs": {
+      "text": "Vibrant colors, overexposed, static, blurry details, subtitles, style, artwork, painting, image, still, overall grayish, worst quality, low quality, JPEG compression residue, ugly, incomplete, extra fingers, poorly drawn hands, poorly drawn faces, deformed, disfigured, distorted limbs, fingers fused together, static image, cluttered background, three legs, many people in the background, walking backwards.",
+      "clip": [
+        "167",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "163": {
+    "inputs": {
+      "fps": 16,
+      "images": [
+        "164",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "164": {
+    "inputs": {
+      "samples": [
+        "175",
+        0
+      ],
+      "vae": [
+        "168",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "165": {
+    "inputs": {
+      "unet_name": "wan2.2_fun_control_high_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "166": {
+    "inputs": {
+      "unet_name": "wan2.2_fun_control_low_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "167": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "168": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "169": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 1030589260524635,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": 2,
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "176",
+        0
+      ],
+      "positive": [
+        "180",
+        0
+      ],
+      "negative": [
+        "180",
+        1
+      ],
+      "latent_image": [
+        "180",
+        2
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "170": {
+    "inputs": {
+      "filename_prefix": [
+        "195",
+        0
+      ],
+      "format": "auto",
+      "codec": "h264",
+      "video": [
+        "163",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "171": {
+    "inputs": {
+      "video": [
+        "174",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Get Video Components"
+    }
+  },
+  "174": {
+    "inputs": {
+      "file": "tmp-input.mp4",
+      "video-preview": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Load Video"
+    }
+  },
+  "175": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 2,
+      "end_at_step": 4,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "177",
+        0
+      ],
+      "positive": [
+        "180",
+        0
+      ],
+      "negative": [
+        "180",
+        1
+      ],
+      "latent_image": [
+        "169",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "176": {
+    "inputs": {
+      "shift": 8.000000000000002,
+      "model": [
+        "181",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "177": {
+    "inputs": {
+      "shift": 8.000000000000002,
+      "model": [
+        "182",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "178": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "179": {
+    "inputs": {
+      "text": [
+        "194",
+        0
+      ],
+      "clip": [
+        "167",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "180": {
+    "inputs": {
+      "width": [
+        "190",
+        0
+      ],
+      "height": [
+        "190",
+        1
+      ],
+      "length": [
+        "193",
+        0
+      ],
+      "batch_size": 1,
+      "positive": [
+        "179",
+        0
+      ],
+      "negative": [
+        "162",
+        0
+      ],
+      "vae": [
+        "168",
+        0
+      ],
+      "ref_image": [
+        "178",
+        0
+      ],
+      "control_video": [
+        "171",
+        0
+      ]
+    },
+    "class_type": "Wan22FunControlToVideo",
+    "_meta": {
+      "title": "Wan22FunControlToVideo"
+    }
+  },
+  "181": {
+    "inputs": {
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+      "strength_model": 1,
+      "model": [
+        "165",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "182": {
+    "inputs": {
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+      "strength_model": 1,
+      "model": [
+        "166",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "190": {
+    "inputs": {
+      "width": [
+        "192",
+        0
+      ],
+      "height": [
+        "192",
+        1
+      ],
+      "baseresolution": 720,
+      "factor": [
+        "191",
+        0
+      ],
+      "roundexponent": 4
+    },
+    "class_type": "CalculateDimensions",
+    "_meta": {
+      "title": "Calc Dim by Factor and Aspect"
+    }
+  },
+  "191": {
+    "inputs": {
+      "value": 1.4
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Scale Factor Base 720"
+    }
+  },
+  "192": {
+    "inputs": {
+      "base_image": [
+        "178",
+        0
+      ]
+    },
+    "class_type": "GetResolutionForVR",
+    "_meta": {
+      "title": "Resolution Info"
+    }
+  },
+  "193": {
+    "inputs": {
+      "value": 16
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "length"
+    }
+  },
+  "194": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Positive Prompt"
+    }
+  },
+  "195": {
+    "inputs": {
+      "value": "test"
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "filename"
+    }
+  }
+}
