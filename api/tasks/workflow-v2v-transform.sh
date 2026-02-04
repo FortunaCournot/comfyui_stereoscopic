@@ -791,10 +791,11 @@ else
 		mv -vf -- "$concat_video" "$FINALVIDEO"
 	fi
 
-	echo -e $"\e[92mSuccess:\e[0m Final video written -> $FINALVIDEO"
 	mkdir -p input/vr/tasks/$TASKNAME/done
 	mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
-	# rm -rf -- $INTERMEDIATE_INPUT_FOLDER
+	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
+	rm -rf -- $INTERMEDIATE_OUTPUT_FOLDER
+	echo -e $"\e[92mSuccess:\e[0m Final video written -> $FINALVIDEO"
 fi
 exit 0
 
