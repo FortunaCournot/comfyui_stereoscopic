@@ -260,7 +260,7 @@ else
 		fi
 	fi
 
-	# STEP 1: detect scene changes in the input video and generate a work plan,
+	echo "=== STEP 1: detect scene changes in the input video and generate a work plan ==="
 
 	if [ -n "$REUSE_WORKPLAN" ] ; then
 		# Reuse existing workplan; set paths
@@ -383,7 +383,7 @@ else
 				idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
 				if [ $is_first_segment -eq 1 ] ; then
 					is_first_segment=0
-					segments_framecount_json="${SCENE_SEG_MAX_FRAMES}"
+					segments_framecount_json="[${SCENE_SEG_MAX_FRAMES}"
 					segments_start_json="[${idx_a}"
 					segments_end_json="[${idx_b}"
 				else
@@ -424,7 +424,7 @@ else
 		echo "---"
 	fi
 
-	# STEP 2: generate input images according to work plan ,
+	echo "=== STEP 2: generate input images according to work plan ==="
 
 	# Prepare loop: read `segments_start` and `segments_end` from workplan and iterate
 	# Workplan is at $WORKPLAN_FILE (created above in intermediate folder)
@@ -441,6 +441,7 @@ else
 			if echo "$segments_start_vals" | grep -q ','; then
 				seg_count=$(echo "$segments_start_vals" | awk -F, '{print NF}')
 			fi
+			echo "$seg_count segments found in $WORKPLAN_FILE"
 			# iterate by index (1-based fields for cut)
 			for idx in $(seq 1 $seg_count); do
 				start=$(echo "$segments_start_vals" | cut -d',' -f$idx | tr -d '[:space:]')
@@ -487,7 +488,7 @@ else
 		exit 1
 	fi
 
-	# STEP 3: generate transformed images accoording to workplan using the configured i2i workflow via api,
+	echo "=== STEP 3: generate transformed images accoording to workplan using the configured i2i workflow via api"
 	# Iterate segments and run ComfyUI workflow for start/end images (placeholder)
 	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
 		if [ ! -d "$d" ]; then
@@ -496,6 +497,7 @@ else
 		fi
 		base="$(basename "$d")"
 		seg_index=${base#segment_}
+		echo "--- Processing segment $seg_index"
 		# check if i2i outputs already exist (first/last filenames); skip if present
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
@@ -573,7 +575,8 @@ else
 		done
 	done
 
-	# STEP 4: generate video segements based transformed images according to work plan using configured IV2V workflow.
+	echo "=== STEP 4: generate video segements based transformed images according to work plan using configured IV2V workflow."
+	set -x
 	# chunk_index: global counter for produced video chunks (one or two per segment)
 	chunk_index=0
 	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
@@ -591,10 +594,15 @@ else
 				num_frames=$(echo "$framecounts" | cut -d',' -f$next_index | tr -d '[:space:]')
 			else
 				num_frames="?"
+				echo "Skipping generation; no segments_framecount in workplan."
+				exit 1
 			fi
 		else
 			num_frames="?"
+			echo "Skipping generation; workplan file not found."
+			exit 1
 		fi
+		echo "--- Processing segment $seg_index"
 		# first/last generated images from previous step
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
@@ -630,12 +638,26 @@ else
 									else
 										num_frames=0
 									fi
+								else
+									echo "Warning: num_frames not numeric; cannot adjust for contiguity."
 								fi
+							else
+								echo "Non-contiguous: segment $((seg_index+1)) start ($next_start) != previous end ($cur_end) + 1"
 							fi
+						else	
+							echo "Warning: cur_end or next_start not numeric for contiguity check."
 						fi
+					else
+						echo "Warning: could not extract cur_end or next_start for contiguity check."
 					fi
+				else
+					echo "No next segment to check for contiguity."	
 				fi
+			else
+				echo "Skipping contiguity check; segments_start or segments_end missing in workplan."
 			fi
+		else
+			echo "Skipping generation; workplan file not found."
 		fi
 
 		# lfi2v call to generate video segment from first_img to last_img
@@ -673,6 +695,8 @@ else
 				fi
 			fi
 			chunk_index=$((chunk_index+1))
+		else
+			echo "Skipping generation; num_frames=$num_frames invalid for segment $seg_index"
 		fi
 
 		# lfi2v call to generate video segment from last_img to first_img_of_next (transition chunk)
@@ -715,8 +739,9 @@ else
 		fi
 
 	done
+	set +x
 
-	# STEP 5: concat video segements to final video, and apply audio from source video.
+	echo "=== STEP 5: concat video segements to final video, and apply audio from source video."
 
 	# Build concat list from chunk_*.mp4 in numeric order (chunk_0, chunk_1, ...)
 	concat_list="$INTERMEDIATE_INPUT_FOLDER/concat_list.txt"
