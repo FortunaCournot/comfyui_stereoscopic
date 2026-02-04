@@ -52,7 +52,8 @@ iv2v_generate() {
 	frames_to_generate="$4"
 	start="$5"
 	prompt="$6"
-	end=$((start + frames_to_generate))
+	# frames_to_generate is a count; compute inclusive end index (0-based)
+	end=$((start + frames_to_generate - 1))
 
 	control_chunk="$INTERMEDIATE_INPUT_FOLDER/control_${chunk_index}.mp4"
 
@@ -420,20 +421,23 @@ else
 				# create segment helper dir and metadata
 				sb_dir="$INTERMEDIATE_INPUT_FOLDER/segment-$seg_index"
 				mkdir -p "$sb_dir"
-				echo "$start" > "$sb_dir/start.txt"
-				echo "$end" > "$sb_dir/end.txt"
-				# extract start frame if missing
+				# convert workplan (1-based) to ffmpeg 0-based indices
+				start0=$((start - 1))
+				end0=$((end - 1))
+				echo "$start0" > "$sb_dir/start.txt"
+				echo "$end0" > "$sb_dir/end.txt"
+				# extract start frame if missing (ffmpeg expects 0-based index)
 				if [ ! -f "$tgt_start_img" ]; then
-					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$start)" -vframes 1 -q:v 2 "$tgt_start_img"
+					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$start0)" -vframes 1 -q:v 2 "$tgt_start_img"
 					if [ $? -ne 0 ]; then
-						echo "Warning: failed extracting start frame $start for segment $seg_index"
+						echo "Warning: failed extracting start frame $start0 for segment $seg_index"
 					fi
 				fi
-				# extract end frame if missing
+				# extract end frame if missing (ffmpeg expects 0-based index)
 				if [ ! -f "$tgt_end_img" ]; then
-					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$end)" -vframes 1 -q:v 2 "$tgt_end_img"
+					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$end0)" -vframes 1 -q:v 2 "$tgt_end_img"
 					if [ $? -ne 0 ]; then
-						echo "Warning: failed extracting end frame $end for segment $seg_index"
+						echo "Warning: failed extracting end frame $end0 for segment $seg_index"
 					fi
 				fi
 			done
@@ -607,13 +611,19 @@ else
 				img1="$first_img"
 				img2="$last_img"
 
-				# generate chunk via fl2v helper
-				# determine start frame for this segment from workplan
+				# generate chunk via iv2v helper
+				# determine start frame for this segment from workplan (convert 1-based -> 0-based)
 				start_frame=0
 				if [ -e "$WORKPLAN_FILE" ]; then
 					starts=$(grep -o '"segments_start"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
 					if [ -n "$starts" ]; then
-						start_frame=$(echo "$starts" | cut -d',' -f$next_index | tr -d '[:space:]')
+						raw_start=$(echo "$starts" | cut -d',' -f$next_index | tr -d '[:space:]')
+						if expr "$raw_start" : '[-0-9]*$' >/dev/null ; then
+							start_frame=$((raw_start - 1))
+							if [ "$start_frame" -lt 0 ] 2>/dev/null ; then
+								start_frame=0
+							fi
+						fi
 					fi
 				fi
 				if ! iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame" ""; then
@@ -638,15 +648,15 @@ else
 				img1="$last_img"
 				img2="$first_img_of_next"
 
-				# generate chunk via fl2v helper
-				# determine start frame for transition chunk: use current segment end - trans_frames + 1
+				# generate chunk via iv2v helper (transition)
+				# determine start frame for transition chunk (convert to 0-based): start0 = cur_end - trans_frames
 				start_frame=0
 				if [ -e "$WORKPLAN_FILE" ]; then
 					ends=$(grep -o '"segments_end"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
 					if [ -n "$ends" ]; then
 						cur_end=$(echo "$ends" | cut -d',' -f$next_index | tr -d '[:space:]')
 						if expr "$cur_end" : '[-0-9]*$' >/dev/null ; then
-							start_frame=$((cur_end - trans_frames + 1))
+							start_frame=$((cur_end - trans_frames))
 							if [ "$start_frame" -lt 0 ] 2>/dev/null ; then
 								start_frame=0
 							fi
