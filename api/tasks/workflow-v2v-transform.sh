@@ -43,9 +43,7 @@ assertlimit() {
 		echo "Condition met. $key"": $value1 <= $value2"
 	fi
 } 
-					# create segment helper dir and metadata under segdata with zero-padded index
-					sb_dir="$INTERMEDIATE_INPUT_FOLDER/segdata/segment_$(printf "%04d" "$seg_index")"
-					mkdir -p "$sb_dir"
+
 iv2v_generate() {
 	img1="$1"
 	img2="$2"
@@ -56,28 +54,25 @@ iv2v_generate() {
 	# frames_to_generate is a count; compute inclusive end index (0-based)
 	end=$((start + frames_to_generate - 1))
 
-		# Detect whether original input has any audio streams
-		has_audio=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$ORIGINALINPUT" 2>/dev/null | head -n1`
-
 	# extract range of frames from VIDEOINTERMEDIATE into control_chunk
 	echo "Extracting control chunk $control_chunk from $VIDEOINTERMEDIATE frames $start-$end"
-		if [ -n "$has_audio" ]; then
-			# Map video from concat and the first audio stream of the original; re-encode audio to AAC
-			set -x
-			"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
+	control_chunk="$INTERMEDIATE_INPUT_FOLDER/control_chunk.mp4"
+	control_chunk=`realpath "$control_chunk"`
+	[ $loglevel -lt 2 ] &&
+	set -x
+	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -vf "select='between(n\,$start\,$end)'" -vsync 0 -c:v libx264 -preset veryfast -crf 18 -an "$control_chunk"
+	set +x
+	if [ $? -ne 0 ] || [ ! -s "$control_chunk" ]; then
+		echo -e $"\e[91mError:\e[0m Failed creating control chunk $control_chunk"
+		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 		exit 1
 	fi
 
-	seg_total=0
-	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
-		[ -d "$d" ] || break
-		seg_total=$((seg_total+1))
-	done
+
 	iv2v_api=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	img1=`realpath "$img1"`
-	control_chunk=`realpath "$control_chunk"`
 	[ $loglevel -lt 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt"
 	set +x && [ $loglevel -ge 2 ] && set -x
@@ -243,6 +238,9 @@ else
 	mkdir -p "$INTERMEDIATE_OUTPUT_FOLDER"
 	INTERMEDIATE_OUTPUT_FOLDER=`realpath "$INTERMEDIATE_OUTPUT_FOLDER"`
 
+	# create segment helper dir and metadata under segdata with zero-padded index
+	sb_dir="$INTERMEDIATE_INPUT_FOLDER/segdata/segment_$(printf "%04d" "$seg_index")"
+	mkdir -p "$sb_dir"
 
 
 	TARGETPREFIX=${INPUT##*/}
@@ -272,8 +270,9 @@ else
 	else
 		# --- Scene detection: produce a list of scene cut times (one value per line)
 		# Threshold can be overridden in the config file via SCENEDETECTION_THRESHOLD_DEFAULT
-		SCENE_THRESHOLD=$(awk -F "=" '/SCENEDETECTION_THRESHOLD_DEFAULT=/ {print $2}' $CONFIGFILE)
-		SCENE_THRESHOLD=${SCENE_THRESHOLD:-0.1}
+		#SCENE_THRESHOLD=$(awk -F "=" '/SCENEDETECTION_THRESHOLD_DEFAULT=/ {print $2}' $CONFIGFILE)
+		#SCENE_THRESHOLD=${SCENE_THRESHOLD:-0.1}
+		SCENE_THRESHOLD=0.2
 		SCENES_FILE="$INTERMEDIATE_INPUT_FOLDER/scenes.txt"
 		echo "Detecting scenes (threshold=$SCENE_THRESHOLD) -> $SCENES_FILE"
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -filter:v "select='gt(scene,$SCENE_THRESHOLD)',showinfo" -f null - 2>&1 | grep showinfo | grep pts_time:[0-9.]\* -o | grep [0-9.]\* -o > "$SCENES_FILE"
@@ -472,12 +471,12 @@ else
 					fi
 				fi
 				# extract end frame if missing (ffmpeg expects 0-based index)
-				if [ ! -f "$tgt_end_img" ]; then
-					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$end0)" -vframes 1 -q:v 2 "$tgt_end_img"
-					if [ $? -ne 0 ]; then
-						echo "Warning: failed extracting end frame $end0 for segment $seg_index"
-					fi
-				fi
+				#if [ ! -f "$tgt_end_img" ]; then
+				#	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$end0)" -vframes 1 -q:v 2 "$tgt_end_img"
+				#	if [ $? -ne 0 ]; then
+				#		echo "Warning: failed extracting end frame $end0 for segment $seg_index"
+				#	fi
+				#fi
 			done
 		fi
 	else
