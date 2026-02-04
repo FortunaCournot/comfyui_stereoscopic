@@ -763,9 +763,7 @@ else
 	echo -e $"\e[92mSuccess:\e[0m Final video written -> $FINALVIDEO"
 	mkdir -p input/vr/tasks/$TASKNAME/done
 	mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
-	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
-	rm
-
+	# rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 fi
 exit 0
 
