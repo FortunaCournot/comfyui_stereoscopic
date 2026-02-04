@@ -43,8 +43,9 @@ assertlimit() {
 		echo "Condition met. $key"": $value1 <= $value2"
 	fi
 } 
-
-# Helper: run FL2V transition workflow to produce a chunk file
+					# create segment helper dir and metadata under segdata with zero-padded index
+					sb_dir="$INTERMEDIATE_INPUT_FOLDER/segdata/segment_$(printf "%04d" "$seg_index")"
+					mkdir -p "$sb_dir"
 iv2v_generate() {
 	img1="$1"
 	img2="$2"
@@ -55,7 +56,8 @@ iv2v_generate() {
 	# frames_to_generate is a count; compute inclusive end index (0-based)
 	end=$((start + frames_to_generate - 1))
 
-	control_chunk="$INTERMEDIATE_INPUT_FOLDER/control_${chunk_index}.mp4"
+	idx_p=$(printf "%04d" "$chunk_index")
+	control_chunk="$INTERMEDIATE_INPUT_FOLDER/control_${idx_p}.mp4"
 
 	# extract range of frames from VIDEOINTERMEDIATE into control_chunk
 	echo "Extracting control chunk $control_chunk from $VIDEOINTERMEDIATE frames $start-$end"
@@ -67,11 +69,15 @@ iv2v_generate() {
 		exit 1
 	fi
 
+	seg_total=0
+	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
+		[ -d "$d" ] || break
+		seg_total=$((seg_total+1))
+	done
 	iv2v_api=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-
+	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	img1=`realpath "$img1"`
 	control_chunk=`realpath "$control_chunk"`
-
 	[ $loglevel -lt 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt"
 	set +x && [ $loglevel -ge 2 ] && set -x
@@ -136,9 +142,9 @@ else
 		[ $loglevel -ge 2 ] && set -x
 		[ $loglevel -ge 2 ] && NOLINE="" ; echo $NOLINE
 		config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-#		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-#		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-#		export COMFYUIHOST COMFYUIPORT
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
 	else
 		echo -e $"\e[91mError:\e[0m No config!?"
 		exit 1
@@ -159,11 +165,11 @@ else
 	SCENE_WORKFLOW_FPS=$(awk -F "=" '/SCENE_WORKFLOW_FPS=/ {print $2}' $CONFIGFILE)
 	SCENE_WORKFLOW_FPS=${SCENE_WORKFLOW_FPS:-16}
 
-#	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-#	if [ "$status" = "closed" ]; then
-#		echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-#		exit 1
-#	fi
+	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+	if [ "$status" = "closed" ]; then
+		echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+		exit 1
+	fi
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
@@ -431,16 +437,17 @@ else
 				start=$(echo "$segments_start_vals" | cut -d',' -f$idx | tr -d '[:space:]')
 				end=$(echo "$segments_end_vals" | cut -d',' -f$idx | tr -d '[:space:]')
 				seg_index=$((idx-1))
+				idx_p=$(printf "%04d" "$seg_index")
 				# skip if both images already exist (quiet check at loop start)
-				tgt_start_img="$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png"
-				tgt_end_img="$INTERMEDIATE_INPUT_FOLDER/end_${seg_index}.png"
+				tgt_start_img="$INTERMEDIATE_INPUT_FOLDER/start_${idx_p}.png"
+				tgt_end_img="$INTERMEDIATE_INPUT_FOLDER/end_${idx_p}.png"
 				if [ -f "$tgt_start_img" ] && [ -f "$tgt_end_img" ]; then
 					# already extracted
 					continue
 				fi
 				echo "Preparing segment $seg_index: start=$start end=$end"
-				# create segment helper dir and metadata
-				sb_dir="$INTERMEDIATE_INPUT_FOLDER/segment-$seg_index"
+				# create segment helper dir and metadata under segdata with zero-padded index
+				sb_dir="$INTERMEDIATE_INPUT_FOLDER/segdata/segment_${idx_p}"
 				mkdir -p "$sb_dir"
 				# convert workplan (1-based) to ffmpeg 0-based indices
 				start0=$((start - 1))
@@ -473,12 +480,13 @@ else
 
 	# SECTION: generate transformed images accoording to workplan using the configured i2i workflow via api,
 	# Iterate segments and run ComfyUI workflow for start/end images (placeholder)
-	for d in "$INTERMEDIATE_INPUT_FOLDER"/segment-*; do
+	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
 		if [ ! -d "$d" ]; then
 			# no segments found (glob didn't match)
 			break
 		fi
-		seg_index=${d##*-}
+		base="$(basename "$d")"
+		seg_index=${base#segment_}
 		# check if i2i outputs already exist (first/last filenames); skip if present
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
@@ -559,14 +567,15 @@ else
 	# SECTION: generate video segements based transformed images according to work plan using configured IV2V workflow.
 	# chunk_index: global counter for produced video chunks (one or two per segment)
 	chunk_index=0
-	for d in "$INTERMEDIATE_INPUT_FOLDER"/segment-*; do
+	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
 		if [ ! -d "$d" ]; then
 			# no segments found (glob didn't match)
 			break
 		fi
-		seg_index=${d##*-}
+		base="$(basename "$d")"
+		seg_index=${base#segment_}
 		# Get frame count for this segment from workplan.json (1-based field index)
-		next_index=$((seg_index + 1))
+		next_index=$((10#$seg_index + 1))
 		if [ -e "$WORKPLAN_FILE" ]; then
 			framecounts=$(grep -o '"segments_framecount"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
 			if [ -n "$framecounts" ]; then
@@ -622,11 +631,12 @@ else
 
 		# lfi2v call to generate video segment from first_img to last_img
 		if [ "$num_frames" -ge 1 ] 2>/dev/null ; then
-			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${chunk_index}.mp4"
+			idx_p=$(printf "%04d" "$chunk_index")
+			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${idx_p}.mp4"
 			if [ -e "$chunk_file" ]; then
 				echo "Skipping generation; chunk already exists: $chunk_file"
 			else
-				echo "--- generating video chunk $chunk_index for segment $seg_index -> frames=$num_frames"
+				echo "--- generating video chunk ${idx_p} for segment $seg_index -> frames=$num_frames"
 				echo "Segment $seg_index: frames=${num_frames} first=${first_img} last=${last_img} -> will write $chunk_file"
 				# call the ComfyUI FL2V workflow to create $chunk_file from $first_img .. $last_img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
 				img1="$first_img"
@@ -658,12 +668,14 @@ else
 
 		# lfi2v call to generate video segment from last_img to first_img_of_next (transition chunk)
 		if [ "$trans_frames" -ge 1 ] 2>/dev/null ; then
-			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${chunk_index}.mp4"
+			idx_p=$(printf "%04d" "$chunk_index")
+			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${idx_p}.mp4"
 			if [ -e "$chunk_file" ]; then
 				echo "Skipping transition generation; chunk already exists: $chunk_file"
 			else
-				echo "--- generating video chunk $chunk_index for segment transition $seg_index/$next_index -> frames=$trans_frames"
-				first_img_of_next="$INTERMEDIATE_INPUT_FOLDER/first_${next_index}.png"
+				echo "--- generating video chunk ${idx_p} for segment transition $seg_index/$next_index -> frames=$trans_frames"
+				idx_p_next=$(printf "%04d" "$next_index")
+				first_img_of_next="$INTERMEDIATE_INPUT_FOLDER/first_${idx_p_next}.png"
 				echo "Segment transition: frames=${trans_frames} first=${last_img} last=${first_img_of_next} -> will write $chunk_file"
 				# call the ComfyUI FL2V workflow to create $chunk_file from $last_img .. $first_img_of_next and write outputs into INTERMEDIATE_OUTPUT_FOLDER
 				img1="$last_img"
@@ -703,7 +715,8 @@ else
 	i=0
 	found=0
 	while : ; do
-		chunk="$INTERMEDIATE_INPUT_FOLDER/chunk_${i}.mp4"
+		idx_p=$(printf "%04d" "$i")
+		chunk="$INTERMEDIATE_INPUT_FOLDER/chunk_${idx_p}.mp4"
 		if [ -f "$chunk" ]; then
 			# write basename only so ffmpeg resolves the file relative to the concat file directory
 			echo "file '$(basename "$chunk")'" >> "$concat_list"
