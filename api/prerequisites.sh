@@ -471,6 +471,7 @@ for task in $TASKDIR; do
 	if [ ! -z $task ] ; then
 		if [ ! -f input/vr/tasks/$task/done/.nocleanup ] ; then
 			rm -f -- input/vr/tasks/$task/done/* 2>/dev/null
+      #powershell -NoProfile -Command "param([string]\$stagex); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr/tasks' -ChildPath \$stagex; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$task" 2>/dev/null
 		fi
 	fi
 done
