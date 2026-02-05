@@ -101,7 +101,8 @@ iv2v_generate() {
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 
 	EXTENSION=".mp4"
-	INTERMEDIATE="$INTERMEDIATE_OUTPUT_FOLDER/converted""_00001_""${EXTENSION}"
+		# find the most recent converted_*_${EXTENSION} file (ComfyUI may write numbered suffixes)
+		INTERMEDIATE=`ls -1t "$INTERMEDIATE_OUTPUT_FOLDER"/converted_*"${EXTENSION}" 2>/dev/null | head -n1 || true`
 
 	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
 		mv -vf -- "$INTERMEDIATE" "$chunk_file"
@@ -620,7 +621,8 @@ else
 			[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 
 			EXTENSION=".png"
-			INTERMEDIATE="$INTERMEDIATE_OUTPUT_FOLDER/converted""_00001_""${EXTENSION}"
+			# find most recent converted_*_${EXTENSION} (ComfyUI writes converted_00002_.png etc.)
+			INTERMEDIATE=`ls -1t "$INTERMEDIATE_OUTPUT_FOLDER"/converted_*"${EXTENSION}" 2>/dev/null | head -n1 || true`
 
 			if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
 				mv -vf -- "$INTERMEDIATE" "$target_img"
