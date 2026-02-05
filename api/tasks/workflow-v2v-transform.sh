@@ -477,13 +477,14 @@ else
 
 	echo "=== STEP 2: generate input images according to work plan ==="
 
-	# Prepare loop: read `segments_start` and `segments_end` from workplan and iterate
+	# Prepare loop: read `segments_start`, `segments_end` and `segments_framecount` from workplan and iterate
 	# extract numeric lists inside the brackets
 	segments_start_vals=$(grep -o '"segments_start"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
 	segments_end_vals=$(grep -o '"segments_end"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
+	segments_framecount_vals=$(grep -o '"segments_framecount"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/' 2>/dev/null)
 	segments_scenestart_vals=$(grep -o '"scenestart"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/' 2>/dev/null)
-	# if either is empty, treat as none
-	if [ -z "$segments_start_vals" ] || [ -z "$segments_end_vals" ]; then
+	# if start or framecount arrays are empty, treat as none
+	if [ -z "$segments_start_vals" ] || [ -z "$segments_framecount_vals" ]; then
 		echo "No segments found in $WORKPLAN_FILE"
 	else
 		# count entries by number of commas (+1)
@@ -502,7 +503,18 @@ else
 			fi
 
 			start=$(echo "$segments_start_vals" | cut -d',' -f$idx | tr -d '[:space:]')
-			end=$(echo "$segments_end_vals" | cut -d',' -f$idx | tr -d '[:space:]')
+			# compute end: prefer explicit segments_end if present, else derive from segments_framecount
+			if [ -n "$segments_end_vals" ]; then
+				end=$(echo "$segments_end_vals" | cut -d',' -f$idx | tr -d '[:space:]')
+			else
+				# derive end = start + frames - 1
+				frames=$(echo "$segments_framecount_vals" | cut -d',' -f$idx | tr -d '[:space:]')
+				if expr "$frames" : '[-0-9]*$' >/dev/null 2>&1 && expr "$start" : '[-0-9]*$' >/dev/null 2>&1 ; then
+					end=$((start + frames - 1))
+				else
+					end=$start
+				fi
+			fi
 			seg_index=$((idx-1))
 			idx_p=$(printf "%04d" "$seg_index")
 			# skip if both images already exist (quiet check at loop start)
