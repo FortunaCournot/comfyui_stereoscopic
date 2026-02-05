@@ -517,12 +517,12 @@ if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
 		task=${task#output/vr/tasks/}
 		if [ ! -z $task ] ; then
 			[ $loglevel -ge 1 ] && echo " - tasks/$task"
-			FILECOUNT=`find output/vr/$stagepath -maxdepth 1 -type f -name '*.*' | wc -l 2>/dev/null`  
+			FILECOUNT=`find output/vr/tasks/$task -maxdepth 1 -type f -name '*.*' | wc -l 2>/dev/null`  
 			# forward.txt + one media
 			if [ $FILECOUNT -gt 1 ] ; then
 				./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task || exit 1
 			fi
-			rm -rf -- output/vr/$stagepath/intermediate input/vr/$stagepath/intermediate 2>/dev/null
+			rm -rf -- output/vr/tasks/intermediate output/vr/tasks/$task/intermediate 2>/dev/null
 		fi
 	done
 else
