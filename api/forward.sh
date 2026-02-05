@@ -26,6 +26,7 @@ if [ $PIPELINE_AUTOFORWARD -lt 1 ] ; then
 fi
 
 DEBUG_AUTOFORWARD_RULES=$(awk -F "=" '/DEBUG_AUTOFORWARD_RULES=/ {print $2}' $CONFIGFILE) ; DEBUG_AUTOFORWARD_RULES=${DEBUG_AUTOFORWARD_RULES:-"0"}
+IMAGE_INDEX_LIMIT=$(awk -F "=" '/IMAGE_INDEX_LIMIT=/ {print $2}' $CONFIGFILE) ; IMAGE_INDEX_LIMIT=${IMAGE_INDEX_LIMIT:-5}
 
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
@@ -184,11 +185,35 @@ else
 			destination=`echo $destination`
 			[ !  -z "$destination" ] && [ "${destination:0:1}" = "#" ] && continue
 			conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
+			# extract wait flag (wait=true) from conditionalrules and remove it
+			WAIT_FLAG=0
+			if [ -n "$conditionalrules" ] ; then
+				new_rules=""
+				for token in $(echo "$conditionalrules" | sed "s/:/ /g") ; do
+					if [ "$token" = "wait=true" ] ; then
+						WAIT_FLAG=1
+					else
+						if [ -z "$new_rules" ] ; then
+							new_rules="$token"
+						else
+							new_rules="$new_rules:$token"
+						fi
+					fi
+				done
+				conditionalrules="$new_rules"
+			fi
 			[ $LOGRULES -gt 0 ] && echo "Rule: '""$destination""'"
-			[ $LOGRULES -gt 0 ] && echo "conditionalrules: '""$conditionalrules""'"
+			[ $LOGRULES -gt 0 ] && echo "conditionalrules: '""$conditionalrules""' (wait=$WAIT_FLAG)"
 			destination=${destination##*\]}
 			[ $LOGRULES -gt 0 ] && echo "destination: '""$destination""'"
 			mkdir -p input/vr/$destination 2>/dev/null
+			# if wait flag set, create wait subfolder and use it as input target
+			if [ "$WAIT_FLAG" -eq 1 ] ; then
+				mkdir -p input/vr/$destination/wait 2>/dev/null
+				DEST_INPUT_DIR="input/vr/$destination/wait"
+			else
+				DEST_INPUT_DIR="input/vr/$destination"
+			fi
 			if [ -z "$destination" ] ; then
 				SKIPPING_EMPTY_LINE=	# just ignore this line
 			elif [ -d input/vr/$destination ] ; then
@@ -253,7 +278,7 @@ else
 				do
 					for o in ${outputrule//;/ }
 					do
-            [ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo "$i :: $o"
+            			[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo "$i :: $o"
 						if [[ $i == $o ]] ; then
 							if [[ $i == "video" ]] ; then
 								OIFS="$IFS"
@@ -283,8 +308,8 @@ else
 											fi
 										done
 									fi
-                  capfile="${file%.*}.txt"
-									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX= && [ -s "$capfile" ] && mv -f -- "$capfile" input/vr/$destination 
+                  					capfile="${file%.*}.txt"
+									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" "$DEST_INPUT_DIR" && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX= && [ -s "$capfile" ] && mv -f -- "$capfile" "$DEST_INPUT_DIR" 
 								done
 							elif  [[ $i == "image" ]] ; then
 								OIFS="$IFS"
@@ -313,9 +338,45 @@ else
 											fi
 										done
 									fi
-                  capfile="${file%.*}.txt"
-									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination  && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX= && [ -s "$capfile" ] && mv -f -- "$capfile" input/vr/$destination 
+									capfile="${file%.*}.txt"
+									if [ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
+										TARGET_DIR="$DEST_INPUT_DIR"
+										# if filename matches _<digits>_.ext pattern, and digits >= IMAGE_INDEX_LIMIT,
+										# move into wait subfolder instead of direct input
+										fname=$(basename -- "$file")
+										if [[ "$fname" =~ _([0-9]+)_\. ]]; then
+											idx="${BASH_REMATCH[1]}"
+											# force base-10 parsing for zero-padded numbers
+											idx=$((10#$idx))
+											if [ "$idx" -ge "$IMAGE_INDEX_LIMIT" ] ; then
+												mkdir -p "input/vr/$destination/wait" 2>/dev/null
+												TARGET_DIR="input/vr/$destination/wait"
+											fi
+										fi
+										mv -f -- "$file" "$TARGET_DIR" && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+										[ -s "$capfile" ] && mv -f -- "$capfile" "$TARGET_DIR"
+									fi
 								done
+								# If images are being forwarded but there is no rule to forward videos,
+								# also move any video files found from the source stage into the
+								# destination's OUTPUT folder (not into input). This preserves
+								# videos when only image forwarding rules exist.
+								if ! echo " $inputrule " | grep -qw "video" ; then
+									mkdir -p output/vr/$destination 2>/dev/null
+									OIFS="$IFS"
+									IFS=$'\n'
+									VFILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' 2>/dev/null`
+									echo "Debug: Looking for videos to auto-move to output/vr/$destination: found files: $VFILES"
+									IFS="$OIFS"
+									[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$VFILES" ] && echo -e $"\e[2m""     $destination: no video files to auto-move to output.""\e[0m"
+									for file in $VFILES ; do
+										capfile="${file%.*}.txt"
+										if [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
+											mv -f -- "$file" output/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> output/$destination" && MOVEMSGPREFIX=
+											[ -s "$capfile" ] && mv -f -- "$capfile" output/vr/$destination
+										fi
+									done
+								fi
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
 							fi
