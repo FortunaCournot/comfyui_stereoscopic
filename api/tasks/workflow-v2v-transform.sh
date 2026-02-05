@@ -66,7 +66,7 @@ iv2v_generate() {
 		echo -e $"\e[91mError:\e[0m Failed creating control chunk $control_chunk"
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
-		exit 1
+		exit 0
 	fi
 
 
@@ -143,7 +143,7 @@ else
 		export COMFYUIHOST COMFYUIPORT
 	else
 		echo -e $"\e[91mError:\e[0m No config!?"
-		exit 1
+		exit 0
 	fi
 
 	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
@@ -164,7 +164,7 @@ else
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 	if [ "$status" = "closed" ]; then
 		echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-		exit 1
+		exit 0
 	fi
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
@@ -257,7 +257,7 @@ else
 			mkdir -p input/vr/tasks/$TASKNAME/error
 			mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 			rm -rf -- $INTERMEDIATE_INPUT_FOLDER
-			exit 1
+			exit 0
 		fi
 	fi
 
@@ -472,7 +472,7 @@ else
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 		rm -rf -- $INTERMEDIATE_INPUT_FOLDER/*
-		exit 1
+		exit 0
 	fi
 
 	echo "=== STEP 2: generate input images according to work plan ==="
@@ -594,7 +594,7 @@ else
 				echo -e $"\e[91mError:\e[0m Task failed. input image $img missing."
 				mkdir -p input/vr/tasks/$TASKNAME/error
 				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
-				exit 1
+				exit 0
 			fi
 
 			# call the ComfyUI i2i workflow on $img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
@@ -619,7 +619,7 @@ else
 				if test $# -ne 0
 				then	
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-					exit 1
+					exit 0
 				fi
 				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
@@ -643,7 +643,7 @@ else
 				echo -e $"\e[91mError:\e[0m Step failed. $INTERMEDIATE missing or zero-length."
 				mkdir -p input/vr/tasks/$TASKNAME/error
 				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
-				exit 1
+				exit 0
 			fi
 		done
 	done
@@ -668,12 +668,12 @@ else
 			else
 				num_frames="?"
 				echo "Skipping generation; no segments_framecount in workplan."
-				exit 1
+				exit 0
 			fi
 		else
 			num_frames="?"
 			echo "Skipping generation; workplan file not found."
-			exit 1
+			exit 0
 		fi
 		echo "--- Processing segment $seg_index"
 		# first/last generated images from previous step
@@ -692,7 +692,7 @@ else
 					if [ $? -ne 0 ] || [ ! -s "$first_img" ]; then
 						echo "Error: failed extracting fallback first image from $prev_chunk"
 						rm -f -- "$first_img" 2>/dev/null || true
-						exit 1
+						exit 0
 					else
 						# Ensure extracted image matches desired dimensions from previous step
 						idx_p_seg=$(printf "%04d" "$seg_index")
@@ -750,7 +750,7 @@ else
 					if [ -n "$cur_end" ] && [ -n "$next_start" ]; then
 						if expr "$cur_end" : '[-0-9]*$' >/dev/null && expr "$next_start" : '[-0-9]*$' >/dev/null ; then
 							if [ "$next_start" -eq $((cur_end + 1)) ]; then
-								# echo "Contiguous: segment $((seg_index+1)) start ($next_start) == previous end ($cur_end) + 1"
+								# echo "Contiguous: segment $((10#$seg_index+1)) start ($next_start) == previous end ($cur_end) + 1"
 								# Subtract 4 from num_frames for this segment when contiguous.
 								if expr "${num_frames:-}" : '[-0-9]*$' >/dev/null ; then
 									# ensure numeric and non-negative result
@@ -764,7 +764,7 @@ else
 									echo "Error: num_frames not numeric; cannot adjust for contiguity."
 								fi
 							else
-								echo Error: "Non-contiguous: segment $((seg_index+1)) start ($next_start) != previous end ($cur_end) + 1"
+								echo Info: "scene boundary detected. Non-contiguous: segment $((10#$seg_index+1)) start ($next_start) != previous end ($cur_end) + 1"
 							fi
 						else	
 							echo "Error: cur_end or next_start not numeric for contiguity check."
@@ -813,7 +813,7 @@ else
 				if ! iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame" ""; then
 					mkdir -p input/vr/tasks/$TASKNAME/error
 					mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
-					exit 1
+					exit 0
 				fi
 			fi
 			chunk_index=$((chunk_index+1))
@@ -854,7 +854,7 @@ else
 				if ! iv2v_generate "$img1" "$control_chunk" "$chunk_file" "$trans_frames" "$start_frame" ""; then
 					mkdir -p input/vr/tasks/$TASKNAME/error
 					mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
-					exit 1
+					exit 0
 				fi
 			fi
 			chunk_index=$((chunk_index+1))
@@ -887,7 +887,7 @@ else
 		echo -e $"\e[91mError:\e[0m No chunk_*.mp4 files found in $INTERMEDIATE_INPUT_FOLDER."
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
-		exit 1
+		exit 0
 	fi
 
 	concat_video="$INTERMEDIATE_INPUT_FOLDER/concat_video.mp4"
@@ -906,7 +906,7 @@ else
 			echo -e $"\e[91mError:\e[0m Failed creating concatenated video"
 			mkdir -p input/vr/tasks/$TASKNAME/error
 			mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
-			exit 1
+			exit 0
 		fi
 	fi
 
@@ -928,7 +928,7 @@ else
 			echo -e $"\e[91mError:\e[0m Failed muxing audio into final video"
 			mkdir -p input/vr/tasks/$TASKNAME/error
 			mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
-			exit 1
+			exit 0
 		fi
 	else
 		# No audio: move or copy concat_video to final location
