@@ -360,22 +360,26 @@ else
 								# If images are being forwarded but there is no rule to forward videos,
 								# also move any video files found from the source stage into the
 								# destination's OUTPUT folder (not into input). This preserves
-								# videos when only image forwarding rules exist.
+								# videos when only image forwarding rules exist — but only when
+								# source and destination are different.
 								if ! echo " $inputrule " | grep -qw "video" ; then
-									mkdir -p output/vr/$destination 2>/dev/null
-									OIFS="$IFS"
-									IFS=$'\n'
-									VFILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' 2>/dev/null`
-									echo "Debug: Looking for videos to auto-move to output/vr/$destination: found files: $VFILES"
-									IFS="$OIFS"
-									[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$VFILES" ] && echo -e $"\e[2m""     $destination: no video files to auto-move to output.""\e[0m"
-									for file in $VFILES ; do
-										capfile="${file%.*}.txt"
-										if [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
-											mv -f -- "$file" output/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> output/$destination" && MOVEMSGPREFIX=
-											[ -s "$capfile" ] && mv -f -- "$capfile" output/vr/$destination
-										fi
-									done
+									if [ "$sourcestage" = "$destination" ] ; then
+										[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo -e $"\e[2m     skipping auto-move videos (same source/destination: $sourcestage)\e[0m"
+									else
+										mkdir -p output/vr/$destination 2>/dev/null
+										OIFS="$IFS"
+										IFS=$'\n'
+										VFILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' 2>/dev/null`
+										IFS="$OIFS"
+										[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$VFILES" ] && echo -e $"\e[2m""     $destination: no video files to auto-move to output.""\e[0m"
+										for file in $VFILES ; do
+											capfile="${file%.*}.txt"
+											if [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
+												mv -f -- "$file" output/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> output/$destination" && MOVEMSGPREFIX=
+												[ -s "$capfile" ] && mv -f -- "$capfile" output/vr/$destination
+											fi
+										done
+									fi
 								fi
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
