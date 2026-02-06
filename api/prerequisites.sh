@@ -243,6 +243,10 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "UML_FONTSIZE=11">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
+	echo "# --- FFLF Settings ---">>"$CONFIGFILE"
+	echo "IMAGE_INDEX_LIMIT=3">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
 
 	mkdir -p input/vr/dubbing
