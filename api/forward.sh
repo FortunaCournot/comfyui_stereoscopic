@@ -26,7 +26,7 @@ if [ $PIPELINE_AUTOFORWARD -lt 1 ] ; then
 fi
 
 DEBUG_AUTOFORWARD_RULES=$(awk -F "=" '/DEBUG_AUTOFORWARD_RULES=/ {print $2}' $CONFIGFILE) ; DEBUG_AUTOFORWARD_RULES=${DEBUG_AUTOFORWARD_RULES:-"0"}
-IMAGE_INDEX_LIMIT=$(awk -F "=" '/IMAGE_INDEX_LIMIT=/ {print $2}' $CONFIGFILE) ; IMAGE_INDEX_LIMIT=${IMAGE_INDEX_LIMIT:-5}
+IMAGE_INDEX_LIMIT=$(awk -F "=" '/IMAGE_INDEX_LIMIT=/ {print $2}' $CONFIGFILE) ; IMAGE_INDEX_LIMIT=${IMAGE_INDEX_LIMIT:-3}
 
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
@@ -341,14 +341,14 @@ else
 									capfile="${file%.*}.txt"
 									if [ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
 										TARGET_DIR="$DEST_INPUT_DIR"
-										# if filename matches _<digits>_.ext pattern, and digits >= IMAGE_INDEX_LIMIT,
+										# if filename matches _<digits>_.ext pattern, and digits > IMAGE_INDEX_LIMIT,
 										# move into wait subfolder instead of direct input
 										fname=$(basename -- "$file")
 										if [[ "$fname" =~ _([0-9]+)_\. ]]; then
 											idx="${BASH_REMATCH[1]}"
 											# force base-10 parsing for zero-padded numbers
 											idx=$((10#$idx))
-											if [ "$idx" -ge "$IMAGE_INDEX_LIMIT" ] ; then
+											if [ "$idx" -gt "$IMAGE_INDEX_LIMIT" ] ; then
 												mkdir -p "input/vr/$destination/wait" 2>/dev/null
 												TARGET_DIR="input/vr/$destination/wait"
 											fi
