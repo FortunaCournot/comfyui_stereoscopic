@@ -181,6 +181,24 @@ def open_videocapture_with_tmp(path: str):
         pass
     return cap, None
 
+
+def open_with_default_app(fullpath: str):
+    """Open the given file with the system default application.
+
+    Uses `os.startfile` on Windows, `open` on macOS and `xdg-open` on Linux.
+    """
+    try:
+        if not fullpath:
+            return
+        if sys.platform.startswith('win'):
+            os.startfile(fullpath)
+        elif sys.platform == 'darwin':
+            subprocess.Popen(['open', fullpath])
+        else:
+            subprocess.Popen(['xdg-open', fullpath])
+    except Exception:
+        print(traceback.format_exc(), flush=True)
+
 def needsWaitDialog():
     global showWaitDialog
     
@@ -1300,12 +1318,47 @@ class RateAndCutDialog(QDialog):
             print(traceback.format_exc(), flush=True)
 
     def keyPressEvent(self, event):
+        global videoPauseRequested
         if event.key() == Qt.Key_S:
             if self.display.slider.isEnabled() and self.display.slider.isVisible():
                 self.display.nextScene()
         elif event.key() == Qt.Key_P:
             if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible():
                 self.display.tooglePausePressed()
+        elif event.key() == Qt.Key_F11:
+            # Open current file (image or video) in the system default application
+            try:
+                if self.currentFile:
+                    # If current file is a video, ensure playback is paused first
+                    try:
+                        if getattr(self, 'isVideo', False):
+                            if hasattr(self, 'button_startpause_video') and self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible():
+                                if not self.display.isPaused():
+                                    if not videoPauseRequested:
+                                        videoPauseRequested = True
+                                        startAsyncTask()
+                                    self.display.tooglePausePressed()
+                    except Exception:
+                        # don't block opening if pause check fails
+                        print(traceback.format_exc(), flush=True)
+
+                    if cutModeFolderOverrideActive:
+                        folder = cutModeFolderOverridePath
+                    else:
+                        folder = os.path.join(path, "../../../../input/vr/check/rate")
+                    fullpath = os.path.abspath(os.path.join(folder, self.currentFile))
+                    if os.path.exists(fullpath):
+                        open_with_default_app(fullpath)
+                    else:
+                        # Fallback: try as absolute path or relative to module path
+                        if os.path.isabs(self.currentFile) and os.path.exists(self.currentFile):
+                            open_with_default_app(self.currentFile)
+                        else:
+                            alt = os.path.abspath(os.path.join(path, self.currentFile))
+                            if os.path.exists(alt):
+                                open_with_default_app(alt)
+            except Exception:
+                print(traceback.format_exc(), flush=True)
                 
         if self.cutMode:
             if event.key() == Qt.Key_A:
@@ -1324,7 +1377,6 @@ class RateAndCutDialog(QDialog):
                 if self.display.slider.isEnabled() and self.display.slider.isVisible():
                     if self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible():
                         if not self.display.isPaused():
-                            global videoPauseRequested
                             if not videoPauseRequested:
                                 videoPauseRequested=True
                                 startAsyncTask()
