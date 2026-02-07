@@ -85,7 +85,6 @@ TASKCHECKTIME = 20
 WAIT_DIALOG_THRESHOLD_TIME=2000
 MAX_WAIT_DIALOG_THRESHOLD_TIME=10000
 
-
 # ---- Tasks ----
 global taskCounterUI, taskCounterAsync, showWaitDialog
 taskCounterUI=0
@@ -95,6 +94,71 @@ showWaitDialog=False
 # Currently selected inpaint task (persisted at runtime)
 global selected_inpaint_task
 selected_inpaint_task = "inpaint-sd15"
+
+# Temp file cleanup list and worker
+TEMP_FILES_TO_CLEANUP = []
+_temp_cleanup_thread_started = False
+
+def _temp_cleanup_worker():
+    while True:
+        try:
+            cleanup_temps(0)
+        except Exception:
+            pass
+        time.sleep(60)
+
+def _ensure_temp_cleanup_thread():
+    global _temp_cleanup_thread_started
+    if not _temp_cleanup_thread_started:
+        t = threading.Thread(target=_temp_cleanup_worker, daemon=True)
+        t.start()
+        _temp_cleanup_thread_started = True
+
+
+def cleanup_temps(cleanup: int = 0):
+    """Remove temp files from TEMP_FILES_TO_CLEANUP.
+
+    If cleanup==1: remove immediately.
+    If cleanup==0: only remove files at least 10 seconds old.
+    """
+    now = time.time()
+    min_age = 10.0
+    for p in list(TEMP_FILES_TO_CLEANUP):
+        try:
+            if not os.path.exists(p):
+                try:
+                    TEMP_FILES_TO_CLEANUP.remove(p)
+                except Exception:
+                    pass
+                continue
+            if cleanup == 1:
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
+                try:
+                    TEMP_FILES_TO_CLEANUP.remove(p)
+                except Exception:
+                    pass
+            else:
+                try:
+                    mtime = os.path.getmtime(p)
+                    if now - mtime >= min_age:
+                        try:
+                            os.remove(p)
+                        except Exception:
+                            pass
+                        try:
+                            TEMP_FILES_TO_CLEANUP.remove(p)
+                        except Exception:
+                            pass
+                except Exception:
+                    # can't stat or remove; ignore for now
+                    pass
+        except Exception:
+            pass
+
+
 
 def set_selected_inpaint_task(name: str):
     global selected_inpaint_task
@@ -190,12 +254,24 @@ def open_with_default_app(fullpath: str):
     try:
         if not fullpath:
             return
+        if TRACELEVEL >= 2:
+            print(f"open_with_default_app: opening '{fullpath}'", flush=True)
         if sys.platform.startswith('win'):
             os.startfile(fullpath)
         elif sys.platform == 'darwin':
             subprocess.Popen(['open', fullpath])
         else:
             subprocess.Popen(['xdg-open', fullpath])
+    except Exception:
+        print(traceback.format_exc(), flush=True)
+
+def _open_and_log(fullpath: str):
+    try:
+        if TRACELEVEL >= 1:
+            print(f"_open_and_log: thread={threading.current_thread().name} opening {fullpath}", flush=True)
+        open_with_default_app(fullpath)
+        if TRACELEVEL >= 1:
+            print(f"_open_and_log: done {fullpath}", flush=True)
     except Exception:
         print(traceback.format_exc(), flush=True)
 
@@ -816,6 +892,13 @@ class RateAndCutDialog(QDialog):
         self.reset_timer.setSingleShot(True)
         self.reset_timer.timeout.connect(self.reset_visual)
         self.setAcceptDrops(True)  # Enable drop events
+        # ensure cleanup on application exit if possible
+        try:
+            app = QApplication.instance()
+            if app:
+                app.aboutToQuit.connect(partial(cleanup_temps, 1))
+        except Exception:
+            pass
         
         self.enable_drag_for_groupbox(self.main_group_box, )
         
@@ -1328,6 +1411,24 @@ class RateAndCutDialog(QDialog):
         elif event.key() == Qt.Key_F11:
             # Open current file (image or video) in the system default application
             try:
+                # If Shift held, create a temporary cropped/trimmed/pingpong file and open that
+                if int(event.modifiers()) & int(Qt.ShiftModifier):
+                    try:
+                        if getattr(self, 'isVideo', False):
+                            if hasattr(self, 'button_startpause_video') and self.button_startpause_video.isEnabled() and self.button_startpause_video.isVisible():
+                                if not self.display.isPaused():
+                                    if not videoPauseRequested:
+                                        videoPauseRequested = True
+                                        startAsyncTask()
+                                    self.display.tooglePausePressed()
+                    except Exception:
+                        print(traceback.format_exc(), flush=True)
+                    try:
+                        self._create_temp_and_open()
+                    except Exception:
+                        print(traceback.format_exc(), flush=True)
+                    return
+
                 if self.currentFile:
                     # If current file is a video, ensure playback is paused first
                     try:
@@ -1456,6 +1557,11 @@ class RateAndCutDialog(QDialog):
         cutModeActive=False
         setFileFilter(False, False, False)
         rescanFilesToRate()
+        # Force-remove any temp files now that dialog is closing.
+        try:
+            cleanup_temps(1)
+        except Exception:
+            pass
         super(QDialog, self).closeEvent(evnt)
             
     def updatePaused(self, isPaused):
@@ -2280,15 +2386,65 @@ class RateAndCutDialog(QDialog):
                 x=self.cropWidget.crop_left
                 y=self.cropWidget.crop_top
                 self.log("Create "+newfilename, QColor("white"))
-                cmd = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \""
+                # Determine fps if available (for accurate audio trimming)
+                fps = None
+                try:
+                    if getattr(self, 'display', None) and getattr(self.display, 'thread', None):
+                        fps = float(self.display.thread.getFPS())
+                        if fps <= 0:
+                            fps = None
+                except Exception:
+                    fps = None
+
+                # Build ffmpeg command. Ensure output timestamps start at 0 by using setpts/asetpts
+                # If we have a trim and fps, prefer input seeking (-ss/-t) to trim both audio and video.
                 if self.isVideo:
-                    cmd = cmd + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
-                cmd = cmd + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" -shortest \"" + output + "\""
+                    has_trim = False
+                    try:
+                        if getattr(self.display, 'frame_count', 0) > 0:
+                            if trimA > 0 or (trimB >= 0 and trimB < getattr(self.display, 'frame_count', -1)):
+                                has_trim = True
+                    except Exception:
+                        has_trim = False
+
+                    if has_trim and fps is not None:
+                        start_sec = float(trimA) / fps
+                        if trimB is not None and trimB >= 0:
+                            duration_sec = float(trimB - trimA + 1) / fps
+                            time_opts = f"-ss {start_sec:.6f} -t {duration_sec:.6f} "
+                        else:
+                            time_opts = f"-ss {start_sec:.6f} "
+                        cmd = f'ffmpeg.exe -hide_banner -y {time_opts}-i "{input}" -vf "crop={out_w}:{out_h}:{x}:{y},setpts=PTS-STARTPTS" -af "asetpts=PTS-STARTPTS" -shortest "{output}"'
+                    else:
+                        # No trim or unknown fps: crop and reset timestamps; audio will be reset but not trimmed
+                        cmd = f'ffmpeg.exe -hide_banner -y -i "{input}" -vf "crop={out_w}:{out_h}:{x}:{y},setpts=PTS-STARTPTS" -af "asetpts=PTS-STARTPTS" -shortest "{output}"'
+                else:
+                    # images
+                    cmd = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \"crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
                 print("Executing "  + cmd, flush=True)
                 recreated=os.path.exists(output)
-                thread = threading.Thread(
-                    target=self.trimAndCrop_worker, args=(cmd, recreated, input, output, ), daemon=True)
-                thread.start()
+                # If pingpong mode enabled (either dialog flag or display flag), produce an intermediate then concat reverse to final output (video-only)
+                pingpong_active = bool(getattr(self, 'playtype_pingpong', False) or getattr(getattr(self, 'display', None), 'pingPongModeEnabled', False))
+                if TRACELEVEL >= 2:
+                    print(f"createTrimmedAndCroppedCopy: pingpong_active={pingpong_active}, playtype_pingpong={getattr(self, 'playtype_pingpong', False)}, display.pingPongModeEnabled={getattr(getattr(self, 'display', None), 'pingPongModeEnabled', False)}, isVideo={self.isVideo}", flush=True)
+                if pingpong_active and self.isVideo:
+                    tmp1 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                    tmp1.close()
+                    out_tmp = tmp1.name
+                    # produce intermediate file
+                    cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \""
+                    if self.isVideo:
+                        cmd1 = cmd1 + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
+                    cmd1 = cmd1 + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" -shortest \"" + out_tmp + "\""
+                    # create final pingpong by concat reverse (video-only)
+                    cmd2 = 'ffmpeg.exe -hide_banner -y -i "' + out_tmp + '" -filter_complex "[0:v]reverse[r];[0:v][r]concat=n=2:v=1:a=0[out]" -map "[out]" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "' + output + '"'
+                    thread = threading.Thread(
+                        target=self.trimAndCrop_pingpong_worker, args=(cmd1, cmd2, recreated, input, output, out_tmp), daemon=True)
+                    thread.start()
+                else:
+                    thread = threading.Thread(
+                        target=self.trimAndCrop_worker, args=(cmd, recreated, input, output, ), daemon=True)
+                    thread.start()
                 
             except ValueError as e:
                 pass
@@ -2308,6 +2464,38 @@ class RateAndCutDialog(QDialog):
             QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, False))
         except:
             print(traceback.format_exc(), flush=True)                
+            endAsyncTask()
+
+
+    def trimAndCrop_pingpong_worker(self, cmd1, cmd2, recreated, input, output, intermediate):
+        startAsyncTask()
+        try:
+            # run first step to produce intermediate
+            subprocess.run(cmd1, shell=True, check=True, close_fds=True)
+            # run second step to create pingpong (video-only)
+            subprocess.run(cmd2, shell=True, check=True, close_fds=True)
+            # cleanup intermediate
+            try:
+                if os.path.exists(intermediate):
+                    os.remove(intermediate)
+            except Exception:
+                pass
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, True))
+        except subprocess.CalledProcessError as se:
+            try:
+                if os.path.exists(intermediate):
+                    os.remove(intermediate)
+            except Exception:
+                pass
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, False))
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+            try:
+                if os.path.exists(intermediate):
+                    os.remove(intermediate)
+            except Exception:
+                pass
+        finally:
             endAsyncTask()
 
 
@@ -2334,6 +2522,193 @@ class RateAndCutDialog(QDialog):
             self.button_justrate_compress.setFocus()
 
         endAsyncTask()
+
+    def _create_temp_and_open(self):
+        """Create a temporary file reflecting current crop/trim/pingpong state and open it."""
+        if not self.currentFile:
+            return
+
+        if cutModeFolderOverrideActive:
+            folder = cutModeFolderOverridePath
+        else:
+            folder = os.path.join(path, "../../../../input/vr/check/rate")
+
+        fullpath = os.path.abspath(os.path.join(folder, self.currentFile))
+        # fallback absolute
+        if not os.path.exists(fullpath):
+            if os.path.isabs(self.currentFile) and os.path.exists(self.currentFile):
+                fullpath = self.currentFile
+            else:
+                alt = os.path.abspath(os.path.join(path, self.currentFile))
+                if os.path.exists(alt):
+                    fullpath = alt
+
+        if not os.path.exists(fullpath):
+            return
+
+        # ensure cleanup thread running
+        _ensure_temp_cleanup_thread()
+
+        def worker():
+            startAsyncTask()
+            try:
+                if TRACELEVEL >= 2:
+                    print(f"_create_temp_and_open: worker start for currentFile={self.currentFile}", flush=True)
+                suffix = os.path.splitext(fullpath)[1].lower()
+                if suffix in IMAGE_EXTENSIONS:
+                    try:
+                        if TRACELEVEL >= 3:
+                            print("_create_temp_and_open: handling image branch", flush=True)
+                        # determine if a real crop exists (at least one margin > 0)
+                        crop_exists = False
+                        try:
+                            cw = getattr(self, 'cropWidget', None)
+                            if cw is not None:
+                                if getattr(cw, 'crop_left', 0) > 0 or getattr(cw, 'crop_right', 0) > 0 or getattr(cw, 'crop_top', 0) > 0 or getattr(cw, 'crop_bottom', 0) > 0:
+                                    crop_exists = True
+                        except Exception:
+                            pass
+
+                        # if no crop, open original (behave like F11)
+                        if not crop_exists:
+                            if TRACELEVEL >= 2:
+                                print(f"_create_temp_and_open: no crop detected; opening original: {fullpath}", flush=True)
+                            _open_and_log(fullpath)
+                            return
+                        pix = self.cropWidget.original_pixmap
+                        if pix is None:
+                            _open_and_log(fullpath)
+                            return
+                        w = pix.width(); h = pix.height()
+                        x0 = int(self.cropWidget.crop_left)
+                        y0 = int(self.cropWidget.crop_top)
+                        x1 = int(w - self.cropWidget.crop_right)
+                        y1 = int(h - self.cropWidget.crop_bottom)
+                        if x1 <= x0 or y1 <= y0:
+                            QTimer.singleShot(0, partial(_open_and_log, fullpath))
+                            return
+                        rect = QRect(x0, y0, x1-x0, y1-y0)
+                        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+                        tmp.close()
+                        if TRACELEVEL >= 2:
+                            print(f"_create_temp_and_open: saving cropped image to {tmp.name}", flush=True)
+                        cropped = pix.copy(rect)
+                        cropped.save(tmp.name, 'PNG')
+                        TEMP_FILES_TO_CLEANUP.append(tmp.name)
+                        if TRACELEVEL >= 2:
+                            print(f"_create_temp_and_open: scheduling open of temp image {tmp.name}", flush=True)
+                        _open_and_log(tmp.name)
+                        return
+                    except Exception:
+                        print(traceback.format_exc(), flush=True)
+                        if TRACELEVEL >= 1:
+                            print(f"_create_temp_and_open: image branch failed; scheduling open of original {fullpath}", flush=True)
+                        _open_and_log(fullpath)
+                        return
+
+                # video path
+                # check whether trimming/cropping/pingpong is active; if none, open original
+                try:
+                    has_trim = False
+                    if getattr(self.display, 'frame_count', 0) > 0:
+                        trimA = getattr(self.display, 'trimAFrame', 0)
+                        trimB = getattr(self.display, 'trimBFrame', -1)
+                        if trimA > 0 or (trimB >= 0 and trimB < getattr(self.display, 'frame_count', -1)):
+                            has_trim = True
+                except Exception:
+                    has_trim = False
+
+                has_crop = False
+                try:
+                    cw = getattr(self, 'cropWidget', None)
+                    if cw is not None:
+                        if getattr(cw, 'crop_left', 0) > 0 or getattr(cw, 'crop_right', 0) > 0 or getattr(cw, 'crop_top', 0) > 0 or getattr(cw, 'crop_bottom', 0) > 0:
+                            has_crop = True
+                except Exception:
+                    has_crop = False
+
+                if not (has_trim or has_crop or getattr(self, 'playtype_pingpong', False)):
+                    if TRACELEVEL >= 2:
+                        print(f"_create_temp_and_open: no trim/crop/pingpong; opening original: {fullpath}", flush=True)
+                    _open_and_log(fullpath)
+                    return
+
+                tmp1 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                tmp1.close()
+                out_tmp = tmp1.name
+                if TRACELEVEL >= 2:
+                    print(f"_create_temp_and_open: will create video temp {out_tmp}", flush=True)
+
+                # build ffmpeg command similar to createTrimmedAndCroppedCopy
+                cmd = 'ffmpeg.exe -hide_banner -y -i "' + fullpath + '" -vf "'
+                filters = []
+                try:
+                    if getattr(self.display, 'frame_count', 0) > 0:
+                        trimA = getattr(self.display, 'trimAFrame', 0)
+                        trimB = getattr(self.display, 'trimBFrame', -1)
+                        if trimA > 0 or (trimB >= 0 and trimB < getattr(self.display, 'frame_count', -1)):
+                            filters.append(f'trim=start_frame={trimA}:end_frame={trimB}')
+                except Exception:
+                    pass
+
+                try:
+                    if getattr(self, 'hasCropOrTrim', False) and getattr(self, 'cropWidget', None):
+                        out_w = self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
+                        out_h = self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
+                        if out_h % 2 == 1:
+                            out_h -= 1
+                        x = self.cropWidget.crop_left
+                        y = self.cropWidget.crop_top
+                        filters.append(f'crop={out_w}:{out_h}:{x}:{y}')
+                except Exception:
+                    pass
+
+                if len(filters) > 0:
+                    cmd += ','.join(filters)
+                cmd += '" -shortest "' + out_tmp + '"'
+
+                # run ffmpeg
+                try:
+                    if TRACELEVEL >= 2:
+                        print('Executing', cmd, flush=True)
+                    subprocess.run(cmd, shell=True, check=True, close_fds=True)
+                except Exception:
+                    print(traceback.format_exc(), flush=True)
+                    if TRACELEVEL >= 1:
+                        print(f"_create_temp_and_open: ffmpeg failed; scheduling open of original {fullpath}", flush=True)
+                    _open_and_log(fullpath)
+                    return
+
+                final_tmp = out_tmp
+                # pingpong handling (reverse + concat) - best-effort
+                if getattr(self, 'playtype_pingpong', False):
+                    try:
+                        tmp2 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                        tmp2.close()
+                        cmd2 = 'ffmpeg.exe -hide_banner -y -i "' + out_tmp + '" -filter_complex "[0:v]reverse[r];[0:v][r]concat=n=2:v=1:a=0[out]" -map "[out]" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "' + tmp2.name + '"'
+                        if TRACELEVEL >= 2:
+                            print('Executing', cmd2, flush=True)
+                        subprocess.run(cmd2, shell=True, check=True, close_fds=True)
+                        # remove intermediate
+                        try:
+                            os.remove(out_tmp)
+                        except Exception:
+                            pass
+                        final_tmp = tmp2.name
+                    except Exception:
+                        print(traceback.format_exc(), flush=True)
+                        final_tmp = out_tmp
+
+                if TRACELEVEL >= 2:
+                    print(f"_create_temp_and_open: scheduling open of temp video {final_tmp}", flush=True)
+                TEMP_FILES_TO_CLEANUP.append(final_tmp)
+                _open_and_log(final_tmp)
+
+            finally:
+                endAsyncTask()
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
 
 
     def createSnapshot(self):
