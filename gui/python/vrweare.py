@@ -620,7 +620,7 @@ class SpreadsheetApp(QMainWindow):
 
             COLNAMES = []
             if self.toogle_stages_expanded:
-                COLS=5
+                COLS=6
                 self.table.setColumnCount(COLS)
                 header = self.table.horizontalHeader()    
                 header.setSectionResizeMode(QHeaderView.Fixed);
@@ -640,6 +640,8 @@ class SpreadsheetApp(QMainWindow):
                 self.COL_IDX_OUT=4
                 header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
                 COLNAMES.append("output")
+                header.setSectionResizeMode(self.COL_IDX_OUT+1, QHeaderView.Fixed)
+                COLNAMES.append("Config")
             else:
                 COLS=4
                 self.table.setColumnCount(COLS)
@@ -807,6 +809,12 @@ class SpreadsheetApp(QMainWindow):
                                         if value == "?":
                                             displayRequired=True
                                             color = "red"
+                                elif c==self.COL_IDX_OUT+1:
+                                    if re.match(r"tasks/.*", STAGES[r-1]):
+                                        value = "⚙"
+                                    else:
+                                        value = ""
+                                    color = "lightgray"
                                 else:
                                     value = "?"
                                     color = "red"
@@ -931,6 +939,8 @@ class SpreadsheetApp(QMainWindow):
                 return True
             if col == self.COL_IDX_OUT:
                 return True
+            if col == self.COL_IDX_OUT+1:
+                return True
         return False
 
     def onCellClick(self, row, col):
@@ -946,7 +956,18 @@ class SpreadsheetApp(QMainWindow):
                 folder =  os.path.abspath( os.path.join(path, "../../../../output/vr/" + STAGES[idx]) )
                 os.system("start \"\" " + folder)
                 # subprocess.Popen(["explorer", folder ], close_fds=True) - does not close properly
-            
+
+            if col == self.COL_IDX_OUT+1:
+                if re.match(r"tasks/_.*", STAGES[idx]):
+                    stageDefRes="user/default/comfyui_stereoscopic/tasks/" + STAGES[idx][7:] + ".json"
+                elif re.match(r"tasks/.*", STAGES[idx]):
+                    stageDefRes="custom_nodes/comfyui_stereoscopic/config/tasks/" + STAGES[idx][6:] + ".json"
+                else:
+                    stageDefRes=""
+                defFile = os.path.join(path, "../../../../" + stageDefRes)
+                if os.path.exists(defFile):
+                    os.startfile(defFile)
+
         except Exception as e:
             print(f"Error on cell click: row={row}, col={col}", flush=True)
             print(e, traceback.format_exc(), flush=True)
