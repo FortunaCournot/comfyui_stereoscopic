@@ -105,7 +105,7 @@ else
 		exit 0
 	else
 
-		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt  8688
+		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT` -gt  3840
 		then
 			SCALINGINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmpscalingH.png
 			echo "downscaling width ..."
@@ -114,7 +114,7 @@ else
 			INPUT="$SCALINGINTERMEDIATE"
 		fi
 
-		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  8688
+		if test `"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT` -gt  3840
 		then
 			SCALINGINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmpscalingV.png
 			echo "downscaling height ..."
