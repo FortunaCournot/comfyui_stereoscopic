@@ -17,7 +17,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.sh 
 SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.sh 
 SCRIPTPATH_TVAI=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale_tvai.sh 
-
+SCRIPTPATH_VIDEO2X=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale_video2x.sh
 cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
@@ -58,6 +58,7 @@ else
 	fi
 	
 	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
+	VIDEO2X_DIR=$(awk -F "=" '/VIDEO2X_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; VIDEO2X_DIR=${VIDEO2X_DIR:-""}
 	
 	#for file in input/vr/scaling/*' '*
 	#do
@@ -109,12 +110,16 @@ else
 					echo -e $"\e[93mWarning:\e[0m long video (>600s) detected."
 				fi
 				if [ ! -d "$TVAI_BIN_DIR" ] ; then
-					/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
-				
-					status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-					if [ "$status" = "closed" ]; then
-						echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-						exit 1
+					if [ -d "$VIDEO2X_DIR" ] ; then
+						/bin/bash $SCRIPTPATH_VIDEO2X "$newfn" $override_active || exit 1
+					else
+						/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
+					
+						status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+						if [ "$status" = "closed" ]; then
+							echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+							exit 1
+						fi
 					fi
 				else
 					/bin/bash $SCRIPTPATH_TVAI "$newfn" $override_active || exit 1

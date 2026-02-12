@@ -208,8 +208,8 @@ if [ ! -e $CONFIGFILE ] ; then
  
 	echo "# --- TVAI config ---">>"$CONFIGFILE"
 
-	# Check windows default path for default
-	echo "# Path of the Topaz Video AI (v6 + v7) software. If present Video AI software is used for the video scaling stage.">>"$CONFIGFILE"
+	# Check path for Topaz Video AI
+	echo "# Path of the Topaz Video AI (v6 + v7) software. If present Video AI software is used for the video scaling/interpolation stage.">>"$CONFIGFILE"
 	if [ -e  '/c/Program Files/Topaz Labs LLC/Topaz Video AI/ffmpeg.exe' ] ; then
 		echo "TVAI_BIN_DIR=/c/Program Files/Topaz Labs LLC/Topaz Video AI" >>"$CONFIGFILE"
 	else
@@ -235,6 +235,15 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "# TVAI Interpolate Filter String; MUST END WITH ':fps=', target fps is calculated. Ensure the model json, here chf-3, is existing in TVAI MODEL DIR.">>"$CONFIGFILE"
 	echo "# Documentation available by calling 'TVAI_BIN_DIR/ffmpeg.exe' -hide_banner -h filter=tvai_fi">>"$CONFIGFILE"
 	echo "TVAI_FILTER_STRING_IP=tvai_fi=model=chf-3:slowmo=1:rdt=-0.000001:device=0:vram=0.8:instances=1:fps=">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+
+	# Check path for Video2X
+	echo "# Path of the Video2X software. If present Video2X software is used for the video scaling/interpolation stage.">>"$CONFIGFILE"
+	if [ -e  '$(HOME)/AppData/Local/Programs/video2x/video2x.exe' ] ; then
+		echo "VIDEO2X_DIR=$(HOME)/AppData/Local/Programs/video2x" >>"$CONFIGFILE"
+	else
+		echo "VIDEO2X_DIR=" >>"$CONFIGFILE"
+	fi
 	echo "">>"$CONFIGFILE"
 
 	echo "# --- VR we are App config ---">>"$CONFIGFILE"
