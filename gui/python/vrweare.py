@@ -589,19 +589,20 @@ class SpreadsheetApp(QMainWindow):
             activestage=""
             statusfile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonstatus")
             if os.path.exists(statusfile):
-                with open(statusfile) as file:
-                    statuslines = [line.rstrip() for line in file]
-                    for line in range(len(statuslines)):
-                        if line==0:
-                            activestage=statuslines[0]
-                            status="processing"
-                            idletime=0
-                        else:
-                            status=status + " " + statuslines[line]
-            self.setWindowTitle("VR we are - " + activestage + ": " + status)
+                # use utf-8 and replace invalid bytes to avoid decoding errors
+                with open(statusfile, 'r', encoding='utf-8', errors='replace') as f:
+                    statuslines = [ln.rstrip() for ln in f]
+                for i in range(len(statuslines)):
+                    if i == 0:
+                        activestage = statuslines[0]
+                        status = "processing"
+                        idletime = 0
+                    else:
+                        status = status + " " + statuslines[i]
             # Wenn ein Doppelpunkt in status vorkommt, alles ab diesem Zeichen entfernen
             if ':' in status:
                 status = status.split(':', 1)[0]
+            self.setWindowTitle("VR we are - " + activestage + ": " + status)
 
             fontC0 = QFont()
             fontC0.setBold(True)
