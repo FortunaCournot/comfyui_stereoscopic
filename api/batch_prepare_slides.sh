@@ -87,7 +87,7 @@ else
 			INDEXM2=$(( INDEX - 2 ))
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			echo "slides" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/slides/${newfn//[^[:alnum:].-]/_}

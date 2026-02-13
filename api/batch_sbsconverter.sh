@@ -90,7 +90,7 @@ else
 			[ ! -e $nextinputfile ] && continue
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			echo "fullsbs" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
@@ -133,7 +133,7 @@ else
 			[ ! -e $nextinputfile ] && continue
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			echo "fullsbs" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}

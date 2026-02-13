@@ -60,6 +60,8 @@ else
 	
 
 	VIDEO2X_DIR=$(awk -F "=" '/VIDEO2X_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; VIDEO2X_DIR=${VIDEO2X_DIR:-""}
+	VIDEO2X_SCALING_OPTS=$(awk -F "=" '/VIDEO2X_SCALING_OPTS=/ {print $2}' $CONFIGFILE | head -n 1) ; VIDEO2X_SCALING_OPTS=${VIDEO2X_SCALING_OPTS:-"-s 4 --realesrgan-model realesrgan-plus -c libx264rgb -e crf=18 -e preset=medium"}
+
 
 	if [ ! -e "$VIDEO2X_DIR/video2x.exe" ] ; then
 		echo -e $"\e[91mError:\e[0m VIDEO2X settings wrong. Please configure at $CONFIGFILE"":"
@@ -116,7 +118,7 @@ else
 	UPSCALEFACTOR=4
 
 	set -x
-	nice "$VIDEO2X_DIR"/video2x.exe -i "$INPUT" -o "$TARGETPREFIX"".mp4" -p realesrgan -s $UPSCALEFACTOR --realesrgan-model realesrgan-plus -c libx264rgb -e crf=18 -e preset=medium
+	nice "$VIDEO2X_DIR"/video2x.exe -i "$INPUT" -o "$TARGETPREFIX"".mp4" -p realesrgan $VIDEO2X_SCALING_OPTS
 	set +x
 	if [ -e "$TARGETPREFIX"".mp4" ] ; then
 		# downscale result to max 4K (3840x2160) preserving aspect ratio

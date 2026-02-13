@@ -1,5 +1,3 @@
-import io
-import ntpath
 import os
 import re
 import subprocess
@@ -8,29 +6,21 @@ import time
 import traceback
 import urllib.request
 import webbrowser
-from itertools import chain
-from pathlib import Path
 from random import randrange
 from threading import Thread
 from urllib.error import HTTPError
-from functools import wraps, partial
+from functools import partial
 
-import cv2
-import numpy as np
 import requests
-from numpy import ndarray
 from PIL import Image
-from PyQt5.QtCore import (QBuffer, QRect, QSize, Qt, QThread, QTimer, QPoint,
-                          pyqtSignal, pyqtSlot)
-from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
-                         QKeySequence, QPainter, QPaintEvent, QPen, QPixmap,
+from PyQt5.QtCore import (QRect, QSize, Qt, QThread, QTimer)
+from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QPainter, QPen, QPixmap,
                          QPalette, QPainterPath, QFontMetrics)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
-                             QColorDialog, QComboBox, QDesktopWidget, QDialog,
-                             QFileDialog, QFrame, QGridLayout, QGroupBox,
-                             QHBoxLayout, QHeaderView, QLabel, QMainWindow,
-                             QMessageBox, QPushButton, QShortcut, QSizePolicy,
-                             QSlider, QStatusBar, QTableWidget,
+                             QDesktopWidget, QDialog,
+                             QHeaderView, QLabel, QMainWindow,
+                             QSizePolicy,
+                             QTableWidget,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
                              QScrollArea)
 
@@ -608,7 +598,10 @@ class SpreadsheetApp(QMainWindow):
                             idletime=0
                         else:
                             status=status + " " + statuslines[line]
-            self.setWindowTitle("VR we are - " + activestage + " " + status)
+            self.setWindowTitle("VR we are - " + activestage + ": " + status)
+            # Wenn ein Doppelpunkt in status vorkommt, alles ab diesem Zeichen entfernen
+            if ':' in status:
+                status = status.split(':', 1)[0]
 
             fontC0 = QFont()
             fontC0.setBold(True)

@@ -80,7 +80,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/interpolate/BATCHPROGRESS.TXT
 			echo "interpolate" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/interpolate/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}

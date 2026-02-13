@@ -103,7 +103,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/caption/BATCHPROGRESS.TXT
 			echo "caption" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
@@ -220,7 +220,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/caption/BATCHPROGRESS.TXT
 			echo "caption" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}

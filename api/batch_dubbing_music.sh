@@ -64,7 +64,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/dubbing/music/BATCHPROGRESS.TXT
 			echo "dubbing/music" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/dubbing/music/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}

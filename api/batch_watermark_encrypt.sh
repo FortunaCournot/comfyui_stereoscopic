@@ -108,7 +108,7 @@ else
 		for nextinputfile in $VIDEOFILES ; do
 			INDEX+=1
 			echo "watermark/encrypt" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 
 			regex="[^/]*$"
 			echo "========== $INDEX/$COUNT"" encode "`echo $nextinputfile | grep -oP "$regex"`" =========="
@@ -140,7 +140,7 @@ else
 			fi
 			INDEX+=1
 			echo "watermark/encrypt" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 
 			regex="[^/]*$"
 			echo "========== $INDEX/$COUNT"" encode "`echo $nextinputfile | grep -oP "$regex"`" =========="

@@ -88,7 +88,7 @@ else
 			INTERMEDPREFIX=${nextinputfile##*/}
 			echo "$INDEX/$COUNT" >input/vr/slideshow/BATCHPROGRESS.TXT
 			echo "slideshow" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			
 			newfn=${nextinputfile##*/}
 			newfn=input/vr/slideshow/${newfn//[^[:alnum:].-]/_}

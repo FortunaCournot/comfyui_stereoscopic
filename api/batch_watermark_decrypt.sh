@@ -106,7 +106,7 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/watermark/decrypt/BATCHPROGRESS.TXT
 			echo "watermark/decrypt" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
@@ -135,7 +135,7 @@ else
 			fi
 			INDEX+=1
 			echo "watermark/decrypt" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			
 			regex="[^/]*$"
 			echo "========== $INDEX/$COUNT"" decode "`echo $nextinputfile | grep -oP "$regex"`" =========="
