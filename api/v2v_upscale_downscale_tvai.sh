@@ -164,6 +164,12 @@ else
 			if [ -n "$RESW_GEN" ] && [ -n "$RESH_GEN" ]; then
 				MAXW=3840
 				MAXH=2160
+				# If filename contains 'sbs' (any case), allow larger width by doubling MAXW
+				BASENAME=`basename "$OUTFILE"`
+				if echo "$BASENAME" | tr '[:upper:]' '[:lower:]' | grep -q 'sbs' ; then
+					MAXW=$((MAXW * 2))
+					[ $loglevel -ge 0 ] && echo "SBS detected in filename, MAXW doubled -> $MAXW"
+				fi
 				if [ "$RESW_GEN" -gt $MAXW ] || [ "$RESH_GEN" -gt $MAXH ]; then
 					# decide limiting dimension by aspect
 					if [ $(( RESW_GEN * MAXH )) -gt $(( RESH_GEN * MAXW )) ]; then
