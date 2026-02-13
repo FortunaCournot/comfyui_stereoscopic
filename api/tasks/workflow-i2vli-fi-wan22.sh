@@ -197,20 +197,20 @@ else
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 	
 	INTERMEDIATE=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*"$EXTENSION" -print`
-  INTERMEDIATECAP=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".txt" -print`
-  INTERMEDIATEIMG=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".png" -print`
-  if [[ "$TARGETPREFIX" =~ _[0-9]{5}_$ ]]; then
-      # Already matches the pattern; do nothing
-      :
-  else
-      TARGETPREFIX="${TARGETPREFIX}_00001_"
-  fi  
+	INTERMEDIATECAP=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".txt" -print`
+	INTERMEDIATEIMG=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".png" -print`
+	if [[ "$TARGETPREFIX" =~ _[0-9]{5}_$ ]]; then
+		# Already matches the pattern; do nothing
+		:
+	else
+		TARGETPREFIX="${TARGETPREFIX}_00001_"
+	fi  
 	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
 	FINALTARGETCAP="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}"".txt"
-  tmp=${TARGETPREFIX%_}
-  num=${tmp##*_}
-  prefix=${tmp%_*}_
-  TARGETPREFIXNEXT=$(printf "%s%05d_" "$prefix" "$((10#$num+1))")
+	tmp=${TARGETPREFIX%_}
+	num=${tmp##*_}
+	prefix=${tmp%_*}_
+	TARGETPREFIXNEXT=$(printf "%s%05d_" "$prefix" "$((10#$num+1))")
 	FINALTARGETIMG="$FINALTARGETFOLDER/""${TARGETPREFIXNEXT##*/}"".png"
 
 	if [ -s "$INTERMEDIATE" ] && [ -s "$INTERMEDIATEIMG" ] ; then
