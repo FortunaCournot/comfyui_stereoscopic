@@ -349,8 +349,8 @@ else
 											# force base-10 parsing for zero-padded numbers
 											idx=$((10#$idx))
 											if [ "$idx" -gt "$IMAGE_INDEX_LIMIT" ] ; then
-												mkdir -p "input/vr/$destination/wait" 2>/dev/null
-												TARGET_DIR="input/vr/$destination/wait"
+												mkdir -p "input/vr/$destination/stop" 2>/dev/null
+												TARGET_DIR="input/vr/$destination/stop"
 											fi
 										fi
 										mv -f -- "$file" "$TARGET_DIR" && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
