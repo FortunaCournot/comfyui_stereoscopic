@@ -13,6 +13,7 @@ from functools import partial
 
 import requests
 from PIL import Image
+import shutil
 from PyQt5.QtCore import (QRect, QSize, Qt, QThread, QTimer)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QPainter, QPen, QPixmap,
                          QPalette, QPainterPath, QFontMetrics)
@@ -34,7 +35,7 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, getFilesOnlyReady, rescanFilesToRate, scanFilesToRate, initCutMode, config
+from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, getFilesOnlyReady, rescanFilesToRate, scanFilesToRate, initCutMode, config, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS
 from judge import JudgeDialog
 
 
@@ -167,6 +168,75 @@ def set_property(file_path: str, key: str, value: str) -> None:
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
 
+
+def get_stage_input_type(stage_name: str) -> str:
+    """
+    Bestimmt den input-Typ (z.B. "image" oder "video") einer Stage/Task
+    durch Einlesen der zugehörigen JSON-Definition wie im Rest der Anwendung.
+    Gibt None zurück, wenn unbekannt.
+    """
+    if re.match(r"tasks/_.*", stage_name):
+        stageDefRes = "user/default/comfyui_stereoscopic/tasks/" + stage_name[7:] + ".json"
+    elif re.match(r"tasks/.*", stage_name):
+        stageDefRes = "custom_nodes/comfyui_stereoscopic/config/tasks/" + stage_name[6:] + ".json"
+    else:
+        stageDefRes = "custom_nodes/comfyui_stereoscopic/config/stages/" + stage_name + ".json"
+
+    defFile = os.path.join(path, "../../../../" + stageDefRes)
+    if not os.path.exists(defFile):
+        return None
+
+    try:
+        with open(defFile, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if '"input"' in line:
+                    # einfaches Parsen wie im Originalcode
+                    part = line.split('"input":', 1)[1]
+                    m = re.search(r'"(.*?)"', part)
+                    if m:
+                        return m.group(1)
+    except Exception:
+        return None
+
+    return None
+
+
+def _is_allowed_for_type(file_path: str, input_type: str) -> bool:
+    """Prüft, ob Datei-Endung zu input_type passt.
+
+    Unterstützt mehrere Typen, getrennt mit Semikolon ('image;video').
+    Der Drop ist gültig, wenn mindestens ein Typ mit der Datei übereinstimmt.
+    """
+    if not input_type:
+        return False
+
+    # Normalize to a list of types (support semicolon-separated definitions)
+    if isinstance(input_type, str):
+        types = [t.strip().lower() for t in input_type.split(';') if t.strip()]
+    else:
+        types = [str(input_type).strip().lower()]
+
+    ext = os.path.splitext(file_path)[1].lower()
+    # Use global definitions from rating.py (normalize to lowercase)
+    try:
+        image_exts = set(e.lower() for e in IMAGE_EXTENSIONS)
+    except Exception:
+        image_exts = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff'}
+    try:
+        video_exts = set(e.lower() for e in VIDEO_EXTENSIONS)
+    except Exception:
+        video_exts = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mpeg', '.mpg'}
+
+    for t in types:
+        if t == 'image' and ext in image_exts:
+            return True
+        if t == 'video' and ext in video_exts:
+            return True
+        if t in ('file', 'any'):
+            return True
+
+    return False
+
 class SpreadsheetApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -199,7 +269,7 @@ class SpreadsheetApp(QMainWindow):
         self.layout = QVBoxLayout(self.central_widget)
 
         # Spreadsheet widget
-        self.table = HoverTableWidget(ROWS, COLS, self.isCellClickable, self.onCellClick)
+        self.table = HoverTableWidget(ROWS, COLS, self.isCellClickable, self.onCellClick, self)
         self.table.setStyleSheet("background-color: black; color: black; gridline-color: black")
         self.table.setShowGrid(False)
         self.table.setFrameStyle(0)
@@ -1251,6 +1321,9 @@ class HoverTableWidget(QTableWidget):
         self.current_hover = None
         self.isCellClickable=isCellClickable
         self.onCellClick=onCellClick
+        self.app = parent  # expected to be SpreadsheetApp
+        self.setAcceptDrops(True)
+        self._drag_orig_colors = {}
 
         # Tabelle mit Beispielwerten füllen
         #for row in range(rows):
@@ -1286,6 +1359,128 @@ class HoverTableWidget(QTableWidget):
             self.setCursor(Qt.ArrowCursor)
             
         super().mouseMoveEvent(event)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        # Only accept if over a stage-name cell (column 0) and row>0
+        index = self.indexAt(event.pos())
+        if not index.isValid():
+            event.ignore()
+            return
+        row, col = index.row(), index.column()
+        if row <= 0 or col != 0:
+            event.ignore()
+            return
+
+        # collect local file paths
+        urls = [u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()]
+        if not urls:
+            event.ignore()
+            return
+
+        stage_idx = None
+        try:
+            if hasattr(self.app, 'ROW2STAGE'):
+                pass
+        except Exception:
+            pass
+
+        # Map table row to stage name via parent window variable ROW2STAGE
+        try:
+            idx = ROW2STAGE[row-1]
+            stage_name = STAGES[idx]
+        except Exception:
+            event.ignore()
+            return
+
+        input_type = get_stage_input_type(stage_name)
+        all_ok = True
+        for p in urls:
+            if not _is_allowed_for_type(p, input_type):
+                all_ok = False
+                break
+
+        # change color of item text: green if ok else red
+        item = self.item(row, col)
+        if item:
+            # save original color once
+            key = (row, col)
+            if key not in self._drag_orig_colors:
+                orig = item.foreground().color().name() if item.foreground() else None
+                self._drag_orig_colors[key] = orig
+            item.setForeground(QBrush(QColor("green" if all_ok else "red")))
+
+        if all_ok:
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        index = self.indexAt(event.pos())
+        if not index.isValid():
+            event.ignore()
+            return
+        row, col = index.row(), index.column()
+        if row <= 0 or col != 0:
+            event.ignore()
+            return
+
+        urls = [u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()]
+        if not urls:
+            event.ignore()
+            return
+
+        try:
+            idx = ROW2STAGE[row-1]
+            stage_name = STAGES[idx]
+        except Exception:
+            event.ignore()
+            return
+
+        input_type = get_stage_input_type(stage_name)
+        for p in urls:
+            if not _is_allowed_for_type(p, input_type):
+                event.ignore()
+                return
+
+        dest_folder = os.path.abspath(os.path.join(path, "../../../../input/vr/" + stage_name))
+        os.makedirs(dest_folder, exist_ok=True)
+
+        move = bool(event.keyboardModifiers() & Qt.ShiftModifier)
+        try:
+            for p in urls:
+                base = os.path.basename(p)
+                dest = os.path.join(dest_folder, base)
+                if move:
+                    shutil.move(p, dest)
+                else:
+                    shutil.copy2(p, dest)
+        except Exception:
+            event.ignore()
+            return
+
+        # restore color
+        key = (row, col)
+        item = self.item(row, col)
+        if item and key in self._drag_orig_colors:
+            orig = self._drag_orig_colors.pop(key)
+            if orig:
+                item.setForeground(QBrush(QColor(orig)))
+        event.acceptProposedAction()
+
+    def leaveEvent(self, event):
+        # restore any changed colors
+        for (row, col), orig in list(self._drag_orig_colors.items()):
+            item = self.item(row, col)
+            if item and orig:
+                item.setForeground(QBrush(QColor(orig)))
+        self._drag_orig_colors.clear()
+        super().leaveEvent(event)
 
     def leaveEvent(self, event):
         """Wenn die Maus den TableWidget-Bereich verlässt."""
