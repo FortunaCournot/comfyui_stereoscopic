@@ -2085,6 +2085,31 @@ class HoverTableWidget(QTableWidget):
             except Exception:
                 url_from_clip = None
 
+        # Avoid double-processing the same URL: if the Windows URL clipboard
+        # flavor contains the same URL as one of the QUrls, prefer the
+        # clipboard form and remove it from remote_urls to prevent downloading twice.
+        try:
+            if url_from_clip and url_from_clip in remote_urls:
+                remote_urls = [u for u in remote_urls if u != url_from_clip]
+        except Exception:
+            pass
+
+        # Deduplicate remote_urls to avoid repeated downloads when multiple
+        # QUrls carry the same string representation.
+        try:
+            if remote_urls:
+                # preserve order while removing duplicates
+                seen = set()
+                uniq = []
+                for u in remote_urls:
+                    if u in seen:
+                        continue
+                    seen.add(u)
+                    uniq.append(u)
+                remote_urls = uniq
+        except Exception:
+            pass
+
         try:
             idx = ROW2STAGE[row-1]
             stage_name = STAGES[idx]
@@ -2130,6 +2155,20 @@ class HoverTableWidget(QTableWidget):
                 parsed = urllib.parse.urlparse(u)
                 fname = os.path.basename(parsed.path) or f"download_{int(time.time())}"
                 dest = os.path.join(dest_folder, fname)
+                # If destination exists, pick a non-conflicting name by appending _N before the suffix
+                try:
+                    if os.path.exists(dest):
+                        base, ext = os.path.splitext(fname)
+                        i = 1
+                        while True:
+                            newname = f"{base}_{i}{ext}"
+                            newdest = os.path.join(dest_folder, newname)
+                            if not os.path.exists(newdest):
+                                dest = newdest
+                                break
+                            i += 1
+                except Exception:
+                    pass
                 try:
                     r = requests.get(u, stream=True, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
                     r.raise_for_status()
@@ -2146,6 +2185,20 @@ class HoverTableWidget(QTableWidget):
                 parsed = urllib.parse.urlparse(url_from_clip)
                 fname = os.path.basename(parsed.path) or f"download_{int(time.time())}"
                 dest = os.path.join(dest_folder, fname)
+                # avoid overwriting existing files from URL drops: append _N before extension
+                try:
+                    if os.path.exists(dest):
+                        base, ext = os.path.splitext(fname)
+                        i = 1
+                        while True:
+                            newname = f"{base}_{i}{ext}"
+                            newdest = os.path.join(dest_folder, newname)
+                            if not os.path.exists(newdest):
+                                dest = newdest
+                                break
+                            i += 1
+                except Exception:
+                    pass
                 try:
                     urllib.request.urlretrieve(url_from_clip, dest)
                 except Exception:
