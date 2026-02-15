@@ -1447,6 +1447,16 @@ class HoverTableWidget(QTableWidget):
         self._current_drag_stage = None
         # cache mapping stage_index -> bool (allowed) for current drag
         self._drag_allowed_map = None
+        # Auto-scroll timer for drag near-edge behavior
+        self._auto_scroll_timer = QTimer(self)
+        self._auto_scroll_rows_per_second = 5
+        try:
+            self._auto_scroll_interval_ms = int(1000 / self._auto_scroll_rows_per_second)
+        except Exception:
+            self._auto_scroll_interval_ms = 200
+        self._auto_scroll_timer.setInterval(self._auto_scroll_interval_ms)
+        self._auto_scroll_direction = 0
+        self._auto_scroll_timer.timeout.connect(self._perform_auto_scroll)
 
         # Tabelle mit Beispielwerten füllen
         #for row in range(rows):
@@ -1482,6 +1492,41 @@ class HoverTableWidget(QTableWidget):
             self.setCursor(Qt.ArrowCursor)
             
         super().mouseMoveEvent(event)
+
+    def _perform_auto_scroll(self):
+        """Called by timer to perform one auto-scroll step in the current direction."""
+        try:
+            if self._auto_scroll_direction == 0:
+                return
+            sb = self.verticalScrollBar()
+            if not sb:
+                return
+            # approximate one-row scroll using first row height
+            row_count = self.rowCount()
+            if row_count <= 0:
+                return
+            try:
+                row_height = max(1, self.rowHeight(0))
+            except Exception:
+                row_height = 20
+            # Prefer using the scrollbar's configured singleStep (pixels) which
+            # typically corresponds to a small, sane increment. Fallback to
+            # row height if singleStep is not useful.
+            try:
+                step = int(sb.singleStep()) if sb.singleStep() and sb.singleStep() > 0 else row_height
+            except Exception:
+                step = row_height
+            delta = int(step * self._auto_scroll_direction)
+            newv = sb.value() + delta
+            # clamp
+            newv = max(sb.minimum(), min(sb.maximum(), newv))
+            if newv == sb.value():
+                # can't scroll further in this direction -> stop
+                self._stop_auto_scroll()
+                return
+            sb.setValue(newv)
+        except Exception:
+            pass
 
     def dragEnterEvent(self, event):
         md = event.mimeData()
@@ -1641,20 +1686,46 @@ class HoverTableWidget(QTableWidget):
             prev = self._current_drag_stage
             if prev is not None and prev != table_stage_idx:
                 try:
-                    if isinstance(prev, int) and 0 <= prev < len(self._drag_hover_saved) and self._drag_hover_saved[prev] is not None:
+                    if isinstance(prev, int) and 0 <= prev < len(self._drag_hover_saved):
                         # find table row for prev
                         try:
                             if prev in ROW2STAGE:
                                 pos = ROW2STAGE.index(prev)
                                 prev_row = pos + 1
                                 prev_item = self.item(prev_row, col)
-                                orig = self._drag_hover_saved[prev]
+                                saved_hover_orig = self._drag_hover_saved[prev]
+                                # determine allowed status from cached map
+                                allowed = True
+                                if isinstance(self._drag_allowed_map, list) and 0 <= prev < len(self._drag_allowed_map):
+                                    allowed = bool(self._drag_allowed_map[prev])
+                                dark_brown = QColor("#5E271F")
+                                # clear hover-saved value
                                 self._drag_hover_saved[prev] = None
-                                # restore the pre-hover color (may be brown or original)
-                                if prev_item and orig:
-                                    prev_item.setForeground(QBrush(QColor(orig)))
+                                # set forced color state for prev according to allowed
+                                try:
+                                    if 0 <= prev < len(self._drag_forced_colors):
+                                        self._drag_forced_colors[prev] = dark_brown if not allowed else None
+                                except Exception:
+                                    pass
+                                # restore visible color: prefer saved hover original, otherwise apply allowed-based color or saved original
+                                if prev_item:
+                                    if saved_hover_orig:
+                                        prev_item.setForeground(QBrush(QColor(saved_hover_orig)))
+                                    else:
+                                        if not allowed:
+                                            prev_item.setForeground(QBrush(dark_brown))
+                                        else:
+                                            # try to restore any original color saved at drag-start
+                                            try:
+                                                orig_final = self._drag_saved_orig[prev] if 0 <= prev < len(self._drag_saved_orig) else None
+                                            except Exception:
+                                                orig_final = None
+                                            if orig_final:
+                                                prev_item.setForeground(QBrush(QColor(orig_final)))
+                                            else:
+                                                # no saved color — leave as-is (no forced color)
+                                                pass
                         except Exception:
-                            # best-effort
                             try:
                                 self._drag_hover_saved[prev] = None
                             except Exception:
@@ -1688,7 +1759,33 @@ class HoverTableWidget(QTableWidget):
                 forced_list[table_stage_idx] = forced
             self._drag_forced_colors = forced_list
             item.setForeground(QBrush(forced))
+
+        # Auto-scroll when hovering the first/last visible row and scrolling is possible
+        try:
+            first_visible = self.rowAt(0)
+            last_visible = self.rowAt(self.viewport().height() - 1)
+            sb = self.verticalScrollBar()
+            # when over last visible row and can scroll down
+            if row == last_visible and sb is not None and sb.value() < sb.maximum():
+                # start scrolling down
+                if self._auto_scroll_direction != 1:
+                    self._start_auto_scroll(1)
+            # when over first visible row and can scroll up
+            elif row == first_visible and sb is not None and sb.value() > sb.minimum():
+                if self._auto_scroll_direction != -1:
+                    self._start_auto_scroll(-1)
+            else:
+                # stop any auto-scroll if not at edges
+                if self._auto_scroll_direction != 0:
+                    self._stop_auto_scroll()
+        except Exception:
+            pass
+
+        # remember current hovered stage index for next move
+        try:
             self._current_drag_stage = table_stage_idx
+        except Exception:
+            self._current_drag_stage = None
 
         if all_ok:
             event.acceptProposedAction()
@@ -1696,6 +1793,11 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
 
     def dropEvent(self, event):
+        # ensure auto-scroll stops when dropping
+        try:
+            self._stop_auto_scroll()
+        except Exception:
+            pass
         index = self.indexAt(event.pos())
         if not index.isValid():
             event.ignore()
@@ -1822,6 +1924,11 @@ class HoverTableWidget(QTableWidget):
         Restore any forced colors keyed by stage name and clear drag state so
         a cancelled/aborted drag does not leave a lingering color.
         """
+        # stop any auto-scroll when drag leaves
+        try:
+            self._stop_auto_scroll()
+        except Exception:
+            pass
         self._reset_drag_state()
         try:
             super().dragLeaveEvent(event)
@@ -1831,7 +1938,7 @@ class HoverTableWidget(QTableWidget):
     def _reset_drag_state(self):
         """Restore original foreground colors and clear drag state."""
         try:
-            for stage_idx, orig in enumerate(self._drag_orig_colors):
+            for stage_idx, orig in enumerate(self._drag_saved_orig):
                 try:
                     if orig is None:
                         continue
@@ -1845,7 +1952,8 @@ class HoverTableWidget(QTableWidget):
                     pass
         except Exception:
             pass
-        self._drag_orig_colors = [None] * len(STAGES)
+        self._drag_saved_orig = [None] * len(STAGES)
+        self._drag_hover_saved = [None] * len(STAGES)
         self._drag_forced_colors = [None] * len(STAGES)
         self._current_drag_stage = None
         # clear cached allowed map
@@ -1853,6 +1961,26 @@ class HoverTableWidget(QTableWidget):
         # also reset hover/underline state
         self.reset_hover_style()
         self.current_hover = None
+
+    def _start_auto_scroll(self, direction: int):
+        """Start auto-scrolling in given direction (1 down, -1 up)."""
+        try:
+            if direction == 0:
+                return
+            self._auto_scroll_direction = 1 if direction > 0 else -1
+            if not self._auto_scroll_timer.isActive():
+                self._auto_scroll_timer.start()
+        except Exception:
+            pass
+
+    def _stop_auto_scroll(self):
+        """Stop any active auto-scrolling."""
+        try:
+            if self._auto_scroll_timer.isActive():
+                self._auto_scroll_timer.stop()
+        except Exception:
+            pass
+        self._auto_scroll_direction = 0
 
     def leaveEvent(self, event):
         self._reset_drag_state()
@@ -1878,6 +2006,11 @@ class HoverTableWidget(QTableWidget):
             pass
 
     def mouseReleaseEvent(self, event):
+        # ensure auto-scroll stops and reset drag state
+        try:
+            self._stop_auto_scroll()
+        except Exception:
+            pass
         # If a drag was in progress but no drop occurred, ensure reset
         self._reset_drag_state()
         try:
