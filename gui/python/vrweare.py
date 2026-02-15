@@ -15,6 +15,7 @@ from functools import partial
 import requests
 from PIL import Image
 import shutil
+import tempfile
 from PyQt5.QtCore import (QRect, QSize, Qt, QThread, QTimer)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QPainter, QPen, QPixmap,
                          QPalette, QPainterPath, QFontMetrics)
@@ -25,6 +26,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QTableWidget,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
                              QScrollArea)
+from PyQt5.QtCore import Qt as _QtRoles
 
 import faulthandler
 faulthandler.enable()
@@ -36,7 +38,7 @@ if path not in sys.path:
     sys.path.append(path)
 
 # Import our implementations
-from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, getFilesOnlyReady, rescanFilesToRate, scanFilesToRate, initCutMode, config, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS
+from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, getFilesOnlyReady, rescanFilesToRate, scanFilesToRate, initCutMode, config, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, TRACELEVEL
 from judge import JudgeDialog
 
 
@@ -333,6 +335,18 @@ class SpreadsheetApp(QMainWindow):
 
         # Initialize caches
         self.stageTypes = []
+        # cache mapping (raw_preview_candidate, stage_name) -> (final_path_or_None, status)
+        self._preview_path_cache = {}
+        # remember last read daemonstatus lines to avoid re-parsing unchanged status repeatedly
+        self._last_daemon_status = None
+        # remember what preview (path,status) we attached per stage index to avoid re-logging
+        self._last_attached_previews = {}
+
+        # Ensure column index attributes exist early so other components
+        # can call `isCellClickable()` before `update_table()` runs.
+        self.COL_IDX_IN = 1
+        self.COL_IDX_OUT = 3
+        self.COL_IDX_IN_TYPES = 1
 
         self.pipelinedialog=None
         self.dialog=None
@@ -753,6 +767,88 @@ class SpreadsheetApp(QMainWindow):
             if ':' in status:
                 status = status.split(':', 1)[0]
 
+            # Try to find a relative file path in the daemonstatus lines (heuristic).
+            # Store absolute path on the app for tooltip usage.
+            # Only re-parse the status contents when the file changed since the
+            # last read to avoid repeated work at TABLEUPDATEFREQ.
+            try:
+                tuple_status = tuple(statuslines)
+            except Exception:
+                tuple_status = None
+
+            # If we couldn't read statuslines (e.g. status file missing), skip
+            # re-evaluation. Only re-parse when we have a valid tuple_status.
+            if tuple_status is None:
+                # clear any known processing file when status is not available
+                try:
+                    self._last_daemon_status = None
+                except Exception:
+                    self._last_daemon_status = None
+                self.current_processing_file = None
+            elif tuple_status == getattr(self, '_last_daemon_status', None):
+                # status unchanged -> keep previous self.current_processing_file
+                pass
+            else:
+                # status changed -> re-evaluate candidate
+                try:
+                    self._last_daemon_status = tuple_status
+                except Exception:
+                    self._last_daemon_status = None
+                self.current_processing_file = None
+                rel_candidate = None
+                for ln in statuslines[1:]:
+                    # look for a path-like token with an extension
+                    m = re.search(r"([\w\-\\/\.]+\.[A-Za-z0-9]+)", ln)
+                    if m:
+                        cand = m.group(1)
+                        ext = os.path.splitext(cand)[1].lower()
+                        try:
+                            image_exts = set(e.lower() for e in IMAGE_EXTENSIONS)
+                        except Exception:
+                            image_exts = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff'}
+                        try:
+                            video_exts = set(e.lower() for e in VIDEO_EXTENSIONS)
+                        except Exception:
+                            video_exts = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mpeg', '.mpg'}
+                        if ext in image_exts or ext in video_exts:
+                            rel_candidate = cand
+                            break
+                if rel_candidate:
+                    # Try sensible locations in order:
+                    # 1) If status first line names the stage, look under input/vr/<stage>/<rel_candidate>
+                    # 2) Fallback: treat rel_candidate as repository-relative path as before
+                    candidate_paths = []
+                    # stage name from statuslines[0] if available
+                    try:
+                        stage_name = statuslines[0] if len(statuslines) > 0 else None
+                    except Exception:
+                        stage_name = None
+
+                    # If rel_candidate looks like a bare filename, prefer input/vr/<stage>/
+                    if stage_name and not any(sep in rel_candidate for sep in ('/', '\\')):
+                        candidate_paths.append(os.path.abspath(os.path.join(path, "../../../../input/vr/", stage_name, rel_candidate)))
+
+                    # Always try the original heuristic too
+                    candidate_paths.append(os.path.abspath(os.path.join(path, "../../../../" + rel_candidate)))
+
+                    found_path = None
+                    for pth in candidate_paths:
+                        try:
+                            exists = os.path.exists(pth)
+                        except Exception:
+                            exists = False
+                        try:
+                            if TRACELEVEL >= 1:
+                                print(f"daemonstatus candidate: {rel_candidate} -> {pth} exists={exists}", flush=True)
+                        except Exception:
+                            pass
+                        if exists:
+                            found_path = pth
+                            break
+
+                    if found_path:
+                        self.current_processing_file = found_path
+
             fontC0 = QFont()
             fontC0.setBold(True)
             fontC0.setItalic(True)
@@ -803,82 +899,86 @@ class SpreadsheetApp(QMainWindow):
                 header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
                 COLNAMES.append("output")
             
-            skippedrows=0
+            skippedrows = 0
             self.table.clear()
             ROW2STAGE.clear()
             for r in range(ROWS):
-                displayRequired=False
+                displayRequired = False
                 currentRowItems = []
                 for c in range(COLS):
-                    if c==COL_IDX_STAGENAME:
-                        if r==0:
-                            displayRequired=True
+                    preview_for_row = None
+                    if c == COL_IDX_STAGENAME:
+                        if r == 0:
                             value = ""
                         else:
+                            displayRequired = True
                             value = STAGES[r-1]
                         item = QTableWidgetItem(value)
                         item.setFont(fontC0)
-                        if value.startswith("tasks/_"):
-                            item.setForeground(QBrush(QColor("#666666")))
-                        elif value.startswith("tasks/"):
-                            item.setForeground(QBrush(QColor("#888888")))
+                        if r > 0:
+                            if value.startswith("tasks/_"):
+                                item.setForeground(QBrush(QColor("#666666")))
+                            elif value.startswith("tasks/"):
+                                item.setForeground(QBrush(QColor("#888888")))
+                            else:
+                                item.setForeground(QBrush(QColor("#CCCCCC")))
                         else:
                             item.setForeground(QBrush(QColor("#CCCCCC")))
                         item.setBackground(QBrush(QColor("black")))
                         item.setTextAlignment(Qt.AlignLeft + Qt.AlignVCenter)
                     else:
                         color = "lightgray"
-                        if r==0:
-                            displayRequired=True
+                        if r == 0:
+                            displayRequired = True
                             value = COLNAMES[c]
                             color = "gray"
                         else:
-                            if c==self.COL_IDX_IN:
-                                folder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
+                            if c == self.COL_IDX_IN:
+                                folder = os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
                                 if os.path.exists(folder):
                                     onlyfiles = next(os.walk(folder))[2]
                                     onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
                                     count = len(onlyfiles)
-                                    if count>0:
+                                    if count > 0:
                                         value = str(count)
-                                        displayRequired=True
+                                        displayRequired = True
                                     else:
                                         value = ""
-                                    subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/done")
+                                    subfolder = os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/done")
                                     if os.path.exists(subfolder):
                                         onlyfiles = next(os.walk(subfolder))[2]
                                         nocleanup = False
                                         for f in onlyfiles:
                                             if ".nocleanup" == f.lower():
-                                                nocleanup = True                                            
+                                                nocleanup = True
                                         if nocleanup:
-                                            displayRequired=True
+                                            displayRequired = True
                                             onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
                                             count2 = len(onlyfiles)
-                                            if count2>0:
+                                            if count2 > 0:
                                                 value = value + " (" + str(count2) + ")"
                                                 color = "green"
                                             elif count == 0:
                                                 value = value + " (-)"
                                         else:
                                             color = "yellow"
-                                    subfolder =  os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
+                                    subfolder = os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
                                     if os.path.exists(subfolder):
                                         try:
                                             onlyfiles = next(os.walk(subfolder))[2]
                                             count = len(onlyfiles)
-                                            if count>0:
+                                            if count > 0:
                                                 value = value + " " + str(count) + "!"
                                                 color = "red"
-                                                displayRequired=True
-                                        except StopIteration as se:
+                                                displayRequired = True
+                                        except StopIteration:
                                             pass
                                 else:
                                     value = "?"
                                     color = "red"
-                                    displayRequired=True
-                            elif c==self.COL_IDX_OUT:
-                                folder =  os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
+                                    displayRequired = True
+                            elif c == self.COL_IDX_OUT:
+                                folder = os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
                                 if os.path.exists(folder):
                                     onlyfiles = next(os.walk(folder))[2]
                                     forward = False
@@ -889,10 +989,10 @@ class SpreadsheetApp(QMainWindow):
                                         color = "green"
                                     onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
                                     count = len(onlyfiles)
-                                    if count>0:
-                                        displayRequired=True
+                                    if count > 0:
+                                        displayRequired = True
                                         value = str(count)
-                                        if idletime>15:
+                                        if idletime > 15:
                                             color = "green"
                                     else:
                                         value = ""
@@ -901,58 +1001,63 @@ class SpreadsheetApp(QMainWindow):
                                 else:
                                     value = "?"
                                     color = "red"
-                                    displayRequired=True
-                            elif c==COL_IDX_PROCESSING:
+                                    displayRequired = True
+                            elif c == COL_IDX_PROCESSING:
                                 value = ""
-                                if status!="idle":
-                                    if activestage==STAGES[r-1]:
-                                        value=status
-                                        color="yellow"
-                                        displayRequired=True
+                                if status != "idle":
+                                    if activestage == STAGES[r-1]:
+                                        value = status
+                                        color = "yellow"
+                                        displayRequired = True
+                                        try:
+                                            if hasattr(self, 'current_processing_file') and self.current_processing_file:
+                                                preview_for_row = self.current_processing_file
+                                        except Exception:
+                                            preview_for_row = None
                             elif self.toogle_stages_expanded:
-                                if c==self.COL_IDX_IN_TYPES:
-                                    if len(self.stageTypes)+1==ROWS:  # use cache
+                                if c == self.COL_IDX_IN_TYPES:
+                                    if len(self.stageTypes) + 1 == ROWS:  # use cache
                                         value = self.stageTypes[r-1]
-                                        color = "#5E271F" # need also to set below
+                                        color = "#5E271F"  # need also to set below
                                         if value == "video":
                                             color = "#04018C"   # need also to set below
                                         elif value == "image":
                                             color = "#018C08"   # need also to set below
                                         elif value == "?":
-                                            displayRequired=True
+                                            displayRequired = True
                                             color = "red"
-                                    else:   # build and store in cache
+                                    else:  # build and store in cache
                                         if re.match(r"tasks/_.*", STAGES[r-1]):
-                                            stageDefRes="user/default/comfyui_stereoscopic/tasks/" + STAGES[r-1][7:] + ".json"
+                                            stageDefRes = "user/default/comfyui_stereoscopic/tasks/" + STAGES[r-1][7:] + ".json"
                                         elif re.match(r"tasks/.*", STAGES[r-1]):
-                                            stageDefRes="custom_nodes/comfyui_stereoscopic/config/tasks/" + STAGES[r-1][6:] + ".json"
+                                            stageDefRes = "custom_nodes/comfyui_stereoscopic/config/tasks/" + STAGES[r-1][6:] + ".json"
                                         else:
-                                            stageDefRes="custom_nodes/comfyui_stereoscopic/config/stages/" + STAGES[r-1] + ".json"
+                                            stageDefRes = "custom_nodes/comfyui_stereoscopic/config/stages/" + STAGES[r-1] + ".json"
 
                                         value = "?"
                                         defFile = os.path.join(path, "../../../../" + stageDefRes)
                                         if os.path.exists(defFile):
                                             with open(defFile) as file:
-                                                color = "#5E271F" # need also to set above at cache
+                                                color = "#5E271F"
                                                 deflines = [line.rstrip() for line in file]
                                                 for line in range(len(deflines)):
-                                                    inputMatch=re.match(r".*\"input\":", deflines[line])
+                                                    inputMatch = re.match(r".*\"input\":", deflines[line])
                                                     if inputMatch:
-                                                        valuepart=deflines[line][inputMatch.end():]
+                                                        valuepart = deflines[line][inputMatch.end():]
                                                         match = re.search(r"\".*\"", valuepart)
                                                         if match:
                                                             value = valuepart[match.start()+1:match.end()][:-1]
                                                             if value == "video":
-                                                                color = "#04018C"   # need also to set above at cache
+                                                                color = "#04018C"
                                                             elif value == "image":
-                                                                color = "#018C08"   # need also to set above at cache
+                                                                color = "#018C08"
                                                         else:
                                                             value = "?"
                                         self.stageTypes.append(value)
                                         if value == "?":
-                                            displayRequired=True
+                                            displayRequired = True
                                             color = "red"
-                                elif c==self.COL_IDX_OUT+1:
+                                elif c == self.COL_IDX_OUT + 1:
                                     if re.match(r"tasks/.*", STAGES[r-1]):
                                         value = "⚙"
                                     else:
@@ -961,15 +1066,15 @@ class SpreadsheetApp(QMainWindow):
                                 else:
                                     value = "?"
                                     color = "red"
-                                    displayRequired=True
+                                    displayRequired = True
                             else:
                                 value = "?"
                                 color = "red"
-                                displayRequired=True
-                        if value=="":
-                            value="  "
+                                displayRequired = True
+                        if value == "":
+                            value = "  "
                         item = QTableWidgetItem(value)
-                        if r==0:
+                        if r == 0:
                             item.setFont(fontR0)
                         # preserve drag-forced color if present (use stage index key)
                         try:
@@ -993,8 +1098,117 @@ class SpreadsheetApp(QMainWindow):
                             item.setForeground(QBrush(QColor(color)))
                         item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                         item.setBackground(QBrush(QColor("black")))
-                        
+
                     currentRowItems.append(item)
+                    # attach preview data to processing item if available
+                    try:
+                        if preview_for_row and r > 0 and c == COL_IDX_PROCESSING:
+                            # Resolve preview path once here, but use a persistent cache so we don't
+                            # re-check the filesystem on every table update if the candidate didn't change.
+                            final_path = None
+                            status = None
+                            try:
+                                stage_name = STAGES[r-1]
+                            except Exception:
+                                stage_name = None
+                            cache_key = (preview_for_row, stage_name)
+                            if cache_key in self._preview_path_cache:
+                                try:
+                                    final_path, status = self._preview_path_cache[cache_key]
+                                except Exception:
+                                    final_path, status = None, None
+                            else:
+                                try:
+                                    if os.path.exists(preview_for_row):
+                                        final_path = preview_for_row
+                                    else:
+                                        # attempt fallback using stage name
+                                        if stage_name:
+                                            folder = os.path.abspath(os.path.join(path, "../../../../input/vr/", stage_name))
+                                            if os.path.exists(folder):
+                                                b = os.path.basename(preview_for_row)
+                                                files = next(os.walk(folder))[2]
+                                                for f in files:
+                                                    if f == b:
+                                                        final_path = os.path.join(folder, f)
+                                                        break
+                                                if final_path is None:
+                                                    # look for any image/video
+                                                    try:
+                                                        image_exts = set(e.lower() for e in IMAGE_EXTENSIONS)
+                                                    except Exception:
+                                                        image_exts = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff'}
+                                                    try:
+                                                        video_exts = set(e.lower() for e in VIDEO_EXTENSIONS)
+                                                    except Exception:
+                                                        video_exts = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mpeg', '.mpg'}
+                                                    for f in files:
+                                                        ext = os.path.splitext(f)[1].lower()
+                                                        if ext in image_exts or ext in video_exts:
+                                                            final_path = os.path.join(folder, f)
+                                                            break
+                                except Exception:
+                                    final_path = None
+                                # store in cache (even None) to avoid repeated checks
+                                try:
+                                    stat = 'found' if final_path and os.path.exists(final_path) else 'missing'
+                                    self._preview_path_cache[cache_key] = (final_path, stat)
+                                    status = stat
+                                except Exception:
+                                    try:
+                                        self._preview_path_cache[cache_key] = (final_path, 'missing')
+                                    except Exception:
+                                        pass
+
+                            # attach final preview info to item: UserRole+1 = path or None, UserRole+4 = status
+                            try:
+                                stage_idx = r-1
+                                # get previously attached tuple for this stage to avoid re-logging
+                                try:
+                                    last_attached = getattr(self, '_last_attached_previews', {}).get(stage_idx)
+                                except Exception:
+                                    last_attached = None
+
+                                if status == 'found' and final_path:
+                                    new_tuple = (final_path, 'found')
+                                else:
+                                    new_tuple = (None, 'missing')
+
+                                # If it changed, set and log; otherwise set silently to provide data on the new item
+                                try:
+                                    if last_attached != new_tuple:
+                                        item.setData(_QtRoles.UserRole + 1, new_tuple[0])
+                                        item.setData(_QtRoles.UserRole + 2, stage_name)
+                                        item.setData(_QtRoles.UserRole + 4, new_tuple[1])
+                                        try:
+                                            if TRACELEVEL >= 1:
+                                                if new_tuple[1] == 'found':
+                                                    print(f"Attached preview for row {stage_idx}: {new_tuple[0]}", flush=True)
+                                                else:
+                                                    print(f"Preview missing for row {stage_idx}: {preview_for_row}", flush=True)
+                                        except Exception:
+                                            pass
+                                        try:
+                                            self._last_attached_previews[stage_idx] = new_tuple
+                                        except Exception:
+                                            pass
+                                    else:
+                                        # same as before; ensure the new item carries the data but don't log
+                                        item.setData(_QtRoles.UserRole + 1, new_tuple[0])
+                                        item.setData(_QtRoles.UserRole + 2, stage_name)
+                                        item.setData(_QtRoles.UserRole + 4, new_tuple[1])
+                                except Exception:
+                                    # best-effort: set values
+                                    try:
+                                        item.setData(_QtRoles.UserRole + 1, new_tuple[0])
+                                        item.setData(_QtRoles.UserRole + 2, stage_name)
+                                        item.setData(_QtRoles.UserRole + 4, new_tuple[1])
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
                     
                 if displayRequired or self.toogle_stages_expanded:
                     for c in range(len(currentRowItems)):
@@ -1335,6 +1549,52 @@ class QCounterAction(QAction):
         return QSize(80, 80)
 
 
+class ImageTooltip(QLabel):
+    """Simple tooltip-like widget that displays an image (pixmap).
+
+    Use `show_at(global_pos)` to display near the cursor and `hide()` to dismiss.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.ToolTip)
+        self.setWindowFlags(Qt.ToolTip)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setScaledContents(True)
+
+    def show_at(self, pixmap=None, global_pos=None, max_size=(160, 160), text: str = None):
+        try:
+            if text:
+                # show simple text
+                self.setPixmap(QPixmap())
+                self.setText(text)
+                self.setStyleSheet('color: white; background-color: black; padding: 6px;')
+                self.adjustSize()
+            elif pixmap is not None and not pixmap.isNull():
+                # image: scale so largest side is <= max_size[0]
+                w, h = pixmap.width(), pixmap.height()
+                max_side = max_size[0]
+                if max(w, h) > max_side:
+                    scale = max_side / max(w, h)
+                    pixmap = pixmap.scaled(int(w * scale), int(h * scale), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.setText("")
+                self.setPixmap(pixmap)
+                self.setStyleSheet('background-color: black;')
+                self.setFixedSize(self.pixmap().size())
+            else:
+                return
+
+            # position slightly offset from cursor
+            if global_pos is None:
+                pos = QCursor.pos()
+            else:
+                pos = global_pos
+            x = pos.x() + 16
+            y = pos.y() + 16
+            self.move(x, y)
+            self.show()
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+
+
 
 class PipelineEditThread(QThread):
     def __init__(self, parent):
@@ -1447,6 +1707,12 @@ class HoverTableWidget(QTableWidget):
         self._current_drag_stage = None
         # cache mapping stage_index -> bool (allowed) for current drag
         self._drag_allowed_map = None
+        # image tooltip instance (created on demand)
+        self._image_tooltip = None
+        # cache for preview pixmaps: path -> QPixmap
+        self._preview_pixmap_cache = {}
+        # last hover debug tuple to avoid repeated prints
+        self._last_hover_debug = None
         # Auto-scroll timer for drag near-edge behavior
         self._auto_scroll_timer = QTimer(self)
         self._auto_scroll_rows_per_second = 5
@@ -2019,13 +2285,205 @@ class HoverTableWidget(QTableWidget):
             pass
 
     def apply_hover_style(self, row, col):
+        # Always check for a preview attached to the item and show tooltip if present
+        item = self.item(row, col)
+        try:
+            if item is not None:
+                preview = item.data(_QtRoles.UserRole + 1)
+                preview_status = item.data(_QtRoles.UserRole + 4)
+            else:
+                preview = None
+                preview_status = None
+        except Exception:
+            preview = None
+            preview_status = None
+
+        # Extra debug: if status claims 'found' but preview is falsy, log item data once
+        try:
+            if preview_status == 'found' and not preview:
+                try:
+                    print(f"Hover inconsistency: status='found' but preview empty for row={row} col={col}. item data roles: role1={item.data(_QtRoles.UserRole + 1)!r}, role2={item.data(_QtRoles.UserRole + 2)!r}, role4={item.data(_QtRoles.UserRole + 4)!r}", flush=True)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Debug helper: when hovering a processing cell, log a concise state line once per change
+        try:
+            txt = item.text() if item is not None and hasattr(item, 'text') else ''
+            debug_key = (row, col, txt, preview, preview_status, getattr(self.app, 'current_processing_file', None))
+            if txt and 'processing' in txt.lower():
+                if debug_key != self._last_hover_debug:
+                    try:
+                        roles = None
+                        try:
+                            roles = (item.data(_QtRoles.UserRole + 1), item.data(_QtRoles.UserRole + 2), item.data(_QtRoles.UserRole + 4))
+                        except Exception:
+                            roles = None
+                        if TRACELEVEL >= 1:
+                            print(f"Hover debug row={row} col={col} text={txt!r} roles={roles!r} preview_var={preview!r} status_var={preview_status!r} app.current_processing_file={getattr(self.app, 'current_processing_file', None)!r}", flush=True)
+                    except Exception:
+                        pass
+                    try:
+                        self._last_hover_debug = debug_key
+                    except Exception:
+                        self._last_hover_debug = None
+        except Exception:
+            pass
+
+        if preview_status == 'missing':
+            if self._image_tooltip is None:
+                self._image_tooltip = ImageTooltip(self)
+            self._image_tooltip.show_at(text="Error", global_pos=QCursor.pos())
+        elif preview_status == 'found' and preview:
+            # create tooltip widget if needed
+            if self._image_tooltip is None:
+                self._image_tooltip = ImageTooltip(self)
+            pix = None
+            # use cached pixmap if available
+            try:
+                if preview in self._preview_pixmap_cache:
+                    pix = self._preview_pixmap_cache.get(preview)
+                else:
+                    # attempt to load image via PIL
+                    try:
+                        from PIL import Image
+                        im = Image.open(preview)
+                        pix = pil2pixmap(im)
+                    except Exception:
+                        pix = None
+                    # try video frame if no image
+                    if pix is None:
+                        try:
+                            import cv2
+                            cap = cv2.VideoCapture(preview)
+                            ret, frame = cap.read()
+                            cap.release()
+                            if ret:
+                                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                                h, w, ch = frame.shape
+                                from PyQt5.QtGui import QImage
+                                img = QImage(frame.data, w, h, 3 * w, QImage.Format_RGB888)
+                                pix = QPixmap.fromImage(img)
+                        except Exception:
+                            pix = None
+
+                    # ffmpeg fallback: extract first frame to a temp PNG and load it
+                    if pix is None:
+                        try:
+                            # Resolve ffmpeg binary using configuration FFMPEGPATHPREFIX (same semantics as shell scripts)
+                            ffmpeg_bin = None
+                            try:
+                                ffmpeg_prefix = config('FFMPEGPATHPREFIX', '') or ''
+                            except Exception:
+                                ffmpeg_prefix = ''
+
+                            # If a prefix is configured, try to resolve it. Shell scripts set FFMPEGPATHPREFIX
+                            # to either an absolute path or a path fragment; handle both.
+                            if ffmpeg_prefix:
+                                fp = ffmpeg_prefix.strip()
+                                # If fp looks like an executable path, try it directly
+                                if os.path.exists(fp) and os.access(fp, os.X_OK):
+                                    ffmpeg_bin = fp
+                                else:
+                                    # Try interpreting fp as a folder containing ffmpeg
+                                    candidate = fp
+                                    if os.path.isdir(candidate):
+                                        exe_name = 'ffmpeg.exe' if os.name == 'nt' else 'ffmpeg'
+                                        candidate2 = os.path.join(candidate, exe_name)
+                                        if os.path.exists(candidate2) and os.access(candidate2, os.X_OK):
+                                            ffmpeg_bin = candidate2
+                                    # Try resolving relative to repo root (like installer does)
+                                    if ffmpeg_bin is None:
+                                        try:
+                                            abs_candidate = os.path.abspath(os.path.join(path, '../../../../', fp))
+                                            if os.path.isdir(abs_candidate):
+                                                exe_name = 'ffmpeg.exe' if os.name == 'nt' else 'ffmpeg'
+                                                candidate3 = os.path.join(abs_candidate, exe_name)
+                                                if os.path.exists(candidate3) and os.access(candidate3, os.X_OK):
+                                                    ffmpeg_bin = candidate3
+                                        except Exception:
+                                            pass
+
+                            # Fallback to PATH lookup if not resolved by config
+                            if not ffmpeg_bin:
+                                ffmpeg_bin = shutil.which('ffmpeg')
+                            if ffmpeg_bin:
+                                # create temp file in system temp dir
+                                fd, tmp_path = tempfile.mkstemp(suffix='.png')
+                                try:
+                                    os.close(fd)
+                                except Exception:
+                                    pass
+                                try:
+                                    # extract first frame, scale small to limit size
+                                    cmd = [ffmpeg_bin, '-y', '-i', preview, '-vframes', '1', '-vf', 'scale=320:-1', tmp_path]
+                                    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=8)
+                                    if proc.returncode == 0 and os.path.exists(tmp_path):
+                                        try:
+                                            from PIL import Image
+                                            im = Image.open(tmp_path)
+                                            pix = pil2pixmap(im)
+                                        except Exception:
+                                            pix = None
+                                except Exception:
+                                    pix = None
+                                finally:
+                                    # remove temp file immediately
+                                    try:
+                                        if os.path.exists(tmp_path):
+                                            os.remove(tmp_path)
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pix = None
+
+                    # cache result (even if None to avoid repeated attempts)
+                    try:
+                        self._preview_pixmap_cache[preview] = pix
+                    except Exception:
+                        pass
+
+                if pix is not None:
+                    self._image_tooltip.show_at(pix, QCursor.pos(), max_size=(160, 160))
+                else:
+                    try:
+                        print(f"Error loading preview for {preview}", flush=True)
+                    except Exception:
+                        pass
+                    self._image_tooltip.show_at(text="Error", global_pos=QCursor.pos())
+            except Exception:
+                try:
+                    print(traceback.format_exc(), flush=True)
+                except Exception:
+                    pass
+                if self._image_tooltip is None:
+                    self._image_tooltip = ImageTooltip(self)
+                self._image_tooltip.show_at(text="Error", global_pos=QCursor.pos())
+
+        # existing underline behavior for clickable cells
         if self.isCellClickable(row, col):
             """Setzt den Text der Zelle auf unterstrichen."""
-            item = self.item(row, col)
             if item:
                 font = item.font()
                 font.setUnderline(True)
                 item.setFont(font)
+        else:
+            # Only show 'processing...' when there is no usable preview to display.
+            try:
+                has_preview = (preview_status == 'found' and preview)
+            except Exception:
+                has_preview = False
+            if not has_preview:
+                try:
+                    if item is not None and isinstance(item.text, type(lambda:None)) is False:
+                        txt = item.text() if item else ""
+                        if txt and 'processing' in txt.lower():
+                            if self._image_tooltip is None:
+                                self._image_tooltip = ImageTooltip(self)
+                            self._image_tooltip.show_at(text="processing...", global_pos=QCursor.pos())
+                except Exception:
+                    pass
 
     def reset_hover_style(self):
         if self.current_hover:
@@ -2037,6 +2495,12 @@ class HoverTableWidget(QTableWidget):
                     font = item.font()
                     font.setUnderline(False)
                     item.setFont(font)
+                # hide any image tooltip
+                try:
+                    if self._image_tooltip is not None:
+                        self._image_tooltip.hide()
+                except Exception:
+                    pass
 
     def on_cell_clicked(self, row, col):
         if self.isCellClickable(row, col):
