@@ -928,7 +928,21 @@ class SpreadsheetApp(QMainWindow):
                         item = QTableWidgetItem(value)
                         if r==0:
                             item.setFont(fontR0)
-                        item.setForeground(QBrush(QColor(color)))
+                        # preserve drag-forced color if present (use stage name key)
+                        try:
+                            if r > 0:
+                                stage_name = STAGES[r-1]
+                                forced = None
+                                if hasattr(self.table, '_drag_forced_colors'):
+                                    forced = self.table._drag_forced_colors.get(stage_name)
+                                if forced and c == COL_IDX_STAGENAME:
+                                    item.setForeground(QBrush(forced))
+                                else:
+                                    item.setForeground(QBrush(QColor(color)))
+                            else:
+                                item.setForeground(QBrush(QColor(color)))
+                        except Exception:
+                            item.setForeground(QBrush(QColor(color)))
                         item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                         item.setBackground(QBrush(QColor("black")))
                         
@@ -960,6 +974,23 @@ class SpreadsheetApp(QMainWindow):
             else:
                 self.table.setRowCount(ROWS-skippedrows)
             self.table.resizeRowsToContents()
+            # Re-apply any drag-forced colors (keyed by stage name) after table rebuild
+            try:
+                forced = getattr(self.table, '_drag_forced_colors', {}) or {}
+                for stage_name, color in forced.items():
+                    try:
+                        stage_idx = STAGES.index(stage_name)
+                        if stage_idx in ROW2STAGE:
+                            pos = ROW2STAGE.index(stage_idx)
+                            table_row = pos + 1
+                            # apply to stage name column
+                            item = self.table.item(table_row, COL_IDX_STAGENAME)
+                            if item and color is not None:
+                                item.setForeground(QBrush(color))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
         except KeyboardInterrupt:
             sys.exit(app.exec_())
         except SystemExit:
@@ -1083,15 +1114,13 @@ class SpreadsheetApp(QMainWindow):
         event.accept()
 
     def show_pipeline(self, state):
-        
         global pipelinedialog, lay
         pipelinedialog = QDialog(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         pipelinedialog.setWindowTitle("VR We Are - Pipeline")
         pipelinedialog.setModal(True)
-        #pipelinedialog.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         lay = QVBoxLayout(pipelinedialog)
         pal=QPalette()
-        bgcolor = QColor("gray") # usally not visible
+        bgcolor = QColor("gray") # usually not visible
         role = QPalette.Background
         pal.setColor(role, bgcolor)
         self.setPalette(pal)
@@ -1156,7 +1185,6 @@ class SpreadsheetApp(QMainWindow):
         self.dialog = pipelinedialog
         pipelinedialog.show()
         self.button_show_pipeline_action.setEnabled(True)
-            
     def edit_pipeline(self, state):
         configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
         global editActive, pipelineModified, editthread
@@ -1361,6 +1389,8 @@ class HoverTableWidget(QTableWidget):
         self.app = parent  # expected to be SpreadsheetApp
         self.setAcceptDrops(True)
         self._drag_orig_colors = {}
+        self._drag_forced_colors = {}
+        self._current_drag_stage = None
 
         # Tabelle mit Beispielwerten füllen
         #for row in range(rows):
@@ -1469,12 +1499,41 @@ class HoverTableWidget(QTableWidget):
         # change color of item text: green if ok else red
         item = self.item(row, col)
         if item:
-            # save original color once
-            key = (row, col)
-            if key not in self._drag_orig_colors:
+            key_stage = stage_name
+            # if we moved from another stage, restore its color
+            prev = self._current_drag_stage
+            if prev and prev != key_stage:
+                try:
+                    if prev in self._drag_orig_colors:
+                        # find table row for prev
+                        try:
+                            prev_idx = STAGES.index(prev)
+                            if prev_idx in ROW2STAGE:
+                                pos = ROW2STAGE.index(prev_idx)
+                                prev_row = pos + 1
+                                prev_item = self.item(prev_row, col)
+                                orig = self._drag_orig_colors.pop(prev, None)
+                                self._drag_forced_colors.pop(prev, None)
+                                if prev_item and orig:
+                                    prev_item.setForeground(QBrush(QColor(orig)))
+                        except Exception:
+                            # best-effort
+                            self._drag_orig_colors.pop(prev, None)
+                            self._drag_forced_colors.pop(prev, None)
+                except Exception:
+                    pass
+
+            # store original if not stored
+            if key_stage not in self._drag_orig_colors:
                 orig = item.foreground().color().name() if item.foreground() else None
-                self._drag_orig_colors[key] = orig
-            item.setForeground(QBrush(QColor("green" if all_ok else "red")))
+                self._drag_orig_colors[key_stage] = orig
+
+            forced = QColor("green" if all_ok else "red")
+            # set forced only for current stage
+            self._drag_forced_colors.clear()
+            self._drag_forced_colors[key_stage] = forced
+            item.setForeground(QBrush(forced))
+            self._current_drag_stage = key_stage
 
         if all_ok:
             event.acceptProposedAction()
@@ -1581,29 +1640,85 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
 
-        # restore color
-        key = (row, col)
+        # restore color for this stage
+        key_stage = stage_name
         item = self.item(row, col)
-        if item and key in self._drag_orig_colors:
-            orig = self._drag_orig_colors.pop(key)
+        if item and key_stage in self._drag_orig_colors:
+            orig = self._drag_orig_colors.pop(key_stage)
+            try:
+                self._drag_forced_colors.pop(key_stage, None)
+            except Exception:
+                pass
             if orig:
                 item.setForeground(QBrush(QColor(orig)))
+        self._current_drag_stage = None
         event.acceptProposedAction()
 
-    def leaveEvent(self, event):
-        # restore any changed colors
-        for (row, col), orig in list(self._drag_orig_colors.items()):
-            item = self.item(row, col)
-            if item and orig:
-                item.setForeground(QBrush(QColor(orig)))
-        self._drag_orig_colors.clear()
-        super().leaveEvent(event)
+    def dragLeaveEvent(self, event):
+        """Called when an ongoing drag operation leaves the widget without dropping.
 
-    def leaveEvent(self, event):
-        """Wenn die Maus den TableWidget-Bereich verlässt."""
+        Restore any forced colors keyed by stage name and clear drag state so
+        a cancelled/aborted drag does not leave a lingering color.
+        """
+        self._reset_drag_state()
+        try:
+            super().dragLeaveEvent(event)
+        except Exception:
+            pass
+
+    def _reset_drag_state(self):
+        """Restore original foreground colors and clear drag state."""
+        try:
+            for stage_name, orig in list(self._drag_orig_colors.items()):
+                try:
+                    stage_idx = STAGES.index(stage_name)
+                    if stage_idx in ROW2STAGE:
+                        pos = ROW2STAGE.index(stage_idx)
+                        table_row = pos + 1
+                        item = self.item(table_row, 0)
+                        if item and orig:
+                            item.setForeground(QBrush(QColor(orig)))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        self._drag_orig_colors.clear()
+        self._drag_forced_colors.clear()
+        self._current_drag_stage = None
+        # also reset hover/underline state
         self.reset_hover_style()
         self.current_hover = None
-        super().leaveEvent(event)
+
+    def leaveEvent(self, event):
+        self._reset_drag_state()
+        try:
+            super().leaveEvent(event)
+        except Exception:
+            pass
+
+    def focusOutEvent(self, event):
+        # Reset drag colors when widget loses focus (mouse may have left window)
+        self._reset_drag_state()
+        try:
+            super().focusOutEvent(event)
+        except Exception:
+            pass
+
+    def hideEvent(self, event):
+        # Reset when widget is hidden
+        self._reset_drag_state()
+        try:
+            super().hideEvent(event)
+        except Exception:
+            pass
+
+    def mouseReleaseEvent(self, event):
+        # If a drag was in progress but no drop occurred, ensure reset
+        self._reset_drag_state()
+        try:
+            super().mouseReleaseEvent(event)
+        except Exception:
+            pass
 
     def apply_hover_style(self, row, col):
         if self.isCellClickable(row, col):
