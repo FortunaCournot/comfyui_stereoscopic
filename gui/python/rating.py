@@ -2215,7 +2215,7 @@ class RateAndCutDialog(QDialog):
         out.close()
         try:
             cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + pathtofile + "\" -filter:v \"select='gt(scene,"  + str(threshold) + ")',showinfo\" -f null - 2>> "+tmp.name
-            cmd2 = "grep showinfo \"" + tmp.name + "\" | grep pts_time:[0-9.]\* -o | grep [0-9.]\* -o >> " + out.name
+            cmd2 = "grep showinfo \"" + tmp.name + "\" | grep pts_time:[0-9.]\\* -o | grep [0-9.]\\* -o >> " + out.name
 
             if TRACELEVEL >= 3:
                 print("Executing", cmd1, flush=True)
