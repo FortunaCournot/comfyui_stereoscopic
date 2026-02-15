@@ -1063,25 +1063,24 @@ class RateAndCutDialog(QDialog):
             url = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
             
             try:
-                with urllib.request.urlopen(url) as response:
-                    content_type = response.headers.get("Content-Type", "")
-                    if content_type.startswith("image/"):
-                        pass
-                    elif content_type.startswith("video/"):
-                        pass
-                    else:
-                        self.drag_file_path = None 
-                        self.style_group_box(self.main_group_box, "#ff0000")
-                        self.reset_timer.start(2000)
-                        event.ignore()
-                        return
-                
-                self.drag_file_path=url
+                # Use requests with a browser-like User-Agent to improve compatibility
+                r = requests.get(url, stream=True, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
+                content_type = r.headers.get("Content-Type", "")
+                if content_type.startswith("image/") or content_type.startswith("video/"):
+                    pass
+                else:
+                    self.drag_file_path = None 
+                    self.style_group_box(self.main_group_box, "#ff0000")
+                    self.reset_timer.start(2000)
+                    event.ignore()
+                    return
+
+                self.drag_file_path = url
                 self.style_group_box(self.main_group_box, "#44ff44")
                 self.reset_timer.start(1000)
                 event.acceptProposedAction()
                 return
-            except:
+            except Exception:
                 self.drag_file_path = None 
                 self.style_group_box(self.main_group_box, "#ff0000")
                 self.reset_timer.start(2000)
@@ -1089,19 +1088,34 @@ class RateAndCutDialog(QDialog):
                 return                
                 
         elif md.hasUrls() and len(md.urls())>0:
-            # Standardweg (wenn funktioniert)
-            self.drag_file_path = md.urls()[0].toLocalFile()
-            #print("File (URI):", self.drag_file_path)
-            if os.path.isdir(self.drag_file_path):
-                self.style_group_box(self.main_group_box, "#44ff44")
-                self.reset_timer.start(1000)
-                event.acceptProposedAction()
-                return
-            elif os.path.isfile(self.drag_file_path) and any(self.drag_file_path.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
-                self.style_group_box(self.main_group_box, "#44ff44")
-                event.acceptProposedAction()
-                self.reset_timer.start(1000)
-                return
+            q = md.urls()[0]
+            # local file path
+            if q.isLocalFile():
+                self.drag_file_path = q.toLocalFile()
+                if os.path.isdir(self.drag_file_path):
+                    self.style_group_box(self.main_group_box, "#44ff44")
+                    self.reset_timer.start(1000)
+                    event.acceptProposedAction()
+                    return
+                elif os.path.isfile(self.drag_file_path) and any(self.drag_file_path.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
+                    self.style_group_box(self.main_group_box, "#44ff44")
+                    event.acceptProposedAction()
+                    self.reset_timer.start(1000)
+                    return
+            else:
+                # remote URL
+                url = q.toString()
+                try:
+                    r = requests.get(url, stream=True, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
+                    content_type = r.headers.get("Content-Type", "")
+                    if content_type.startswith("image/") or content_type.startswith("video/"):
+                        self.drag_file_path = url
+                        self.style_group_box(self.main_group_box, "#44ff44")
+                        self.reset_timer.start(1000)
+                        event.acceptProposedAction()
+                        return
+                except Exception:
+                    pass
         
         print("Formats:", event.mimeData().formats())
         self.drag_file_path = None 
@@ -1221,34 +1235,31 @@ class RateAndCutDialog(QDialog):
         startAsyncTask()
         try:
             if not url is None:
-                # Download
-                with urllib.request.urlopen(url) as response:
-                    content_type = response.headers.get("Content-Type", "")
-                    
-                    # Optional: fallback extension if missing
-                    if content_type.startswith("image/"):
-                        if '.' not in filename:
-                            filename += ".jpg"
-                    elif content_type.startswith("video/"):
-                        if '.' not in filename:
-                            filename += ".mp4"
-                    else:
-                        raise ValueError(f"URL is not an image (Content-Type: {content_type})")
-                
-                    # Build full output path, ignore dirpath (assume None)
-                    override=False
-                    target_dir = os.path.join(path, "../../../../input/vr/check/rate")
-                    #os.makedirs(target_dir, exist_ok=True)
-                    filename = self.get_safe_unique_filename(target_dir, filename)
-                    output_path = os.path.join(target_dir, filename)
-                    
-                    # Write to file
-                    with open(output_path, "wb") as f:
-                        block_size = 8192
-                        while True:
-                            chunk = response.read(block_size)
-                            if not chunk:
-                                break
+                # Download using requests (more compatible with modern hosts)
+                r = requests.get(url, stream=True, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+                r.raise_for_status()
+                content_type = r.headers.get("Content-Type", "")
+
+                # Optional: fallback extension if missing
+                if content_type.startswith("image/"):
+                    if '.' not in filename:
+                        filename += ".jpg"
+                elif content_type.startswith("video/"):
+                    if '.' not in filename:
+                        filename += ".mp4"
+                else:
+                    raise ValueError(f"URL is not an image (Content-Type: {content_type})")
+
+                # Build full output path, ignore dirpath (assume None)
+                override=False
+                target_dir = os.path.join(path, "../../../../input/vr/check/rate")
+                filename = self.get_safe_unique_filename(target_dir, filename)
+                output_path = os.path.join(target_dir, filename)
+
+                # Write to file from streamed response
+                with open(output_path, "wb") as f:
+                    for chunk in r.iter_content(8192):
+                        if chunk:
                             f.write(chunk)
             
 

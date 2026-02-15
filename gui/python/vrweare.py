@@ -5,6 +5,7 @@ import sys
 import time
 import traceback
 import urllib.request
+import urllib.parse
 import webbrowser
 from random import randrange
 from threading import Thread
@@ -231,6 +232,42 @@ def _is_allowed_for_type(file_path: str, input_type: str) -> bool:
         if t == 'image' and ext in image_exts:
             return True
         if t == 'video' and ext in video_exts:
+            return True
+        if t in ('file', 'any'):
+            return True
+
+    return False
+
+
+def _is_url_allowed_for_type(url: str, input_type: str) -> bool:
+    """Prüft, ob eine URL (Content-Type) zu input_type passt.
+
+    Öffnet kurz die URL-Header und prüft `Content-Type`.
+    """
+    if not input_type or not url:
+        return False
+
+    # normalize input types
+    if isinstance(input_type, str):
+        types = [t.strip().lower() for t in input_type.split(';') if t.strip()]
+    else:
+        types = [str(input_type).strip().lower()]
+
+    try:
+        # Use requests with a browser-like UA to improve compatibility
+        resp = requests.get(url, stream=True, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
+        # don't read body; headers are available
+        content_type = resp.headers.get('Content-Type', '')
+    except Exception:
+        return False
+
+    if not content_type:
+        return False
+
+    for t in types:
+        if t == 'image' and content_type.startswith('image/'):
+            return True
+        if t == 'video' and content_type.startswith('video/'):
             return True
         if t in ('file', 'any'):
             return True
@@ -1361,7 +1398,8 @@ class HoverTableWidget(QTableWidget):
         super().mouseMoveEvent(event)
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
+        md = event.mimeData()
+        if md.hasUrls() or md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
             event.acceptProposedAction()
         else:
             event.ignore()
@@ -1377,9 +1415,21 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
 
-        # collect local file paths
-        urls = [u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()]
-        if not urls:
+        md = event.mimeData()
+        qurls = md.urls()
+        local_paths = [u.toLocalFile() for u in qurls if u.isLocalFile()]
+        remote_urls = [u.toString() for u in qurls if not u.isLocalFile()]
+
+        # Handle Windows URL clipboard flavor
+        url_from_clip = None
+        if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            try:
+                data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
+                url_from_clip = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
+            except Exception:
+                url_from_clip = None
+
+        if not local_paths and not remote_urls and not url_from_clip:
             event.ignore()
             return
 
@@ -1400,10 +1450,21 @@ class HoverTableWidget(QTableWidget):
 
         input_type = get_stage_input_type(stage_name)
         all_ok = True
-        for p in urls:
+        # check local files
+        for p in local_paths:
             if not _is_allowed_for_type(p, input_type):
                 all_ok = False
                 break
+        # check remote urls
+        if all_ok:
+            for u in remote_urls:
+                if not _is_url_allowed_for_type(u, input_type):
+                    all_ok = False
+                    break
+        # check windows-clipboard URL
+        if all_ok and url_from_clip:
+            if not _is_url_allowed_for_type(url_from_clip, input_type):
+                all_ok = False
 
         # change color of item text: green if ok else red
         item = self.item(row, col)
@@ -1430,10 +1491,17 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
 
-        urls = [u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()]
-        if not urls:
-            event.ignore()
-            return
+        md = event.mimeData()
+        qurls = md.urls()
+        local_paths = [u.toLocalFile() for u in qurls if u.isLocalFile()]
+        remote_urls = [u.toString() for u in qurls if not u.isLocalFile()]
+        url_from_clip = None
+        if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            try:
+                data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
+                url_from_clip = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
+            except Exception:
+                url_from_clip = None
 
         try:
             idx = ROW2STAGE[row-1]
@@ -1443,8 +1511,21 @@ class HoverTableWidget(QTableWidget):
             return
 
         input_type = get_stage_input_type(stage_name)
-        for p in urls:
+
+        # validate local files
+        for p in local_paths:
             if not _is_allowed_for_type(p, input_type):
+                event.ignore()
+                return
+
+        # validate remote urls
+        for u in remote_urls:
+            if not _is_url_allowed_for_type(u, input_type):
+                event.ignore()
+                return
+
+        if url_from_clip:
+            if not _is_url_allowed_for_type(url_from_clip, input_type):
                 event.ignore()
                 return
 
@@ -1453,13 +1534,49 @@ class HoverTableWidget(QTableWidget):
 
         move = bool(event.keyboardModifiers() & Qt.ShiftModifier)
         try:
-            for p in urls:
+            # copy/move local files
+            for p in local_paths:
                 base = os.path.basename(p)
                 dest = os.path.join(dest_folder, base)
                 if move:
                     shutil.move(p, dest)
                 else:
                     shutil.copy2(p, dest)
+
+            # download remote URLs
+            for u in remote_urls:
+                parsed = urllib.parse.urlparse(u)
+                fname = os.path.basename(parsed.path) or f"download_{int(time.time())}"
+                dest = os.path.join(dest_folder, fname)
+                try:
+                    r = requests.get(u, stream=True, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+                    r.raise_for_status()
+                    with open(dest, 'wb') as fh:
+                        for chunk in r.iter_content(8192):
+                            if chunk:
+                                fh.write(chunk)
+                except Exception:
+                    event.ignore()
+                    return
+
+            # download URL from clipboard flavor
+            if url_from_clip:
+                parsed = urllib.parse.urlparse(url_from_clip)
+                fname = os.path.basename(parsed.path) or f"download_{int(time.time())}"
+                dest = os.path.join(dest_folder, fname)
+                try:
+                    urllib.request.urlretrieve(url_from_clip, dest)
+                except Exception:
+                    try:
+                        r = requests.get(url_from_clip, stream=True, timeout=10)
+                        r.raise_for_status()
+                        with open(dest, 'wb') as fh:
+                            for chunk in r.iter_content(8192):
+                                fh.write(chunk)
+                    except Exception:
+                        event.ignore()
+                        return
+
         except Exception:
             event.ignore()
             return
