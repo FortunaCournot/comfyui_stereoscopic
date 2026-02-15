@@ -274,6 +274,49 @@ def _is_url_allowed_for_type(url: str, input_type: str) -> bool:
 
     return False
 
+
+def _is_url_allowed_for_type_quick(url: str, input_type: str) -> bool:
+    """Quick check whether a URL *probably* matches input_type without network I/O.
+
+    This inspects only the URL path/extension and known extension lists. It is
+    intended for use during drag events to avoid starting network downloads.
+    """
+    if not input_type or not url:
+        return False
+
+    # Normalize input types
+    if isinstance(input_type, str):
+        types = [t.strip().lower() for t in input_type.split(';') if t.strip()]
+    else:
+        types = [str(input_type).strip().lower()]
+
+    try:
+        parsed = urllib.parse.urlparse(url)
+        ext = os.path.splitext(parsed.path)[1].lower()
+    except Exception:
+        ext = ''
+
+    try:
+        image_exts = set(e.lower() for e in IMAGE_EXTENSIONS)
+    except Exception:
+        image_exts = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff'}
+    try:
+        video_exts = set(e.lower() for e in VIDEO_EXTENSIONS)
+    except Exception:
+        video_exts = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mpeg', '.mpg'}
+
+    for t in types:
+        if t == 'image' and ext in image_exts:
+            return True
+        if t == 'video' and ext in video_exts:
+            return True
+        if t in ('file', 'any') and ext:
+            # if caller accepts generic files and there's an extension, allow
+            return True
+
+    # If extension absent or unknown, report False to avoid network probes during drag
+    return False
+
 class SpreadsheetApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -928,13 +971,18 @@ class SpreadsheetApp(QMainWindow):
                         item = QTableWidgetItem(value)
                         if r==0:
                             item.setFont(fontR0)
-                        # preserve drag-forced color if present (use stage name key)
+                        # preserve drag-forced color if present (use stage index key)
                         try:
                             if r > 0:
-                                stage_name = STAGES[r-1]
+                                stage_idx = r-1
                                 forced = None
                                 if hasattr(self.table, '_drag_forced_colors'):
-                                    forced = self.table._drag_forced_colors.get(stage_name)
+                                    lst = self.table._drag_forced_colors
+                                    try:
+                                        if stage_idx < len(lst):
+                                            forced = lst[stage_idx]
+                                    except Exception:
+                                        forced = None
                                 if forced and c == COL_IDX_STAGENAME:
                                     item.setForeground(QBrush(forced))
                                 else:
@@ -976,10 +1024,11 @@ class SpreadsheetApp(QMainWindow):
             self.table.resizeRowsToContents()
             # Re-apply any drag-forced colors (keyed by stage name) after table rebuild
             try:
-                forced = getattr(self.table, '_drag_forced_colors', {}) or {}
-                for stage_name, color in forced.items():
+                forced = getattr(self.table, '_drag_forced_colors', []) or []
+                for stage_idx, color in enumerate(forced):
                     try:
-                        stage_idx = STAGES.index(stage_name)
+                        if color is None:
+                            continue
                         if stage_idx in ROW2STAGE:
                             pos = ROW2STAGE.index(stage_idx)
                             table_row = pos + 1
@@ -1388,9 +1437,16 @@ class HoverTableWidget(QTableWidget):
         self.onCellClick=onCellClick
         self.app = parent  # expected to be SpreadsheetApp
         self.setAcceptDrops(True)
-        self._drag_orig_colors = {}
-        self._drag_forced_colors = {}
+        n_stages = len(STAGES)
+        # original colors to restore at drag end
+        self._drag_saved_orig = [None] * n_stages
+        # color values to restore when hover leaves a row
+        self._drag_hover_saved = [None] * n_stages
+        # forced colors per stage (e.g. brown for not-allowed, green/red for current)
+        self._drag_forced_colors = [None] * n_stages
         self._current_drag_stage = None
+        # cache mapping stage_index -> bool (allowed) for current drag
+        self._drag_allowed_map = None
 
         # Tabelle mit Beispielwerten füllen
         #for row in range(rows):
@@ -1430,6 +1486,73 @@ class HoverTableWidget(QTableWidget):
     def dragEnterEvent(self, event):
         md = event.mimeData()
         if md.hasUrls() or md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            # compute allowed map for all stages once at drag start
+            try:
+                qurls = md.urls()
+                local_paths = [u.toLocalFile() for u in qurls if u.isLocalFile()]
+                remote_urls = [u.toString() for u in qurls if not u.isLocalFile()]
+            except Exception:
+                local_paths = []
+                remote_urls = []
+
+            url_from_clip = None
+            if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+                try:
+                    data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
+                    url_from_clip = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
+                except Exception:
+                    url_from_clip = None
+
+            allowed = [False] * len(STAGES)
+            # Evaluate against all known stages by index (stage_idx)
+            for stage_idx, stage_name in enumerate(STAGES):
+                input_type = get_stage_input_type(stage_name)
+                ok = True
+                for p in local_paths:
+                    if not _is_allowed_for_type(p, input_type):
+                        ok = False
+                        break
+                if ok:
+                    for u in remote_urls:
+                        if not _is_url_allowed_for_type_quick(u, input_type):
+                            ok = False
+                            break
+                if ok and url_from_clip:
+                    if not _is_url_allowed_for_type_quick(url_from_clip, input_type):
+                        ok = False
+            
+                allowed[stage_idx] = ok
+
+            self._drag_allowed_map = allowed
+            # Set forced dark-brown for stages that are not allowed and remember originals
+            dark_brown = QColor("#5E271F")
+            try:
+                for stage_idx, ok in enumerate(allowed):
+                    if not ok:
+                        # remember original color for final restore if not already saved
+                        try:
+                            if self._drag_saved_orig[stage_idx] is None:
+                                if stage_idx in ROW2STAGE:
+                                    pos = ROW2STAGE.index(stage_idx)
+                                    table_row = pos + 1
+                                    it = self.item(table_row, 0)
+                                    if it and it.foreground():
+                                        self._drag_saved_orig[stage_idx] = it.foreground().color().name()
+                        except Exception:
+                            pass
+                        # apply forced brown in the forced colors list and on visible item if possible
+                        try:
+                            self._drag_forced_colors[stage_idx] = dark_brown
+                            if stage_idx in ROW2STAGE:
+                                pos = ROW2STAGE.index(stage_idx)
+                                table_row = pos + 1
+                                it = self.item(table_row, 0)
+                                if it:
+                                    it.setForeground(QBrush(dark_brown))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
             event.acceptProposedAction()
         else:
             event.ignore()
@@ -1478,62 +1601,94 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
 
-        input_type = get_stage_input_type(stage_name)
+        # use cached allowed map computed at drag start when available
         all_ok = True
-        # check local files
-        for p in local_paths:
-            if not _is_allowed_for_type(p, input_type):
-                all_ok = False
-                break
-        # check remote urls
-        if all_ok:
-            for u in remote_urls:
-                if not _is_url_allowed_for_type(u, input_type):
+        if isinstance(self._drag_allowed_map, list):
+            # map is a list keyed by stage index (value from ROW2STAGE)
+            try:
+                table_stage_idx = ROW2STAGE[row-1]
+            except Exception:
+                table_stage_idx = None
+            if table_stage_idx is not None and 0 <= table_stage_idx < len(self._drag_allowed_map):
+                all_ok = bool(self._drag_allowed_map[table_stage_idx])
+        else:
+            # fallback: compute on the fly (previous behavior)
+            input_type = get_stage_input_type(stage_name)
+            all_ok = True
+            for p in local_paths:
+                if not _is_allowed_for_type(p, input_type):
                     all_ok = False
                     break
-        # check windows-clipboard URL
-        if all_ok and url_from_clip:
-            if not _is_url_allowed_for_type(url_from_clip, input_type):
-                all_ok = False
+            if all_ok:
+                for u in remote_urls:
+                    if not _is_url_allowed_for_type_quick(u, input_type):
+                        all_ok = False
+                        break
+            if all_ok and url_from_clip:
+                if not _is_url_allowed_for_type_quick(url_from_clip, input_type):
+                    all_ok = False
 
         # change color of item text: green if ok else red
         item = self.item(row, col)
         if item:
-            key_stage = stage_name
+            # use stage index as key for drag state
+            try:
+                table_stage_idx = ROW2STAGE[row-1]
+            except Exception:
+                table_stage_idx = None
+
             # if we moved from another stage, restore its color
             prev = self._current_drag_stage
-            if prev and prev != key_stage:
+            if prev is not None and prev != table_stage_idx:
                 try:
-                    if prev in self._drag_orig_colors:
+                    if isinstance(prev, int) and 0 <= prev < len(self._drag_hover_saved) and self._drag_hover_saved[prev] is not None:
                         # find table row for prev
                         try:
-                            prev_idx = STAGES.index(prev)
-                            if prev_idx in ROW2STAGE:
-                                pos = ROW2STAGE.index(prev_idx)
+                            if prev in ROW2STAGE:
+                                pos = ROW2STAGE.index(prev)
                                 prev_row = pos + 1
                                 prev_item = self.item(prev_row, col)
-                                orig = self._drag_orig_colors.pop(prev, None)
-                                self._drag_forced_colors.pop(prev, None)
+                                orig = self._drag_hover_saved[prev]
+                                self._drag_hover_saved[prev] = None
+                                # restore the pre-hover color (may be brown or original)
                                 if prev_item and orig:
                                     prev_item.setForeground(QBrush(QColor(orig)))
                         except Exception:
                             # best-effort
-                            self._drag_orig_colors.pop(prev, None)
-                            self._drag_forced_colors.pop(prev, None)
+                            try:
+                                self._drag_hover_saved[prev] = None
+                            except Exception:
+                                pass
                 except Exception:
                     pass
 
-            # store original if not stored
-            if key_stage not in self._drag_orig_colors:
+            # store hover-original color (restore when hover leaves)
+            if table_stage_idx is not None and isinstance(table_stage_idx, int) and 0 <= table_stage_idx < len(self._drag_hover_saved) and self._drag_hover_saved[table_stage_idx] is None:
                 orig = item.foreground().color().name() if item.foreground() else None
-                self._drag_orig_colors[key_stage] = orig
+                self._drag_hover_saved[table_stage_idx] = orig
 
             forced = QColor("green" if all_ok else "red")
-            # set forced only for current stage
-            self._drag_forced_colors.clear()
-            self._drag_forced_colors[key_stage] = forced
+            # set forced only for current stage, preserve initial not-allowed browns
+            try:
+                forced_list = list(self._drag_forced_colors)
+            except Exception:
+                forced_list = [None] * len(STAGES)
+
+            # restore previous index forced entry according to allowed map
+            try:
+                if prev is not None and isinstance(prev, int) and 0 <= prev < len(forced_list):
+                    if isinstance(self._drag_allowed_map, list) and 0 <= prev < len(self._drag_allowed_map) and not self._drag_allowed_map[prev]:
+                        forced_list[prev] = QColor("#5E271F")
+                    else:
+                        forced_list[prev] = None
+            except Exception:
+                pass
+
+            if table_stage_idx is not None and isinstance(table_stage_idx, int) and 0 <= table_stage_idx < len(forced_list):
+                forced_list[table_stage_idx] = forced
+            self._drag_forced_colors = forced_list
             item.setForeground(QBrush(forced))
-            self._current_drag_stage = key_stage
+            self._current_drag_stage = table_stage_idx
 
         if all_ok:
             event.acceptProposedAction()
@@ -1640,18 +1795,25 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
 
-        # restore color for this stage
-        key_stage = stage_name
+        # restore color for this stage (keys are stage indices)
+        try:
+            key_stage_idx = ROW2STAGE[row-1]
+        except Exception:
+            key_stage_idx = None
         item = self.item(row, col)
-        if item and key_stage in self._drag_orig_colors:
-            orig = self._drag_orig_colors.pop(key_stage)
+        if item and key_stage_idx is not None and isinstance(key_stage_idx, int) and 0 <= key_stage_idx < len(self._drag_saved_orig) and self._drag_saved_orig[key_stage_idx] is not None:
+            orig = self._drag_saved_orig[key_stage_idx]
+            self._drag_saved_orig[key_stage_idx] = None
             try:
-                self._drag_forced_colors.pop(key_stage, None)
+                if 0 <= key_stage_idx < len(self._drag_forced_colors):
+                    self._drag_forced_colors[key_stage_idx] = None
             except Exception:
                 pass
             if orig:
                 item.setForeground(QBrush(QColor(orig)))
         self._current_drag_stage = None
+        # clear allowed map at end of drag/drop
+        self._drag_allowed_map = None
         event.acceptProposedAction()
 
     def dragLeaveEvent(self, event):
@@ -1669,9 +1831,10 @@ class HoverTableWidget(QTableWidget):
     def _reset_drag_state(self):
         """Restore original foreground colors and clear drag state."""
         try:
-            for stage_name, orig in list(self._drag_orig_colors.items()):
+            for stage_idx, orig in enumerate(self._drag_orig_colors):
                 try:
-                    stage_idx = STAGES.index(stage_name)
+                    if orig is None:
+                        continue
                     if stage_idx in ROW2STAGE:
                         pos = ROW2STAGE.index(stage_idx)
                         table_row = pos + 1
@@ -1682,9 +1845,11 @@ class HoverTableWidget(QTableWidget):
                     pass
         except Exception:
             pass
-        self._drag_orig_colors.clear()
-        self._drag_forced_colors.clear()
+        self._drag_orig_colors = [None] * len(STAGES)
+        self._drag_forced_colors = [None] * len(STAGES)
         self._current_drag_stage = None
+        # clear cached allowed map
+        self._drag_allowed_map = None
         # also reset hover/underline state
         self.reset_hover_style()
         self.current_hover = None
