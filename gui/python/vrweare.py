@@ -901,6 +901,11 @@ class SpreadsheetApp(QMainWindow):
             
             skippedrows = 0
             self.table.clear()
+            # cache of default per-row formats (stage_idx -> {col: (QFont, color_name)})
+            try:
+                self.table._row_default_formats = {}
+            except Exception:
+                pass
             ROW2STAGE.clear()
             for r in range(ROWS):
                 displayRequired = False
@@ -1215,6 +1220,29 @@ class SpreadsheetApp(QMainWindow):
                         self.table.setItem(r-skippedrows, c, currentRowItems[c])
                         if r>0 and c==0:
                             ROW2STAGE.append(r-1)
+                    # store default font/foreground for this stage so we can restore later
+                    try:
+                        if r > 0:
+                            stage_idx = r - 1
+                            formats = {}
+                            for cc in range(len(currentRowItems)):
+                                try:
+                                    it = self.table.item(r - skippedrows, cc)
+                                    if it:
+                                        fcopy = QFont(it.font())
+                                        try:
+                                            fg = it.foreground().color().name() if it.foreground() else None
+                                        except Exception:
+                                            fg = None
+                                        formats[cc] = (fcopy, fg)
+                                except Exception:
+                                    pass
+                            try:
+                                self.table._row_default_formats[stage_idx] = formats
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
                 else:
                     skippedrows+=1
                     
@@ -2572,14 +2600,36 @@ class HoverTableWidget(QTableWidget):
                     if prev in ROW2STAGE:
                         pos = ROW2STAGE.index(prev)
                         prev_table_row = pos + 1
-                        # clear bold on all columns for that row
+                        # Restore the default font and foreground for all columns
+                        try:
+                            defaults = getattr(self.app.table, '_row_default_formats', {}) or {}
+                            row_defaults = defaults.get(prev, None)
+                        except Exception:
+                            row_defaults = None
                         for cc in range(self.columnCount()):
                             try:
                                 it = self.item(prev_table_row, cc)
                                 if it:
-                                    f = it.font()
-                                    f.setUnderline(False)
-                                    it.setFont(f)
+                                    if row_defaults and cc in row_defaults:
+                                        fcopy, fgname = row_defaults.get(cc, (None, None))
+                                        try:
+                                            if fcopy is not None:
+                                                it.setFont(QFont(fcopy))
+                                        except Exception:
+                                            pass
+                                        try:
+                                            if fgname:
+                                                it.setForeground(QBrush(QColor(fgname)))
+                                        except Exception:
+                                            pass
+                                    else:
+                                        # best-effort: remove underline and leave color as-is
+                                        try:
+                                            f = it.font()
+                                            f.setUnderline(False)
+                                            it.setFont(f)
+                                        except Exception:
+                                            pass
                             except Exception:
                                 pass
                     try:
