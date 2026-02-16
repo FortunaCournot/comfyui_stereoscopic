@@ -1250,8 +1250,42 @@ class SpreadsheetApp(QMainWindow):
                             item = self.table.item(table_row, COL_IDX_STAGENAME)
                             if item and color is not None:
                                 item.setForeground(QBrush(color))
+                            # If this stage was marked clickable-bold, reapply bold across row
+                            try:
+                                if getattr(self.table, '_clickable_bold_stage', None) == stage_idx:
+                                    for cc in range(self.table.columnCount()):
+                                        try:
+                                            it = self.table.item(table_row, cc)
+                                            if it:
+                                                f = it.font()
+                                                f.setUnderline(True)
+                                                it.setFont(f)
+                                        except Exception:
+                                            pass
+                            except Exception:
+                                pass
                     except Exception:
                         pass
+            except Exception:
+                pass
+            # Re-apply bold marking for clickable stage even if no forced colors
+            try:
+                bold_stage = getattr(self.table, '_clickable_bold_stage', None)
+                if bold_stage is not None and bold_stage in ROW2STAGE:
+                    pos = ROW2STAGE.index(bold_stage)
+                    table_row = pos + 1
+                    for cc in range(self.table.columnCount()):
+                        try:
+                            it = self.table.item(table_row, cc)
+                            if it:
+                                # Use a fresh QFont instance and explicitly force underline
+                                # for column 0 to ensure any previous font overrides
+                                # are replaced reliably.
+                                newf = QFont(it.font())
+                                newf.setUnderline(True)
+                                it.setFont(newf)
+                        except Exception:
+                            pass
             except Exception:
                 pass
         except KeyboardInterrupt:
@@ -1713,6 +1747,8 @@ class HoverTableWidget(QTableWidget):
         self._preview_pixmap_cache = {}
         # last hover debug tuple to avoid repeated prints
         self._last_hover_debug = None
+        # currently-clickable stage index (stage_idx) which should be shown bold
+        self._clickable_bold_stage = None
         # Auto-scroll timer for drag near-edge behavior
         self._auto_scroll_timer = QTimer(self)
         self._auto_scroll_rows_per_second = 5
@@ -2514,13 +2550,59 @@ class HoverTableWidget(QTableWidget):
                     self._image_tooltip = ImageTooltip(self)
                 self._image_tooltip.show_at(text="Error", global_pos=QCursor.pos())
 
-        # existing underline behavior for clickable cells
+        # existing underline behavior for clickable cells; also set whole-row bold
         if self.isCellClickable(row, col):
-            """Setzt den Text der Zelle auf unterstrichen."""
+            """Setzt den Text der Zelle auf unterstrichen und macht die Zeile fett."""
             if item:
                 font = item.font()
                 font.setUnderline(True)
                 item.setFont(font)
+            # determine stage index for this table row and bold entire row
+            try:
+                if row > 0 and row-1 < len(ROW2STAGE):
+                    stage_idx = ROW2STAGE[row-1]
+                else:
+                    stage_idx = None
+            except Exception:
+                stage_idx = None
+            # if a different stage was previously marked bold, clear it first
+            try:
+                prev = getattr(self, '_clickable_bold_stage', None)
+                if prev is not None and prev != stage_idx:
+                    if prev in ROW2STAGE:
+                        pos = ROW2STAGE.index(prev)
+                        prev_table_row = pos + 1
+                        # clear bold on all columns for that row
+                        for cc in range(self.columnCount()):
+                            try:
+                                it = self.item(prev_table_row, cc)
+                                if it:
+                                    f = it.font()
+                                    f.setUnderline(False)
+                                    it.setFont(f)
+                            except Exception:
+                                pass
+                    try:
+                        self._clickable_bold_stage = None
+                    except Exception:
+                        self._clickable_bold_stage = None
+                # apply bold for current stage
+                if stage_idx is not None:
+                    if stage_idx in ROW2STAGE:
+                        pos = ROW2STAGE.index(stage_idx)
+                        table_row = pos + 1
+                        for cc in range(self.columnCount()):
+                            try:
+                                it = self.item(table_row, cc)
+                                if it:
+                                    f = it.font()
+                                    f.setUnderline(True)
+                                    it.setFont(f)
+                            except Exception:
+                                pass
+                        self._clickable_bold_stage = stage_idx
+            except Exception:
+                pass
         else:
             # Only show 'processing...' when there is no usable preview to display.
             try:
@@ -2554,6 +2636,28 @@ class HoverTableWidget(QTableWidget):
                         self._image_tooltip.hide()
                 except Exception:
                     pass
+            # clear any bold marking for clickable row when hover leaves
+            try:
+                prev = getattr(self, '_clickable_bold_stage', None)
+                if prev is not None:
+                    if prev in ROW2STAGE:
+                        pos = ROW2STAGE.index(prev)
+                        table_row = pos + 1
+                        for cc in range(self.columnCount()):
+                            try:
+                                it = self.item(table_row, cc)
+                                if it:
+                                    f = it.font()
+                                    f.setUnderline(False)
+                                    it.setFont(f)
+                            except Exception:
+                                pass
+                    try:
+                        self._clickable_bold_stage = None
+                    except Exception:
+                        self._clickable_bold_stage = None
+            except Exception:
+                pass
 
     def on_cell_clicked(self, row, col):
         if self.isCellClickable(row, col):
