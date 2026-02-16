@@ -2009,13 +2009,25 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
 
     def dragMoveEvent(self, event):
-        # Only accept if over a stage-name cell (column 0) and row>0
+        # Accept drag over stage name, type, or input columns when row>0
         index = self.indexAt(event.pos())
         if not index.isValid():
             event.ignore()
             return
         row, col = index.row(), index.column()
-        if row <= 0 or col != 0:
+        # determine allowed drop columns
+        allowed_cols = [0]
+        try:
+            if hasattr(self.app, 'COL_IDX_IN_TYPES') and isinstance(self.app.COL_IDX_IN_TYPES, int):
+                allowed_cols.append(self.app.COL_IDX_IN_TYPES)
+        except Exception:
+            pass
+        try:
+            if hasattr(self.app, 'COL_IDX_IN') and isinstance(self.app.COL_IDX_IN, int):
+                allowed_cols.append(self.app.COL_IDX_IN)
+        except Exception:
+            pass
+        if row <= 0 or col not in allowed_cols:
             event.ignore()
             return
 
@@ -2209,7 +2221,19 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
         row, col = index.row(), index.column()
-        if row <= 0 or col != 0:
+        # allow drops on stage name, type, or input columns
+        allowed_cols = [0]
+        try:
+            if hasattr(self.app, 'COL_IDX_IN_TYPES') and isinstance(self.app.COL_IDX_IN_TYPES, int):
+                allowed_cols.append(self.app.COL_IDX_IN_TYPES)
+        except Exception:
+            pass
+        try:
+            if hasattr(self.app, 'COL_IDX_IN') and isinstance(self.app.COL_IDX_IN, int):
+                allowed_cols.append(self.app.COL_IDX_IN)
+        except Exception:
+            pass
+        if row <= 0 or col not in allowed_cols:
             event.ignore()
             return
 
