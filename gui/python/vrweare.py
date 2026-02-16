@@ -1863,6 +1863,12 @@ class HoverTableWidget(QTableWidget):
         self._auto_scroll_timer.setInterval(self._auto_scroll_interval_ms)
         self._auto_scroll_direction = 0
         self._auto_scroll_timer.timeout.connect(self._perform_auto_scroll)
+        # Cached drag payload to avoid re-parsing QMimeData on every move
+        self._drag_payload_local_paths = None
+        self._drag_payload_remote_urls = None
+        self._drag_payload_clip_url = None
+        # Suppress itemChanged callbacks while we programmatically tint items during drag
+        self._suppress_item_changed = False
 
         # Tabelle mit Beispielwerten füllen
         #for row in range(rows):
@@ -1937,6 +1943,8 @@ class HoverTableWidget(QTableWidget):
     def dragEnterEvent(self, event):
         md = event.mimeData()
         if md.hasUrls() or md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            # suppress itemChanged during drag tinting
+            self._suppress_item_changed = True
             # compute allowed map for all stages once at drag start
             try:
                 qurls = md.urls()
@@ -1975,6 +1983,13 @@ class HoverTableWidget(QTableWidget):
                 allowed[stage_idx] = ok
 
             self._drag_allowed_map = allowed
+            # cache payload for subsequent dragMove/dropEvent to avoid repeated decoding
+            try:
+                self._drag_payload_local_paths = list(local_paths)
+                self._drag_payload_remote_urls = list(remote_urls)
+                self._drag_payload_clip_url = url_from_clip
+            except Exception:
+                pass
             # Set forced dark-brown for stages that are not allowed and remember originals
             dark_brown = QColor("#5E271F")
             try:
@@ -2031,19 +2046,10 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
 
-        md = event.mimeData()
-        qurls = md.urls()
-        local_paths = [u.toLocalFile() for u in qurls if u.isLocalFile()]
-        remote_urls = [u.toString() for u in qurls if not u.isLocalFile()]
-
-        # Handle Windows URL clipboard flavor
-        url_from_clip = None
-        if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
-            try:
-                data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
-                url_from_clip = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
-            except Exception:
-                url_from_clip = None
+        # Use cached payload from dragEnterEvent to avoid expensive QMimeData parsing per move
+        local_paths = self._drag_payload_local_paths or []
+        remote_urls = self._drag_payload_remote_urls or []
+        url_from_clip = self._drag_payload_clip_url or None
 
         if not local_paths and not remote_urls and not url_from_clip:
             event.ignore()
@@ -2064,32 +2070,37 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
 
-        # use cached allowed map computed at drag start when available
+        # use cached allowed map computed at drag start; if missing, compute once and store
         all_ok = True
-        if isinstance(self._drag_allowed_map, list):
-            # map is a list keyed by stage index (value from ROW2STAGE)
+        try:
+            table_stage_idx = ROW2STAGE[row-1]
+        except Exception:
+            table_stage_idx = None
+        if not isinstance(self._drag_allowed_map, list):
+            # compute a one-off map now
             try:
-                table_stage_idx = ROW2STAGE[row-1]
+                allowed = [False] * len(STAGES)
+                for s_idx, s_name in enumerate(STAGES):
+                    input_type = get_stage_input_type(s_name)
+                    ok = True
+                    for p in local_paths:
+                        if not _is_allowed_for_type(p, input_type):
+                            ok = False
+                            break
+                    if ok:
+                        for u in remote_urls:
+                            if not _is_url_allowed_for_type_quick(u, input_type):
+                                ok = False
+                                break
+                    if ok and url_from_clip:
+                        if not _is_url_allowed_for_type_quick(url_from_clip, input_type):
+                            ok = False
+                    allowed[s_idx] = ok
+                self._drag_allowed_map = allowed
             except Exception:
-                table_stage_idx = None
-            if table_stage_idx is not None and 0 <= table_stage_idx < len(self._drag_allowed_map):
-                all_ok = bool(self._drag_allowed_map[table_stage_idx])
-        else:
-            # fallback: compute on the fly (previous behavior)
-            input_type = get_stage_input_type(stage_name)
-            all_ok = True
-            for p in local_paths:
-                if not _is_allowed_for_type(p, input_type):
-                    all_ok = False
-                    break
-            if all_ok:
-                for u in remote_urls:
-                    if not _is_url_allowed_for_type_quick(u, input_type):
-                        all_ok = False
-                        break
-            if all_ok and url_from_clip:
-                if not _is_url_allowed_for_type_quick(url_from_clip, input_type):
-                    all_ok = False
+                pass
+        if table_stage_idx is not None and isinstance(self._drag_allowed_map, list) and 0 <= table_stage_idx < len(self._drag_allowed_map):
+            all_ok = bool(self._drag_allowed_map[table_stage_idx])
 
         # change color of item text: green if ok else red
         item = self.item(row, col)
@@ -2175,8 +2186,16 @@ class HoverTableWidget(QTableWidget):
 
             if table_stage_idx is not None and isinstance(table_stage_idx, int) and 0 <= table_stage_idx < len(forced_list):
                 forced_list[table_stage_idx] = forced
+            # Only apply foreground change if different to avoid itemChanged storms
+            try:
+                current_name = item.foreground().color().name() if item.foreground() else None
+                forced_name = forced.name()
+            except Exception:
+                current_name = None
+                forced_name = None
             self._drag_forced_colors = forced_list
-            item.setForeground(QBrush(forced))
+            if forced_name != current_name:
+                item.setForeground(QBrush(forced))
 
         # Auto-scroll when hovering the first/last visible row and scrolling is possible
         try:
@@ -2237,17 +2256,10 @@ class HoverTableWidget(QTableWidget):
             event.ignore()
             return
 
-        md = event.mimeData()
-        qurls = md.urls()
-        local_paths = [u.toLocalFile() for u in qurls if u.isLocalFile()]
-        remote_urls = [u.toString() for u in qurls if not u.isLocalFile()]
-        url_from_clip = None
-        if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
-            try:
-                data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
-                url_from_clip = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
-            except Exception:
-                url_from_clip = None
+        # Use cached payload from dragEnterEvent
+        local_paths = self._drag_payload_local_paths or []
+        remote_urls = self._drag_payload_remote_urls or []
+        url_from_clip = self._drag_payload_clip_url or None
 
         # Avoid double-processing the same URL: if the Windows URL clipboard
         # flavor contains the same URL as one of the QUrls, prefer the
@@ -2399,6 +2411,11 @@ class HoverTableWidget(QTableWidget):
         self._current_drag_stage = None
         # clear allowed map at end of drag/drop
         self._drag_allowed_map = None
+        # clear cached payload and stop suppressing itemChanged
+        self._drag_payload_local_paths = None
+        self._drag_payload_remote_urls = None
+        self._drag_payload_clip_url = None
+        self._suppress_item_changed = False
         event.acceptProposedAction()
 
     def dragLeaveEvent(self, event):
@@ -2413,6 +2430,11 @@ class HoverTableWidget(QTableWidget):
         except Exception:
             pass
         self._reset_drag_state()
+        # clear payload and suppression when leaving without drop
+        self._drag_payload_local_paths = None
+        self._drag_payload_remote_urls = None
+        self._drag_payload_clip_url = None
+        self._suppress_item_changed = False
         try:
             super().dragLeaveEvent(event)
         except Exception:
@@ -2496,6 +2518,8 @@ class HoverTableWidget(QTableWidget):
             pass
         # If a drag was in progress but no drop occurred, ensure reset
         self._reset_drag_state()
+        # also clear suppression
+        self._suppress_item_changed = False
         try:
             super().mouseReleaseEvent(event)
         except Exception:
@@ -2820,6 +2844,9 @@ class HoverTableWidget(QTableWidget):
         Wenn die aktuell gehighlightete Zelle geändert wird,
         erneuern wir den Unterstreichungsstil.
         """
+        # avoid recursion during drag tinting
+        if getattr(self, '_suppress_item_changed', False):
+            return
         if self.current_hover:
             current_row, current_col = self.current_hover
             if item.row() == current_row and item.column() == current_col:
