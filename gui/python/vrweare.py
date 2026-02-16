@@ -888,24 +888,42 @@ class SpreadsheetApp(QMainWindow):
                 except Exception:
                     self._last_daemon_status = None
                 self.current_processing_file = None
+                # Robust filename extraction: collect all tokens that look like image/video files
+                # and choose the longest match to avoid truncated pieces like "_1.png".
                 rel_candidate = None
-                for ln in statuslines[1:]:
-                    # look for a path-like token with an extension
-                    m = re.search(r"([\w\-\\/\.]+\.[A-Za-z0-9]+)", ln)
-                    if m:
-                        cand = m.group(1)
-                        ext = os.path.splitext(cand)[1].lower()
+                try:
+                    try:
+                        image_exts = set(e.lower() for e in IMAGE_EXTENSIONS)
+                    except Exception:
+                        image_exts = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff'}
+                    try:
+                        video_exts = set(e.lower() for e in VIDEO_EXTENSIONS)
+                    except Exception:
+                        video_exts = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mpeg', '.mpg'}
+                    ext_group = '|'.join(sorted({e.lstrip('.') for e in (image_exts | video_exts)}))
+                    pattern = rf"([^\s]+\.(?:{ext_group}))"
+                except Exception:
+                    pattern = r"([^\s]+\.(?:png|jpg|jpeg|bmp|gif|webp|tif|tiff|mp4|mov|avi|mkv|webm|mpeg|mpg))"
+
+                try:
+                    all_matches = []
+                    for ln in statuslines[1:]:
                         try:
-                            image_exts = set(e.lower() for e in IMAGE_EXTENSIONS)
+                            ms = re.findall(pattern, ln, flags=re.IGNORECASE)
+                            if ms:
+                                all_matches.extend(ms)
                         except Exception:
-                            image_exts = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff'}
+                            pass
+                    if all_matches:
+                        # pick the longest to favor full names over fragments
+                        rel_candidate = max(all_matches, key=len)
                         try:
-                            video_exts = set(e.lower() for e in VIDEO_EXTENSIONS)
+                            if TRACELEVEL >= 1:
+                                print(f"daemonstatus matches: {all_matches} -> chosen: {rel_candidate}", flush=True)
                         except Exception:
-                            video_exts = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mpeg', '.mpg'}
-                        if ext in image_exts or ext in video_exts:
-                            rel_candidate = cand
-                            break
+                            pass
+                except Exception:
+                    rel_candidate = None
                 if rel_candidate:
                     # Try sensible locations in order:
                     # 1) If status first line names the stage, look under input/vr/<stage>/<rel_candidate>
@@ -918,11 +936,50 @@ class SpreadsheetApp(QMainWindow):
                         stage_name = None
 
                     # If rel_candidate looks like a bare filename, prefer input/vr/<stage>/
+                    # Also include input/vr/tasks/<stage>/ variant to cover task-staged inputs.
+                    # Additionally, apply CLI-like sanitization to filename to match renamed files.
                     if stage_name and not any(sep in rel_candidate for sep in ('/', '\\')):
-                        candidate_paths.append(os.path.abspath(os.path.join(path, "../../../../input/vr/", stage_name, rel_candidate)))
+                        # Normalize stage name and try both direct and tasks/ variants
+                        try:
+                            sn_norm = stage_name.replace('\\', '/').strip()
+                        except Exception:
+                            sn_norm = stage_name
+                        base_input_vr = os.path.abspath(os.path.join(path, "../../../../input/vr"))
+                        # Compute sanitized filename variant: replace non [A-Za-z0-9._-] chars with '_'
+                        try:
+                            base_name = rel_candidate
+                            sanitized_name = re.sub(r'[^A-Za-z0-9._-]', '_', base_name)
+                        except Exception:
+                            sanitized_name = rel_candidate
+                        # If stage already includes 'tasks/', don't add another 'tasks/'
+                        if sn_norm.lower().startswith('tasks/'):
+                            # Direct tasks/<stage>/<file>
+                            candidate_paths.append(os.path.join(base_input_vr, sn_norm, rel_candidate))
+                            if sanitized_name and sanitized_name != rel_candidate:
+                                candidate_paths.append(os.path.join(base_input_vr, sn_norm, sanitized_name))
+                            # Also try without the 'tasks/' prefix in case files live under input/vr/<stage>/<file>
+                            try:
+                                without_tasks = sn_norm.split('/', 1)[1] if '/' in sn_norm else sn_norm[len('tasks/'):]
+                            except Exception:
+                                without_tasks = sn_norm
+                            candidate_paths.append(os.path.join(base_input_vr, without_tasks, rel_candidate))
+                            if sanitized_name and sanitized_name != rel_candidate:
+                                candidate_paths.append(os.path.join(base_input_vr, without_tasks, sanitized_name))
+                        else:
+                            candidate_paths.append(os.path.join(base_input_vr, sn_norm, rel_candidate))
+                            candidate_paths.append(os.path.join(base_input_vr, 'tasks', sn_norm, rel_candidate))
+                            if sanitized_name and sanitized_name != rel_candidate:
+                                candidate_paths.append(os.path.join(base_input_vr, sn_norm, sanitized_name))
+                                candidate_paths.append(os.path.join(base_input_vr, 'tasks', sn_norm, sanitized_name))
 
                     # Always try the original heuristic too
                     candidate_paths.append(os.path.abspath(os.path.join(path, "../../../../" + rel_candidate)))
+                    # Also try sanitized name with repo-relative heuristic
+                    try:
+                        if sanitized_name and sanitized_name != rel_candidate:
+                            candidate_paths.append(os.path.abspath(os.path.join(path, "../../../../" + sanitized_name)))
+                    except Exception:
+                        pass
 
                     found_path = None
                     for pth in candidate_paths:
