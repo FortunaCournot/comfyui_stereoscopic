@@ -84,6 +84,8 @@ FILESCANTIME = 500
 TASKCHECKTIME = 20
 WAIT_DIALOG_THRESHOLD_TIME=2000
 MAX_WAIT_DIALOG_THRESHOLD_TIME=10000
+# Small UI redraw delay to ensure image appears after load
+DISPLAY_REFRESH_DELAY_MS = 75
 
 # ---- Tasks ----
 global taskCounterUI, taskCounterAsync, showWaitDialog
@@ -1912,6 +1914,13 @@ class RateAndCutDialog(QDialog):
                     self.sl.setVisible(self.isVideo)
                     fileDragged=False
                     self.hasCropOrTrim=False
+                    # Zusatz: Falls Pixmap nach Laden noch leer ist, einen verzögerten Refresh anstoßen
+                    try:
+                        pm = self.display.pixmap()
+                        if pm is None or pm.isNull() or pm.width() == 0 or pm.height() == 0:
+                            QTimer.singleShot(120, self.display._refresh_after_load)
+                    except Exception:
+                        pass
                 else:
                     print("Error: File does not exist (rateCurrentFile): "  + file_path, flush=True)
                     self.isVideo = False
@@ -3599,6 +3608,32 @@ class Display(QLabel):
     def hidePreview(self):
         self.thumbnail.hide()
 
+    def _set_black_pixmap(self):
+        try:
+            self.qt_img = None
+            self.imggeometry = self.size()
+            blackpixmap = QPixmap(16, 16)
+            blackpixmap.fill(Qt.black)
+            self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
+            try:
+                self.update()
+                self.repaint()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def showEvent(self, event):
+        try:
+            super().showEvent(event)
+        except Exception:
+            pass
+        # Sobald sichtbar, kurz verzögert neu setzen
+        try:
+            QTimer.singleShot(0, self._refresh_after_load)
+        except Exception:
+            pass
+
     def updatePreview(self, relativePath):
         blackpixmap = QPixmap(self.thumbnailsize, self.thumbnailsize)
         blackpixmap.fill(Qt.black)
@@ -3692,21 +3727,12 @@ class Display(QLabel):
             print("update_image", uid, self.displayUid, time.time() , flush=True)
         
         self.thumbnail.hide()
-        
-        if uid!=self.displayUid:
-            self.qt_img = None
-            self.imggeometry=self.size()
-            blackpixmap = QPixmap(16,16)
-            blackpixmap.fill(Qt.black)
-            self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
+        # Ignore late updates from previous media; do not blank
+        if uid != self.displayUid:
             return
         if cv_img is None or cv_img.size == 0:
             #print("update Image - none", flush=True)
-            self.qt_img = None
-            self.imggeometry=self.size()
-            blackpixmap = QPixmap(16,16)
-            blackpixmap.fill(Qt.black)
-            self.setPixmap(blackpixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio))
+            self._set_black_pixmap()
         else:
             #print("update Image - cv", flush=True)
             self.qt_img = self.convert_cv_qt(cv_img)
@@ -3723,12 +3749,25 @@ class Display(QLabel):
             #if TRACELEVEL >= 3:
             #    print("pm. w:", pm.width(), "h:", pm.height(), flush=True)
             self.setPixmap(pm)
+            # Ensure an immediate UI refresh regardless of media type
+            try:
+                self.update()
+                self.repaint()
+            except Exception:
+                pass
             if self.onUpdateImage:
-                if self.thread:
-                    self.onUpdateImage( self.thread.getCurrentFrameIndex() )
-                    self.parentUpdate()
-                else:
-                    self.onUpdateImage( -1 )
+                try:
+                    if self.thread:
+                        self.onUpdateImage( self.thread.getCurrentFrameIndex() )
+                        # Also notify parent to keep UI in sync
+                        self.parentUpdate()
+                    else:
+                        self.onUpdateImage( -1 )
+                        # For static images also trigger parent update to stabilize layout/overlays
+                        if callable(self.parentUpdate):
+                            self.parentUpdate()
+                except Exception:
+                    pass
                 
     def getUnscaledPixmap(self, ):
         return self.sourcePixmap
@@ -3776,22 +3815,61 @@ class Display(QLabel):
             self.onUpdateFile()
         cv_img  = safe_imread(self.filepath)
         #print("setImage from cv2", flush=True)
-        self.update_image(cv_img, self.displayUid)        
+        self.update_image(cv_img, self.displayUid)
+        # In manchen Fällen erscheint das Bild erst nach Interaktion (z.B. Crop-Slider).
+        # Ein kleiner verzögerter Refresh nach dem Laden stellt sicher, dass
+        # die Anzeige aktualisiert wird, sobald der Event-Loop wieder läuft.
+        try:
+            QTimer.singleShot(DISPLAY_REFRESH_DELAY_MS, self._refresh_after_load)
+        except Exception:
+            pass
+
+    def _refresh_after_load(self):
+        try:
+            # Warten, bis Widget sichtbar und mit gültiger Größe
+            if not self.isVisible() or self.width() <= 0 or self.height() <= 0:
+                try:
+                    QTimer.singleShot(100, self._refresh_after_load)
+                except Exception:
+                    pass
+                return
+
+            # Falls bereits ein Bild vorhanden ist, erneut skaliert setzen und Redraw anstoßen
+            if self.qt_img is not None:
+                w = self.width()
+                h = self.height()
+                pm = self.qt_img.scaled(w, h, Qt.KeepAspectRatio)
+                self.setPixmap(pm)
+                # Leichte UI-Aktualisierung
+                try:
+                    self.update()
+                    self.repaint()
+                    QApplication.processEvents()
+                except Exception:
+                    pass
+
+            # Fallback: wenn Pixmap noch leer, später erneut versuchen
+            try:
+                current_pm = self.pixmap()
+                if current_pm is None or current_pm.isNull() or current_pm.width() == 0 or current_pm.height() == 0:
+                    QTimer.singleShot(200, self._refresh_after_load)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def stopAndBlackout(self):
-        
+        # Stop any running video and blank the display synchronously
         if self.thread:
             self.releaseVideo()
-            self.update_image(np.array([]), -1)
-        else:
-            self.update_image(np.array([]), -1)
+        self._set_black_pixmap()
         self.filepath = ""
         self.frame_count=-1
         self.scene_intersections = []
         self.onBlackout()
         
     def onNoFiles(self):
-        self.update_image(np.array([]), -1)
+        self._set_black_pixmap()
         
     def registerForUpdates(self, onUpdateImage):
         self.onUpdateImage = onUpdateImage
