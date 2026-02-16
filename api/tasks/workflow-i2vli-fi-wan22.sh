@@ -157,6 +157,14 @@ else
 	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 
 	timeout=`cat "$BLUEPRINTCONFIG" | grep -o '"timeout":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+
+	# Optional smarttag (prepend '-' if present, else empty)
+	smarttag=`cat "$BLUEPRINTCONFIG" | grep -o '"smarttag":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ -n "$smarttag" ]; then
+		smarttag="-$smarttag"
+	else
+		smarttag=""
+	fi
 	
 	[ $loglevel -lt 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX" "$prompt"
@@ -199,10 +207,18 @@ else
 	INTERMEDIATE=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*"$EXTENSION" -print`
 	INTERMEDIATECAP=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".txt" -print`
 	INTERMEDIATEIMG=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".png" -print`
-	if [[ "$TARGETPREFIX" =~ _[0-9]{5}_$ ]]; then
-		# Already matches the pattern; do nothing
-		:
+	# Ensure numeric pattern suffix and inject smarttag immediately before it if not present
+	num_suffix=$(echo "$TARGETPREFIX" | grep -oE '_[0-9]{5}_$')
+	if [ -n "$num_suffix" ]; then
+		base=${TARGETPREFIX%"$num_suffix"}
+		if [ -n "$smarttag" ] && [[ "$base" != *"$smarttag" ]]; then
+			TARGETPREFIX="${base}${smarttag}${num_suffix}"
+		fi
 	else
+		# No numeric suffix yet: add smarttag (if missing) then the initial suffix
+		if [ -n "$smarttag" ] && [[ "$TARGETPREFIX" != *"$smarttag" ]]; then
+			TARGETPREFIX="${TARGETPREFIX}${smarttag}"
+		fi
 		TARGETPREFIX="${TARGETPREFIX}_00001_"
 	fi  
 	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
