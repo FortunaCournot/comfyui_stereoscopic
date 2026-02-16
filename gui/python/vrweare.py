@@ -44,7 +44,9 @@ from judge import JudgeDialog
 
 LOGOTIME = 3000
 BREAKFREQ = 1200000
-TABLEUPDATEFREQ = 1000
+TABLEUPDATEFREQ = 50
+# Throttle expensive data (filesystem/status) recomputation; UI redraw still runs at TABLEUPDATEFREQ
+TABLEDATAUPDATETHRESHOLD = 20
 TOOLBARUPDATEFREQ = 1000
 BREAKTIME = 20000
 FILESCANTIME = 2000
@@ -732,6 +734,78 @@ class SpreadsheetApp(QMainWindow):
                 self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true)
             else:
                 self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_false)
+
+            # Decide whether to refresh cached data this tick
+            try:
+                self._table_data_update_tick = getattr(self, '_table_data_update_tick', 0) + 1
+            except Exception:
+                self._table_data_update_tick = 1
+            do_refresh = (self._table_data_update_tick % TABLEDATAUPDATETHRESHOLD == 0)
+
+            # Initialize file-system caches if missing
+            try:
+                if not hasattr(self, '_fs_cache') or self._fs_cache is None:
+                    self._fs_cache = {'input': {}, 'output': {}}
+            except Exception:
+                self._fs_cache = {'input': {}, 'output': {}}
+
+            # Refresh caches every TABLEDATAUPDATETHRESHOLD ticks (or first run)
+            if do_refresh or not self._fs_cache['input'] or not self._fs_cache['output']:
+                try:
+                    for stage in STAGES:
+                        # Input side
+                        try:
+                            folder_in = os.path.join(path, "../../../../input/vr/" + stage)
+                            info_in = {'exists': False, 'count': 0, 'done_count': 0, 'done_nocleanup': False, 'error_count': 0}
+                            if os.path.exists(folder_in):
+                                info_in['exists'] = True
+                                try:
+                                    onlyfiles = next(os.walk(folder_in))[2]
+                                    onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
+                                    info_in['count'] = len(onlyfiles)
+                                except Exception:
+                                    pass
+                                # done subfolder
+                                subfolder_done = os.path.join(path, "../../../../input/vr/" + stage + "/done")
+                                if os.path.exists(subfolder_done):
+                                    try:
+                                        done_files = next(os.walk(subfolder_done))[2]
+                                        info_in['done_nocleanup'] = any(f.lower() == ".nocleanup" for f in done_files)
+                                        # exclude marker file from counts
+                                        done_files = [f for f in done_files if f.lower() != ".nocleanup"]
+                                        info_in['done_count'] = len([f for f in done_files if not f.lower().endswith(".txt")])
+                                    except Exception:
+                                        pass
+                                # error subfolder
+                                subfolder_err = os.path.join(path, "../../../../input/vr/" + stage + "/error")
+                                if os.path.exists(subfolder_err):
+                                    try:
+                                        err_files = next(os.walk(subfolder_err))[2]
+                                        info_in['error_count'] = len([f for f in err_files if not f.lower().endswith(".txt")])
+                                    except Exception:
+                                        pass
+                            self._fs_cache['input'][stage] = info_in
+                        except Exception:
+                            pass
+
+                        # Output side
+                        try:
+                            folder_out = os.path.join(path, "../../../../output/vr/" + stage)
+                            info_out = {'exists': False, 'count': 0, 'forward': False}
+                            if os.path.exists(folder_out):
+                                info_out['exists'] = True
+                                try:
+                                    onlyfiles = next(os.walk(folder_out))[2]
+                                    info_out['forward'] = any(f.lower() == "forward.txt" for f in onlyfiles)
+                                    onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
+                                    info_out['count'] = len(onlyfiles)
+                                except Exception:
+                                    pass
+                            self._fs_cache['output'][stage] = info_out
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
                 
             #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
             #    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_stopped)
@@ -752,16 +826,35 @@ class SpreadsheetApp(QMainWindow):
             status="idle"
             activestage=""
             statusfile = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonstatus")
-            if os.path.exists(statusfile):
-                with open(statusfile, 'r', encoding='utf-8', errors='replace') as file:
-                    statuslines = [line.rstrip() for line in file]
-                    for line in range(len(statuslines)):
-                        if line==0:
-                            activestage=statuslines[0]
-                            status="processing"
-                            idletime=0
-                        else:
-                            status=status + " " + statuslines[line]
+            # Read status only on refresh ticks, reuse cached values otherwise
+            try:
+                if do_refresh:
+                    if os.path.exists(statusfile):
+                        with open(statusfile, 'r', encoding='utf-8', errors='replace') as file:
+                            statuslines = [line.rstrip() for line in file]
+                            for line in range(len(statuslines)):
+                                if line==0:
+                                    activestage=statuslines[0]
+                                    status="processing"
+                                    idletime=0
+                                else:
+                                    status=status + " " + statuslines[line]
+                    # cache status
+                    self._status_cache = {
+                        'status': status,
+                        'activestage': activestage,
+                        'statuslines': statuslines if 'statuslines' in locals() else []
+                    }
+                else:
+                    sc = getattr(self, '_status_cache', None)
+                    if sc:
+                        status = sc.get('status', status)
+                        activestage = sc.get('activestage', activestage)
+                        statuslines = sc.get('statuslines', [])
+                    else:
+                        statuslines = []
+            except Exception:
+                statuslines = []
             self.setWindowTitle("VR we are - " + activestage + ": " + status)
             # Wenn ein Doppelpunkt in status vorkommt, alles ab diesem Zeichen entfernen
             if ':' in status:
@@ -939,61 +1032,44 @@ class SpreadsheetApp(QMainWindow):
                             color = "gray"
                         else:
                             if c == self.COL_IDX_IN:
-                                folder = os.path.join(path, "../../../../input/vr/" + STAGES[r-1])
-                                if os.path.exists(folder):
-                                    onlyfiles = next(os.walk(folder))[2]
-                                    onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
-                                    count = len(onlyfiles)
+                                stage_name = STAGES[r-1]
+                                info = getattr(self, '_fs_cache', {'input':{}}).get('input', {}).get(stage_name, None)
+                                if info and info.get('exists', False):
+                                    count = info.get('count', 0)
                                     if count > 0:
                                         value = str(count)
                                         displayRequired = True
                                     else:
                                         value = ""
-                                    subfolder = os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/done")
-                                    if os.path.exists(subfolder):
-                                        onlyfiles = next(os.walk(subfolder))[2]
-                                        nocleanup = False
-                                        for f in onlyfiles:
-                                            if ".nocleanup" == f.lower():
-                                                nocleanup = True
-                                        if nocleanup:
-                                            displayRequired = True
-                                            onlyfiles = [f for f in onlyfiles if f.lower() != ".nocleanup"]
-                                            count2 = len(onlyfiles)
-                                            if count2 > 0:
-                                                value = value + " (" + str(count2) + ")"
-                                                color = "green"
-                                            elif count == 0:
-                                                value = value + " (-)"
-                                        else:
-                                            color = "yellow"
-                                    subfolder = os.path.join(path, "../../../../input/vr/" + STAGES[r-1] + "/error")
-                                    if os.path.exists(subfolder):
-                                        try:
-                                            onlyfiles = next(os.walk(subfolder))[2]
-                                            count = len(onlyfiles)
-                                            if count > 0:
-                                                value = value + " " + str(count) + "!"
-                                                color = "red"
-                                                displayRequired = True
-                                        except StopIteration:
-                                            pass
+                                    # done subfolder interpretation
+                                    if info.get('done_nocleanup', False):
+                                        displayRequired = True
+                                        count2 = info.get('done_count', 0)
+                                        if count2 > 0:
+                                            value = value + " (" + str(count2) + ")"
+                                            color = "green"
+                                        elif count == 0:
+                                            value = value + " (-)"
+                                    else:
+                                        color = "yellow"
+                                    # error files
+                                    errc = info.get('error_count', 0)
+                                    if errc > 0:
+                                        value = value + " " + str(errc) + "!"
+                                        color = "red"
+                                        displayRequired = True
                                 else:
                                     value = "?"
                                     color = "red"
                                     displayRequired = True
                             elif c == self.COL_IDX_OUT:
-                                folder = os.path.join(path, "../../../../output/vr/" + STAGES[r-1])
-                                if os.path.exists(folder):
-                                    onlyfiles = next(os.walk(folder))[2]
-                                    forward = False
-                                    for f in onlyfiles:
-                                        if "forward.txt" == f.lower():
-                                            forward = True
+                                stage_name = STAGES[r-1]
+                                info = getattr(self, '_fs_cache', {'output':{}}).get('output', {}).get(stage_name, None)
+                                if info and info.get('exists', False):
+                                    forward = info.get('forward', False)
                                     if not forward:
                                         color = "green"
-                                    onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
-                                    count = len(onlyfiles)
+                                    count = info.get('count', 0)
                                     if count > 0:
                                         displayRequired = True
                                         value = str(count)
