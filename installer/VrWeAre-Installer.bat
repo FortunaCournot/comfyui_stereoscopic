@@ -485,7 +485,7 @@ ECHO   [35m2[0m - Judging: Pipeline for first/last image: [1m%PIPELINE_OPTION
 ECHO   [35m3[0m - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATERMARK_TEXT%[0m
 ECHO  ComfyUI options:
 ECHO   [35m4[0m - Add extra packages: [1m%EXTRAS_TEXT%[0m
-ECHO         rgthree, easy-use, ReActor, WD14-Tagger
+ECHO         rgthree, easy-use, ReActor, WD14-Tagger, Controlnet-aux
 ECHO   [35m5[0m - Install Training software (+%INSTALLSIZE_TRAINING%): [1m%TRAINING_TEXT%[0m
 ECHO         AI-Toolkit
 ECHO/
