@@ -63,9 +63,8 @@ SET DEPTH_ANYTHING_V2_TAG=tags/1.0.1
 SET FFMPEG_SHA=48ca5e824d2660a94f89fd55287b7c35129b55bbe680c4330efeed5269c4820f
 SET FFMPEG_TAG=8.0
 
-:: Files redistributed through released forks:
-::SET CONTROLNETAUX_TAG=1.1.2-rev562
-
+:: CONTROLNET-AUX is missing tag for 1.0.4:
+SET CONTROLNETAUX_TAG=95a13e2e5d8f8ae57583fbebb0be1f670889858b
 :: Addional files
 SET KJNODES_TAG=tags/1.1.9
 ::SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
@@ -746,7 +745,6 @@ echo echo "Download license files..." >>install.sh
 echo  installFile "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/refs/heads/master/LICENSE" "./LICENSE_ComfyUI-portable.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 IF %INTERACTIVE% equ 1 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
-::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfy_mtb/refs/heads/main/LICENSE" "./LICENSE_comfy_mtb.TXT"  >>install.sh
@@ -771,6 +769,7 @@ echo  installFile "https://raw.githubusercontent.com/yolain/ComfyUI-Easy-Use/ref
 echo  installFile "https://raw.githubusercontent.com/rgthree/rgthree-comfy/refs/heads/main/LICENSE" "./LICENSE_rgthree.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/Gourieff/ComfyUI-ReActor/refs/%REACTOR_TAG%/LICENSE" "./LICENSE_ReActor.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/pythongosssss/ComfyUI-WD14-Tagger/refs/heads/main/LICENSE" "./LICENSE_WD14-Tagger.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/Fannovel16/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 :EXTRAS_LIC_END
 
 :: Ask user for commitment
@@ -858,8 +857,6 @@ echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 IF %INTERACTIVE% equ 1 echo   checkoutSoftware "https://github.com/FortunaCournot/comfyui_stereoscopic.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic" "%VRWEARE_TAG%"  >>install.sh
 IF %INTERACTIVE% equ 0 echo   cp -r "$PROJECT_DIR" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
-::echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-DepthAnythingV2/archive/refs/tags/%DEPTH_ANYTHING_V2_TAG%.tar.gz"  "install/depthanythingv2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" >>install.sh
 echo   checkoutSoftware "https://github.com/kijai/ComfyUI-DepthAnythingV2.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" "%DEPTH_ANYTHING_V2_TAG%"  >>install.sh
@@ -908,6 +905,7 @@ echo   checkoutSoftware "https://github.com/yolain/ComfyUI-Easy-Use.git" "ComfyU
 echo   checkoutSoftware "https://github.com/rgthree/rgthree-comfy.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/rgthree-comfy" "%RGTHREE_TAG%"  >>install.sh
 echo   checkoutSoftware "https://github.com/Gourieff/ComfyUI-ReActor.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-ReActor" "%REACTOR_TAG%"  >>install.sh
 echo   checkoutSoftware "https://github.com/pythongosssss/ComfyUI-WD14-Tagger.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-WD14-Tagger" "%WD14_TAG%"  >>install.sh
+echo   checkoutSoftware "https://github.com/Fannovel16/comfyui_controlnet_aux.git"  "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" "%CONTROLNETAUX_TAG%"  >>install.sh
 :EXTRAS_INST_END
 
 IF %TRAINING% equ 0 GOTO TRAINING_INST_END
