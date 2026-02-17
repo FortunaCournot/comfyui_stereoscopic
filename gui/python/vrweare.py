@@ -2854,19 +2854,21 @@ class HoverTableWidget(QTableWidget):
     def reset_hover_style(self):
         if self.current_hover:
             row, col = self.current_hover
-            if self.isCellClickable(row, col):
-                """Entfernt die Unterstreichung von der aktuell gehighlighteten Zelle."""
-                item = self.item(row, col)
-                if item:
+            # Entfernt die Unterstreichung von der aktuell gehighlighteten Zelle
+            item = self.item(row, col)
+            if item:
+                try:
                     font = item.font()
                     font.setUnderline(False)
                     item.setFont(font)
-                # hide any image tooltip
-                try:
-                    if self._image_tooltip is not None:
-                        self._image_tooltip.hide()
                 except Exception:
                     pass
+            # Tooltip IMMER ausblenden, wenn die Maus die Zelle verlässt
+            try:
+                if self._image_tooltip is not None:
+                    self._image_tooltip.hide()
+            except Exception:
+                pass
             # clear any bold marking for clickable row when hover leaves
             try:
                 prev = getattr(self, '_clickable_bold_stage', None)
