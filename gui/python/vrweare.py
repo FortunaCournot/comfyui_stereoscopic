@@ -1,5 +1,6 @@
 import os
 import re
+import base64
 import subprocess
 import sys
 import time
@@ -251,30 +252,184 @@ def _is_url_allowed_for_type(url: str, input_type: str) -> bool:
     if not input_type or not url:
         return False
 
+    try:
+        url = str(url).strip().strip('\x00').strip('"\'<>')
+    except Exception:
+        return False
+    if not url:
+        return False
+
     # normalize input types
     if isinstance(input_type, str):
         types = [t.strip().lower() for t in input_type.split(';') if t.strip()]
     else:
         types = [str(input_type).strip().lower()]
 
+    if any(t in ('file', 'any') for t in types):
+        return True
+
+    # Handle data URLs directly without network I/O
     try:
-        # Use requests with a browser-like UA to improve compatibility
-        resp = requests.get(url, stream=True, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
-        # don't read body; headers are available
-        content_type = resp.headers.get('Content-Type', '')
+        if url.lower().startswith('data:'):
+            data_header = url[5:].split(',', 1)[0]
+            data_content_type = (data_header.split(';', 1)[0] or '').strip().lower()
+            for t in types:
+                if t == 'image' and data_content_type.startswith('image/'):
+                    return True
+                if t == 'video' and data_content_type.startswith('video/'):
+                    return True
+            return False
     except Exception:
         return False
 
-    if not content_type:
+    try:
+        image_exts = set(e.lower() for e in IMAGE_EXTENSIONS)
+    except Exception:
+        image_exts = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff'}
+    try:
+        video_exts = set(e.lower() for e in VIDEO_EXTENSIONS)
+    except Exception:
+        video_exts = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.mpeg', '.mpg'}
+
+    candidate_exts = set()
+    try:
+        parsed = urllib.parse.urlparse(url)
+        path_ext = os.path.splitext(parsed.path)[1].lower()
+        if path_ext:
+            candidate_exts.add(path_ext)
+        if parsed.query:
+            for _, vals in urllib.parse.parse_qs(parsed.query).items():
+                for v in vals:
+                    qext = os.path.splitext(urllib.parse.unquote(v or ''))[1].lower()
+                    if qext:
+                        candidate_exts.add(qext)
+    except Exception:
+        pass
+
+    def _allowed_by_ext() -> bool:
+        for t in types:
+            if t == 'image' and any(ext in image_exts for ext in candidate_exts):
+                return True
+            if t == 'video' and any(ext in video_exts for ext in candidate_exts):
+                return True
         return False
 
-    for t in types:
-        if t == 'image' and content_type.startswith('image/'):
+    def _allowed_by_sniff(data: bytes) -> bool:
+        if not data:
+            return False
+
+        header = bytes(data[:64])
+        is_image = False
+        is_video = False
+
+        # Image signatures
+        if header.startswith(b'\xff\xd8\xff'):  # JPEG
+            is_image = True
+        elif header.startswith(b'\x89PNG\r\n\x1a\n'):  # PNG
+            is_image = True
+        elif header.startswith((b'GIF87a', b'GIF89a')):  # GIF
+            is_image = True
+        elif header.startswith(b'BM'):  # BMP
+            is_image = True
+        elif len(header) >= 12 and header[:4] == b'RIFF' and header[8:12] == b'WEBP':  # WEBP
+            is_image = True
+        elif header.startswith((b'II*\x00', b'MM\x00*')):  # TIFF
+            is_image = True
+        elif len(header) >= 12 and header[4:8] == b'ftyp' and b'heic' in header.lower():  # HEIC
+            is_image = True
+
+        # Video/container signatures
+        if len(header) >= 12 and header[4:8] == b'ftyp':  # MP4/MOV family
+            is_video = True
+        elif len(header) >= 12 and header[:4] == b'RIFF' and header[8:11] == b'AVI':  # AVI
+            is_video = True
+        elif header.startswith(b'\x1a\x45\xdf\xa3'):  # Matroska/WebM
+            is_video = True
+        elif header.startswith((b'\x00\x00\x01\xba', b'\x00\x00\x01\xb3')):  # MPEG
+            is_video = True
+
+        for t in types:
+            if t == 'image' and is_image:
+                return True
+            if t == 'video' and is_video:
+                return True
+        return False
+
+    resp = None
+    try:
+        # Use requests with a browser-like UA to improve compatibility
+        resp = requests.get(url, stream=True, timeout=6, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
+        # don't read body; headers are available
+        content_type = (resp.headers.get('Content-Type', '') or '').split(';', 1)[0].strip().lower()
+    except Exception:
+        return _allowed_by_ext()
+
+    if content_type:
+        for t in types:
+            if t == 'image' and content_type.startswith('image/'):
+                try:
+                    if resp is not None:
+                        resp.close()
+                except Exception:
+                    pass
+                return True
+            if t == 'video' and content_type.startswith('video/'):
+                try:
+                    if resp is not None:
+                        resp.close()
+                except Exception:
+                    pass
+                return True
+
+    # Fall back to Content-Disposition filename extension when present.
+    try:
+        content_disp = resp.headers.get('Content-Disposition', '') if resp is not None else ''
+    except Exception:
+        content_disp = ''
+    if content_disp:
+        try:
+            m = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)"?', content_disp, flags=re.IGNORECASE)
+            if m:
+                disp_name = urllib.parse.unquote((m.group(1) or '').strip())
+                disp_ext = os.path.splitext(disp_name)[1].lower()
+                if disp_ext:
+                    candidate_exts.add(disp_ext)
+        except Exception:
+            pass
+
+    if _allowed_by_ext():
+        try:
+            if resp is not None:
+                resp.close()
+        except Exception:
+            pass
+        return True
+
+    # Some hosts return generic or missing MIME types for downloadable media.
+    if content_type in ('', 'application/octet-stream', 'binary/octet-stream', 'application/download'):
+        try:
+            probe = b''
+            if resp is not None and getattr(resp, 'raw', None) is not None:
+                probe = resp.raw.read(64) or b''
+        except Exception:
+            probe = b''
+        finally:
+            try:
+                if resp is not None:
+                    resp.close()
+            except Exception:
+                pass
+
+        if _allowed_by_sniff(probe):
             return True
-        if t == 'video' and content_type.startswith('video/'):
-            return True
-        if t in ('file', 'any'):
-            return True
+
+        return False
+
+    try:
+        if resp is not None:
+            resp.close()
+    except Exception:
+        pass
 
     return False
 
@@ -318,7 +473,17 @@ def _is_url_allowed_for_type_quick(url: str, input_type: str) -> bool:
             # if caller accepts generic files and there's an extension, allow
             return True
 
-    # If extension absent or unknown, report False to avoid network probes during drag
+    # During drag we intentionally avoid network I/O. If extension is missing or
+    # not decisive (e.g. .php endpoint), do not reject early: allow hover/drop
+    # and let dropEvent do strict Content-Type validation via
+    # _is_url_allowed_for_type().
+    ext_is_decisive = bool(ext and (ext in image_exts or ext in video_exts))
+    if not ext_is_decisive:
+        for t in types:
+            if t in ('image', 'video', 'file', 'any'):
+                return True
+
+    # Unknown extension with explicit media constraints stays rejected.
     return False
 
 class SpreadsheetApp(QMainWindow):
@@ -2345,7 +2510,7 @@ class HoverTableWidget(QTableWidget):
             return False
 
         print(f"[DND] Drop rejected: reason={reason!r}", flush=True)
-        print(f"[DND] expected_input_type={input_type!r} parsed_types={types!r}", flush=True)
+        print(f"[DND] expected_input_type={input_type!r} expected_types={types!r}", flush=True)
 
         for p in local_paths:
             try:
@@ -2361,9 +2526,23 @@ class HoverTableWidget(QTableWidget):
         def _log_url_probe(label: str, url: str):
             if not url:
                 return
+            display_url = url
+            data_content_type = ''
+            is_data_url = False
             try:
-                parsed = urllib.parse.urlparse(url)
-                path_ext = os.path.splitext(parsed.path)[1].lower()
+                if isinstance(url, str) and url.lower().startswith('data:'):
+                    is_data_url = True
+                    data_header = url[5:].split(',', 1)[0]
+                    data_content_type = (data_header.split(';', 1)[0] or '').strip().lower()
+                    display_url = f"data:{data_content_type or 'unknown'};..."
+            except Exception:
+                pass
+            try:
+                if is_data_url:
+                    path_ext = ''
+                else:
+                    parsed = urllib.parse.urlparse(url)
+                    path_ext = os.path.splitext(parsed.path)[1].lower()
             except Exception:
                 path_ext = ''
 
@@ -2374,21 +2553,28 @@ class HoverTableWidget(QTableWidget):
 
             content_type = ''
             content_type_probe_error = None
-            try:
-                resp = requests.get(url, stream=True, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
-                content_type = resp.headers.get('Content-Type', '')
+            if is_data_url:
+                content_type = data_content_type
+            else:
                 try:
-                    resp.close()
-                except Exception:
-                    pass
-            except Exception as e:
-                content_type_probe_error = str(e)
+                    resp = requests.get(url, stream=True, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
+                    content_type = resp.headers.get('Content-Type', '')
+                    try:
+                        resp.close()
+                    except Exception:
+                        pass
+                except Exception as e:
+                    content_type_probe_error = str(e)
 
             allowed_content_type = _allowed_by_content_type(content_type)
+            try:
+                strict_allowed = _is_url_allowed_for_type(url, input_type) if isinstance(input_type, str) else False
+            except Exception:
+                strict_allowed = False
             print(
-                f"[DND] {label} url={url!r} path_ext={path_ext!r} quick_allowed={quick_allowed} "
+                f"[DND] {label} url={display_url!r} path_ext={path_ext!r} quick_allowed={quick_allowed} "
                 f"content_type={content_type!r} content_type_probe_error={content_type_probe_error!r} "
-                f"allowed_by_content_type={allowed_content_type}",
+                f"allowed_by_content_type={allowed_content_type} strict_allowed={strict_allowed}",
                 flush=True,
             )
 
@@ -2490,6 +2676,74 @@ class HoverTableWidget(QTableWidget):
         dest_folder = os.path.abspath(os.path.join(path, "../../../../input/vr/" + stage_name))
         os.makedirs(dest_folder, exist_ok=True)
 
+        def _mime_to_ext(mime: str) -> str:
+            m = (mime or '').lower()
+            if m in ('image/jpeg', 'image/jpg'):
+                return '.jpg'
+            if m == 'image/png':
+                return '.png'
+            if m == 'image/gif':
+                return '.gif'
+            if m == 'image/webp':
+                return '.webp'
+            if m == 'image/bmp':
+                return '.bmp'
+            if m in ('image/tiff', 'image/x-tiff'):
+                return '.tiff'
+            if m == 'video/mp4':
+                return '.mp4'
+            if m in ('video/webm', 'audio/webm'):
+                return '.webm'
+            if m in ('video/quicktime',):
+                return '.mov'
+            return ''
+
+        def _save_data_url_to_file(data_url: str, destination_dir: str, name_prefix: str) -> str:
+            if not isinstance(data_url, str) or not data_url.lower().startswith('data:'):
+                raise ValueError('not a data URL')
+            try:
+                header_and_data = data_url[5:]
+                meta, payload = header_and_data.split(',', 1)
+            except Exception:
+                raise ValueError('invalid data URL format')
+
+            meta = meta or ''
+            payload = payload or ''
+            mime = (meta.split(';', 1)[0] or '').strip().lower()
+            is_base64 = ';base64' in meta.lower()
+
+            if is_base64:
+                compact_payload = re.sub(r'\s+', '', payload)
+                pad = (-len(compact_payload)) % 4
+                if pad:
+                    compact_payload += '=' * pad
+                raw = base64.b64decode(compact_payload)
+            else:
+                raw = urllib.parse.unquote_to_bytes(payload)
+
+            ext = _mime_to_ext(mime)
+            fname = f"{name_prefix}_{int(time.time())}{ext}"
+            dest = os.path.join(destination_dir, fname)
+
+            try:
+                if os.path.exists(dest):
+                    base, ext2 = os.path.splitext(fname)
+                    i = 1
+                    while True:
+                        newname = f"{base}_{i}{ext2}"
+                        newdest = os.path.join(destination_dir, newname)
+                        if not os.path.exists(newdest):
+                            dest = newdest
+                            break
+                        i += 1
+            except Exception:
+                pass
+
+            with open(dest, 'wb') as fh:
+                fh.write(raw)
+
+            return dest
+
         move = bool(event.keyboardModifiers() & Qt.ShiftModifier)
         try:
             # copy/move local files
@@ -2503,6 +2757,14 @@ class HoverTableWidget(QTableWidget):
 
             # download remote URLs
             for u in remote_urls:
+                if isinstance(u, str) and u.lower().startswith('data:'):
+                    try:
+                        _save_data_url_to_file(u, dest_folder, 'download')
+                    except Exception:
+                        self._trace_drop_reject_once("failed decoding remote data URL", input_type, local_paths, remote_urls, url_from_clip)
+                        event.ignore()
+                        return
+                    continue
                 parsed = urllib.parse.urlparse(u)
                 fname = os.path.basename(parsed.path) or f"download_{int(time.time())}"
                 dest = os.path.join(dest_folder, fname)
@@ -2534,36 +2796,46 @@ class HoverTableWidget(QTableWidget):
 
             # download URL from clipboard flavor
             if url_from_clip:
-                parsed = urllib.parse.urlparse(url_from_clip)
-                fname = os.path.basename(parsed.path) or f"download_{int(time.time())}"
-                dest = os.path.join(dest_folder, fname)
-                # avoid overwriting existing files from URL drops: append _N before extension
-                try:
-                    if os.path.exists(dest):
-                        base, ext = os.path.splitext(fname)
-                        i = 1
-                        while True:
-                            newname = f"{base}_{i}{ext}"
-                            newdest = os.path.join(dest_folder, newname)
-                            if not os.path.exists(newdest):
-                                dest = newdest
-                                break
-                            i += 1
-                except Exception:
-                    pass
-                try:
-                    urllib.request.urlretrieve(url_from_clip, dest)
-                except Exception:
+                if isinstance(url_from_clip, str) and url_from_clip.lower().startswith('data:'):
                     try:
-                        r = requests.get(url_from_clip, stream=True, timeout=10)
-                        r.raise_for_status()
-                        with open(dest, 'wb') as fh:
-                            for chunk in r.iter_content(8192):
-                                fh.write(chunk)
+                        _save_data_url_to_file(url_from_clip, dest_folder, 'clipboard')
                     except Exception:
-                        self._trace_drop_reject_once("failed downloading clipboard URL", input_type, local_paths, remote_urls, url_from_clip)
+                        self._trace_drop_reject_once("failed decoding clipboard data URL", input_type, local_paths, remote_urls, url_from_clip)
                         event.ignore()
                         return
+                    # keep existing behavior for normal URLs only
+                    url_from_clip = None
+                if url_from_clip:
+                    parsed = urllib.parse.urlparse(url_from_clip)
+                    fname = os.path.basename(parsed.path) or f"download_{int(time.time())}"
+                    dest = os.path.join(dest_folder, fname)
+                    # avoid overwriting existing files from URL drops: append _N before extension
+                    try:
+                        if os.path.exists(dest):
+                            base, ext = os.path.splitext(fname)
+                            i = 1
+                            while True:
+                                newname = f"{base}_{i}{ext}"
+                                newdest = os.path.join(dest_folder, newname)
+                                if not os.path.exists(newdest):
+                                    dest = newdest
+                                    break
+                                i += 1
+                    except Exception:
+                        pass
+                    try:
+                        urllib.request.urlretrieve(url_from_clip, dest)
+                    except Exception:
+                        try:
+                            r = requests.get(url_from_clip, stream=True, timeout=10)
+                            r.raise_for_status()
+                            with open(dest, 'wb') as fh:
+                                for chunk in r.iter_content(8192):
+                                    fh.write(chunk)
+                        except Exception:
+                            self._trace_drop_reject_once("failed downloading clipboard URL", input_type, local_paths, remote_urls, url_from_clip)
+                            event.ignore()
+                            return
 
         except Exception:
             self._trace_drop_reject_once("unexpected exception during drop handling", input_type, local_paths, remote_urls, url_from_clip)
