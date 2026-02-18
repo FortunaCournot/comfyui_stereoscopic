@@ -1924,6 +1924,12 @@ class HoverTableWidget(QTableWidget):
         self._drag_payload_local_paths = None
         self._drag_payload_remote_urls = None
         self._drag_payload_clip_url = None
+        # Ensure rejected drop trace is printed only once per drop operation
+        self._drop_reject_logged = False
+        # Pending reject details for cases where dropEvent is not emitted
+        self._drop_reject_pending = False
+        self._drop_reject_pending_reason = None
+        self._drop_reject_pending_input_type = None
         # Suppress itemChanged callbacks while we programmatically tint items during drag
         self._suppress_item_changed = False
 
@@ -1998,6 +2004,11 @@ class HoverTableWidget(QTableWidget):
             pass
 
     def dragEnterEvent(self, event):
+        # reset one-shot reject logging for a new drag operation
+        self._drop_reject_logged = False
+        self._drop_reject_pending = False
+        self._drop_reject_pending_reason = None
+        self._drop_reject_pending_input_type = None
         md = event.mimeData()
         if md.hasUrls() or md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
             # suppress itemChanged during drag tinting
@@ -2079,6 +2090,17 @@ class HoverTableWidget(QTableWidget):
             event.acceptProposedAction()
         else:
             event.ignore()
+
+    def _set_pending_drop_reject(self, reason: str, input_type=None):
+        """Remember why current drag would be rejected; emitted on dragLeave if no dropEvent happens."""
+        self._drop_reject_pending = True
+        self._drop_reject_pending_reason = reason
+        self._drop_reject_pending_input_type = input_type
+
+    def _clear_pending_drop_reject(self):
+        self._drop_reject_pending = False
+        self._drop_reject_pending_reason = None
+        self._drop_reject_pending_input_type = None
 
     def dragMoveEvent(self, event):
         # Accept drag over stage name, type, or input columns when row>0
@@ -2282,9 +2304,99 @@ class HoverTableWidget(QTableWidget):
             self._current_drag_stage = None
 
         if all_ok:
+            self._clear_pending_drop_reject()
             event.acceptProposedAction()
         else:
+            try:
+                stage_input_type = get_stage_input_type(stage_name)
+            except Exception:
+                stage_input_type = None
+            self._set_pending_drop_reject("dragMove disallowed for hovered stage", stage_input_type)
             event.ignore()
+
+    def _trace_drop_reject_once(self, reason: str, input_type=None, local_paths=None, remote_urls=None, url_from_clip=None):
+        """Emit one TRACELEVEL>=1 log for a rejected drop with type-identification details."""
+        if TRACELEVEL < 1:
+            return
+        if getattr(self, '_drop_reject_logged', False):
+            return
+        self._drop_reject_logged = True
+
+        local_paths = local_paths or []
+        remote_urls = remote_urls or []
+
+        if isinstance(input_type, str):
+            types = [t.strip().lower() for t in input_type.split(';') if t.strip()]
+        elif input_type is None:
+            types = []
+        else:
+            types = [str(input_type).strip().lower()]
+
+        def _allowed_by_content_type(content_type_value: str) -> bool:
+            if not content_type_value:
+                return False
+            for t in types:
+                if t == 'image' and content_type_value.startswith('image/'):
+                    return True
+                if t == 'video' and content_type_value.startswith('video/'):
+                    return True
+                if t in ('file', 'any'):
+                    return True
+            return False
+
+        print(f"[DND] Drop rejected: reason={reason!r}", flush=True)
+        print(f"[DND] expected_input_type={input_type!r} parsed_types={types!r}", flush=True)
+
+        for p in local_paths:
+            try:
+                ext = os.path.splitext(p)[1].lower()
+            except Exception:
+                ext = ''
+            try:
+                allowed_local = _is_allowed_for_type(p, input_type) if isinstance(input_type, str) else False
+            except Exception:
+                allowed_local = False
+            print(f"[DND] local path={p!r} ext={ext!r} allowed={allowed_local}", flush=True)
+
+        def _log_url_probe(label: str, url: str):
+            if not url:
+                return
+            try:
+                parsed = urllib.parse.urlparse(url)
+                path_ext = os.path.splitext(parsed.path)[1].lower()
+            except Exception:
+                path_ext = ''
+
+            try:
+                quick_allowed = _is_url_allowed_for_type_quick(url, input_type) if isinstance(input_type, str) else False
+            except Exception:
+                quick_allowed = False
+
+            content_type = ''
+            content_type_probe_error = None
+            try:
+                resp = requests.get(url, stream=True, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
+                content_type = resp.headers.get('Content-Type', '')
+                try:
+                    resp.close()
+                except Exception:
+                    pass
+            except Exception as e:
+                content_type_probe_error = str(e)
+
+            allowed_content_type = _allowed_by_content_type(content_type)
+            print(
+                f"[DND] {label} url={url!r} path_ext={path_ext!r} quick_allowed={quick_allowed} "
+                f"content_type={content_type!r} content_type_probe_error={content_type_probe_error!r} "
+                f"allowed_by_content_type={allowed_content_type}",
+                flush=True,
+            )
+
+        for u in remote_urls:
+            _log_url_probe('remote', u)
+        if url_from_clip:
+            _log_url_probe('clip', url_from_clip)
+        self._clear_pending_drop_reject()
 
     def dropEvent(self, event):
         # ensure auto-scroll stops when dropping
@@ -2294,6 +2406,7 @@ class HoverTableWidget(QTableWidget):
             pass
         index = self.indexAt(event.pos())
         if not index.isValid():
+            self._trace_drop_reject_once("invalid drop target index", None, self._drag_payload_local_paths, self._drag_payload_remote_urls, self._drag_payload_clip_url)
             event.ignore()
             return
         row, col = index.row(), index.column()
@@ -2310,6 +2423,7 @@ class HoverTableWidget(QTableWidget):
         except Exception:
             pass
         if row <= 0 or col not in allowed_cols:
+            self._trace_drop_reject_once("drop target row/column not allowed", None, self._drag_payload_local_paths, self._drag_payload_remote_urls, self._drag_payload_clip_url)
             event.ignore()
             return
 
@@ -2347,6 +2461,7 @@ class HoverTableWidget(QTableWidget):
             idx = ROW2STAGE[row-1]
             stage_name = STAGES[idx]
         except Exception:
+            self._trace_drop_reject_once("could not map row to stage", None, local_paths, remote_urls, url_from_clip)
             event.ignore()
             return
 
@@ -2355,17 +2470,20 @@ class HoverTableWidget(QTableWidget):
         # validate local files
         for p in local_paths:
             if not _is_allowed_for_type(p, input_type):
+                self._trace_drop_reject_once("local file type not allowed", input_type, local_paths, remote_urls, url_from_clip)
                 event.ignore()
                 return
 
         # validate remote urls
         for u in remote_urls:
             if not _is_url_allowed_for_type(u, input_type):
+                self._trace_drop_reject_once("remote URL type not allowed", input_type, local_paths, remote_urls, url_from_clip)
                 event.ignore()
                 return
 
         if url_from_clip:
             if not _is_url_allowed_for_type(url_from_clip, input_type):
+                self._trace_drop_reject_once("clipboard URL type not allowed", input_type, local_paths, remote_urls, url_from_clip)
                 event.ignore()
                 return
 
@@ -2410,6 +2528,7 @@ class HoverTableWidget(QTableWidget):
                             if chunk:
                                 fh.write(chunk)
                 except Exception:
+                    self._trace_drop_reject_once("failed downloading remote URL", input_type, local_paths, remote_urls, url_from_clip)
                     event.ignore()
                     return
 
@@ -2442,10 +2561,12 @@ class HoverTableWidget(QTableWidget):
                             for chunk in r.iter_content(8192):
                                 fh.write(chunk)
                     except Exception:
+                        self._trace_drop_reject_once("failed downloading clipboard URL", input_type, local_paths, remote_urls, url_from_clip)
                         event.ignore()
                         return
 
         except Exception:
+            self._trace_drop_reject_once("unexpected exception during drop handling", input_type, local_paths, remote_urls, url_from_clip)
             event.ignore()
             return
 
@@ -2472,6 +2593,8 @@ class HoverTableWidget(QTableWidget):
         self._drag_payload_local_paths = None
         self._drag_payload_remote_urls = None
         self._drag_payload_clip_url = None
+        self._drop_reject_logged = False
+        self._clear_pending_drop_reject()
         self._suppress_item_changed = False
         event.acceptProposedAction()
 
@@ -2486,11 +2609,25 @@ class HoverTableWidget(QTableWidget):
             self._stop_auto_scroll()
         except Exception:
             pass
+        # If dropEvent was not triggered (common after dragMove ignore), emit pending reject now.
+        try:
+            if self._drop_reject_pending and not self._drop_reject_logged:
+                self._trace_drop_reject_once(
+                    self._drop_reject_pending_reason or "drop not accepted",
+                    self._drop_reject_pending_input_type,
+                    self._drag_payload_local_paths,
+                    self._drag_payload_remote_urls,
+                    self._drag_payload_clip_url,
+                )
+        except Exception:
+            pass
         self._reset_drag_state()
         # clear payload and suppression when leaving without drop
         self._drag_payload_local_paths = None
         self._drag_payload_remote_urls = None
         self._drag_payload_clip_url = None
+        self._drop_reject_logged = False
+        self._clear_pending_drop_reject()
         self._suppress_item_changed = False
         try:
             super().dragLeaveEvent(event)
