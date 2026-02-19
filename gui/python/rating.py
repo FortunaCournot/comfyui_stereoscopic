@@ -74,6 +74,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 if path not in sys.path:
     sys.path.append(path)
 
+from content_filters import BaseImageFilter, create_content_filter_instances
+
 # File Global
 global videoActive, rememberThread, fileDragged, FILESCANTIME, TASKCHECKTIME, WAIT_DIALOG_THRESHOLD_TIME
 videoActive=False
@@ -422,6 +424,10 @@ class RateAndCutDialog(QDialog):
             self.filter_vid = False
             self.filter_edit = not self.cutMode
             self.content_filter_mode = 0
+            self.content_filters: List[BaseImageFilter] = create_content_filter_instances()
+            if not self.content_filters:
+                self.content_filters = [BaseImageFilter()]
+            self.active_content_filter: BaseImageFilter = self.content_filters[0]
             # inpaint mode flag (toggled by toolbar button)
             self.inpaint_mode = False
             self.loadingOk = True
@@ -625,15 +631,18 @@ class RateAndCutDialog(QDialog):
             self.filter_mode_combo = QComboBox()
             self.filter_mode_combo.setEditable(False)
             self.filter_mode_combo.setVisible(self.cutMode)
-            self.filter_mode_icons = [
-                QIcon(os.path.join(path, '../../gui/img/filter64_none.png')),
-            ]
-            for icon in self.filter_mode_icons:
+            fallback_icon = QIcon(os.path.join(path, '../../gui/img/filter64_none.png'))
+            for filter_instance in self.content_filters:
+                icon_name = getattr(filter_instance, 'icon_name', 'filter64_none.png') or 'filter64_none.png'
+                icon_path = os.path.join(path, '../../gui/img', icon_name)
+                icon = QIcon(icon_path) if os.path.exists(icon_path) else fallback_icon
                 self.filter_mode_combo.addItem(icon, "")
-            self.filter_mode_combo.setItemData(0, "content filter: none", Qt.ToolTipRole)
+            for i, filter_instance in enumerate(self.content_filters):
+                label = getattr(filter_instance, 'display_name', f'content filter {i}')
+                self.filter_mode_combo.setItemData(i, label, Qt.ToolTipRole)
             self.filter_mode_combo.setIconSize(QSize(32,32))
             self.filter_mode_combo.setStyleSheet('selection-background-color: rgb(0,0,0)')
-            self.filter_mode_combo.setCurrentIndex(self.content_filter_mode)
+            self.filter_mode_combo.setCurrentIndex(min(self.content_filter_mode, len(self.content_filters)-1))
             self.cutMode_toolbar.addWidget(self.filter_mode_combo)
             self.filter_mode_combo.currentIndexChanged.connect(self.on_filter_mode_combobox_index_changed)
 
@@ -763,6 +772,7 @@ class RateAndCutDialog(QDialog):
             if cutMode:
                 # Use Inpaint-capable CropWidget when in cutMode
                 self.cropWidget=InpaintCropWidget(self.display)
+                self.cropWidget.registerForContentFilter(self.apply_active_content_filter_to_pixmap)
                 # Initialize CropWidget inpaint state from dialog
                 try:
                     self.cropWidget.inpaint_mode = self.inpaint_mode
@@ -1360,9 +1370,63 @@ class RateAndCutDialog(QDialog):
 
     def on_filter_mode_combobox_index_changed(self, index):
         try:
-            self.content_filter_mode = int(index)
+            idx = int(index)
         except Exception:
-            self.content_filter_mode = 0
+            idx = 0
+
+        if idx < 0 or idx >= len(self.content_filters):
+            idx = 0
+
+        self.content_filter_mode = idx
+        self.active_content_filter = self.content_filters[idx]
+
+        try:
+            if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None and not self.isVideo:
+                self.cropWidget.refresh_filtered_view()
+        except Exception:
+            pass
+
+    def apply_active_content_filter(self, image: Image.Image) -> Image.Image:
+        if image is None:
+            return image
+
+        try:
+            active_filter = self.active_content_filter
+        except Exception:
+            active_filter = self.content_filters[0] if self.content_filters else BaseImageFilter()
+
+        if not isinstance(active_filter, BaseImageFilter):
+            active_filter = self.content_filters[0] if self.content_filters else BaseImageFilter()
+
+        try:
+            return active_filter.transform(image)
+        except Exception:
+            return image
+
+    def apply_active_content_filter_to_pixmap(self, pixmap: QPixmap) -> QPixmap:
+        if pixmap is None or pixmap.isNull() or self.isVideo:
+            return pixmap
+
+        try:
+            image = pixmap.toImage()
+            buffer = QBuffer()
+            buffer.open(QIODevice.WriteOnly)
+            image.save(buffer, "PNG")
+            pil_image = Image.open(io.BytesIO(buffer.data())).convert("RGBA")
+            filtered = self.apply_active_content_filter(pil_image)
+            if not isinstance(filtered, Image.Image):
+                return pixmap
+            return pil2pixmap(filtered)
+        except Exception:
+            return pixmap
+
+    def _update_content_filter_visibility(self):
+        if not hasattr(self, 'filter_mode_spacing') or not hasattr(self, 'filter_mode_combo'):
+            return
+        has_active_file = self.currentIndex >= 0 and bool(self.currentFile) and self.loadingOk
+        visible = self.cutMode and has_active_file and (not self.isVideo)
+        self.filter_mode_spacing.setVisible(visible)
+        self.filter_mode_combo.setVisible(visible)
 
     def onToggleInpaintMode(self, state):
         """Toggle the inpaint mode flag. UI state (checked) is handled by QAction.
@@ -1661,6 +1725,7 @@ class RateAndCutDialog(QDialog):
             self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
 
     def update_filebuttons(self):
+        self._update_content_filter_visibility()
         if self.currentIndex<0 or not self.loadingOk:
             l = len(getFilesToRate())
             #print("currentIndex-<0", l, flush=True)
@@ -1976,6 +2041,7 @@ class RateAndCutDialog(QDialog):
                 self.button_startframe.setVisible(self.isVideo)
                 self.button_endframe.setVisible(self.isVideo)
                 self.button_snapshot_from_video.setVisible(self.isVideo)
+                self._update_content_filter_visibility()
                 self.button_trima_video.setEnabled(False)
                 self.button_trimb_video.setEnabled(False)
                 self.button_cutandclone.setEnabled(False)
@@ -2434,6 +2500,19 @@ class RateAndCutDialog(QDialog):
                 x=self.cropWidget.crop_left
                 y=self.cropWidget.crop_top
                 self.log("Create "+newfilename, QColor("white"))
+                recreated=os.path.exists(output)
+
+                if not self.isVideo:
+                    startAsyncTask()
+                    success = False
+                    try:
+                        export_pixmap = self.cropWidget.get_export_cropped_pixmap()
+                        success = export_pixmap is not None and not export_pixmap.isNull() and export_pixmap.save(output, "PNG")
+                    except Exception:
+                        print(traceback.format_exc(), flush=True)
+                    self.trimAndCrop_updater(recreated, input, output, success)
+                    return
+
                 # Determine fps if available (for accurate audio trimming)
                 fps = None
                 try:
@@ -2470,7 +2549,6 @@ class RateAndCutDialog(QDialog):
                     # images
                     cmd = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \"crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" \"" + output + "\""
                 print("Executing "  + cmd, flush=True)
-                recreated=os.path.exists(output)
                 # If pingpong mode enabled (either dialog flag or display flag), produce an intermediate then concat reverse to final output (video-only)
                 pingpong_active = bool(getattr(self, 'playtype_pingpong', False) or getattr(getattr(self, 'display', None), 'pingPongModeEnabled', False))
                 if TRACELEVEL >= 2:
@@ -2796,9 +2874,8 @@ class RateAndCutDialog(QDialog):
                 thread.start()
                 '''
                 
-                rect = QRect(x, y, out_w, out_h)
-                cropped_pixmap = self.cropWidget.original_pixmap.copy(rect)        
-                success = cropped_pixmap.save(output)
+                cropped_pixmap = self.cropWidget.get_export_cropped_pixmap()
+                success = cropped_pixmap is not None and not cropped_pixmap.isNull() and cropped_pixmap.save(output, "PNG")
                 self.takeSnapshot_updater(success, recreated, output, )
                 
             except ValueError as e:
@@ -4393,6 +4470,7 @@ class CropWidget(QWidget):
         self.image_label = display
         self.image_label.registerForUpdates(self.imageUpdated)
         self.image_label.registerForFileChange(self.fileChanged)
+        self.content_filter_callback = None
         #self.image_label.setAlignment(Qt.AlignCenter)
         #self.image_label.setFrameStyle(QFrame.Box)
         #self.image_label.setStyleSheet("background-color: black;")
@@ -4572,29 +4650,32 @@ class CropWidget(QWidget):
         sourcePixmap = self.image_label.getSourcePixmap()
         if sourcePixmap is None or sourcePixmap.isNull():
             raise ValueError("Das Source Image enthält kein gültiges Bild.")
+
+        filtered_pixmap = sourcePixmap.copy()
+        try:
+            if callable(self.content_filter_callback):
+                candidate = self.content_filter_callback(filtered_pixmap)
+                if candidate is not None and not candidate.isNull():
+                    filtered_pixmap = candidate
+        except Exception:
+            pass
         
-        self.sourceWidth=sourcePixmap.width()
-        self.sourceHeight=sourcePixmap.height()
+        self.sourceWidth=filtered_pixmap.width()
+        self.sourceHeight=filtered_pixmap.height()
         #print("sourcePixmap", self.sourceWidth, self.sourceHeight, flush=True)
         
         scaledPixmap = self.image_label.getScaledPixmap()
-        self.scaledWidth=sourcePixmap.width()
-        self.scaledHeight=sourcePixmap.height()
+        self.scaledWidth=filtered_pixmap.width()
+        self.scaledHeight=filtered_pixmap.height()
         #print("scaledPixmap", self.scaledWidth, self.scaledHeight, flush=True)
 
-
-        pixmap = self.image_label.getUnscaledPixmap()
-        if pixmap is None or pixmap.isNull():
-            print("Das übergebene QLabel enthält kein gültiges Bild.")
-            return
-
-        self.original_pixmap = sourcePixmap.copy()
+        self.original_pixmap = filtered_pixmap.copy()
         w = self.original_pixmap.width()
         h = self.original_pixmap.height()
         #print("original_pixmap", w, h, flush=True)
         
         
-        self.display_pixmap = pixmap.copy()
+        self.display_pixmap = filtered_pixmap.copy()
         self.image_label.setPixmap(self.display_pixmap)
 
         self.update_slider_ranges()
@@ -4608,6 +4689,14 @@ class CropWidget(QWidget):
         self.resizeEvent(None)
         
         self.main_layout.invalidate()
+
+    def refresh_filtered_view(self):
+        try:
+            self.imageUpdated(self.currentFrameIndex)
+            self.image_label.update()
+            self.image_label.repaint()
+        except Exception:
+            pass
 
 
 class InpaintOverlay(QWidget):
@@ -5152,22 +5241,19 @@ class InpaintCropWidget(CropWidget):
                 return
             scaled_mask = display_mask.scaled(w_orig, h_orig, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
 
-            # compute crop rectangle in original coordinates
-            x0 = int(self.crop_left)
-            y0 = int(self.crop_top)
-            x1 = int(w_orig - self.crop_right)
-            y1 = int(h_orig - self.crop_bottom)
-            if x1 <= x0 or y1 <= y0:
+            crop_rect = self.get_export_crop_rect()
+            if crop_rect.isNull() or crop_rect.width() <= 0 or crop_rect.height() <= 0:
                 return
-            crop_w = x1 - x0
-            crop_h = y1 - y0
+            x0 = int(crop_rect.x())
+            y0 = int(crop_rect.y())
+            crop_w = int(crop_rect.width())
+            crop_h = int(crop_rect.height())
 
             # Use the currently selected inpaint task (stored in `selected_inpaint_task`)
             target_folder = os.path.join(path, "../../../../input/vr/tasks", selected_inpaint_task)
 
             # ========== STEP 1: Save cropped background image ==========
             # Crop the original image to the crop rectangle
-            crop_rect = QRect(x0, y0, crop_w, crop_h)
             cropped_image = self.original_pixmap.copy(crop_rect)
 
             # Determine output directory for background image
@@ -5346,6 +5432,34 @@ class InpaintCropWidget(CropWidget):
         self.apply_crop()
         if self.onCropOrTrim:
             self.onCropOrTrim()
+
+    def get_export_crop_rect(self) -> QRect:
+        if not self.original_pixmap or self.original_pixmap.isNull():
+            return QRect()
+
+        w = self.original_pixmap.width()
+        h = self.original_pixmap.height()
+
+        x0 = max(0, min(int(self.crop_left), w))
+        y0 = max(0, min(int(self.crop_top), h))
+        x1 = min(w, max(x0, w - int(self.crop_right)))
+        y1 = min(h, max(y0, h - int(self.crop_bottom)))
+
+        crop_w = x1 - x0
+        crop_h = y1 - y0
+
+        if crop_w <= 0 or crop_h <= 0:
+            return QRect(0, 0, w, h)
+
+        return QRect(x0, y0, crop_w, crop_h)
+
+    def get_export_cropped_pixmap(self) -> QPixmap:
+        if not self.original_pixmap or self.original_pixmap.isNull():
+            return QPixmap()
+        rect = self.get_export_crop_rect()
+        if rect.isNull() or rect.width() <= 0 or rect.height() <= 0:
+            return self.original_pixmap.copy()
+        return self.original_pixmap.copy(rect)
                 
 
     def darken_outside_area(self, pixmap: QPixmap, clear_rect: QRect, darkness: int = 120) -> QPixmap:
@@ -5538,6 +5652,9 @@ class InpaintCropWidget(CropWidget):
 
     def registerForUpdate(self, onCropOrTrim):
         self.onCropOrTrim = onCropOrTrim
+
+    def registerForContentFilter(self, callback):
+        self.content_filter_callback = callback
         
     def getCurrentFrameIndex(self):
         return self.currentFrameIndex
