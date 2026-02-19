@@ -1703,12 +1703,22 @@ class SpreadsheetApp(QMainWindow):
             # "/select,",  
             if col == self.COL_IDX_IN:
                 folder =  os.path.abspath( os.path.join(path, "../../../../input/vr/" + STAGES[idx]) )
-                os.system("start \"\" " + folder)
+                cmd = f'start "" "{folder}"'
+                if TRACELEVEL >= 1:
+                    print(f"[CLICK] input row={row} stage={STAGES[idx]!r} cmd={cmd!r}", flush=True)
+                exit_code = os.system(cmd)
+                if TRACELEVEL >= 1:
+                    print(f"[CLICK] input row={row} exit_code={exit_code}", flush=True)
                 # subprocess.Popen(["explorer", folder ], close_fds=True) - does not close properly
 
             if col == self.COL_IDX_OUT:
                 folder =  os.path.abspath( os.path.join(path, "../../../../output/vr/" + STAGES[idx]) )
-                os.system("start \"\" " + folder)
+                cmd = f'start "" "{folder}"'
+                if TRACELEVEL >= 1:
+                    print(f"[CLICK] output row={row} stage={STAGES[idx]!r} cmd={cmd!r}", flush=True)
+                exit_code = os.system(cmd)
+                if TRACELEVEL >= 1:
+                    print(f"[CLICK] output row={row} exit_code={exit_code}", flush=True)
                 # subprocess.Popen(["explorer", folder ], close_fds=True) - does not close properly
 
             if col == self.COL_IDX_OUT+1:
@@ -2097,6 +2107,8 @@ class HoverTableWidget(QTableWidget):
         self._drop_reject_pending_input_type = None
         # Suppress itemChanged callbacks while we programmatically tint items during drag
         self._suppress_item_changed = False
+        # Remember press-handled click to avoid double execution with cellClicked
+        self._last_press_handled = None
 
         # Tabelle mit Beispielwerten füllen
         #for row in range(rows):
@@ -2132,6 +2144,36 @@ class HoverTableWidget(QTableWidget):
             self.setCursor(Qt.ArrowCursor)
             
         super().mouseMoveEvent(event)
+
+    def mousePressEvent(self, event):
+        """Handle IO-cell clicks on press to avoid missed cellClicked during frequent table updates."""
+        try:
+            if event.button() == Qt.LeftButton:
+                index = self.indexAt(event.pos())
+                if index.isValid():
+                    row, col = index.row(), index.column()
+                    try:
+                        in_col = getattr(self.app, 'COL_IDX_IN', None)
+                        out_col = getattr(self.app, 'COL_IDX_OUT', None)
+                    except Exception:
+                        in_col = None
+                        out_col = None
+
+                    is_io_col = (col == in_col) or (col == out_col)
+                    if is_io_col and self.isCellClickable(row, col):
+                        try:
+                            self._last_press_handled = (row, col, time.monotonic())
+                        except Exception:
+                            self._last_press_handled = (row, col, 0.0)
+                        if TRACELEVEL >= 1:
+                            print(f"[CLICK] press-dispatch row={row} col={col}", flush=True)
+                        self.onCellClick(row, col)
+                        event.accept()
+                        return
+        except Exception:
+            pass
+
+        super().mousePressEvent(event)
 
     def _perform_auto_scroll(self):
         """Called by timer to perform one auto-scroll step in the current direction."""
@@ -3302,6 +3344,18 @@ class HoverTableWidget(QTableWidget):
                 pass
 
     def on_cell_clicked(self, row, col):
+        # Deduplicate against immediate press-dispatch fallback
+        try:
+            if self._last_press_handled is not None:
+                prow, pcol, pts = self._last_press_handled
+                if prow == row and pcol == col and (time.monotonic() - float(pts)) < 0.7:
+                    self._last_press_handled = None
+                    if TRACELEVEL >= 1:
+                        print(f"[CLICK] release-ignored row={row} col={col} reason='already handled on press'", flush=True)
+                    return
+        except Exception:
+            pass
+
         if self.isCellClickable(row, col):
             """Wird aufgerufen, wenn auf eine Zelle geklickt wird."""
             self.onCellClick(row, col)
