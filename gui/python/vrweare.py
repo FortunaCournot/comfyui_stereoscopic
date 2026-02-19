@@ -668,6 +668,10 @@ class SpreadsheetApp(QMainWindow):
 
     def open_config(self, state):
         os.startfile(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")))
+
+    def open_user_config(self, state):
+        folder = os.path.abspath(os.path.join(path, r'../../../../user/default/comfyui_stereoscopic/'))
+        os.system(f'start "" "{folder}"')
             
     def show_manual(self, state):
         webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
@@ -824,6 +828,14 @@ class SpreadsheetApp(QMainWindow):
         self.toolbar.addAction(self.button_open_config_action)    
         self.toolbar.widgetForAction(self.button_open_config_action).setCursor(Qt.PointingHandCursor)
         
+        self.toolbar.addSeparator()
+
+        self.button_open_user_config_action = QAction(QIcon(os.path.join(path, '../../gui/img/explorerconfig64.png')), "User Config")
+        self.button_open_user_config_action.setCheckable(False)
+        self.button_open_user_config_action.triggered.connect(self.open_user_config)
+        self.toolbar.addAction(self.button_open_user_config_action)
+        self.toolbar.widgetForAction(self.button_open_user_config_action).setCursor(Qt.PointingHandCursor)
+
         self.toolbar.addSeparator()
 
         self.button_show_manual_action = QAction(QIcon(os.path.join(path, '../../gui/img/manual64.png')), "Manual")      
