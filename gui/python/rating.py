@@ -34,11 +34,14 @@ from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QImage,
                          QTextCursor, QDrag, QClipboard)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QColorDialog, QComboBox, QDesktopWidget, QDialog,
+                             QDoubleSpinBox,
                              QFileDialog, QFrame, QGridLayout, QGroupBox,
                              QHBoxLayout, QHeaderView, QLabel, QMainWindow,
+                             QMenu,
                              QMessageBox, QPushButton, QShortcut, QSizePolicy,
                              QSlider, QStatusBar, QTableWidget,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
+                             QWidgetAction,
                              QPlainTextEdit, QLayout, QStyleOptionSlider, QStyle,
                              QRubberBand)
 
@@ -88,6 +91,7 @@ WAIT_DIALOG_THRESHOLD_TIME=2000
 MAX_WAIT_DIALOG_THRESHOLD_TIME=10000
 # Small UI redraw delay to ensure image appears after load
 DISPLAY_REFRESH_DELAY_MS = 75
+CONTENT_FILTER_PROPERTIES_FILENAME = "content_filter.properties"
 
 # ---- Tasks ----
 global taskCounterUI, taskCounterAsync, showWaitDialog
@@ -188,6 +192,44 @@ def config(key, default):
         except Exception as e:
             print(traceback.format_exc(), flush=True)
             return default
+
+
+def get_user_config_dir() -> str:
+    return os.path.abspath(  os.path.join(path, "../../../../user/default/comfyui_stereoscopic/") )
+
+
+def read_properties_file(file_path: str) -> dict:
+    result = {}
+    try:
+        if not os.path.exists(file_path):
+            return result
+        with open(file_path, "r", encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or line.startswith(";"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+                if key:
+                    result[key] = value
+    except Exception:
+        pass
+    return result
+
+
+def write_properties_file(file_path: str, kv: dict):
+    try:
+        folder = os.path.dirname(file_path)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as handle:
+            for key in sorted(kv.keys()):
+                handle.write(f"{key}={kv[key]}\n")
+    except Exception:
+        pass
 
 
 def isTaskActive():
@@ -387,6 +429,184 @@ class WaitDialog(QDialog):
         self.setLayout(layout)
         self.setFixedSize(130, 36)
 
+
+class FilterParameterMenu(QMenu):
+    def __init__(self, parent, filter_instance: BaseImageFilter, on_change_callback=None):
+        super().__init__(parent)
+        self.filter_instance = filter_instance
+        self.on_change_callback = on_change_callback
+        self._parameter_sliders: List[QSlider] = []
+        self._parameter_spinboxes: List[QDoubleSpinBox] = []
+        self.setToolTipsVisible(True)
+        self.setStyleSheet("QMenu { background-color : black; color: white; border: 1px solid #444; }")
+
+        try:
+            parameters = list(filter_instance.get_parameters())
+        except Exception:
+            parameters = []
+
+        if len(parameters) == 0:
+            no_params_action = QAction("No parameters available for this filter.", self)
+            no_params_action.setEnabled(False)
+            self.addAction(no_params_action)
+            return
+
+        for param_name, param_value in parameters:
+            row_widget = QWidget(self)
+            row_widget.setStyleSheet("background-color: black;")
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(8, 4, 8, 4)
+            row_layout.setSpacing(8)
+
+            name_label = QLabel(str(param_name), row_widget)
+            name_label.setMinimumWidth(180)
+            name_label.setStyleSheet("QLabel { color: white; background-color: black; }")
+
+            slider = QSlider(Qt.Horizontal, row_widget)
+            slider.setRange(0, 10000)
+            slider.setSingleStep(1)
+            slider.setValue(int(round(max(0.0, min(1.0, float(param_value))) * 10000.0)))
+            slider.setFixedWidth(220)
+            slider.setStyleSheet(
+                "QSlider::groove:horizontal { height: 5px; background: #5a5a5a; border-radius: 2px; }"
+                "QSlider::handle:horizontal { width: 12px; margin: -4px 0; background: #d0d0d0; border: 1px solid #a0a0a0; border-radius: 6px; }"
+                "QSlider::sub-page:horizontal { background: #8fb9ff; border-radius: 2px; }"
+                "QSlider::groove:horizontal:disabled { background: #2a2a2a; }"
+                "QSlider::handle:horizontal:disabled { background: #6a6a6a; border: 1px solid #555555; }"
+                "QSlider::sub-page:horizontal:disabled { background: #4a4a4a; }"
+            )
+
+            spin = QDoubleSpinBox(row_widget)
+            spin.setRange(0.0, 1.0)
+            spin.setDecimals(4)
+            spin.setSingleStep(0.0005)
+            spin.setValue(max(0.0, min(1.0, float(param_value))))
+            spin.setFixedWidth(90)
+            spin.setStyleSheet(
+                "QDoubleSpinBox { color: white; background-color: black; border: 1px solid #666; padding: 2px; }"
+                "QDoubleSpinBox:disabled { color: #888; border: 1px solid #444; }"
+            )
+
+            slider.valueChanged.connect(partial(self._on_slider_value_changed, spin))
+            slider.sliderReleased.connect(partial(self._on_slider_released, str(param_name), slider, spin))
+            spin.editingFinished.connect(partial(self._on_spinbox_edit_finished, str(param_name), slider, spin))
+
+            self._parameter_sliders.append(slider)
+            self._parameter_spinboxes.append(spin)
+
+            row_layout.addWidget(name_label)
+            row_layout.addWidget(slider, 1)
+            row_layout.addWidget(spin)
+
+            row_action = QWidgetAction(self)
+            row_action.setDefaultWidget(row_widget)
+            self.addAction(row_action)
+
+    def _set_controls_enabled(self, enabled: bool):
+        for slider in self._parameter_sliders:
+            try:
+                slider.setEnabled(enabled)
+            except Exception:
+                pass
+        for spin in self._parameter_spinboxes:
+            try:
+                spin.setEnabled(enabled)
+            except Exception:
+                pass
+
+    def _apply_parameter_change(self, param_name: str, normalized_value: float):
+        try:
+            self.filter_instance.set_parameter(param_name, normalized_value)
+            if callable(self.on_change_callback):
+                self.on_change_callback()
+        except Exception:
+            pass
+        finally:
+            self._set_controls_enabled(True)
+            try:
+                QApplication.restoreOverrideCursor()
+            except Exception:
+                pass
+
+    def _queue_parameter_change(self, param_name: str, normalized_value: float):
+        try:
+            self._set_controls_enabled(False)
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            QApplication.processEvents()
+            QTimer.singleShot(0, partial(self._apply_parameter_change, param_name, normalized_value))
+        except Exception:
+            self._set_controls_enabled(True)
+            try:
+                QApplication.restoreOverrideCursor()
+            except Exception:
+                pass
+
+    def _on_slider_value_changed(self, spin: QDoubleSpinBox, slider_value: int):
+        try:
+            normalized_value = max(0.0, min(1.0, float(slider_value) / 10000.0))
+            spin.blockSignals(True)
+            spin.setValue(normalized_value)
+            spin.blockSignals(False)
+        except Exception:
+            try:
+                spin.blockSignals(False)
+            except Exception:
+                pass
+
+    def _on_slider_released(self, param_name: str, slider: QSlider, spin: QDoubleSpinBox):
+        try:
+            slider_value = int(slider.value())
+            normalized_value = max(0.0, min(1.0, float(slider_value) / 10000.0))
+            spin.blockSignals(True)
+            spin.setValue(normalized_value)
+            spin.blockSignals(False)
+        except Exception:
+            try:
+                spin.blockSignals(False)
+            except Exception:
+                pass
+            return
+
+        self._queue_parameter_change(param_name, normalized_value)
+
+    def _on_spinbox_edit_finished(self, param_name: str, slider: QSlider, spin: QDoubleSpinBox):
+        try:
+            normalized_value = max(0.0, min(1.0, float(spin.value())))
+            slider_value = int(round(normalized_value * 10000.0))
+            slider.blockSignals(True)
+            slider.setValue(slider_value)
+            slider.blockSignals(False)
+        except Exception:
+            try:
+                slider.blockSignals(False)
+            except Exception:
+                pass
+            return
+
+        self._queue_parameter_change(param_name, normalized_value)
+
+    def mousePressEvent(self, event):
+        try:
+            inside_menu = self.rect().contains(event.pos())
+            clicked_action = self.actionAt(event.pos())
+            if inside_menu and clicked_action is None:
+                event.accept()
+                return
+        except Exception:
+            pass
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        try:
+            inside_menu = self.rect().contains(event.pos())
+            clicked_action = self.actionAt(event.pos())
+            if inside_menu and clicked_action is None:
+                event.accept()
+                return
+        except Exception:
+            pass
+        super().mouseReleaseEvent(event)
+
 # --------
 
 class JudgeDialog(QDialog):
@@ -428,6 +648,9 @@ class RateAndCutDialog(QDialog):
             if not self.content_filters:
                 self.content_filters = [BaseImageFilter()]
             self.active_content_filter: BaseImageFilter = self.content_filters[0]
+            self._content_filter_properties_path = os.path.join(get_user_config_dir(), CONTENT_FILTER_PROPERTIES_FILENAME)
+            
+            self._load_content_filter_parameter_values()
             # inpaint mode flag (toggled by toolbar button)
             self.inpaint_mode = False
             self.loadingOk = True
@@ -646,6 +869,20 @@ class RateAndCutDialog(QDialog):
             self.cutMode_toolbar.addWidget(self.filter_mode_combo)
             self.filter_mode_combo.currentIndexChanged.connect(self.on_filter_mode_combobox_index_changed)
 
+            self.filter_settings_spacing = QLabel()
+            self.filter_settings_spacing.setFixedSize(4, 1)
+            self.filter_settings_spacing.setVisible(self.cutMode)
+            self.cutMode_toolbar.addWidget(self.filter_settings_spacing)
+
+            self.filterSettingsAction = QAction(QIcon(os.path.join(path, '../../gui/img/config64.png')), "Filter settings")
+            self.filterSettingsAction.setCheckable(False)
+            self.filterSettingsAction.setVisible(self.cutMode)
+            self.filterSettingsAction.triggered.connect(self.on_open_filter_settings)
+            self.cutMode_toolbar.addAction(self.filterSettingsAction)
+            self.cutMode_toolbar.widgetForAction(self.filterSettingsAction).setCursor(Qt.PointingHandCursor)
+            self._update_filter_settings_action_icon()
+            self._update_filter_settings_action_state()
+
             empty = QWidget()
             empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
             self.cutMode_toolbar.addWidget(empty)
@@ -748,10 +985,17 @@ class RateAndCutDialog(QDialog):
             self.button_next_file.clicked.connect(self.rateNext)
             
             self.button_delete_file = ActionButton()
-            self.button_delete_file.setIcon(StyledIcon(os.path.join(path, '../../gui/img/trash80.png')))
+            self.icon_delete_default = StyledIcon(os.path.join(path, '../../gui/img/trash80.png'))
+            recycle_icon_path = os.path.join(path, '../../gui/img/recycle80.png')
+            self.icon_delete_switch = StyledIcon(recycle_icon_path)
+            self._trashbin_switch_active = False
+            self._trashbin_switch_original_input = None
+            self._trashbin_switch_switched_input = None
+            self._last_loaded_file_for_switch = None
+            self.button_delete_file.setIcon(self.icon_delete_default)
             self.button_delete_file.setIconSize(QSize(80,80))
             self.button_delete_file.setEnabled(True)
-            self.button_delete_file.clicked.connect(self.deleteAndNext)
+            self.button_delete_file.clicked.connect(self.on_delete_button_clicked)
             self.button_delete_file.setFocusPolicy(Qt.ClickFocus)
 
             
@@ -1369,6 +1613,7 @@ class RateAndCutDialog(QDialog):
             leaveUITask()
 
     def on_filter_mode_combobox_index_changed(self, index):
+        self._invalidate_trashbin_switch_mode()
         try:
             idx = int(index)
         except Exception:
@@ -1379,10 +1624,124 @@ class RateAndCutDialog(QDialog):
 
         self.content_filter_mode = idx
         self.active_content_filter = self.content_filters[idx]
+        self._update_filter_settings_action_icon()
+        self._update_filter_settings_action_state()
 
         try:
             if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None and not self.isVideo:
                 self.cropWidget.refresh_filtered_view()
+        except Exception:
+            pass
+
+    def _load_content_filter_parameter_values(self):
+        values = read_properties_file(self._content_filter_properties_path)
+        for filter_instance in self.content_filters:
+            try:
+                filter_id = getattr(filter_instance, 'filter_id', 'none')
+                for param_name, _ in filter_instance.get_parameters():
+                    key = f"{filter_id}.{param_name}"
+                    if key in values:
+                        filter_instance.set_parameter(param_name, float(values[key]))
+            except Exception:
+                continue
+
+    def _save_content_filter_parameter_values(self):
+        values = {}
+        for filter_instance in self.content_filters:
+            try:
+                filter_id = getattr(filter_instance, 'filter_id', 'none')
+                for param_name, param_value in filter_instance.get_parameters():
+                    key = f"{filter_id}.{param_name}"
+                    values[key] = f"{float(param_value):.6f}"
+            except Exception:
+                continue
+        write_properties_file(self._content_filter_properties_path, values)
+
+    def _on_active_filter_parameter_changed(self):
+        self._invalidate_trashbin_switch_mode()
+        self._save_content_filter_parameter_values()
+        self._update_filter_settings_action_state()
+        try:
+            if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None and not self.isVideo:
+                self.cropWidget.refresh_filtered_view()
+        except Exception:
+            pass
+
+    def _update_filter_settings_action_state(self):
+        if not hasattr(self, 'filterSettingsAction'):
+            return
+        enabled = False
+        try:
+            enabled = len(self.active_content_filter.get_parameters()) > 0
+        except Exception:
+            enabled = False
+        self.filterSettingsAction.setEnabled(enabled)
+
+    def _build_filter_settings_icon(self, filter_instance: BaseImageFilter) -> QIcon:
+        try:
+            icon_name = getattr(filter_instance, 'icon_name', 'filter64_none.png') or 'filter64_none.png'
+            base_path = os.path.join(path, '../../gui/img', icon_name)
+            if not os.path.exists(base_path):
+                base_path = os.path.join(path, '../../gui/img/filter64_none.png')
+
+            gear_path = os.path.join(path, '../../gui/img/config64.png')
+
+            base = QPixmap(base_path)
+            if base.isNull():
+                base = QPixmap(64, 64)
+                base.fill(Qt.transparent)
+            else:
+                base = base.scaled(64, 64, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+
+            composed = QPixmap(64, 64)
+            composed.fill(Qt.transparent)
+            painter = QPainter(composed)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform)
+            painter.drawPixmap(0, 0, base)
+
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(0, 0, 0, 150))
+            painter.drawEllipse(22, 22, 40, 40)
+
+            gear = QPixmap(gear_path)
+            if not gear.isNull():
+                gear = gear.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                painter.drawPixmap(22, 22, gear)
+            painter.end()
+
+            return QIcon(composed)
+        except Exception:
+            return QIcon(os.path.join(path, '../../gui/img/config64.png'))
+
+    def _update_filter_settings_action_icon(self):
+        if not hasattr(self, 'filterSettingsAction'):
+            return
+        try:
+            current = self.active_content_filter if hasattr(self, 'active_content_filter') else None
+            if current is None:
+                self.filterSettingsAction.setIcon(QIcon(os.path.join(path, '../../gui/img/config64.png')))
+                return
+            self.filterSettingsAction.setIcon(self._build_filter_settings_icon(current))
+        except Exception:
+            self.filterSettingsAction.setIcon(QIcon(os.path.join(path, '../../gui/img/config64.png')))
+
+    def on_open_filter_settings(self, state=False):
+        try:
+            if not hasattr(self, 'active_content_filter') or self.active_content_filter is None:
+                return
+            self._filter_settings_menu = FilterParameterMenu(self, self.active_content_filter, self._on_active_filter_parameter_changed)
+
+            anchor = None
+            if hasattr(self, 'cutMode_toolbar') and self.cutMode_toolbar is not None and hasattr(self, 'filterSettingsAction'):
+                anchor = self.cutMode_toolbar.widgetForAction(self.filterSettingsAction)
+
+            if anchor is not None:
+                pos = anchor.mapToGlobal(anchor.rect().bottomLeft())
+                self._filter_settings_menu.popup(pos)
+            else:
+                cursor_pos = QCursor.pos()
+                self._filter_settings_menu.popup(cursor_pos)
         except Exception:
             pass
 
@@ -1427,8 +1786,14 @@ class RateAndCutDialog(QDialog):
         visible = self.cutMode and has_active_file and (not self.isVideo)
         self.filter_mode_spacing.setVisible(visible)
         self.filter_mode_combo.setVisible(visible)
+        if hasattr(self, 'filter_settings_spacing'):
+            self.filter_settings_spacing.setVisible(visible)
+        if hasattr(self, 'filterSettingsAction'):
+            self.filterSettingsAction.setVisible(visible)
+        self._update_filter_settings_action_state()
 
     def onToggleInpaintMode(self, state):
+        self._invalidate_trashbin_switch_mode()
         """Toggle the inpaint mode flag. UI state (checked) is handled by QAction.
 
         The actual inpaint behavior will be implemented later; for now we only
@@ -1715,14 +2080,148 @@ class RateAndCutDialog(QDialog):
 
 
     def onRectSelected(self, rect):
+        self._invalidate_trashbin_switch_mode()
         if self.cutMode:
             self.cropWidget.setSliderValuesToRect(rect)
 
     def onCropOrTrim(self):
+        self._invalidate_trashbin_switch_mode()
         self.hasCropOrTrim=True
         if self.cutMode:
             self.button_cutandclone.setEnabled(True)
             self.button_snapshot_from_video.setEnabled(self.isPaused and self.isVideo)
+
+    def _has_active_non_default_filter(self) -> bool:
+        try:
+            combo_index = -1
+            try:
+                if hasattr(self, 'filter_mode_combo') and self.filter_mode_combo is not None:
+                    combo_index = int(self.filter_mode_combo.currentIndex())
+                elif hasattr(self, 'content_filter_mode'):
+                    combo_index = int(self.content_filter_mode)
+            except Exception:
+                combo_index = -1
+
+            active_filter = self.active_content_filter
+            if not isinstance(active_filter, BaseImageFilter):
+                return combo_index > 0
+
+            filter_id = str(getattr(active_filter, 'filter_id', 'none')).strip().lower()
+            if filter_id and filter_id != 'none':
+                return True
+
+            class_name = type(active_filter).__name__.strip().lower()
+            if class_name != 'baseimagefilter':
+                return True
+
+            return combo_index > 0
+        except Exception:
+            return False
+
+    def _activate_custom_override_for_file(self, file_path: str):
+        try:
+            global cutModeFolderOverrideActive, cutModeFolderOverridePath
+            target_dir = os.path.abspath(os.path.dirname(os.path.abspath(file_path)))
+            if not os.path.isdir(target_dir):
+                return False
+            cutModeFolderOverridePath = target_dir
+            cutModeFolderOverrideActive = True
+            if hasattr(self, 'folderAction') and self.folderAction is not None:
+                self.folderAction.setChecked(True)
+                self.folderAction.setEnabled(True)
+            if hasattr(self, 'dirlabel') and self.dirlabel is not None:
+                self.dirlabel.setText(target_dir)
+            return True
+        except Exception:
+            return False
+
+    def _set_trashbin_switch_mode(self, enabled: bool, original_input=None, switched_input=None):
+        self._trashbin_switch_active = bool(enabled)
+        if self._trashbin_switch_active:
+            self._trashbin_switch_original_input = os.path.abspath(str(original_input)) if original_input else None
+            self._trashbin_switch_switched_input = os.path.abspath(str(switched_input)) if switched_input else None
+        else:
+            self._trashbin_switch_original_input = None
+            self._trashbin_switch_switched_input = None
+
+        try:
+            self.button_delete_file.setIcon(self.icon_delete_switch if self._trashbin_switch_active else self.icon_delete_default)
+            self.button_delete_file.update()
+            self.button_delete_file.repaint()
+        except Exception:
+            pass
+
+    def _invalidate_trashbin_switch_mode(self):
+        if getattr(self, '_trashbin_switch_active', False):
+            self._set_trashbin_switch_mode(False)
+
+    def _as_current_file_reference(self, file_path: str) -> str:
+        candidate = os.path.abspath(file_path)
+        if cutModeFolderOverrideActive:
+            base_folder = os.path.abspath(cutModeFolderOverridePath)
+        else:
+            base_folder = os.path.abspath(os.path.join(path, "../../../../input/vr/check/rate"))
+        try:
+            rel = os.path.relpath(candidate, base_folder)
+            if not rel.startswith(".."):
+                return rel.replace('\\', '/')
+        except Exception:
+            pass
+        return candidate
+
+    def _trash_single_file(self, file_path: str):
+        capfile = replace_file_suffix(file_path, ".txt")
+        if USE_TRASHBIN:
+            self.log("Trashing " + os.path.basename(file_path), QColor("white"))
+            send2trash.send2trash(file_path)
+            if os.path.exists(capfile):
+                send2trash.send2trash(capfile)
+        else:
+            self.log("Deleting " + os.path.basename(file_path), QColor("white"))
+            os.remove(file_path)
+            if os.path.exists(capfile):
+                os.remove(capfile)
+
+        if os.path.exists(file_path):
+            self.logn(" failed", QColor("red"))
+        else:
+            self.logn(" done", QColor("green"))
+
+    def on_delete_button_clicked(self):
+        if getattr(self, '_trashbin_switch_active', False):
+            self.deleteAndSwitchThenTrash()
+        else:
+            self.deleteAndNext()
+
+    def deleteAndSwitchThenTrash(self):
+        self.sliderinitdone=True
+        enterUITask()
+        try:
+            original_input = self._trashbin_switch_original_input
+            switched_input = self._trashbin_switch_switched_input
+            self._set_trashbin_switch_mode(False)
+
+            if not original_input or not switched_input:
+                self.deleteAndNext()
+                return
+
+            if os.path.exists(switched_input):
+                self._activate_custom_override_for_file(switched_input)
+                rescanFilesToRate()
+                self.currentFile = os.path.basename(switched_input)
+                self.rateCurrentFile()
+
+            if os.path.exists(original_input):
+                self._trash_single_file(original_input)
+                rescanFilesToRate()
+            else:
+                self.logn(" not found", QColor("red"))
+
+            self.button_delete_file.setFocus()
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+        finally:
+            leaveUITask()
 
     def update_filebuttons(self):
         self._update_content_filter_visibility()
@@ -1831,6 +2330,7 @@ class RateAndCutDialog(QDialog):
         self.sliderinitdone=True
         enterUITask()
         try:
+            self._invalidate_trashbin_switch_mode()
             
             files=getFilesToRate()
             try:
@@ -1853,24 +2353,7 @@ class RateAndCutDialog(QDialog):
                     self.display.stopAndBlackout()
                     
                     if index>=0:
-                        try:
-                            capfile = replace_file_suffix(input, ".txt")
-                            if USE_TRASHBIN:
-                                self.log("Trashing " + os.path.basename(input), QColor("white"))
-                                send2trash.send2trash(input)
-                                if os.path.exists(capfile):
-                                    send2trash.send2trash(capfile)
-                            else:
-                                self.log("Deleting " + os.path.basename(input), QColor("white"))
-                                os.remove(input)
-                                if os.path.exists(capfile):
-                                    os.remove(capfile)
-                        finally:
-                            if os.path.exists(input):
-                                self.logn(" failed", QColor("red"))
-                            else:
-                                self.logn(" done", QColor("green"))
-                            
+                        self._trash_single_file(input)
                         files=rescanFilesToRate()
 
                     
@@ -1990,6 +2473,26 @@ class RateAndCutDialog(QDialog):
         try:
             QApplication.setOverrideCursor(Qt.WaitCursor)
             global fileDragged
+            try:
+                current_file_key = str(self.currentFile) if self.currentFile is not None else None
+                if current_file_key != self._last_loaded_file_for_switch:
+                    self._invalidate_trashbin_switch_mode()
+                    try:
+                        if hasattr(self, 'filter_mode_combo') and self.filter_mode_combo is not None:
+                            current_idx = int(self.filter_mode_combo.currentIndex())
+                            if current_idx != 0 and len(self.content_filters) > 0:
+                                self.filter_mode_combo.blockSignals(True)
+                                self.filter_mode_combo.setCurrentIndex(0)
+                                self.filter_mode_combo.blockSignals(False)
+                                self.content_filter_mode = 0
+                                self.active_content_filter = self.content_filters[0]
+                                self._update_filter_settings_action_icon()
+                                self._update_filter_settings_action_state()
+                    except Exception:
+                        pass
+                self._last_loaded_file_for_switch = current_file_key
+            except Exception:
+                self._invalidate_trashbin_switch_mode()
             if self.currentIndex>=0:
                 self.loadingOk = True
                 self.fileSlider.setValue(self.currentIndex)
@@ -2628,6 +3131,10 @@ class RateAndCutDialog(QDialog):
     def trimAndCrop_updater(self, recreated, input, output, success):
         if success:
             self.log(" Overwritten" if recreated else " OK", QColor("green"))
+            if self._has_active_non_default_filter() and self.display.frame_count<=0 and os.path.exists(output):
+                self._set_trashbin_switch_mode(True, input, output)
+            else:
+                self._invalidate_trashbin_switch_mode()
             if self.display.frame_count<=0:
                 cb = QApplication.clipboard()
                 cb.clear(mode=cb.Clipboard)
@@ -2639,6 +3146,7 @@ class RateAndCutDialog(QDialog):
             if os.path.exists(capfile):
                 shutil.copyfile(capfile, replace_file_suffix(output, ".txt"))
         else:
+            self._invalidate_trashbin_switch_mode()
             self.logn(" Failed", QColor("red"))
 
         if self.cutMode:
@@ -2905,12 +3413,14 @@ class RateAndCutDialog(QDialog):
 
     def takeSnapshot_updater(self, success, recreated, output):
         if success:
+            self._invalidate_trashbin_switch_mode()
             self.log(" Overwritten" if recreated else " OK", QColor("green"))
             cb = QApplication.clipboard()
             cb.clear(mode=cb.Clipboard)
             cb.setText(output, mode=cb.Clipboard)
             self.logn("+clipboard", QColor("gray"))
         else:
+            self._invalidate_trashbin_switch_mode()
             self.logn(" Failed", QColor("red"))
             cb = QApplication.clipboard()
             cb.clear(mode=cb.Clipboard )
