@@ -517,6 +517,9 @@ class SpreadsheetApp(QMainWindow):
 
         self.pipelinedialog=None
         self.dialog=None
+        self._open_tool_dialogs = set()
+        self._tool_dialog_refs = {}
+        self.pipeline_edit_action = None
         
         # prerequisites
         folder=os.path.join(path, f"../../../../input/vr/check/rate")
@@ -677,20 +680,169 @@ class SpreadsheetApp(QMainWindow):
         webbrowser.open('file://' + os.path.realpath(os.path.join(path, "../../docs/VR_We_Are_User_Manual.pdf")))
         # webbrowser.open("https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf")
 
+    def _apply_dialog_action_lock(self):
+        """Apply lock state for dialog-launch actions and pipeline edit action."""
+        self._reconcile_tool_dialog_state()
+        locked = bool(getattr(self, '_open_tool_dialogs', set()))
+        open_keys = set(getattr(self, '_open_tool_dialogs', set()))
+
+        try:
+            if hasattr(self, 'button_check_cutclone_action') and self.button_check_cutclone_action is not None:
+                if locked:
+                    self.button_check_cutclone_action.setEnabled('cutandclone' in open_keys)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'button_check_rate_action') and self.button_check_rate_action is not None:
+                if locked:
+                    self.button_check_rate_action.setEnabled('rate' in open_keys)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'button_check_judge_action') and self.button_check_judge_action is not None:
+                if locked:
+                    self.button_check_judge_action.setEnabled('judge' in open_keys)
+        except Exception:
+            pass
+
+        try:
+            action = getattr(self, 'pipeline_edit_action', None)
+            if action is not None:
+                edit_active = bool(globals().get('editActive', False))
+                action.setEnabled((not locked) and (not edit_active))
+        except Exception:
+            pass
+
+    def _set_tool_dialog_state(self, key: str, is_open: bool):
+        try:
+            if is_open:
+                self._open_tool_dialogs.add(key)
+            else:
+                self._open_tool_dialogs.discard(key)
+                try:
+                    self._tool_dialog_refs.pop(key, None)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        try:
+            self.update_toolbar()
+        except Exception:
+            pass
+        self._apply_dialog_action_lock()
+
+    def _reconcile_tool_dialog_state(self):
+        """Remove stale dialog-open flags if dialogs are no longer visible/alive."""
+        try:
+            stale = []
+            for key in list(self._open_tool_dialogs):
+                dlg = self._tool_dialog_refs.get(key)
+                if dlg is None:
+                    stale.append(key)
+                    continue
+                try:
+                    if not dlg.isVisible():
+                        stale.append(key)
+                except Exception:
+                    stale.append(key)
+            for key in stale:
+                self._open_tool_dialogs.discard(key)
+                try:
+                    self._tool_dialog_refs.pop(key, None)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _register_tool_dialog(self, key: str, dialog):
+        try:
+            self._tool_dialog_refs[key] = dialog
+        except Exception:
+            pass
+        self._set_tool_dialog_state(key, True)
+
+        def _clear(*_args):
+            self._set_tool_dialog_state(key, False)
+            try:
+                if getattr(self, 'dialog', None) is dialog:
+                    self.dialog = None
+            except Exception:
+                pass
+
+        try:
+            if hasattr(dialog, 'finished'):
+                dialog.finished.connect(_clear)
+        except Exception:
+            pass
+        try:
+            dialog.destroyed.connect(_clear)
+        except Exception:
+            pass
+
+    def _focus_existing_tool_dialog(self, key: str) -> bool:
+        """Bring an already-open tool dialog to the foreground.
+
+        Returns True if an open dialog was found and focused.
+        """
+        try:
+            dlg = self._tool_dialog_refs.get(key)
+        except Exception:
+            dlg = None
+        if dlg is None:
+            return False
+        try:
+            if not dlg.isVisible():
+                return False
+            dlg.raise_()
+            dlg.activateWindow()
+            try:
+                dlg.showNormal()
+            except Exception:
+                pass
+            self.dialog = dlg
+            return True
+        except Exception:
+            return False
+
     def check_cutandclone(self, state):
+        if self._focus_existing_tool_dialog('cutandclone'):
+            return
         dialog = RateAndCutDialog(True)
+        try:
+            dialog.setModal(False)
+            dialog.setWindowModality(Qt.NonModal)
+        except Exception:
+            pass
         self.dialog = dialog
         dialog.show()
+        self._register_tool_dialog('cutandclone', dialog)
 
     def check_rate(self, state):
+        if self._focus_existing_tool_dialog('rate'):
+            return
         dialog = RateAndCutDialog(False)
+        try:
+            dialog.setModal(False)
+            dialog.setWindowModality(Qt.NonModal)
+        except Exception:
+            pass
         self.dialog = dialog
         dialog.show()
+        self._register_tool_dialog('rate', dialog)
 
     def check_judge(self, state):
+        if self._focus_existing_tool_dialog('judge'):
+            return
         dialog = JudgeDialog()
+        try:
+            dialog.setModal(False)
+            dialog.setWindowModality(Qt.NonModal)
+        except Exception:
+            pass
         self.dialog = dialog
         dialog.show()
+        self._register_tool_dialog('judge', dialog)
 
     def toggle_stage_expanded_enabled(self, state):
         self.toogle_stages_expanded = state
@@ -869,6 +1021,7 @@ class SpreadsheetApp(QMainWindow):
             except StopIteration as e:
                 pass
         self.button_check_judge_action.setEnabled(count3>0)
+        self._apply_dialog_action_lock()
 
     def get_pending_workflows(self):
         hostname = get_property(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")), "COMFYUIHOST", "127.0.0.1") 
@@ -1775,10 +1928,12 @@ class SpreadsheetApp(QMainWindow):
         lay.addWidget(pipeline_toolbar)
         global editAction
         editAction = QAction("Edit")
+        self.pipeline_edit_action = editAction
         editAction.setCheckable(False)
         editAction.triggered.connect(self.edit_pipeline)
         pipeline_toolbar.addAction(editAction)
         pipeline_toolbar.widgetForAction(editAction).setCursor(Qt.PointingHandCursor)
+        self._apply_dialog_action_lock()
 
         empty = QWidget()
         empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
@@ -1828,14 +1983,38 @@ class SpreadsheetApp(QMainWindow):
         
         self.button_show_pipeline_action.setEnabled(False)
         self.dialog = pipelinedialog
+        try:
+            pipelinedialog.finished.connect(self._on_pipeline_dialog_closed)
+        except Exception:
+            pass
+        try:
+            pipelinedialog.destroyed.connect(self._on_pipeline_dialog_closed)
+        except Exception:
+            pass
         pipelinedialog.show()
         self.button_show_pipeline_action.setEnabled(True)
+
+    def _on_pipeline_dialog_closed(self, *_args):
+        try:
+            self.pipeline_edit_action = None
+        except Exception:
+            pass
+        try:
+            self.pipelinedialog = None
+        except Exception:
+            pass
+        try:
+            self.dialog = None
+        except Exception:
+            pass
+
     def edit_pipeline(self, state):
         configFile=os.path.join(path, r'..\..\..\..\user\default\comfyui_stereoscopic\autoforward.yaml')
         global editActive, pipelineModified, editthread
         pipelineModified=False
         editActive=True
         editAction.setEnabled(False)
+        self._apply_dialog_action_lock()
         editthread = PipelineEditThread(window)
         editthread.start()
 
@@ -2007,6 +2186,10 @@ class PipelineEditThread(QThread):
         editActive=False
         editthread=None
         editAction.setEnabled(True)
+        try:
+            QTimer.singleShot(0, self.parent._apply_dialog_action_lock)
+        except Exception:
+            pass
 
     def pipelineWatch(self):
         try:
