@@ -492,7 +492,7 @@ class SpreadsheetApp(QMainWindow):
         self.setWindowTitle("VR we are - Status")
         self.setStyleSheet("background-color: black;")
         self.setWindowIcon(QIcon(os.path.join(path, '../../gui/img/icon.png')))
-        self.setGeometry(100, 100, 640, 600)
+        self.setGeometry(100, 100, 1024, 600)
         self.move(60, 15)
 
         # Flags for toggles
@@ -1360,6 +1360,7 @@ class SpreadsheetApp(QMainWindow):
                 header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
                 COLNAMES.append("output")
                 header.setSectionResizeMode(self.COL_IDX_OUT+1, QHeaderView.Fixed)
+                self.table.setColumnWidth(self.COL_IDX_OUT+1, 56)
                 COLNAMES.append("Config")
             else:
                 COLS=4
