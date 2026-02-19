@@ -421,6 +421,7 @@ class RateAndCutDialog(QDialog):
             self.filter_img = False
             self.filter_vid = False
             self.filter_edit = not self.cutMode
+            self.content_filter_mode = 0
             # inpaint mode flag (toggled by toolbar button)
             self.inpaint_mode = False
             self.loadingOk = True
@@ -614,6 +615,27 @@ class RateAndCutDialog(QDialog):
                 self.inpaintModeAction.setChecked(False)
             self.cutMode_toolbar.addAction(self.inpaintModeAction)
             self.cutMode_toolbar.widgetForAction(self.inpaintModeAction).setCursor(Qt.PointingHandCursor)
+
+            # Edit mode only: content filter dropdown, placed right of Inpaint action.
+            self.filter_mode_spacing = QLabel()
+            self.filter_mode_spacing.setFixedSize(10, 1)
+            self.filter_mode_spacing.setVisible(self.cutMode)
+            self.cutMode_toolbar.addWidget(self.filter_mode_spacing)
+
+            self.filter_mode_combo = QComboBox()
+            self.filter_mode_combo.setEditable(False)
+            self.filter_mode_combo.setVisible(self.cutMode)
+            self.filter_mode_icons = [
+                QIcon(os.path.join(path, '../../gui/img/filter64_none.png')),
+            ]
+            for icon in self.filter_mode_icons:
+                self.filter_mode_combo.addItem(icon, "")
+            self.filter_mode_combo.setItemData(0, "content filter: none", Qt.ToolTipRole)
+            self.filter_mode_combo.setIconSize(QSize(32,32))
+            self.filter_mode_combo.setStyleSheet('selection-background-color: rgb(0,0,0)')
+            self.filter_mode_combo.setCurrentIndex(self.content_filter_mode)
+            self.cutMode_toolbar.addWidget(self.filter_mode_combo)
+            self.filter_mode_combo.currentIndexChanged.connect(self.on_filter_mode_combobox_index_changed)
 
             empty = QWidget()
             empty.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
@@ -1335,6 +1357,12 @@ class RateAndCutDialog(QDialog):
                 self.rateCurrentFile()
         finally:
             leaveUITask()
+
+    def on_filter_mode_combobox_index_changed(self, index):
+        try:
+            self.content_filter_mode = int(index)
+        except Exception:
+            self.content_filter_mode = 0
 
     def onToggleInpaintMode(self, state):
         """Toggle the inpaint mode flag. UI state (checked) is handled by QAction.

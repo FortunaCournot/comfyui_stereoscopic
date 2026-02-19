@@ -1906,6 +1906,51 @@ class SpreadsheetApp(QMainWindow):
 
    
     def closeEvent(self,event):
+        # Close all known open dialogs when main window is closing.
+        try:
+            dialogs_to_close = []
+            seen = set()
+
+            def _add_dialog(dlg):
+                try:
+                    if dlg is None:
+                        return
+                    key = id(dlg)
+                    if key in seen:
+                        return
+                    seen.add(key)
+                    dialogs_to_close.append(dlg)
+                except Exception:
+                    pass
+
+            try:
+                for dlg in getattr(self, '_tool_dialog_refs', {}).values():
+                    _add_dialog(dlg)
+            except Exception:
+                pass
+
+            _add_dialog(getattr(self, 'dialog', None))
+            _add_dialog(getattr(self, 'pipelinedialog', None))
+            try:
+                _add_dialog(pipelinedialog)
+            except Exception:
+                pass
+
+            for dlg in dialogs_to_close:
+                try:
+                    if hasattr(dlg, 'isVisible') and dlg.isVisible():
+                        dlg.close()
+                except Exception:
+                    pass
+
+            try:
+                self._open_tool_dialogs.clear()
+                self._tool_dialog_refs.clear()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
         try:
             os.remove(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.guiactive"))
         except OSError as e:
