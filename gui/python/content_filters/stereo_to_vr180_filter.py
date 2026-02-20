@@ -12,6 +12,7 @@ class StereoToVR180Filter(BaseImageFilter):
     parameter_defaults = [
         ("fisheye_strength", 1.0),
         ("input_fov", 0.45),
+        ("zoom_out", 0.0),
     ]
 
     def _remap_rectilinear_to_fisheye(self, src_rgb, fov_in_deg: float, strength: float):
@@ -62,7 +63,32 @@ class StereoToVR180Filter(BaseImageFilter):
         )
         return remapped
 
-    def _transform_half(self, half_image: Image.Image, fov_in_deg: float, strength: float, has_alpha: bool) -> Image.Image:
+    def _apply_zoom_out(self, image: Image.Image, zoom_out: float, has_alpha: bool) -> Image.Image:
+        try:
+            zoom_out = max(0.0, min(1.0, float(zoom_out)))
+            if zoom_out <= 1e-6:
+                return image
+
+            w, h = image.size
+            if w <= 1 or h <= 1:
+                return image
+
+            scale = 1.0 - (0.35 * zoom_out)
+            nw = max(1, int(round(w * scale)))
+            nh = max(1, int(round(h * scale)))
+            resized = image.resize((nw, nh), Image.LANCZOS)
+
+            canvas_mode = "RGBA" if has_alpha else "RGB"
+            canvas_color = (0, 0, 0, 0) if has_alpha else (0, 0, 0)
+            canvas = Image.new(canvas_mode, (w, h), canvas_color)
+            ox = (w - nw) // 2
+            oy = (h - nh) // 2
+            canvas.paste(resized, (ox, oy))
+            return canvas
+        except Exception:
+            return image
+
+    def _transform_half(self, half_image: Image.Image, fov_in_deg: float, strength: float, zoom_out: float, has_alpha: bool) -> Image.Image:
         try:
             import numpy as np
         except Exception:
@@ -75,11 +101,11 @@ class StereoToVR180Filter(BaseImageFilter):
             warped_rgb = self._remap_rectilinear_to_fisheye(rgb, fov_in_deg, strength)
             warped_alpha = self._remap_rectilinear_to_fisheye(alpha, fov_in_deg, strength)
             out_arr = np.dstack([warped_rgb, warped_alpha]).astype(np.uint8)
-            return Image.fromarray(out_arr, mode="RGBA")
+            return self._apply_zoom_out(Image.fromarray(out_arr, mode="RGBA"), zoom_out, has_alpha)
 
         rgb_arr = np.array(half_image.convert("RGB"), dtype=np.uint8)
         warped = self._remap_rectilinear_to_fisheye(rgb_arr, fov_in_deg, strength)
-        return Image.fromarray(warped, mode="RGB")
+        return self._apply_zoom_out(Image.fromarray(warped, mode="RGB"), zoom_out, has_alpha)
 
     def transform(self, image: Image.Image) -> Image.Image:
         if image is None:
@@ -88,6 +114,7 @@ class StereoToVR180Filter(BaseImageFilter):
         try:
             strength = self.get_parameter("fisheye_strength", 1.0)
             fov_in_norm = self.get_parameter("input_fov", 0.45)
+            zoom_out = self.get_parameter("zoom_out", 0.0)
             fov_in_deg = 70.0 + 80.0 * fov_in_norm
 
             has_alpha = image.mode == "RGBA"
@@ -103,8 +130,8 @@ class StereoToVR180Filter(BaseImageFilter):
             left = src.crop((0, 0, left_w, full_h))
             right = src.crop((left_w, 0, left_w + right_w, full_h))
 
-            left_out = self._transform_half(left, fov_in_deg, strength, has_alpha)
-            right_out = self._transform_half(right, fov_in_deg, strength, has_alpha)
+            left_out = self._transform_half(left, fov_in_deg, strength, zoom_out, has_alpha)
+            right_out = self._transform_half(right, fov_in_deg, strength, zoom_out, has_alpha)
 
             out = Image.new("RGBA" if has_alpha else "RGB", (full_w, full_h))
             out.paste(left_out, (0, 0))

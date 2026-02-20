@@ -92,6 +92,9 @@ MAX_WAIT_DIALOG_THRESHOLD_TIME=10000
 # Small UI redraw delay to ensure image appears after load
 DISPLAY_REFRESH_DELAY_MS = 75
 CONTENT_FILTER_PROPERTIES_FILENAME = "content_filter.properties"
+INPAINT_PROPERTIES_FILENAME = "inpaint.properties"
+INPAINT_PROPERTIES_KEY_TASK = "selected_task"
+INPAINT_PROPERTIES_KEY_BRUSH_SIZE = "brush_size"
 
 # ---- Tasks ----
 global taskCounterUI, taskCounterAsync, showWaitDialog
@@ -102,6 +105,9 @@ showWaitDialog=False
 # Currently selected inpaint task (persisted at runtime)
 global selected_inpaint_task
 selected_inpaint_task = "inpaint-sd15"
+global selected_inpaint_brush_size
+selected_inpaint_brush_size = 25
+_logged_invalid_inpaint_tasks = set()
 
 # Temp file cleanup list and worker
 TEMP_FILES_TO_CLEANUP = []
@@ -172,7 +178,19 @@ def set_selected_inpaint_task(name: str):
     global selected_inpaint_task
     try:
         if name and isinstance(name, str):
-            selected_inpaint_task = name
+            selected_inpaint_task = _resolve_valid_inpaint_task(name)
+            _save_selected_inpaint_task(selected_inpaint_task)
+    except Exception:
+        pass
+
+
+def set_selected_inpaint_brush_size(value: int):
+    global selected_inpaint_brush_size
+    try:
+        size = int(value)
+        size = max(1, min(200, size))
+        selected_inpaint_brush_size = size
+        _save_inpaint_preferences(selected_inpaint_task, selected_inpaint_brush_size)
     except Exception:
         pass
 
@@ -230,6 +248,179 @@ def write_properties_file(file_path: str, kv: dict):
                 handle.write(f"{key}={kv[key]}\n")
     except Exception:
         pass
+
+
+def _get_inpaint_properties_path() -> str:
+    return os.path.join(get_user_config_dir(), INPAINT_PROPERTIES_FILENAME)
+
+
+def _get_inpaint_tasks_dir() -> str:
+    return os.path.abspath(os.path.join(path, "../../../../input/vr/tasks"))
+
+
+def _get_task_blueprint_path(task_name: str) -> str:
+    task = str(task_name or "").strip()
+    if not task:
+        return ""
+    if task.startswith("_"):
+        return os.path.abspath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/tasks", f"{task[1:]}.json"))
+    return os.path.abspath(os.path.join(path, "../../config/tasks", f"{task}.json"))
+
+
+def _is_valid_inpaint_task(task_name: str) -> bool:
+    task = str(task_name or "").strip()
+    if not task or "inpaint" not in task.lower():
+        return False
+    task_dir = os.path.join(_get_inpaint_tasks_dir(), task)
+    blueprint = _get_task_blueprint_path(task)
+    return os.path.isdir(task_dir) and os.path.isfile(blueprint)
+
+
+def _list_valid_inpaint_tasks() -> list:
+    global _logged_invalid_inpaint_tasks
+    names = []
+    try:
+        tasks_dir = _get_inpaint_tasks_dir()
+        if not os.path.isdir(tasks_dir):
+            return names
+        for name in sorted(os.listdir(tasks_dir)):
+            full = os.path.join(tasks_dir, name)
+            if not os.path.isdir(full):
+                continue
+            if _is_valid_inpaint_task(name):
+                names.append(name)
+            elif "inpaint" in str(name).lower():
+                try:
+                    blueprint = _get_task_blueprint_path(name)
+                    key = str(name)
+                    if key not in _logged_invalid_inpaint_tasks and TRACELEVEL >= 0:
+                        print(f"Error: No blueprint for task {name} at {blueprint}", flush=True)
+                        _logged_invalid_inpaint_tasks.add(key)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return names
+
+
+def _resolve_valid_inpaint_task(preferred_task: str = "") -> str:
+    preferred = str(preferred_task or "").strip()
+    valid = _list_valid_inpaint_tasks()
+    if preferred and preferred in valid:
+        return preferred
+    default_task = "inpaint-sd15"
+    if default_task in valid:
+        return default_task
+    if len(valid) > 0:
+        return valid[0]
+    return default_task
+
+
+def _clamp_inpaint_brush_size(value, fallback: int = 25) -> int:
+    try:
+        parsed = int(value)
+    except Exception:
+        parsed = int(fallback)
+    return max(1, min(200, parsed))
+
+
+def _load_selected_inpaint_task(default_value: str = "inpaint-sd15") -> str:
+    try:
+        values = read_properties_file(_get_inpaint_properties_path())
+        stored = str(values.get(INPAINT_PROPERTIES_KEY_TASK, "")).strip()
+        if stored:
+            return stored
+    except Exception:
+        pass
+    return default_value
+
+
+def _load_selected_inpaint_brush_size(default_value: int = 25) -> int:
+    try:
+        values = read_properties_file(_get_inpaint_properties_path())
+        stored = str(values.get(INPAINT_PROPERTIES_KEY_BRUSH_SIZE, "")).strip()
+        if stored:
+            return _clamp_inpaint_brush_size(stored, default_value)
+    except Exception:
+        pass
+    return _clamp_inpaint_brush_size(default_value, 25)
+
+
+def _save_inpaint_preferences(task_name: str, brush_size: int):
+    try:
+        task_value = str(task_name).strip()
+        size_value = str(_clamp_inpaint_brush_size(brush_size, 25))
+        if not task_value:
+            return
+        file_path = _get_inpaint_properties_path()
+        values = read_properties_file(file_path)
+        values[INPAINT_PROPERTIES_KEY_TASK] = task_value
+        values[INPAINT_PROPERTIES_KEY_BRUSH_SIZE] = size_value
+        write_properties_file(file_path, values)
+    except Exception:
+        pass
+
+
+def _repair_inpaint_preferences_if_needed(task_name: str, brush_size: int):
+    """Normalize old/invalid inpaint prefs and rewrite only when changed."""
+    normalized_task = _resolve_valid_inpaint_task(str(task_name).strip() or "inpaint-sd15")
+    normalized_brush = _clamp_inpaint_brush_size(brush_size, 25)
+    try:
+        file_path = _get_inpaint_properties_path()
+        values = read_properties_file(file_path)
+
+        raw_task = str(values.get(INPAINT_PROPERTIES_KEY_TASK, "")).strip()
+        raw_brush = str(values.get(INPAINT_PROPERTIES_KEY_BRUSH_SIZE, "")).strip()
+
+        if raw_task:
+            normalized_task = _resolve_valid_inpaint_task(raw_task)
+        if raw_brush:
+            normalized_brush = _clamp_inpaint_brush_size(raw_brush, normalized_brush)
+
+        desired_brush_str = str(normalized_brush)
+        needs_write = (raw_task != normalized_task) or (raw_brush != desired_brush_str)
+        if needs_write:
+            values[INPAINT_PROPERTIES_KEY_TASK] = normalized_task
+            values[INPAINT_PROPERTIES_KEY_BRUSH_SIZE] = desired_brush_str
+            write_properties_file(file_path, values)
+            if TRACELEVEL >= 0:
+                print(
+                    f"Error: Inpaint prefs corrected: task='{raw_task or '<empty>'}' -> '{normalized_task}', "
+                    f"brush='{raw_brush or '<empty>'}' -> '{desired_brush_str}'",
+                    flush=True,
+                )
+    except Exception:
+        pass
+    return normalized_task, normalized_brush
+
+
+def _save_selected_inpaint_task(task_name: str):
+    try:
+        value = str(task_name).strip()
+        if not value:
+            return
+        _save_inpaint_preferences(value, selected_inpaint_brush_size)
+    except Exception:
+        pass
+
+
+try:
+    selected_inpaint_task = _load_selected_inpaint_task(selected_inpaint_task)
+except Exception:
+    pass
+
+try:
+    selected_inpaint_brush_size = _load_selected_inpaint_brush_size(selected_inpaint_brush_size)
+except Exception:
+    pass
+
+try:
+    selected_inpaint_task, selected_inpaint_brush_size = _repair_inpaint_preferences_if_needed(
+        selected_inpaint_task,
+        selected_inpaint_brush_size,
+    )
+except Exception:
+    pass
 
 
 def isTaskActive():
@@ -5225,28 +5416,22 @@ class InpaintOverlay(QWidget):
             try:
                 self.blockSignals(True)
                 self.clear()
-                tasks_dir = os.path.join(path, "../../../../input/vr/tasks")
-                names = []
-                if os.path.exists(tasks_dir):
-                    for name in sorted(os.listdir(tasks_dir)):
-                        if "inpaint" in name.lower():
-                            names.append(name)
+                names = _list_valid_inpaint_tasks()
                 # prefer explicit 'inpaint-sd15' as the startup default if present
                 preferred = "inpaint-sd15"
-                # ensure stored selection exists in list; if not, add it
-                if selected_inpaint_task and selected_inpaint_task not in names:
-                    names.insert(0, selected_inpaint_task)
                 for n in names:
                     self.addItem(n)
-                # choose startup selection: prefer 'inpaint-sd15' if available
+                # choose startup selection: prefer persisted selection, then fallback default
                 try:
                     idx = -1
-                    if preferred in names:
-                        idx = self.findText(preferred)
-                        # also update global selection to preferred
-                        set_selected_inpaint_task(preferred)
-                    elif selected_inpaint_task and selected_inpaint_task in names:
+                    if selected_inpaint_task and selected_inpaint_task in names:
                         idx = self.findText(selected_inpaint_task)
+                    elif preferred in names:
+                        idx = self.findText(preferred)
+                        set_selected_inpaint_task(preferred)
+                    elif len(names) > 0:
+                        idx = 0
+                        set_selected_inpaint_task(names[0])
                     if idx >= 0:
                         self.setCurrentIndex(idx)
                 except Exception:
@@ -5274,7 +5459,7 @@ class InpaintOverlay(QWidget):
         self.setMouseTracking(True)
         self._init_mask()
         self.drawing = False
-        self.brush_size = 25
+        self.brush_size = int(selected_inpaint_brush_size)
         self._last_pos = None
         # UI controls (created but hidden by default)
         self.control_widget = None
@@ -5593,6 +5778,7 @@ class InpaintOverlay(QWidget):
     def _on_brush_slider_changed(self, val):
         try:
             self.brush_size = int(val)
+            set_selected_inpaint_brush_size(self.brush_size)
             if self.brush_label:
                 self.brush_label.setText(f"Brush: {self.brush_size}")
         except Exception:
@@ -5716,6 +5902,9 @@ class InpaintCropWidget(CropWidget):
         cropped to the current crop rectangle. Filename uses the same base
         name as the currently displayed image, with .bmp extension.
         """
+        final_bg_path = None
+        final_mask_path = None
+        target_folder = None
         try:
             if self.overlay is None or self.original_pixmap is None:
                 return
@@ -5760,7 +5949,11 @@ class InpaintCropWidget(CropWidget):
             crop_h = int(crop_rect.height())
 
             # Use the currently selected inpaint task (stored in `selected_inpaint_task`)
-            target_folder = os.path.join(path, "../../../../input/vr/tasks", selected_inpaint_task)
+            selected_task = _resolve_valid_inpaint_task(selected_inpaint_task)
+            set_selected_inpaint_task(selected_task)
+            if not _is_valid_inpaint_task(selected_task):
+                raise RuntimeError(f"Invalid inpaint task selection: {selected_task}")
+            target_folder = os.path.abspath(os.path.join(path, "../../../../input/vr/tasks", selected_task))
 
             # ========== STEP 1: Save cropped background image ==========
             # Crop the original image to the crop rectangle
@@ -5768,7 +5961,7 @@ class InpaintCropWidget(CropWidget):
 
             # Determine output directory for background image
             rfolder = os.path.join(path, "../../../../input/vr/check/rate")
-            bg_dirpath = os.path.join(rfolder, "edit")
+            bg_dirpath = os.path.abspath(os.path.join(rfolder, "edit"))
             os.makedirs(bg_dirpath, exist_ok=True)
 
             # Build unique filename with _N suffix
@@ -5779,10 +5972,11 @@ class InpaintCropWidget(CropWidget):
                         os.path.exists(os.path.join(target_folder, f"{base}_{n}.png")) or
                         os.path.exists(os.path.join(target_folder, "done", f"{base}_{n}.png"))):
                     n += 1
-            bg_outpath = os.path.join(bg_dirpath, f"{base}_{n}.png")
+            bg_outpath = os.path.abspath(os.path.join(bg_dirpath, f"{base}_{n}.png"))
 
             # Save cropped background as PNG
-            cropped_image.save(bg_outpath, "PNG")
+            if not cropped_image.save(bg_outpath, "PNG"):
+                raise RuntimeError(f"Saving background failed: {bg_outpath}")
             if TRACELEVEL >= 1:
                 print(f"Execute: saved cropped background to {bg_outpath}", flush=True)
 
@@ -5790,10 +5984,11 @@ class InpaintCropWidget(CropWidget):
             cropped_mask = scaled_mask.copy(x0, y0, crop_w, crop_h)
 
             # Use same base filename as background image, but with .bmp extension
-            mask_outpath = os.path.splitext(bg_outpath)[0] + ".bmp"
+            mask_outpath = os.path.abspath(os.path.splitext(bg_outpath)[0] + ".bmp")
 
             # save as BMP
-            cropped_mask.save(mask_outpath, "BMP")
+            if not cropped_mask.save(mask_outpath, "BMP"):
+                raise RuntimeError(f"Saving mask failed: {mask_outpath}")
             if TRACELEVEL >= 1:
                 print(f"Execute: saved mask to {mask_outpath}", flush=True)
 
@@ -5801,8 +5996,8 @@ class InpaintCropWidget(CropWidget):
             os.makedirs(target_folder, exist_ok=True)
 
             # Determine final paths
-            final_bg_path = os.path.join(target_folder, os.path.basename(bg_outpath))
-            final_mask_path = os.path.join(target_folder, os.path.basename(mask_outpath))
+            final_bg_path = os.path.abspath(os.path.join(target_folder, os.path.basename(bg_outpath)))
+            final_mask_path = os.path.abspath(os.path.join(target_folder, os.path.basename(mask_outpath)))
 
             # Move background image
             shutil.move(bg_outpath, final_bg_path)
@@ -5814,6 +6009,17 @@ class InpaintCropWidget(CropWidget):
             if TRACELEVEL >= 1:
                 print(f"Execute: moved mask to {final_mask_path}", flush=True)
 
+            # Mirror regular save logging in main dialog status log
+            try:
+                owner = self.window()
+                if owner is not None and hasattr(owner, 'log') and hasattr(owner, 'logn'):
+                    owner.log("Create " + final_bg_path, QColor("white"))
+                    owner.logn(" OK", QColor("green"))
+                    owner.log("Create " + final_mask_path, QColor("white"))
+                    owner.logn(" OK", QColor("green"))
+            except Exception:
+                pass
+
             # Disable Export and Clear buttons after successful export
             try:
                 if hasattr(self, 'execute_button') and self.execute_button is not None:
@@ -5824,6 +6030,20 @@ class InpaintCropWidget(CropWidget):
                 pass
 
         except Exception:
+            try:
+                owner = self.window()
+                if owner is not None and hasattr(owner, 'log') and hasattr(owner, 'logn'):
+                    if final_bg_path:
+                        owner.log("Create " + final_bg_path, QColor("white"))
+                    elif final_mask_path:
+                        owner.log("Create " + final_mask_path, QColor("white"))
+                    elif target_folder:
+                        owner.log("Create " + os.path.abspath(target_folder), QColor("white"))
+                    else:
+                        owner.log("Create Inpaint export", QColor("white"))
+                    owner.logn(" Failed", QColor("red"))
+            except Exception:
+                pass
             print(traceback.format_exc(), flush=True)
 
 

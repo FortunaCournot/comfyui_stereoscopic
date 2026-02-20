@@ -115,7 +115,11 @@ else
 				fi
 			else
 				echo -e $"\e[91mError:\e[0m No blueprint for task $DISPLAYNAME at `realpath $jsonblueprint`"
-				exit 1
+				mkdir -p "input/vr/tasks/$TASKNAME/error"
+				if [ -e "$newfn" ] ; then
+					mv -vf -- "$newfn" "input/vr/tasks/$TASKNAME/error"
+				fi
+				exit 0
 			fi
 		done
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
