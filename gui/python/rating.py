@@ -39,6 +39,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QHBoxLayout, QHeaderView, QLabel, QMainWindow,
                              QMenu,
                              QMessageBox, QPushButton, QShortcut, QSizePolicy,
+                             QProgressBar,
                              QSlider, QStatusBar, QTableWidget,
                              QTableWidgetItem, QToolBar, QVBoxLayout, QWidget,
                              QWidgetAction,
@@ -816,6 +817,7 @@ class JudgeDialog(QDialog):
 
            
 class RateAndCutDialog(QDialog):
+    frame_export_progress_signal = pyqtSignal(int, int)
 
     def __init__(self, cutMode):
         super().__init__(None, Qt.WindowSystemMenuHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint )
@@ -829,6 +831,9 @@ class RateAndCutDialog(QDialog):
             self.cutMode=cutMode
             cutModeFolderOverrideActive=False
             self.wait_dialog = None
+            self._frame_export_progress_dialog = None
+            self._frame_export_progress_bar = None
+            self.frame_export_progress_signal.connect(self._update_frame_export_progress)
             self.playtype_pingpong=False
             self.sliderinitdone=False
             self.filter_img = False
@@ -849,6 +854,7 @@ class RateAndCutDialog(QDialog):
             self._active_content_filter_list: List[BaseImageFilter] = []
             self._current_filter_combo_content_type = None
             self.active_content_filter: BaseImageFilter = BaseImageFilter()
+            self._last_loaded_content_path = None
             self._content_filter_properties_path = os.path.join(get_user_config_dir(), CONTENT_FILTER_PROPERTIES_FILENAME)
             
             self._load_content_filter_parameter_values()
@@ -1196,6 +1202,7 @@ class RateAndCutDialog(QDialog):
             self.sl = FrameSlider(Qt.Horizontal)
             
             self.display = Display(cutMode, self.button_startpause_video, self.sl, self.updatePaused, self.onVideoLoaded, self.onRectSelected, self.onUpdate, self.playtype_pingpong, self.onBlackout)
+            self.display.registerForContentFilter(self.apply_active_content_filter_to_pixmap)
             #self.display.resize(self.display_width, self.display_height)
 
             self.sp3 = QLabel(self)
@@ -1869,6 +1876,7 @@ class RateAndCutDialog(QDialog):
             if not isinstance(filter_instance, BaseImageFilter):
                 continue
             supported = self._get_filter_supported_content_types(filter_instance)
+
             if BaseImageFilter.CONTENT_TYPE_IMAGE in supported:
                 image_filters.append(filter_instance)
             if BaseImageFilter.CONTENT_TYPE_VIDEO in supported:
@@ -1964,6 +1972,27 @@ class RateAndCutDialog(QDialog):
         self._update_filter_settings_action_icon()
         self._update_filter_settings_action_state()
         self._update_selected_filter_tooltip()
+
+    def _reset_content_filter_selection(self):
+        try:
+            for content_type in [BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO]:
+                filters = list(self._filter_lists_by_content_type.get(content_type, []) or [])
+                if len(filters) == 0:
+                    self._selected_filter_id_by_content_type[content_type] = ""
+                    continue
+
+                selected_id = ""
+                for filter_instance in filters:
+                    if str(getattr(filter_instance, 'filter_id', '')).strip().lower() == 'none':
+                        selected_id = str(getattr(filter_instance, 'filter_id', '')).strip()
+                        break
+                if not selected_id:
+                    selected_id = str(getattr(filters[0], 'filter_id', '')).strip()
+                self._selected_filter_id_by_content_type[content_type] = selected_id
+
+            self._apply_content_filter_list_for_content_type(self._get_current_content_type())
+        except Exception:
+            pass
 
     def on_filter_mode_combobox_index_changed(self, index):
         self._invalidate_trashbin_switch_mode()
@@ -2201,6 +2230,88 @@ class RateAndCutDialog(QDialog):
             return pil2pixmap(filtered)
         except Exception:
             return pixmap
+
+    def apply_active_content_filter_to_cv_frame(self, cv_frame):
+        if cv_frame is None or getattr(cv_frame, "size", 0) == 0:
+            return cv_frame
+
+        if not self._is_filter_supported_for_current_content():
+            return cv_frame
+
+        try:
+            rgb_image = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
+            pil_image = Image.fromarray(rgb_image).convert("RGB")
+            filtered = self.apply_active_content_filter(pil_image)
+            if not isinstance(filtered, Image.Image):
+                return cv_frame
+            filtered_rgb = np.array(filtered.convert("RGB"), dtype=np.uint8)
+            return cv2.cvtColor(filtered_rgb, cv2.COLOR_RGB2BGR)
+        except Exception:
+            return cv_frame
+
+    def _show_frame_export_progress(self, total_frames: int):
+        try:
+            total = max(1, int(total_frames))
+        except Exception:
+            total = 1
+
+        try:
+            if self._frame_export_progress_dialog is not None and self._frame_export_progress_bar is not None:
+                self._frame_export_progress_bar.setRange(0, total)
+                self._frame_export_progress_bar.setValue(0)
+                self._frame_export_progress_dialog.show()
+                self._frame_export_progress_dialog.raise_()
+                return
+
+            dlg = QDialog(self)
+            dlg.setModal(True)
+            dlg.setWindowFlags(Qt.Dialog | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+            dlg.setWindowTitle(" ")
+            dlg.setMinimumWidth(380)
+            dlg.setMaximumWidth(520)
+
+            layout = QVBoxLayout()
+            layout.setContentsMargins(16, 16, 16, 16)
+            bar = QProgressBar(dlg)
+            bar.setRange(0, total)
+            bar.setValue(0)
+            bar.setTextVisible(False)
+            bar.setMinimumHeight(18)
+            layout.addWidget(bar)
+            dlg.setLayout(layout)
+
+            self._frame_export_progress_dialog = dlg
+            self._frame_export_progress_bar = bar
+
+            dlg.show()
+            dlg.raise_()
+        except Exception:
+            pass
+
+    def _update_frame_export_progress(self, done_frames: int, total_frames: int):
+        try:
+            if self._frame_export_progress_dialog is None or self._frame_export_progress_bar is None:
+                self._show_frame_export_progress(total_frames)
+
+            if self._frame_export_progress_bar is None:
+                return
+
+            total = max(1, int(total_frames))
+            done = max(0, min(int(done_frames), total))
+            self._frame_export_progress_bar.setRange(0, total)
+            self._frame_export_progress_bar.setValue(done)
+        except Exception:
+            pass
+
+    def _hide_frame_export_progress(self):
+        try:
+            if self._frame_export_progress_dialog is not None:
+                self._frame_export_progress_dialog.hide()
+                self._frame_export_progress_dialog.deleteLater()
+        except Exception:
+            pass
+        self._frame_export_progress_dialog = None
+        self._frame_export_progress_bar = None
 
     def _update_content_filter_visibility(self):
         if not hasattr(self, 'filter_mode_spacing') or not hasattr(self, 'filter_mode_combo'):
@@ -2917,8 +3028,15 @@ class RateAndCutDialog(QDialog):
                 else:
                     folder=os.path.join(path, "../../../../input/vr/check/rate")
                 file_path=os.path.abspath(os.path.join(folder, self.currentFile))
+
+                previous_loaded_path = str(getattr(self, '_last_loaded_content_path', '') or '')
+                current_target_path = str(file_path or '')
+                if previous_loaded_path != current_target_path:
+                    self._reset_content_filter_selection()
+
                 if os.path.exists(file_path):
                     self.isVideo=self.display.showFile( file_path ) == "video"
+                    self._last_loaded_content_path = current_target_path
                     try:
                         self._apply_content_filter_list_for_content_type(self._get_current_content_type())
                     except Exception:
@@ -2937,6 +3055,7 @@ class RateAndCutDialog(QDialog):
                 else:
                     print("Error: File does not exist (rateCurrentFile): "  + file_path, flush=True)
                     self.isVideo = False
+                    self._last_loaded_content_path = None
                     try:
                         self._apply_content_filter_list_for_content_type(self._get_current_content_type())
                     except Exception:
@@ -2951,6 +3070,7 @@ class RateAndCutDialog(QDialog):
                 self.fileSlider.setEnabled(False)
                 self.main_group_box.setTitle( "" )
                 self.isVideo = False
+                self._last_loaded_content_path = None
                 try:
                     self._apply_content_filter_list_for_content_type(self._get_current_content_type())
                 except Exception:
@@ -3415,6 +3535,22 @@ class RateAndCutDialog(QDialog):
                 folder=rfolder
             input=os.path.abspath(os.path.join(folder, self.currentFile))
             try:
+                if self.isVideo:
+                    try:
+                        if hasattr(self, 'display') and self.display is not None:
+                            if not self.display.isPaused():
+                                self.display.tooglePausePressed()
+                                try:
+                                    if self.display.isPaused():
+                                        self.updatePaused(True)
+                                    self.button_startpause_video.update()
+                                    self.button_startpause_video.repaint()
+                                    QApplication.processEvents()
+                                except Exception:
+                                    pass
+                    except Exception:
+                        print(traceback.format_exc(), flush=True)
+
                 suffix = ".mp4" if self.display.frame_count>0 else ".png"
                 newfilename = self.buildOutputFilename(folder, rfolder+"/edit", self.currentFile, suffix)
                 output=os.path.abspath(os.path.join(rfolder+"/edit", newfilename))
@@ -3456,6 +3592,27 @@ class RateAndCutDialog(QDialog):
                     except Exception:
                         print(traceback.format_exc(), flush=True)
                     self.trimAndCrop_updater(recreated, input, output, success)
+                    return
+
+                active_filter_id = ""
+                try:
+                    active_filter_id = str(getattr(self.active_content_filter, 'filter_id', '') or '').strip().lower()
+                except Exception:
+                    active_filter_id = ""
+                use_frame_export = active_filter_id == "grayscale" and self._is_filter_supported_for_current_content()
+
+                if use_frame_export:
+                    pingpong_active = bool(getattr(self, 'playtype_pingpong', False) or getattr(getattr(self, 'display', None), 'pingPongModeEnabled', False))
+                    estimated_total_frames = max(1, int(trimB) - int(trimA) + 1)
+                    if pingpong_active and estimated_total_frames > 1:
+                        estimated_total_frames *= 2
+                    self._show_frame_export_progress(estimated_total_frames)
+                    thread = threading.Thread(
+                        target=self.trimAndCrop_frames_worker,
+                        args=(recreated, input, output, trimA, trimB, x, y, out_w, out_h, pingpong_active),
+                        daemon=True,
+                    )
+                    thread.start()
                     return
 
                 # Determine fps if available (for accurate audio trimming)
@@ -3524,6 +3681,109 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
 
+    def trimAndCrop_frames_worker(self, recreated, input, output, trimA, trimB, x, y, out_w, out_h, pingpong_active):
+        startAsyncTask()
+        success = False
+        cap = None
+        tmp_video = None
+        writer = None
+        try:
+            cap, tmp_video = open_videocapture_with_tmp(input)
+            if cap is None or not cap.isOpened():
+                raise RuntimeError(f"Failed to open video for frame export: {input}")
+
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            fps = float(cap.get(cv2.CAP_PROP_FPS))
+            if fps <= 0:
+                fps = 24.0
+
+            start_frame = max(0, int(trimA))
+            end_frame = int(trimB) if trimB is not None else -1
+            if frame_count > 0:
+                max_end = frame_count - 1
+                if end_frame < 0:
+                    end_frame = max_end
+                else:
+                    end_frame = min(end_frame, max_end)
+
+            if end_frame < start_frame:
+                raise RuntimeError(f"Invalid trim range: {start_frame}..{end_frame}")
+
+            base_total_frames = max(0, end_frame - start_frame + 1)
+            total_frames_to_write = base_total_frames
+            if pingpong_active and base_total_frames > 1:
+                total_frames_to_write += base_total_frames
+            self.frame_export_progress_signal.emit(0, max(1, total_frames_to_write))
+
+            export_w = max(2, int(out_w))
+            export_h = max(2, int(out_h))
+            if export_w % 2 == 1:
+                export_w -= 1
+            if export_h % 2 == 1:
+                export_h -= 1
+
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            writer = cv2.VideoWriter(output, fourcc, fps, (export_w, export_h))
+            if not writer.isOpened():
+                raise RuntimeError(f"Failed to open video writer: {output}")
+
+            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+            frame_index = start_frame
+            exported_frames = [] if pingpong_active else None
+            written_frames = 0
+
+            while frame_index <= end_frame:
+                ret, frame = cap.read()
+                if not ret or frame is None:
+                    break
+
+                crop = frame[y:y + export_h, x:x + export_w]
+                if crop is None or getattr(crop, "size", 0) == 0:
+                    frame_index += 1
+                    continue
+
+                if crop.shape[1] != export_w or crop.shape[0] != export_h:
+                    crop = cv2.resize(crop, (export_w, export_h), interpolation=cv2.INTER_LINEAR)
+
+                filtered_frame = self.apply_active_content_filter_to_cv_frame(crop)
+                writer.write(filtered_frame)
+                written_frames += 1
+                self.frame_export_progress_signal.emit(written_frames, max(1, total_frames_to_write))
+
+                if exported_frames is not None:
+                    exported_frames.append(filtered_frame.copy())
+
+                frame_index += 1
+
+            if exported_frames is not None and len(exported_frames) > 1:
+                for frame in reversed(exported_frames):
+                    writer.write(frame)
+                    written_frames += 1
+                    self.frame_export_progress_signal.emit(written_frames, max(1, total_frames_to_write))
+
+            success = os.path.exists(output) and os.path.getsize(output) > 0
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+            success = False
+        finally:
+            try:
+                if writer is not None:
+                    writer.release()
+            except Exception:
+                pass
+            try:
+                if cap is not None:
+                    cap.release()
+            except Exception:
+                pass
+            if tmp_video:
+                try:
+                    os.unlink(tmp_video)
+                except Exception:
+                    pass
+
+            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, success))
+
             
     def trimAndCrop_worker(self, cmd, recreated, input, output):
         startAsyncTask()
@@ -3571,6 +3831,7 @@ class RateAndCutDialog(QDialog):
 
 
     def trimAndCrop_updater(self, recreated, input, output, success):
+        self._hide_frame_export_progress()
         if success:
             self.log(" Overwritten" if recreated else " OK", QColor("green"))
             if self._has_active_non_default_filter() and self.display.frame_count<=0 and os.path.exists(output):
@@ -4451,8 +4712,9 @@ class VideoThread(QThread):
     def seek(self, frame_number):
         if self.currentFrame == frame_number and self.currentFrame == self.lastLoadedFrame:
             return
-        while self.busy:
-            pass
+        if self.busy:
+            self.seekRequest = frame_number
+            return
         self.busy=True
         try:
             if TRACELEVEL >= 2:
@@ -4469,7 +4731,11 @@ class VideoThread(QThread):
             self.lastLoadedFrame=frame_number
             #print("seek", frame_number, self.slider.value(), flush=True)
             if (frame_number!=self.slider.value()):
-                self.slider.setValue(self.currentFrame)
+                self.slider.blockSignals(True)
+                try:
+                    self.slider.setValue(self.currentFrame)
+                finally:
+                    self.slider.blockSignals(False)
             self.change_pixmap_signal.emit(cv_img, self.uid)
             #QTimer.singleShot(100, partial(self.seekUpdate, cv_img))
         else:
@@ -4501,10 +4767,12 @@ class VideoThread(QThread):
         self.pingPongReverseState=False
 
     def sliderChanged(self):
+        slider = self.sender()
+        if slider is None:
+            return
         if self.pause:  # do not call while playback
-            #print("sliderChanged. seek", self.sender().value(), flush=True)
-            self.seek(self.sender().value())
-        self.sender().sliderChanged(self.sender().value())
+            self.seekRequest = slider.value()
+        slider.sliderChanged(slider.value())
 
     def onSliderMouseClick(self):
         if not self.pause:
@@ -4527,7 +4795,7 @@ class VideoThread(QThread):
             self.update(self.pause)
         if TRACELEVEL >= 1:
             print("posA", flush=True)
-        self.seek(self.a)
+        self.seekRequest=self.a
         
     def posB(self):
         if not self.pause:
@@ -4535,7 +4803,7 @@ class VideoThread(QThread):
             self.update(self.pause)
         if TRACELEVEL >= 1:
             print("posB", flush=True)
-        self.seek(self.b)
+        self.seekRequest=self.b
 
     def setA(self, frame_number):
         self.a=frame_number
@@ -4631,6 +4899,7 @@ class Display(QLabel):
         self.onUpdateFile=None
         self.onUpdateImage=None
         self.onCropOrTrim = None
+        self.content_filter_callback = None
         self.sourcePixmap=None
         self.thread=None
         self.frame_count=-1
@@ -4732,7 +5001,15 @@ class Display(QLabel):
             h, w, ch = rgb_image.shape
             bytes_per_line = ch * w
             convert_cv_qt_img = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-            self.thumbnail.setPixmap( QPixmap.fromImage(convert_cv_qt_img).scaled( self.thumbnailsize, self.thumbnailsize, Qt.KeepAspectRatio ) )
+            preview_pixmap = QPixmap.fromImage(convert_cv_qt_img)
+            try:
+                if callable(self.content_filter_callback):
+                    candidate = self.content_filter_callback(preview_pixmap.copy())
+                    if candidate is not None and not candidate.isNull():
+                        preview_pixmap = candidate
+            except Exception:
+                pass
+            self.thumbnail.setPixmap(preview_pixmap.scaled(self.thumbnailsize, self.thumbnailsize, Qt.KeepAspectRatio))
         except:
             print(traceback.format_exc(), flush=True)
         
@@ -4755,7 +5032,7 @@ class Display(QLabel):
                         nextsceneframeindex=idx
                         break
                         
-                self.thread.seek(nextsceneframeindex)
+                self.thread.seekRequest=nextsceneframeindex
                 self.slider.setFocus()
             
     def applySceneIntersections(self, scene_intersections):
@@ -4802,7 +5079,15 @@ class Display(QLabel):
             self.imggeometry=self.size()
             #if TRACELEVEL >= 3:
             #    print("imggeometry. w:", self.imggeometry.width(), "h:", self.imggeometry.height(), flush=True)
-            pm = self.qt_img.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio)
+            display_pixmap = self.qt_img
+            try:
+                if callable(self.content_filter_callback):
+                    candidate = self.content_filter_callback(self.qt_img.copy())
+                    if candidate is not None and not candidate.isNull():
+                        display_pixmap = candidate
+            except Exception:
+                pass
+            pm = display_pixmap.scaled(self.imggeometry.width(), self.imggeometry.height(), Qt.KeepAspectRatio)
             #if TRACELEVEL >= 3:
             #    print("pm. w:", pm.width(), "h:", pm.height(), flush=True)
             self.setPixmap(pm)
@@ -4936,6 +5221,9 @@ class Display(QLabel):
         
     def registerForTrimUpdate(self, onCropOrTrim):
         self.onCropOrTrim = onCropOrTrim
+
+    def registerForContentFilter(self, callback):
+        self.content_filter_callback = callback
 
     def startVideo(self, uid):
         enterUITask()

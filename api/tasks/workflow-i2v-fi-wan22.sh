@@ -152,6 +152,7 @@ else
 	set +x && [ $loglevel -ge 2 ] && set -x
 
 	EXTENSION=".mp4"
+	SEARCH_PREFIX="${TARGETPREFIX##*/}"
 	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
 	FINALTARGETCAP="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}"".txt"
 	
@@ -179,21 +180,29 @@ else
 	runtime=$((end-start))
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 	
-	INTERMEDIATE=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*"$EXTENSION" -print`
-  INTERMEDIATECAP=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".txt" -print`
-	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
+	INTERMEDIATE=""
+	INTERMEDIATECAP=""
+	INTERMEDIATE=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*${EXTENSION}" -size +0c -print -quit 2>/dev/null)
+	INTERMEDIATECAP=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*.txt" -size +0c -print -quit 2>/dev/null)
+	if [ -n "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
   	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$ORIGINALINPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$INTERMEDIATE" && echo "tags copied."
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
-		mv -- "$INTERMEDIATECAP" "$FINALTARGETCAP"
+		if [ -n "$INTERMEDIATECAP" ] && [ -s "$INTERMEDIATECAP" ] ; then
+			mv -- "$INTERMEDIATECAP" "$FINALTARGETCAP"
+		fi
 		mkdir -p input/vr/tasks/$TASKNAME/done
-		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/done
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
-	  rm -rf -- $INTERMEDIATE_INPUT_FOLDER
+	  rm -rf -- "$INTERMEDIATE_INPUT_FOLDER"
 		echo -e $"\e[92mtask done.\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m Task failed. $INTERMEDIATE missing or zero-length."
+		if [ -z "$INTERMEDIATE" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. No intermediate video found (prefix: $SEARCH_PREFIX, ext: $EXTENSION)."
+		else
+			echo -e $"\e[91mError:\e[0m Task failed. Intermediate video exists but has zero length: $INTERMEDIATE"
+		fi
 		mkdir -p input/vr/tasks/$TASKNAME/error
-		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
 	fi
 	
 

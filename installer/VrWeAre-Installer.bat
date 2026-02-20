@@ -1045,6 +1045,9 @@ ECHO Apply extra requirements ...
 .\python_embeded\python -c "import importlib; m=importlib.import_module('insightface.model_zoo.model_zoo'); print('HAS_PICKABLE', 'PickableInferenceSession' in dir(m)); print('insightface', getattr(importlib.import_module('insightface'),'__version__',None))"
 
 .\python_embeded\python -s -m pip install segment_anything
+
+:: For ReActor:
+.\python_embeded\python -m pip install onnx
 :EXTRAS_END
 
 DEL %VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
