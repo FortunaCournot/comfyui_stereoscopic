@@ -838,10 +838,21 @@ class RateAndCutDialog(QDialog):
             self.content_filters: List[BaseImageFilter] = create_content_filter_instances()
             if not self.content_filters:
                 self.content_filters = [BaseImageFilter()]
-            self.active_content_filter: BaseImageFilter = self.content_filters[0]
+            self._filter_lists_by_content_type = {
+                BaseImageFilter.CONTENT_TYPE_IMAGE: [],
+                BaseImageFilter.CONTENT_TYPE_VIDEO: [],
+            }
+            self._selected_filter_id_by_content_type = {
+                BaseImageFilter.CONTENT_TYPE_IMAGE: "",
+                BaseImageFilter.CONTENT_TYPE_VIDEO: "",
+            }
+            self._active_content_filter_list: List[BaseImageFilter] = []
+            self._current_filter_combo_content_type = None
+            self.active_content_filter: BaseImageFilter = BaseImageFilter()
             self._content_filter_properties_path = os.path.join(get_user_config_dir(), CONTENT_FILTER_PROPERTIES_FILENAME)
             
             self._load_content_filter_parameter_values()
+            self._initialize_content_filter_lists()
             # inpaint mode flag (toggled by toolbar button)
             self.inpaint_mode = False
             self.loadingOk = True
@@ -1045,20 +1056,11 @@ class RateAndCutDialog(QDialog):
             self.filter_mode_combo = QComboBox()
             self.filter_mode_combo.setEditable(False)
             self.filter_mode_combo.setVisible(self.cutMode)
-            fallback_icon = QIcon(os.path.join(path, '../../gui/img/filter64_none.png'))
-            for filter_instance in self.content_filters:
-                icon_name = getattr(filter_instance, 'icon_name', 'filter64_none.png') or 'filter64_none.png'
-                icon_path = os.path.join(path, '../../gui/img', icon_name)
-                icon = QIcon(icon_path) if os.path.exists(icon_path) else fallback_icon
-                self.filter_mode_combo.addItem(icon, "")
-            for i, filter_instance in enumerate(self.content_filters):
-                label = getattr(filter_instance, 'display_name', f'content filter {i}')
-                self.filter_mode_combo.setItemData(i, label, Qt.ToolTipRole)
             self.filter_mode_combo.setIconSize(QSize(32,32))
             self.filter_mode_combo.setStyleSheet('selection-background-color: rgb(0,0,0)')
-            self.filter_mode_combo.setCurrentIndex(min(self.content_filter_mode, len(self.content_filters)-1))
             self.cutMode_toolbar.addWidget(self.filter_mode_combo)
             self.filter_mode_combo.currentIndexChanged.connect(self.on_filter_mode_combobox_index_changed)
+            self._apply_content_filter_list_for_content_type(self._get_current_content_type())
 
             self.filter_settings_spacing = QLabel()
             self.filter_settings_spacing.setFixedSize(4, 1)
@@ -1803,6 +1805,166 @@ class RateAndCutDialog(QDialog):
         finally:
             leaveUITask()
 
+    def _get_filter_icon(self, filter_instance: BaseImageFilter, content_type: str = "") -> QIcon:
+        try:
+            icon_name = getattr(filter_instance, 'icon_name', 'filter64_none.png') or 'filter64_none.png'
+            icon_path = os.path.join(path, '../../gui/img', icon_name)
+            if os.path.exists(icon_path):
+                base_icon = QIcon(icon_path)
+            else:
+                base_icon = QIcon(os.path.join(path, '../../gui/img/filter64_none.png'))
+
+            normalized_type = str(content_type or '').strip().lower()
+            preview_supported = normalized_type in self._get_filter_preview_supported_content_types(filter_instance)
+            if not preview_supported:
+                return base_icon
+
+            size = 64
+            base_pm = base_icon.pixmap(size, size)
+            if base_pm.isNull():
+                return base_icon
+
+            composed = QPixmap(base_pm)
+            painter = QPainter(composed)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform)
+
+            badge_size = 20
+            margin = 2
+            bx = size - badge_size - margin
+            by = margin
+
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(0, 0, 0, 170))
+            painter.drawEllipse(bx - 1, by - 1, badge_size + 2, badge_size + 2)
+
+            eye_color = QColor(230, 230, 230)
+            pupil_color = QColor(80, 180, 255)
+
+            eye_rect = QRect(bx + 2, by + 5, badge_size - 4, badge_size - 10)
+            pen = QPen(eye_color)
+            pen.setWidth(2)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawArc(eye_rect, 0, 180 * 16)
+            painter.drawArc(eye_rect, 180 * 16, 180 * 16)
+
+            pupil_r = 3
+            cx = bx + badge_size // 2
+            cy = by + badge_size // 2
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(pupil_color)
+            painter.drawEllipse(QPoint(cx, cy), pupil_r, pupil_r)
+
+            painter.end()
+            return QIcon(composed)
+        except Exception:
+            pass
+        return QIcon(os.path.join(path, '../../gui/img/filter64_none.png'))
+
+    def _initialize_content_filter_lists(self):
+        image_filters = []
+        video_filters = []
+        for filter_instance in self.content_filters:
+            if not isinstance(filter_instance, BaseImageFilter):
+                continue
+            supported = self._get_filter_supported_content_types(filter_instance)
+            if BaseImageFilter.CONTENT_TYPE_IMAGE in supported:
+                image_filters.append(filter_instance)
+            if BaseImageFilter.CONTENT_TYPE_VIDEO in supported:
+                video_filters.append(filter_instance)
+
+        self._filter_lists_by_content_type = {
+            BaseImageFilter.CONTENT_TYPE_IMAGE: image_filters,
+            BaseImageFilter.CONTENT_TYPE_VIDEO: video_filters,
+        }
+
+        for content_type in [BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO]:
+            filters = self._filter_lists_by_content_type.get(content_type, [])
+            selected_filter_id = self._selected_filter_id_by_content_type.get(content_type)
+            if not selected_filter_id and len(filters) > 0:
+                selected_filter_id = str(getattr(filters[0], 'filter_id', '')).strip()
+            if selected_filter_id:
+                valid_ids = {str(getattr(item, 'filter_id', '')).strip() for item in filters}
+                if selected_filter_id not in valid_ids:
+                    selected_filter_id = str(getattr(filters[0], 'filter_id', '')).strip() if len(filters) > 0 else ""
+            self._selected_filter_id_by_content_type[content_type] = str(selected_filter_id or "")
+
+    def _update_selected_filter_tooltip(self):
+        if not hasattr(self, 'filter_mode_combo') or self.filter_mode_combo is None:
+            return
+        try:
+            idx = int(self.filter_mode_combo.currentIndex())
+        except Exception:
+            idx = -1
+
+        tooltip_text = ""
+        try:
+            current_filter = getattr(self, 'active_content_filter', None)
+            current_filter_id = str(getattr(current_filter, 'filter_id', '')).strip().lower() if current_filter is not None else ""
+            if current_filter_id == 'none':
+                tooltip_text = "Kein Filter gewählt"
+            else:
+                if idx >= 0:
+                    item_tip = self.filter_mode_combo.itemData(idx, Qt.ToolTipRole)
+                    tooltip_text = str(item_tip).strip() if item_tip is not None else ""
+        except Exception:
+            tooltip_text = ""
+
+        try:
+            self.filter_mode_combo.setToolTip(tooltip_text)
+        except Exception:
+            pass
+
+    def _apply_content_filter_list_for_content_type(self, content_type: str):
+        if not hasattr(self, 'filter_mode_combo') or self.filter_mode_combo is None:
+            return
+
+        target_type = str(content_type or '').strip().lower()
+        if target_type not in (BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO):
+            target_type = BaseImageFilter.CONTENT_TYPE_IMAGE
+
+        filters = list(self._filter_lists_by_content_type.get(target_type, []))
+        selected_filter_id = self._selected_filter_id_by_content_type.get(target_type)
+
+        selected_index = -1
+        if selected_filter_id:
+            for idx, filter_instance in enumerate(filters):
+                if str(getattr(filter_instance, 'filter_id', '')).strip() == selected_filter_id:
+                    selected_index = idx
+                    break
+        if selected_index < 0 and len(filters) > 0:
+            selected_index = 0
+
+        self.filter_mode_combo.blockSignals(True)
+        try:
+            self.filter_mode_combo.clear()
+            for idx, filter_instance in enumerate(filters):
+                self.filter_mode_combo.addItem(self._get_filter_icon(filter_instance, target_type), "")
+                label = getattr(filter_instance, 'display_name', f'content filter {idx}')
+                self.filter_mode_combo.setItemData(idx, label, Qt.ToolTipRole)
+
+            if selected_index >= 0:
+                self.filter_mode_combo.setCurrentIndex(selected_index)
+            self.filter_mode_combo.setEnabled(len(filters) > 0)
+        finally:
+            self.filter_mode_combo.blockSignals(False)
+
+        self._active_content_filter_list = filters
+        self._current_filter_combo_content_type = target_type
+
+        if selected_index >= 0:
+            self.active_content_filter = filters[selected_index]
+            self._selected_filter_id_by_content_type[target_type] = str(getattr(self.active_content_filter, 'filter_id', '')).strip()
+            self.content_filter_mode = selected_index
+        else:
+            self.active_content_filter = BaseImageFilter()
+            self.content_filter_mode = 0
+
+        self._update_filter_settings_action_icon()
+        self._update_filter_settings_action_state()
+        self._update_selected_filter_tooltip()
+
     def on_filter_mode_combobox_index_changed(self, index):
         self._invalidate_trashbin_switch_mode()
         try:
@@ -1810,13 +1972,25 @@ class RateAndCutDialog(QDialog):
         except Exception:
             idx = 0
 
-        if idx < 0 or idx >= len(self.content_filters):
+        current_type = self._get_current_content_type()
+        current_list = list(getattr(self, '_active_content_filter_list', []) or [])
+        if self._current_filter_combo_content_type != current_type:
+            self._apply_content_filter_list_for_content_type(current_type)
+            current_list = list(getattr(self, '_active_content_filter_list', []) or [])
+
+        if idx < 0 or idx >= len(current_list):
             idx = 0
 
-        self.content_filter_mode = idx
-        self.active_content_filter = self.content_filters[idx]
+        if len(current_list) > 0:
+            self.content_filter_mode = idx
+            self.active_content_filter = current_list[idx]
+            self._selected_filter_id_by_content_type[current_type] = str(getattr(self.active_content_filter, 'filter_id', '')).strip()
+        else:
+            self.content_filter_mode = 0
+            self.active_content_filter = BaseImageFilter()
         self._update_filter_settings_action_icon()
         self._update_filter_settings_action_state()
+        self._update_selected_filter_tooltip()
 
         try:
             if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None and not self.isVideo:
@@ -1948,21 +2122,79 @@ class RateAndCutDialog(QDialog):
         if not isinstance(active_filter, BaseImageFilter):
             active_filter = self.content_filters[0] if self.content_filters else BaseImageFilter()
 
+        if not self._is_filter_supported_for_current_content(active_filter):
+            return image
+
         try:
             return active_filter.transform(image)
         except Exception:
             return image
 
-    def apply_active_content_filter_to_pixmap(self, pixmap: QPixmap) -> QPixmap:
-        if pixmap is None or pixmap.isNull() or self.isVideo:
-            return pixmap
-
+    def _get_current_content_type(self) -> str:
         try:
+            return BaseImageFilter.CONTENT_TYPE_VIDEO if bool(getattr(self, 'isVideo', False)) else BaseImageFilter.CONTENT_TYPE_IMAGE
+        except Exception:
+            return BaseImageFilter.CONTENT_TYPE_IMAGE
+
+    def _get_filter_supported_content_types(self, filter_instance: BaseImageFilter):
+        if not isinstance(filter_instance, BaseImageFilter):
+            return []
+        try:
+            values = filter_instance.get_supported_content_types()
+            if isinstance(values, (list, tuple, set)):
+                return [str(v).strip().lower() for v in values if str(v).strip()]
+        except Exception:
+            pass
+        return []
+
+    def _get_filter_preview_supported_content_types(self, filter_instance: BaseImageFilter):
+        if not isinstance(filter_instance, BaseImageFilter):
+            return []
+        try:
+            values = filter_instance.get_preview_supported_content_types()
+            if isinstance(values, (list, tuple, set)):
+                return [str(v).strip().lower() for v in values if str(v).strip()]
+        except Exception:
+            pass
+        return []
+
+    def _is_filter_supported_for_current_content(self, filter_instance=None) -> bool:
+        active = filter_instance if isinstance(filter_instance, BaseImageFilter) else getattr(self, 'active_content_filter', None)
+        if not isinstance(active, BaseImageFilter):
+            return False
+        content_type = self._get_current_content_type()
+        return content_type in self._get_filter_supported_content_types(active)
+
+    def _is_filter_preview_supported_for_current_content(self, filter_instance=None) -> bool:
+        active = filter_instance if isinstance(filter_instance, BaseImageFilter) else getattr(self, 'active_content_filter', None)
+        if not isinstance(active, BaseImageFilter):
+            return False
+        content_type = self._get_current_content_type()
+        return content_type in self._get_filter_preview_supported_content_types(active)
+
+    def _pixmap_to_pil_rgba(self, pixmap: QPixmap):
+        try:
+            if pixmap is None or pixmap.isNull():
+                return None
             image = pixmap.toImage()
             buffer = QBuffer()
             buffer.open(QIODevice.WriteOnly)
             image.save(buffer, "PNG")
-            pil_image = Image.open(io.BytesIO(buffer.data())).convert("RGBA")
+            return Image.open(io.BytesIO(buffer.data())).convert("RGBA")
+        except Exception:
+            return None
+
+    def apply_active_content_filter_to_pixmap(self, pixmap: QPixmap) -> QPixmap:
+        if pixmap is None or pixmap.isNull():
+            return pixmap
+
+        if not self._is_filter_preview_supported_for_current_content():
+            return pixmap
+
+        try:
+            pil_image = self._pixmap_to_pil_rgba(pixmap)
+            if pil_image is None:
+                return pixmap
             filtered = self.apply_active_content_filter(pil_image)
             if not isinstance(filtered, Image.Image):
                 return pixmap
@@ -1974,7 +2206,7 @@ class RateAndCutDialog(QDialog):
         if not hasattr(self, 'filter_mode_spacing') or not hasattr(self, 'filter_mode_combo'):
             return
         has_active_file = self.currentIndex >= 0 and bool(self.currentFile) and self.loadingOk
-        visible = self.cutMode and has_active_file and (not self.isVideo)
+        visible = self.cutMode and has_active_file
         self.filter_mode_spacing.setVisible(visible)
         self.filter_mode_combo.setVisible(visible)
         if hasattr(self, 'filter_settings_spacing'):
@@ -2296,6 +2528,9 @@ class RateAndCutDialog(QDialog):
             active_filter = self.active_content_filter
             if not isinstance(active_filter, BaseImageFilter):
                 return combo_index > 0
+
+            if not self._is_filter_supported_for_current_content(active_filter):
+                return False
 
             filter_id = str(getattr(active_filter, 'filter_id', 'none')).strip().lower()
             if filter_id and filter_id != 'none':
@@ -2668,19 +2903,6 @@ class RateAndCutDialog(QDialog):
                 current_file_key = str(self.currentFile) if self.currentFile is not None else None
                 if current_file_key != self._last_loaded_file_for_switch:
                     self._invalidate_trashbin_switch_mode()
-                    try:
-                        if hasattr(self, 'filter_mode_combo') and self.filter_mode_combo is not None:
-                            current_idx = int(self.filter_mode_combo.currentIndex())
-                            if current_idx != 0 and len(self.content_filters) > 0:
-                                self.filter_mode_combo.blockSignals(True)
-                                self.filter_mode_combo.setCurrentIndex(0)
-                                self.filter_mode_combo.blockSignals(False)
-                                self.content_filter_mode = 0
-                                self.active_content_filter = self.content_filters[0]
-                                self._update_filter_settings_action_icon()
-                                self._update_filter_settings_action_state()
-                    except Exception:
-                        pass
                 self._last_loaded_file_for_switch = current_file_key
             except Exception:
                 self._invalidate_trashbin_switch_mode()
@@ -2697,6 +2919,10 @@ class RateAndCutDialog(QDialog):
                 file_path=os.path.abspath(os.path.join(folder, self.currentFile))
                 if os.path.exists(file_path):
                     self.isVideo=self.display.showFile( file_path ) == "video"
+                    try:
+                        self._apply_content_filter_list_for_content_type(self._get_current_content_type())
+                    except Exception:
+                        pass
                     self.button_startpause_video.setVisible(self.isVideo)
                     self.sl.setVisible(self.isVideo)
                     fileDragged=False
@@ -2711,6 +2937,10 @@ class RateAndCutDialog(QDialog):
                 else:
                     print("Error: File does not exist (rateCurrentFile): "  + file_path, flush=True)
                     self.isVideo = False
+                    try:
+                        self._apply_content_filter_list_for_content_type(self._get_current_content_type())
+                    except Exception:
+                        pass
                     fileDragged=False
                     self.hasCropOrTrim=False
                     self.button_startpause_video.setVisible(False)
@@ -2721,6 +2951,10 @@ class RateAndCutDialog(QDialog):
                 self.fileSlider.setEnabled(False)
                 self.main_group_box.setTitle( "" )
                 self.isVideo = False
+                try:
+                    self._apply_content_filter_list_for_content_type(self._get_current_content_type())
+                except Exception:
+                    pass
                 fileDragged=False
                 self.hasCropOrTrim=False
                 self.button_startpause_video.setVisible(False)
@@ -3201,7 +3435,24 @@ class RateAndCutDialog(QDialog):
                     success = False
                     try:
                         export_pixmap = self.cropWidget.get_export_cropped_pixmap()
-                        success = export_pixmap is not None and not export_pixmap.isNull() and export_pixmap.save(output, "PNG")
+                        save_pixmap = export_pixmap
+
+                        if export_pixmap is not None and not export_pixmap.isNull():
+                            save_supported = self._is_filter_supported_for_current_content()
+                            preview_supported = self._is_filter_preview_supported_for_current_content()
+                            if save_supported and (not preview_supported):
+                                try:
+                                    pil_image = self._pixmap_to_pil_rgba(export_pixmap)
+                                    if pil_image is not None:
+                                        filtered = self.apply_active_content_filter(pil_image)
+                                        if isinstance(filtered, Image.Image):
+                                            save_pixmap = pil2pixmap(filtered)
+                                        if TRACELEVEL >= 2:
+                                            print("createTrimmedAndCroppedCopy: applied save-only content filter for image export", flush=True)
+                                except Exception:
+                                    print(traceback.format_exc(), flush=True)
+
+                        success = save_pixmap is not None and not save_pixmap.isNull() and save_pixmap.save(output, "PNG")
                     except Exception:
                         print(traceback.format_exc(), flush=True)
                     self.trimAndCrop_updater(recreated, input, output, success)

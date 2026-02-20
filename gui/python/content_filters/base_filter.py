@@ -2,10 +2,15 @@ from PIL import Image
 
 
 class BaseImageFilter:
+    CONTENT_TYPE_IMAGE = "image"
+    CONTENT_TYPE_VIDEO = "video"
+
     filter_id = "none"
     display_name = "content filter: none"
     icon_name = "filter64_none.png"
     parameter_defaults = []
+    supported_content_types = [CONTENT_TYPE_IMAGE]
+    preview_content_types = [CONTENT_TYPE_IMAGE]
 
     @staticmethod
     def _clamp01(value: float) -> float:
@@ -58,6 +63,41 @@ class BaseImageFilter:
         values = self._ensure_parameter_values()
         values[name] = self._clamp01(value)
         return True
+
+    def _normalize_content_types(self, values, fallback, allow_empty: bool = False):
+        source = values if isinstance(values, (list, tuple, set)) else fallback
+        if not isinstance(source, (list, tuple, set)):
+            source = fallback
+
+        normalized = []
+        for item in source:
+            try:
+                text = str(item).strip().lower()
+            except Exception:
+                continue
+            if text and text not in normalized:
+                normalized.append(text)
+
+        if len(normalized) == 0:
+            if allow_empty:
+                return []
+            return [self.CONTENT_TYPE_IMAGE]
+        return normalized
+
+    def get_supported_content_types(self):
+        return self._normalize_content_types(
+            getattr(self, "supported_content_types", [self.CONTENT_TYPE_IMAGE]),
+            [self.CONTENT_TYPE_IMAGE],
+        )
+
+    def get_preview_supported_content_types(self):
+        preview_types = self._normalize_content_types(
+            getattr(self, "preview_content_types", [self.CONTENT_TYPE_IMAGE]),
+            [self.CONTENT_TYPE_IMAGE],
+            allow_empty=True,
+        )
+        supported = self.get_supported_content_types()
+        return [content_type for content_type in preview_types if content_type in supported]
 
     def transform(self, image: Image.Image) -> Image.Image:
         return image
