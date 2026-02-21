@@ -117,3 +117,6 @@ node.zip
 .test/
 
 /cache/
+
+# Alexa local runtime
+alexa/script/alexa.pid

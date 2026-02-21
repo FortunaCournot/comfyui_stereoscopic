@@ -15,3 +15,9 @@ psutil
 py-cpuinfo
 matplotlib
 tqdm
+
+ask-sdk-core
+ask-sdk-webservice-support
+flask
+requests
+python-dotenv
