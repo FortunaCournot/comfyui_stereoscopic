@@ -90,7 +90,7 @@ DAEMONSTATUS_FILE = os.path.abspath(
     os.path.join(CURRENT_DIR, "../../../../user/default/comfyui_stereoscopic/.daemonstatus")
 )
 DAEMONSTATUS_INTERVAL_SECONDS = 1.0
-DAEMONSTATUS_PROGRESS_RE = re.compile(r"^\D*(\d+)\s+of\s+\d+\s*:")
+DAEMONSTATUS_PROGRESS_RE = re.compile(r"^\D*(\d+)\s+of\s+(\d+)\s*:")
 
 _daemonstatus_stop_event = threading.Event()
 _daemonstatus_thread: threading.Thread | None = None
@@ -240,7 +240,9 @@ def _read_daemonstatus_count() -> int:
         match = DAEMONSTATUS_PROGRESS_RE.match(second_line)
         if not match:
             return 0
-        return int(match.group(1))
+        first_value = int(match.group(1))
+        second_value = int(match.group(2))
+        return max(0, second_value - first_value + 1)
     except Exception:
         return 0
 
