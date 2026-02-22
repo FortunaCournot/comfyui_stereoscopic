@@ -82,6 +82,7 @@ else
 		HAS_SUBTITLES=
 		
 		for nextinputfile in $IMGFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			INDEX=$(( INDEX + 1 ))
 			INDEXM1=$(( INDEX - 1 ))
 			INDEXM2=$(( INDEX - 2 ))

@@ -120,7 +120,7 @@ def get_property(file_path: str, key: str, default: str = None) -> str:
     """
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
                 line = line.strip()
 
@@ -151,7 +151,7 @@ def set_property(file_path: str, key: str, value: str) -> None:
     key_found = False
     new_line = f"{key}={value}\n"
 
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
         for line in f:
             stripped = line.strip()
             # Kommentare oder leere Zeilen beibehalten
@@ -193,7 +193,7 @@ def get_stage_input_type(stage_name: str) -> str:
         return None
 
     try:
-        with open(defFile, "r", encoding="utf-8", errors="ignore") as f:
+        with open(defFile, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
                 if '"input"' in line:
                     # einfaches Parsen wie im Originalcode
@@ -1506,7 +1506,7 @@ class SpreadsheetApp(QMainWindow):
                                         value = "?"
                                         defFile = os.path.join(path, "../../../../" + stageDefRes)
                                         if os.path.exists(defFile):
-                                            with open(defFile) as file:
+                                            with open(defFile, encoding="utf-8", errors="replace") as file:
                                                 color = "#5E271F"
                                                 deflines = [line.rstrip() for line in file]
                                                 for line in range(len(deflines)):

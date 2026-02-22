@@ -85,6 +85,7 @@ else
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			[ ! -e $nextinputfile ] && continue
@@ -128,6 +129,7 @@ else
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			[ ! -e $nextinputfile ] && continue

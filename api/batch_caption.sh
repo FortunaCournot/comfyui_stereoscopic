@@ -99,6 +99,7 @@ else
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/caption/BATCHPROGRESS.TXT
@@ -212,6 +213,7 @@ else
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			if [ ! -e $nextinputfile ] ; then
 				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."

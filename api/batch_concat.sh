@@ -66,6 +66,7 @@ else
     MAXH=0
     if [[ -1 -gt 0 ]] ; then
       for nextinputfile in $IMGANDVIDFILES ; do
+			[ -e "$nextinputfile" ] || continue
         INDEX+=1
         newfn=part_$INDEX.mp4
         cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
@@ -108,6 +109,7 @@ else
     
 		echo "" >output/vr/concat/intermediate/mylist.txt
 		for nextinputfile in $IMGANDVIDFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			INDEX+=1
 			newfn=part_$INDEX.mp4
 			cp "$nextinputfile" output/vr/concat/intermediate/$newfn 

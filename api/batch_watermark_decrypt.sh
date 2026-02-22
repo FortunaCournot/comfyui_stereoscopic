@@ -103,6 +103,7 @@ else
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/watermark/decrypt/BATCHPROGRESS.TXT
 			echo "watermark/decrypt" >user/default/comfyui_stereoscopic/.daemonstatus
@@ -129,6 +130,7 @@ else
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			if [ ! -e $nextinputfile ] ; then
 				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."
 				exit 1
