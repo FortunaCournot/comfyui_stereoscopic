@@ -1,4 +1,5 @@
 import bisect
+import base64
 import io
 import ntpath
 import os
@@ -1370,6 +1371,7 @@ class RateAndCutDialog(QDialog):
         self.reset_timer.setSingleShot(True)
         self.reset_timer.timeout.connect(self.reset_visual)
         self.setAcceptDrops(True)  # Enable drop events
+        self._install_drop_event_filters()
         # ensure cleanup on application exit if possible
         try:
             app = QApplication.instance()
@@ -1381,6 +1383,37 @@ class RateAndCutDialog(QDialog):
         self.enable_drag_for_groupbox(self.main_group_box, )
         
     # ---------------------------------------------------------------------------------------------------------------------------
+
+    def _install_drop_event_filters(self):
+        try:
+            widgets = [self]
+            if hasattr(self, "main_group_box") and self.main_group_box is not None:
+                widgets.append(self.main_group_box)
+                widgets.extend(self.main_group_box.findChildren(QWidget))
+            for widget in widgets:
+                try:
+                    widget.setAcceptDrops(True)
+                    widget.installEventFilter(self)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def eventFilter(self, obj, event):
+        try:
+            event_type = event.type()
+            if event_type == QEvent.DragEnter:
+                self.dragEnterEvent(event)
+                return event.isAccepted()
+            if event_type == QEvent.DragMove:
+                self.dragMoveEvent(event)
+                return event.isAccepted()
+            if event_type == QEvent.Drop:
+                self.dropEvent(event)
+                return event.isAccepted()
+        except Exception:
+            pass
+        return super().eventFilter(obj, event)
 
 
         
@@ -1536,6 +1569,13 @@ class RateAndCutDialog(QDialog):
         if md.hasFormat("application/x-vrweare-drag"):
             event.ignore()
             return
+        url_candidate = self._extract_url_from_mime(md)
+        if url_candidate:
+            self.drag_file_path = url_candidate
+            self.style_group_box(self.main_group_box, "#44ff44")
+            self.reset_timer.start(1000)
+            event.acceptProposedAction()
+            return
         elif md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
             data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
             url = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
@@ -1584,9 +1624,7 @@ class RateAndCutDialog(QDialog):
                 # remote URL
                 url = q.toString()
                 try:
-                    r = requests.get(url, stream=True, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
-                    content_type = r.headers.get("Content-Type", "")
-                    if content_type.startswith("image/") or content_type.startswith("video/"):
+                    if url and (url.startswith("http://") or url.startswith("https://") or url.startswith("data:")):
                         self.drag_file_path = url
                         self.style_group_box(self.main_group_box, "#44ff44")
                         self.reset_timer.start(1000)
@@ -1618,6 +1656,49 @@ class RateAndCutDialog(QDialog):
         # restart timer; if drag really leaves window, timer will fire and reset color
         self.reset_timer.start(1000)
         
+    def _extract_url_from_mime(self, md):
+        try:
+            if md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+                data = md.data('application/x-qt-windows-mime;value="UniformResourceLocatorW"')
+                url = bytes(data).decode('utf-16', errors='ignore').strip('\x00').strip()
+                if url and (url.startswith("http://") or url.startswith("https://") or url.startswith("data:")):
+                    return url
+        except Exception:
+            pass
+
+        try:
+            if md.hasUrls() and len(md.urls()) > 0:
+                for q in md.urls():
+                    if not q.isLocalFile():
+                        url = q.toString().strip()
+                        if url and (url.startswith("http://") or url.startswith("https://") or url.startswith("data:")):
+                            return url
+        except Exception:
+            pass
+
+        try:
+            txt = md.text().strip() if md.hasText() else ""
+            if txt and (txt.startswith("http://") or txt.startswith("https://") or txt.startswith("data:")):
+                return txt
+        except Exception:
+            pass
+        return None
+
+    def _short_url_for_log(self, url: str) -> str:
+        try:
+            if not isinstance(url, str):
+                return "<invalid-url>"
+            trimmed = url.strip()
+            if trimmed.lower().startswith("data:"):
+                header = trimmed[5:].split(',', 1)[0]
+                content_type = (header.split(';', 1)[0] or '').strip().lower()
+                return f"data:{content_type or 'unknown'};..."
+            if len(trimmed) > 180:
+                return trimmed[:180] + "..."
+            return trimmed
+        except Exception:
+            return "<url>"
+
 
     def dropEvent(self, event):
         # Retrieve file paths
@@ -1627,16 +1708,22 @@ class RateAndCutDialog(QDialog):
             if md.hasFormat("application/x-vrweare-drag"):
                 event.ignore()
                 return
-            elif md.hasFormat('application/x-qt-windows-mime;value="UniformResourceLocatorW"'):
+            elif isinstance(self.drag_file_path, str) and (self.drag_file_path.startswith("http://") or self.drag_file_path.startswith("https://") or self.drag_file_path.startswith("data:")):
                 try:
                     self.downloadAndSwithToimage(self.drag_file_path)
-                except:
+                    event.acceptProposedAction()
+                except Exception:
                     event.ignore()
-                    print(traceback.format_exc(), flush=True) 
+                    try:
+                        self.log("Drop URL failed: " + self._short_url_for_log(self.drag_file_path), QColor("red"))
+                    except Exception:
+                        pass
             elif os.path.isdir(self.drag_file_path):
                 self.switchDirectory(self.drag_file_path, None, None)
+                event.acceptProposedAction()
             elif os.path.isfile(self.drag_file_path) and any(self.drag_file_path.lower().endswith(suf.lower()) for suf in ALL_EXTENSIONS):
                 self.switchDirectory(os.path.dirname(self.drag_file_path), os.path.basename(self.drag_file_path), None)
+                event.acceptProposedAction()
             else:
                 event.ignore()
         else:
@@ -1650,14 +1737,45 @@ class RateAndCutDialog(QDialog):
         Args:
             url (str): The image URL (HTTP/HTTPS).
         """
-        # Parse URL and derive a safe filename
-        parsed = urllib.parse.urlparse(url)
-        filename = os.path.basename(parsed.path)
-        
-        if not filename:
-            raise ValueError("URL does not contain a valid filename")
+        # Parse URL and derive filename like main window drop handling
+        if isinstance(url, str) and url.lower().startswith("data:"):
+            filename = f"clipboard_{int(time.time())}"
+        else:
+            parsed = urllib.parse.urlparse(url)
+            filename = os.path.basename(parsed.path) or f"download_{int(time.time())}"
 
         self.switchDirectory(None, filename, self.drag_file_path)
+
+    def _mime_to_ext(self, mime: str) -> str:
+        m = (mime or '').lower()
+        if m in ('image/jpeg', 'image/jpg'):
+            return '.jpg'
+        if m == 'image/png':
+            return '.png'
+        if m == 'image/gif':
+            return '.gif'
+        if m == 'image/webp':
+            return '.webp'
+        if m == 'image/bmp':
+            return '.bmp'
+        if m in ('image/tiff', 'image/x-tiff'):
+            return '.tiff'
+        if m == 'video/mp4':
+            return '.mp4'
+        if m in ('video/webm', 'audio/webm'):
+            return '.webm'
+        if m in ('video/quicktime',):
+            return '.mov'
+        return ''
+
+    def _pick_nonconflicting_name(self, directory: str, filename: str) -> str:
+        candidate = filename
+        base, ext = os.path.splitext(filename)
+        i = 1
+        while os.path.exists(os.path.join(directory, candidate)):
+            candidate = f"{base}_{i}{ext}"
+            i += 1
+        return candidate
         
     
     def switchDirectory(self, dirpath, filename, url):
@@ -1713,32 +1831,51 @@ class RateAndCutDialog(QDialog):
         startAsyncTask()
         try:
             if not url is None:
-                # Download using requests (more compatible with modern hosts)
-                r = requests.get(url, stream=True, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
-                r.raise_for_status()
-                content_type = r.headers.get("Content-Type", "")
-
-                # Optional: fallback extension if missing
-                if content_type.startswith("image/"):
-                    if '.' not in filename:
-                        filename += ".jpg"
-                elif content_type.startswith("video/"):
-                    if '.' not in filename:
-                        filename += ".mp4"
-                else:
-                    raise ValueError(f"URL is not an image (Content-Type: {content_type})")
-
-                # Build full output path, ignore dirpath (assume None)
                 override=False
                 target_dir = os.path.join(path, "../../../../input/vr/check/rate")
-                filename = self.get_safe_unique_filename(target_dir, filename)
-                output_path = os.path.join(target_dir, filename)
+                os.makedirs(target_dir, exist_ok=True)
 
-                # Write to file from streamed response
-                with open(output_path, "wb") as f:
-                    for chunk in r.iter_content(8192):
-                        if chunk:
-                            f.write(chunk)
+                content_type = ""
+                output_bytes = None
+
+                if isinstance(url, str) and url.lower().startswith("data:"):
+                    try:
+                        header, payload = url[5:].split(',', 1)
+                    except ValueError:
+                        raise ValueError("Invalid data URL")
+                    content_type = (header.split(';', 1)[0] or '').strip().lower()
+                    if ';base64' in header.lower():
+                        output_bytes = base64.b64decode(payload)
+                    else:
+                        output_bytes = urllib.parse.unquote_to_bytes(payload)
+                else:
+                    r = requests.get(url, stream=True, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+                    r.raise_for_status()
+                    content_type = (r.headers.get("Content-Type", "") or "").split(";", 1)[0].strip().lower()
+                    if content_type.startswith("image/") or content_type.startswith("video/"):
+                        filename = self._pick_nonconflicting_name(target_dir, filename)
+                        output_path_tmp = os.path.join(target_dir, filename)
+                        with open(output_path_tmp, "wb") as f:
+                            for chunk in r.iter_content(8192):
+                                if chunk:
+                                    f.write(chunk)
+                        filename = os.path.basename(output_path_tmp)
+                    else:
+                        raise ValueError("URL content type is not image/video")
+
+                if output_bytes is not None:
+                    if '.' not in filename:
+                        ext = self._mime_to_ext(content_type)
+                        filename += ext
+                    filename = self._pick_nonconflicting_name(target_dir, filename)
+                    output_path = os.path.join(target_dir, filename)
+                    with open(output_path, "wb") as f:
+                        f.write(output_bytes)
+
+                try:
+                    self.log("Dropped URL -> input/vr/check/rate/" + filename, QColor("white"))
+                except Exception:
+                    pass
             
 
             if override and not os.path.samefile(dirpath, os.path.join(path, "../../../../input/vr/check/rate") ):
@@ -1759,7 +1896,13 @@ class RateAndCutDialog(QDialog):
             QTimer.singleShot(0, partial(self.switchDirectory_updater, override, dirpath, filename))
         except:
             endAsyncTask()
-            print(traceback.format_exc(), flush=True) 
+            if not url is None:
+                try:
+                    self.log("Drop URL failed: " + self._short_url_for_log(url), QColor("red"))
+                except Exception:
+                    pass
+            else:
+                print(traceback.format_exc(), flush=True)
 
     def switchDirectory_updater(self, override, dirpath, filename):
 
@@ -1784,9 +1927,11 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True) 
         finally:
-            self.folderAction.setChecked(override)
-            self.folderAction.setEnabled(True)
-            self.dirlabel.setText(dirpath)
+            if hasattr(self, 'folderAction') and self.folderAction is not None:
+                self.folderAction.setChecked(override)
+                self.folderAction.setEnabled(True)
+            if hasattr(self, 'dirlabel') and self.dirlabel is not None:
+                self.dirlabel.setText(dirpath)
             endAsyncTask()
  
  
@@ -3258,9 +3403,11 @@ class RateAndCutDialog(QDialog):
         except:
             print(traceback.format_exc(), flush=True) 
         finally:
-            self.folderAction.setChecked(override)
-            self.folderAction.setEnabled(True)
-            self.dirlabel.setText(dirpath)
+            if hasattr(self, 'folderAction') and self.folderAction is not None:
+                self.folderAction.setChecked(override)
+                self.folderAction.setEnabled(True)
+            if hasattr(self, 'dirlabel') and self.dirlabel is not None:
+                self.dirlabel.setText(dirpath)
             endAsyncTask()
  
     def on_rating_changed(self, rating):
