@@ -159,16 +159,26 @@ else
 			fi
 			
 			if [ -e "$jsonblueprint" ] ; then
-				resolved_jsonblueprint="output/vr/tasks/intermediate/blueprint_resolved_${TASKNAME}_${INDEX}.json"
-				mkdir -p output/vr/tasks/intermediate
-				resolve_blueprint_placeholders_to_file "$jsonblueprint" "$resolved_jsonblueprint" || exit 1
+				resolved_blueprint_dir="input/vr/tasks/intermediate/blueprint_resolved"
+				resolved_jsonblueprint="$resolved_blueprint_dir/blueprint_resolved_${TASKNAME}_${INDEX}.json"
+				effective_jsonblueprint="$jsonblueprint"
+				mkdir -p "$resolved_blueprint_dir"
+				if resolve_blueprint_placeholders_to_file "$jsonblueprint" "$resolved_jsonblueprint" ; then
+					if [ -s "$resolved_jsonblueprint" ] ; then
+						effective_jsonblueprint="$resolved_jsonblueprint"
+					else
+						echo -e $"\e[93mWarning:\e[0m Resolved blueprint empty. Fallback to original: $jsonblueprint"
+					fi
+				else
+					echo -e $"\e[93mWarning:\e[0m Placeholder resolve failed. Fallback to original: $jsonblueprint"
+				fi
 
 				# handle only current version
 				taskversion="-1"
-				taskversion=`cat "$resolved_jsonblueprint" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+				taskversion=`cat "$effective_jsonblueprint" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 				CURRENTVERSION=1
 				if [ $taskversion -eq $CURRENTVERSION ] ; then
-					blueprint=`cat "$resolved_jsonblueprint" | grep -o '"blueprint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+					blueprint=`cat "$effective_jsonblueprint" | grep -o '"blueprint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 					blueprint=${blueprint##*/}
 					blueprint=${blueprint//[^[:alnum:].-]/_}
 					blueprint=${blueprint// /_}
@@ -180,7 +190,7 @@ else
 						mkdir -p "$OUTPUTDIR"
 						mv -fv -- "$newfn" "$OUTPUTDIR"
 					elif [ -e $scriptpath ] ; then
-						/bin/bash $scriptpath "$resolved_jsonblueprint" "$TASKNAME" "$newfn" || exit 1
+						/bin/bash $scriptpath "$effective_jsonblueprint" "$TASKNAME" "$newfn" || exit 1
 					else
 						echo -e $"\e[91mError:\e[0m Invalid blueprint in $jsonblueprint . script missing: $SCRIPTFOLDERPATH/$blueprint"".sh"
 						exit 1
