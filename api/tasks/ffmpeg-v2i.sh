@@ -133,7 +133,17 @@ else
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
 	options="${options//\$INPUT/"$INPUT"}"
-  options="${options/\$frame_count-1/$target_idx}"
+	frame_offset=`cat "$BLUEPRINTCONFIG" | grep -o '"frame_offset":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ -z "$frame_offset" ] ; then
+		frame_offset=1
+	fi
+	target_idx=$((frame_count - frame_offset))
+	if [ "$target_idx" -lt 0 ] ; then
+		target_idx=0
+	fi
+	options=`printf '%s' "$options" | awk -v repl="$target_idx" '{ gsub(/\\$frame_count-[0-9]+/, repl); gsub(/\$frame_count-[0-9]+/, repl); print }'`
+	echo "frame_offset=$frame_offset target_idx=$target_idx"
+	echo "resolved_options=$options"
 
 	EXTENSION=`cat "$BLUEPRINTCONFIG" | grep -o '"extension":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	if [ -z "$EXTENSION" ] ; then

@@ -9,6 +9,78 @@ onExit() {
 }
 trap onExit EXIT
 
+get_json_value() {
+	json_file="$1"
+	json_key="$2"
+	entry=`grep -oE "\"$json_key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$json_file" | head -n 1`
+	if [ -z "$entry" ] ; then
+		entry=`grep -oE "\"$json_key\"[[:space:]]*:[[:space:]]*[^,}]*" "$json_file" | head -n 1`
+	fi
+	if [ -z "$entry" ] ; then
+		printf ''
+		return 0
+	fi
+	value=`printf '%s' "$entry" | sed -E 's/^.*:[[:space:]]*//'`
+	value=`printf '%s' "$value" | sed -E 's/[[:space:]]*$//'`
+	value=${value#\"}
+	value=${value%\"}
+	printf '%s' "$value"
+}
+
+has_json_key() {
+	json_file="$1"
+	json_key="$2"
+	grep -qE "\"$json_key\"[[:space:]]*:" "$json_file"
+}
+
+resolve_blueprint_placeholders_to_file() {
+	source_json="$1"
+	target_json="$2"
+	cp -f -- "$source_json" "$target_json"
+
+	declare -i guard=0
+	while : ; do
+		token=`grep -oE '%[A-Za-z_]+%' "$target_json" | head -n 1`
+		if [ -z "$token" ] ; then
+			break
+		fi
+
+		var_name=${token#%}
+		var_name=${var_name%%%}
+
+		first_value=`get_json_value "$target_json" "$var_name"`
+		if [ -z "$first_value" ] ; then
+			echo -e $"\e[91mError:\e[0m Placeholder $token unresolved. Key '$var_name' missing or empty in $source_json"
+			return 1
+		fi
+
+		replacement="$first_value"
+		if has_json_key "$target_json" "$first_value" ; then
+			replacement=`get_json_value "$target_json" "$first_value"`
+			if [ -z "$replacement" ] ; then
+				echo -e $"\e[91mError:\e[0m Placeholder $token unresolved via key '$first_value' in $source_json"
+				return 1
+			fi
+		fi
+
+		token_escaped=`printf '%s' "$token" | sed -e 's/[^^]/[&]/g; s/\^/\\^/g'`
+		replacement_escaped=`printf '%s' "$replacement" | sed -e 's/[\\&]/\\&/g'`
+		sed -i "s/$token_escaped/$replacement_escaped/g" "$target_json"
+
+		guard=$((guard + 1))
+		if [ "$guard" -gt 100 ] ; then
+			echo -e $"\e[93mWarning:\e[0m Placeholder resolving guard reached in $source_json"
+			break
+		fi
+	done
+
+	leftover=`grep -oE '%[A-Za-z_]+%' "$target_json" | head -n 1`
+	if [ -n "$leftover" ] ; then
+		echo -e $"\e[91mError:\e[0m Placeholder $leftover unresolved in $source_json"
+		return 1
+	fi
+}
+
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
@@ -87,12 +159,16 @@ else
 			fi
 			
 			if [ -e "$jsonblueprint" ] ; then
+				resolved_jsonblueprint="output/vr/tasks/intermediate/blueprint_resolved_${TASKNAME}_${INDEX}.json"
+				mkdir -p output/vr/tasks/intermediate
+				resolve_blueprint_placeholders_to_file "$jsonblueprint" "$resolved_jsonblueprint" || exit 1
+
 				# handle only current version
 				taskversion="-1"
-				taskversion=`cat "$jsonblueprint" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+				taskversion=`cat "$resolved_jsonblueprint" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 				CURRENTVERSION=1
 				if [ $taskversion -eq $CURRENTVERSION ] ; then
-					blueprint=`cat "$jsonblueprint" | grep -o '"blueprint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+					blueprint=`cat "$resolved_jsonblueprint" | grep -o '"blueprint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 					blueprint=${blueprint##*/}
 					blueprint=${blueprint//[^[:alnum:].-]/_}
 					blueprint=${blueprint// /_}
@@ -104,7 +180,7 @@ else
 						mkdir -p "$OUTPUTDIR"
 						mv -fv -- "$newfn" "$OUTPUTDIR"
 					elif [ -e $scriptpath ] ; then
-						/bin/bash $scriptpath "$jsonblueprint" "$TASKNAME" "$newfn" || exit 1
+						/bin/bash $scriptpath "$resolved_jsonblueprint" "$TASKNAME" "$newfn" || exit 1
 					else
 						echo -e $"\e[91mError:\e[0m Invalid blueprint in $jsonblueprint . script missing: $SCRIPTFOLDERPATH/$blueprint"".sh"
 						exit 1
