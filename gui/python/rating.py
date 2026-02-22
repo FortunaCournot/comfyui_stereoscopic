@@ -1701,6 +1701,9 @@ class RateAndCutDialog(QDialog):
 
 
     def dropEvent(self, event):
+        if isTaskActive():
+            event.ignore()
+            return
         # Retrieve file paths
         if not self.drag_file_path is None:
             #print(f"File dropped:\n{self.drag_file_path}", flush=True)
@@ -1780,13 +1783,18 @@ class RateAndCutDialog(QDialog):
     
     def switchDirectory(self, dirpath, filename, url):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
+        startAsyncTask()
         cutModeFolderOverrideActive= not dirpath is None
-        thread = threading.Thread(
-            target=self.switchDirectory_worker,
-            args=( cutModeFolderOverrideActive, dirpath, filename, url),
-            daemon=True
-        )
-        thread.start()
+        try:
+            thread = threading.Thread(
+                target=self.switchDirectory_worker,
+                args=( cutModeFolderOverrideActive, dirpath, filename, url),
+                daemon=True
+            )
+            thread.start()
+        except Exception:
+            endAsyncTask()
+            raise
 
     def get_safe_unique_filename(self, directory: str, filename: str) -> str:
         """
@@ -1828,7 +1836,6 @@ class RateAndCutDialog(QDialog):
     
     def switchDirectory_worker(self, override, dirpath, filename, url):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
-        startAsyncTask()
         try:
             if not url is None:
                 override=False
