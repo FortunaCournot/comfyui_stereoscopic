@@ -72,6 +72,12 @@ class StereoToVR180Filter(BaseImageFilter):
         except Exception:
             pass
 
+        try:
+            map_x, map_y = self._blend_concentric_map(map_x, map_y, strength)
+        except Exception:
+            # fallback: keep original maps
+            pass
+
         # set default OOB fill ranges at the left/right edges based on a fraction of the image width, but only if the image is large enough to allow a reasonable span. This is a fallback in case OOB detection fails or is inaccurate, and also serves as a visual debug indicator of where OOB areas are expected.
         try:
             span = max(0, min(w / 6, w // 2))
@@ -169,6 +175,16 @@ class StereoToVR180Filter(BaseImageFilter):
             return canvas
         except Exception:
             return image
+
+    def _blend_concentric_map(self, map_x, map_y, strength: float):
+        """Placeholder for concentric square->disk blending.
+
+        Currently a no-op: returns the input maps unchanged.
+        """
+        try:
+            return map_x, map_y
+        except Exception:
+            return map_x, map_y
 
     def _transform_half(self, half_image: Image.Image, fov_in_deg: float, strength: float, zoom_out: float, has_alpha: bool) -> Image.Image:
         try:
