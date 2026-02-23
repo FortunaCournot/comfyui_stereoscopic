@@ -116,9 +116,16 @@ def make_grid_image_916():
     return bg
 
 if __name__ == "__main__":
-    # Alte Testbilder im aktuellen Verzeichnis löschen
-    # remove previous generated images (both testgrid_ and gridbase_ prefixes)
-    for pattern in ["testgrid_*_RANDOM*.png", "gridbase_*_RANDOM*.png"]:
+    # Alte Testbilder und Debug-Images im aktuellen Verzeichnis löschen
+    # remove previous generated images (testgrid_, gridbase_, debug_*)
+    for pattern in [
+        "testgrid_*_RANDOM*.png",
+        "gridbase_*_RANDOM*.png",
+        "gridbase_single_*_RANDOM*.png",
+        "debug_*.png",
+        "debug_*_pre_*.png",
+        "debug_*_post_*.png",
+    ]:
         for f in glob.glob(os.path.join(os.path.dirname(__file__), pattern)):
             try:
                 os.remove(f)
