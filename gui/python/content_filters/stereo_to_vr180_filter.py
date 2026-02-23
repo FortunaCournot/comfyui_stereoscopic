@@ -11,7 +11,6 @@ class StereoToVR180Filter(BaseImageFilter):
     icon_name = "filter64_stereo2vr180.png"
     parameter_defaults = [
         ("fisheye_strength", 0.0),
-        ("input_fov", 0.75),
         ("zoom_out", 0.6),
     ]
 
@@ -197,8 +196,13 @@ class StereoToVR180Filter(BaseImageFilter):
 
         try:
             strength = self.get_parameter("fisheye_strength", 1.0)
-            fov_in_norm = self.get_parameter("input_fov", 0.45)
             zoom_out = self.get_parameter("zoom_out", 0.0)
+            # derive input FOV from strength (strength in [0,1]) so no separate
+            # `input_fov` parameter is required. Higher strength -> larger FOV.
+            try:
+                fov_in_norm = max(0.0, min(1.0, float(strength)))
+            except Exception:
+                fov_in_norm = 0.45
             fov_in_deg = 70.0 + 80.0 * fov_in_norm
 
             has_alpha = image.mode == "RGBA"
