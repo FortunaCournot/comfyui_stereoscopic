@@ -177,12 +177,48 @@ class StereoToVR180Filter(BaseImageFilter):
             return image
 
     def _blend_concentric_map(self, map_x, map_y, strength: float):
-        """Placeholder for concentric square->disk blending.
+        """Apply an L1-based outward displacement blended by `strength`.
 
-        Currently a no-op: returns the input maps unchanged.
+        Uses the L1 distance d = (|dx|+|dy|) normalized to [0,1]. The
+        mapping is continuous and keeps the center unchanged. For each
+        destination pixel we compute a source coordinate closer to the
+        center by scaling the normalized coordinates by `scale = 1 - s*d`.
+        The final map is a linear blend between the incoming `map_x/map_y`
+        and the computed `src_x/src_y` using the same factor `s*d` so the
+        effect grows linearly with the L1 distance.
         """
         try:
-            return map_x, map_y
+            import numpy as np
+
+            s = float(max(0.0, min(1.0, strength)))
+            if s <= 0.0:
+                return map_x, map_y
+
+            h, w = map_x.shape[:2]
+            cx = (w - 1) * 0.5
+            cy = (h - 1) * 0.5
+            half = float(max(1.0, min(cx, cy)))
+
+            # compute L1 distance using the current map positions relative to center
+            dx_cur = (map_x - cx) / half
+            dy_cur = (map_y - cy) / half
+
+            # L1 distance normalized in [0,1] (max is 2 for corners at [-1,1])
+            d_norm = (np.abs(dx_cur) + np.abs(dy_cur)) * 0.5
+            d_norm = np.clip(d_norm, 0.0, 1.0)
+
+            # per-pixel blend = strength * d_norm (linear in L1 distance)
+            b = s * d_norm
+            b = np.clip(b, 0.0, 1.0)
+
+            # To produce a visual inward pull of the image corners we must
+            # sample from farther-out source coordinates (dest->src mapping).
+            # Therefore scale the offset away from center by (1 + b).
+            scale = 1.0 + b
+            out_x = cx + (map_x - cx) * scale
+            out_y = cy + (map_y - cy) * scale
+
+            return out_x.astype(map_x.dtype), out_y.astype(map_y.dtype)
         except Exception:
             return map_x, map_y
 
