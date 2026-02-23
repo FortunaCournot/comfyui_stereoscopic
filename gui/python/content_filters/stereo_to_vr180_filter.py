@@ -68,54 +68,25 @@ class StereoToVR180Filter(BaseImageFilter):
             map_y = map_y * strength + ys * (1.0 - strength)
         # apply a center-relative horizontal stretch so effect is visible
         horizontal_stretch = 1.5
-
-        # Compute OOB analytically based on the map BEFORE stretch but AFTER
-        # strength blending (so strength reduces extreme values first).
+        # apply center-relative horizontal stretch directly (previous single-line behavior)
         try:
-            # use the map values after strength blending (pre-stretch) to compute
-            # where the post-stretch coordinates would go out of bounds.
-            map_x_pre_stretch = map_x.copy()
-            if horizontal_stretch != 0 and horizontal_stretch != 1.0:
-                map_x_poststretch = cx + (map_x_pre_stretch - cx) * horizontal_stretch
-                mask_post = (map_x_poststretch < 0.0) | (map_x_poststretch > (w - 1))
-                # per-column fraction of rows that would go OOB
-                col_oob_frac = mask_post.sum(axis=0) / float(h)
-                # require most rows in a column to be OOB before marking the column
-                col_frac_threshold = 0.9
-                cols = np.where(col_oob_frac > col_frac_threshold)[0]
-                if cols.size:
-                    leftmost = int(cols[0])
-                    rightmost = int(cols[-1])
-                    self._last_remap_oob_cols = (leftmost, rightmost)
-                    self._last_remap_oob_count = int(mask_post.sum())
-                else:
-                    any_cols = np.where(np.any(mask_post, axis=0))[0]
-                    if any_cols.size:
-                        self._last_remap_oob_cols = (int(any_cols[0]), int(any_cols[-1]))
-                        self._last_remap_oob_count = int(mask_post.sum())
-                    else:
-                        self._last_remap_oob_cols = (None, None)
-                        self._last_remap_oob_count = 0
-                # now set map_x to the post-stretch coordinates for further processing
-                map_x = map_x_poststretch
-        except Exception:
-            self._last_remap_oob_cols = (None, None)
-            self._last_remap_oob_count = 0
-        # debug: emit statistics for map_x before clamping (min/max/mean and OOB flags)
-        try:
-            try:
-                minx = float(np.nanmin(map_x))
-                maxx = float(np.nanmax(map_x))
-                meanx = float(np.nanmean(map_x))
-            except Exception:
-                minx = None
-                maxx = None
-                meanx = None
-            oob_left = bool(np.any(map_x < 0.0))
-            oob_right = bool(np.any(map_x > (w - 1)))
-            print(f"[stereo_to_vr180] map_x pre-clamp min={minx} max={maxx} mean={meanx} oob_left={oob_left} oob_right={oob_right} last_oob_cols={getattr(self,'_last_remap_oob_cols',None)} last_oob_count={getattr(self,'_last_remap_oob_count',None)}")
+            map_x = cx + (map_x - cx) * horizontal_stretch
         except Exception:
             pass
+
+        # set default OOB fill ranges at the left/right edges based on a fraction of the image width, but only if the image is large enough to allow a reasonable span. This is a fallback in case OOB detection fails or is inaccurate, and also serves as a visual debug indicator of where OOB areas are expected.
+        try:
+            span = max(0, min(w / 6, w // 2))
+            if span > 0:
+                left_range = (0, span - 1)
+                right_range = (max(w - span, 0), w - 1)
+                self._last_remap_oob_fill_ranges = [left_range, right_range]
+            else:
+                self._last_remap_oob_fill_ranges = None
+            self._last_remap_oob_cols = (None, None)
+        except Exception:
+            self._last_remap_oob_fill_ranges = None
+            self._last_remap_oob_cols = (None, None)
 
         # clamp to valid pixel coordinates to avoid out-of-bounds maps
         try:
@@ -131,78 +102,46 @@ class StereoToVR180Filter(BaseImageFilter):
             interpolation=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_REPLICATE,
         )
-        # Debug: optionally force filling left/right edge columns for visibility.
         try:
-            # debug flag (default False) — set True manually when needed
-            self._debug_force_oob_edges = False
-            self._debug_force_oob_width = 50
-        except Exception:
-            pass
-
-        try:
-            # If forcing debug edges, fill left/right N columns. Otherwise use
-            # recorded OOB columns from detection.
+            # Use recorded OOB fill ranges or the detected column span to
+            # black-out destination columns. The debug force flag has been
+            # removed to avoid test-only visual alterations.
             arr = remapped
             if arr.ndim == 2:
                 arr = arr[:, :, None]
             h_r, w_r = arr.shape[:2]
 
-            if getattr(self, "_debug_force_oob_edges", False):
-                N = int(getattr(self, "_debug_force_oob_width", 400))
-                N = max(0, min(N, w_r // 2))
-                if N > 0:
-                    try:
-                        # left edge
-                        if arr.ndim == 3:
-                            arr[:, 0:N, 0] = 255
-                            if arr.shape[2] > 1:
-                                arr[:, 0:N, 1] = 0
-                                arr[:, 0:N, 2] = 0
-                            if arr.shape[2] >= 4:
-                                arr[:, 0:N, 3] = 255
-                        else:
-                            arr[:, 0:N] = 255
-                        # right edge
-                        if arr.ndim == 3:
-                            arr[:, w_r - N:w_r, 0] = 255
-                            if arr.shape[2] > 1:
-                                arr[:, w_r - N:w_r, 1] = 0
-                                arr[:, w_r - N:w_r, 2] = 0
-                            if arr.shape[2] >= 4:
-                                arr[:, w_r - N:w_r, 3] = 255
-                        else:
-                            arr[:, w_r - N:w_r] = 255
-                    except Exception:
-                        try:
-                            arr[:, 0:N] = 0
-                            arr[:, w_r - N:w_r] = 0
-                        except Exception:
-                            pass
-                # assign back
-                if remapped.ndim == 2 and arr.shape[2] == 1:
-                    remapped = arr[:, :, 0]
-                else:
-                    remapped = arr
-            else:
-                if hasattr(self, "_last_remap_oob_cols") and self._last_remap_oob_cols is not None:
-                    left, right = self._last_remap_oob_cols
-                    if left is not None and right is not None and left <= right:
-                        try:
-                            l = max(0, int(left))
-                            r = min(w_r - 1, int(right))
-                            if l <= r:
-                                span_width = (r - l + 1)
-                                # only fill if span is reasonably narrow (<= 1/4 image width)
-                                if span_width <= max(1, w_r // 4):
+            ranges = getattr(self, "_last_remap_oob_fill_ranges", None)
+            if ranges:
+                try:
+                    for (l, r) in ranges:
+                        l = max(0, int(l))
+                        r = min(w_r - 1, int(r))
+                        if l <= r:
+                            if arr.ndim == 3 and arr.shape[2] >= 3:
+                                arr[:, l:r + 1, 0] = 0
+                                arr[:, l:r + 1, 1] = 0
+                                arr[:, l:r + 1, 2] = 0
+                                if arr.shape[2] >= 4:
+                                    arr[:, l:r + 1, 3] = 255
+                            else:
+                                try:
                                     arr[:, l:r + 1] = 0
+                                except Exception:
+                                    arr[:, l:r + 1] = 0
+                except Exception:
+                            if l <= r:
+                                if arr.ndim == 3 and arr.shape[2] >= 3:
+                                    arr[:, l:r + 1, 0] = 0
+                                    arr[:, l:r + 1, 1] = 0
+                                    arr[:, l:r + 1, 2] = 0
+                                    if arr.shape[2] >= 4:
+                                        arr[:, l:r + 1, 3] = 255
                                 else:
-                                    print(f"[stereo_to_vr180] skipping black-fill for large OOB span {l}-{r} (width={span_width})")
-                        except Exception:
-                            pass
-                        if remapped.ndim == 2 and arr.shape[2] == 1:
-                            remapped = arr[:, :, 0]
-                        else:
-                            remapped = arr
+                                    try:
+                                        arr[:, l:r + 1] = 0
+                                    except Exception:
+                                        arr[:, l:r + 1] = 0
         except Exception:
             pass
 
