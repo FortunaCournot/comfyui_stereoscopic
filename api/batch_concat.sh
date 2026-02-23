@@ -57,100 +57,67 @@ else
 	COUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
 	INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		IMGANDVIDFILES=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4'`
 		echo "concat" >user/default/comfyui_stereoscopic/.daemonstatus
-	
-    MINW=3840
-    MINH=2160
-    MAXW=0
-    MAXH=0
-    if [[ -1 -gt 0 ]] ; then
-      for nextinputfile in $IMGANDVIDFILES ; do
-			[ -e "$nextinputfile" ] || continue
-        INDEX+=1
-        newfn=part_$INDEX.mp4
-        cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
-        
-        if [ -e "output/vr/concat/intermediate/$newfn" ]
-        then
-          echo "file $newfn" >>output/vr/concat/intermediate/mylist.txt
-        
-          RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $newfn`
-          RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $newfn`
-          if [ `echo $RESW | wc -l` -ne 1 ] || [ `echo $RESH | wc -l` -ne 1 ] ; then
-            echo -e $"\e[91mError:\e[0m Can't process video. please resample."
-            exit 1
-          fi
-          if [ $RESW -lt $MINW ] ; then
-            MINW=$RESW
-          fi
-          if [ $RESH -lt $MINH ] ; then
-            MINH=$RESH
-          fi
-          if [ $RESW -gt $MAXW ] ; then
-            MAXW=$RESW
-          fi
-          if [ $RESH -gt $MAXH ] ; then
-            MAXH=$RESH
-          fi
-        else
-          echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/concat/intermediate/$newfn"
-          exit 1
-        fi						
-      done
-      
-      if [ $MINW -ne $MAXW ] || [ $MINH -ne $MAXH ] ; then
-        echo -e $"\e[94mInfo:\e[0m Resolutions do no match. need padding... (TODO)"
-        #nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$SPLITINPUT" -filter:v fps=fps=$MAXFPS "$SPLITINPUTFPS"
-        #nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$newfn" -vf pad=$MAXW:$MAXH:(iw-ow)/2:(ih-oh)/2 "$TMPOUT"
-        exit 1
-      fi
-    fi
-    
-		echo "" >output/vr/concat/intermediate/mylist.txt
-		for nextinputfile in $IMGANDVIDFILES ; do
-			[ -e "$nextinputfile" ] || continue
-			INDEX+=1
-			newfn=part_$INDEX.mp4
-			cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
-			
-			if [ -e "output/vr/concat/intermediate/$newfn" ]
-			then
-				echo "file $newfn" >>output/vr/concat/intermediate/mylist.txt
+		# helper: process current group stored in IMGANDVIDFILES
+		process_group() {
+			echo "" >output/vr/concat/intermediate/mylist.txt
+			INDEX=0
+			for nextinputfile in $IMGANDVIDFILES ; do
+				[ -e "$nextinputfile" ] || continue
+				INDEX=$((INDEX+1))
+				newfn=part_$INDEX.mp4
+				cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
+				if [ -e "output/vr/concat/intermediate/$newfn" ]
+				then
+					echo "file $newfn" >>output/vr/concat/intermediate/mylist.txt
+				else
+					echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/concat/intermediate/$newfn"
+					exit 1
+				fi
+			done
+			NOW=$( date '+%F_%H%M' )
+			BASE=${nextinputfile##*/}
+			BASE=${BASE%_*}
+			SUFFIX=""
+			if echo "$IMGANDVIDFILES" | grep -q "_SBS_LR" ; then
+				SUFFIX="_SBS_LR"
+			fi
+			TARGET=output/vr/concat/${BASE}-${NOW}${SUFFIX}.mp4
+			cd output/vr/concat/intermediate
+			echo -ne "Concat (${BASE})...                             \r"
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
+			if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit 1 ; fi
+			cd ../../../..
+			mv -f output/vr/concat/intermediate/result.mp4 "$TARGET"
+			# move only the files belonging to this group into done
+			for mvf in $IMGANDVIDFILES ; do
+				mv "$mvf" input/vr/concat/done/ 2>/dev/null || true
+			done
+			if [ -e "$TARGET" ]; then
+				rm -f output/vr/concat/intermediate/*
 			else
-				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/concat/intermediate/$newfn"
-				exit 1
-			fi						
+				echo -e $"\e[91mError:\e[0m Failed to create target file $TARGET"
+			fi
+			echo -e $"\e[92mdone (${BASE}).\e[0m                            "
+		}
+		
+		# build group keys by replacing the numeric token (_NNN_) with _NUM_
+		KEYS=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' -printf '%f\n' | grep -E '_[0-9]{3,}_' | sed -E 's/_([0-9]{3,})_/_NUM_/' | sort -u)
+		for KEY in $KEYS ; do
+			# create a glob pattern by replacing the marker back to wildcard
+			PATTERN=$(echo "$KEY" | sed 's/_NUM_/_*_/')
+			IMGANDVIDFILES=$(find input/vr/concat -maxdepth 1 -type f -name "$PATTERN" | sort)
+			[ -z "$IMGANDVIDFILES" ] && continue
+			process_group
 		done
-		
-		NOW=$( date '+%F_%H%M' )
-		BASE=${nextinputfile##*/}
-		BASE=${BASE%%_*}
-		if [[ "$nextinputfile" == *"_SBS_LR"* ]] ; then
-			TARGET=output/vr/concat/$BASE-$NOW"_SBS_LR".mp4
-		else
-			TARGET=output/vr/concat/$BASE-$NOW"".mp4
+		# process rest (files without the numeric _NNN_ token)
+		RESTFILES=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | sort | grep -Ev '_[0-9]{3,}_' || true)
+		if [ -n "$RESTFILES" ] ; then
+			IMGANDVIDFILES=$RESTFILES
+			process_group
 		fi
-		
-		cd output/vr/concat/intermediate
-		echo -ne "Concat ($COUNT)...                             \r"
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
-		if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit ; fi
-		
-		
-		cd ../../../..
-		mv -f output/vr/concat/intermediate/result.mp4 "$TARGET"
-		mv input/vr/concat/*.mp4 input/vr/concat/done
-		
-		if [ -e "$TARGET" ]; then
-			rm -f output/vr/concat/intermediate/*
-		else
-			echo -e $"\e[91mError:\e[0m Failed to create target file $TARGET"
-		fi
-		echo -e $"\e[92mdone.\e[0m                            "
-	
 	else
-			echo -e $"\e[91mError:\e[0m COUNT=$COUNT: $IMGANDVIDFILES"
+		echo -e $"\e[91mError:\e[0m COUNT=$COUNT: $(find input/vr/concat -maxdepth 1 -type f -name '*.mp4')"
 	fi
 	echo "Batch ($COUNT) done.                             "
 fi
