@@ -140,6 +140,8 @@ if __name__ == "__main__":
         "debug_*.png",
         "debug_*_pre_*.png",
         "debug_*_post_*.png",
+        "testbear_*_RANDOM*.png",
+        "testbear_native_*_RANDOM*.png",
     ]:
         for f in glob.glob(os.path.join(os.path.dirname(__file__), pattern)):
             try:
@@ -221,3 +223,20 @@ if __name__ == "__main__":
     mid_col43 = sbs43_fish.shape[1] // 2
     sbs43_fish[:, mid_col43] = 0
     cv2.imwrite(f"testgrid_{sbs43_fish.shape[1]}x{sbs43_fish.shape[0]}_RANDOM{ts}_LR_180.png", sbs43_fish)
+
+    # --- Zusatz: fisheye-Erzeugung für input/testbear.png in nativer Auflösung ---
+    tb_path = os.path.join(os.path.dirname(__file__), "input", "testbear.png")
+    if os.path.exists(tb_path):
+        src_tb = cv2.imread(tb_path)
+        if src_tb is not None:
+            tb_h, tb_w = src_tb.shape[:2]
+            # Use native resolution; choose spacing proportional to height to
+            # keep visual grid density similar to the standard 2196px height.
+            spacing_tb = max(1, int(round(512 * (tb_h / 2196.0))))
+            deg_per_step = 15
+
+            tb_fish, _, _ = cosinus_fisheye_transform(src_tb, spacing=spacing_tb, deg_per_step=deg_per_step, output_scale=2.0, debug_name=f"debug_testbear_native_{ts}")
+            sbs_tb = np.concatenate([tb_fish, tb_fish], axis=1)
+            mid_col_tb = sbs_tb.shape[1] // 2
+            sbs_tb[:, mid_col_tb] = 0
+            cv2.imwrite(f"testbear_native_{sbs_tb.shape[1]}x{sbs_tb.shape[0]}_RANDOM{ts}_LR_180.png", sbs_tb)
