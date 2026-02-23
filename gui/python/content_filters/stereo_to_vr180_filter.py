@@ -10,9 +10,9 @@ class StereoToVR180Filter(BaseImageFilter):
     display_name = "content filter: stereo to vr180"
     icon_name = "filter64_stereo2vr180.png"
     parameter_defaults = [
-        ("fisheye_strength", 1.0),
-        ("input_fov", 0.45),
-        ("zoom_out", 0.0),
+        ("fisheye_strength", 0.0),
+        ("input_fov", 0.75),
+        ("zoom_out", 0.6),
     ]
 
     def _remap_rectilinear_to_fisheye(self, src_rgb, fov_in_deg: float, strength: float):
@@ -53,6 +53,60 @@ class StereoToVR180Filter(BaseImageFilter):
         if strength < 0.999:
             map_x = map_x * strength + xs * (1.0 - strength)
             map_y = map_y * strength + ys * (1.0 - strength)
+        # apply a center-relative horizontal stretch so effect is visible
+        horizontal_stretch = 1.5
+        map_x = cx + (map_x - cx) * horizontal_stretch
+        remapped = cv2.remap(
+            src_rgb,
+            map_x.astype(np.float32),
+            map_y.astype(np.float32),
+            interpolation=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
+        return remapped
+
+    # duplicate of _remap_rectilinear_to_fisheye for experimentation/comparison
+    def _remap_rectilinear_to_fisheye_v2(self, src_rgb, fov_in_deg: float, strength: float):
+        try:
+            import cv2
+            import numpy as np
+        except Exception:
+            return src_rgb
+
+        h, w = src_rgb.shape[:2]
+        if h <= 1 or w <= 1:
+            return src_rgb
+
+        cx = (w - 1) * 0.5
+        cy = (h - 1) * 0.5
+        radius = max(1.0, min(cx, cy))
+        max_radius = max(1e-6, math.sqrt(cx * cx + cy * cy))
+        fov_in = math.radians(max(60.0, min(160.0, float(fov_in_deg))))
+        f_rect = radius / max(1e-6, math.tan(fov_in * 0.5))
+        theta_max = math.atan(max_radius / max(1e-6, f_rect))
+
+        ys, xs = np.indices((h, w), dtype=np.float32)
+        dx = xs - cx
+        dy = ys - cy
+        r_fish = np.sqrt(dx * dx + dy * dy)
+        theta = (r_fish / max_radius) * theta_max
+        theta = np.minimum(theta, theta_max)
+
+        r_rect = f_rect * np.tan(theta)
+        phi = np.arctan2(dy, dx)
+        map_x = cx + r_rect * np.cos(phi)
+        map_y = cy + r_rect * np.sin(phi)
+
+        map_x = np.clip(map_x, 0.0, float(w - 1))
+        map_y = np.clip(map_y, 0.0, float(h - 1))
+
+        strength = max(0.0, min(1.0, float(strength)))
+        if strength < 0.999:
+            map_x = map_x * strength + xs * (1.0 - strength)
+            map_y = map_y * strength + ys * (1.0 - strength)
+        # apply a center-relative horizontal stretch so effect is visible
+        horizontal_stretch = 1.5
+        map_x = cx + (map_x - cx) * horizontal_stretch 
 
         remapped = cv2.remap(
             src_rgb,
@@ -98,13 +152,13 @@ class StereoToVR180Filter(BaseImageFilter):
             arr = np.array(half_image.convert("RGBA"), dtype=np.uint8)
             rgb = arr[:, :, :3]
             alpha = arr[:, :, 3]
-            warped_rgb = self._remap_rectilinear_to_fisheye(rgb, fov_in_deg, strength)
-            warped_alpha = self._remap_rectilinear_to_fisheye(alpha, fov_in_deg, strength)
+            warped_rgb = self._remap_rectilinear_to_fisheye_v2(rgb, fov_in_deg, strength)
+            warped_alpha = self._remap_rectilinear_to_fisheye_v2(alpha, fov_in_deg, strength)
             out_arr = np.dstack([warped_rgb, warped_alpha]).astype(np.uint8)
             return self._apply_zoom_out(Image.fromarray(out_arr, mode="RGBA"), zoom_out, has_alpha)
 
         rgb_arr = np.array(half_image.convert("RGB"), dtype=np.uint8)
-        warped = self._remap_rectilinear_to_fisheye(rgb_arr, fov_in_deg, strength)
+        warped = self._remap_rectilinear_to_fisheye_v2(rgb_arr, fov_in_deg, strength)
         return self._apply_zoom_out(Image.fromarray(warped, mode="RGB"), zoom_out, has_alpha)
 
     def transform(self, image: Image.Image) -> Image.Image:
