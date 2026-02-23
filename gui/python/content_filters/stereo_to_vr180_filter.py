@@ -80,7 +80,8 @@ class StereoToVR180Filter(BaseImageFilter):
 
         # set default OOB fill ranges at the left/right edges based on a fraction of the image width, but only if the image is large enough to allow a reasonable span. This is a fallback in case OOB detection fails or is inaccurate, and also serves as a visual debug indicator of where OOB areas are expected.
         try:
-            span = max(0, min(w / 6, w // 2))
+            oob_div = 5.5  # divisor to determine OOB column span (lower = wider)
+            span = max(0, min(w / oob_div, w // 2))
             if span > 0:
                 left_range = (0, span - 1)
                 right_range = (max(w - span, 0), w - 1)
