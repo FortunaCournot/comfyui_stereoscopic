@@ -42,7 +42,7 @@ def make_grid_image():
     return bg
 
 
-def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15):
+def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15, output_scale=1.0):
     import math
     h, w = src.shape[:2]
     aspect = w / h
@@ -57,7 +57,9 @@ def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15):
     fix_angle = 4 * deg_per_step
     # Zoomfaktor für Benutzer
     user_zoom = 1.0  # <--- Hier anpassen für mehr/weniger Zoom
-    # horizontales Stretching linear: 16:9 -> 1.0, 4:3 > 1, Portrait < 1
+    # horizontales Stretching proportional zur Abweichung vom 16:9-Referenz.
+    # (16:9)/aspect — das war die zuvor funktionierende Formel.
+    aspect = w / h
     aspect_169 = 16/9
     horizontal_stretch = aspect_169 / aspect
     # Horizontales Sichtfeld für 4:3 und 16:9 identisch behandeln
@@ -69,76 +71,83 @@ def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15):
     map_x = src_x.astype(np.float32)
     map_y = src_y.astype(np.float32)
     dst = cv2.remap(src, map_x, map_y, interpolation=cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    if output_scale != 1.0:
+        new_w = int(round(dst.shape[1] * output_scale))
+        new_h = int(round(dst.shape[0] * output_scale))
+        dst = cv2.resize(dst, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
     return dst, gx, gy
+
+height916 = 2196
+width916 = int(height916 * 9 / 16)
+spacing916 = 512
+def make_grid_image_916():
+    bg = np.full((height916, width916, 3), 255, np.uint8)
+    cx, cy = width916 // 2, height916 // 2
+    # Hauptachsen
+    cv2.line(bg, (cx, 0), (cx, height916), (0,0,0), 6)
+    cv2.line(bg, (0, cy), (width916, cy), (0,0,0), 6)
+    # Gitterlinien
+    for dx in range(spacing916, width916//2+1, spacing916):
+        for sign in [-1, 1]:
+            x = cx + sign*dx
+            if 0 <= x < width916:
+                cv2.line(bg, (x, 0), (x, height916), (128,128,128), 2)
+    for dy in range(spacing916, height916//2+1, spacing916):
+        for sign in [-1, 1]:
+            y = cy + sign*dy
+            if 0 <= y < height916:
+                cv2.line(bg, (0, y), (width916, y), (128,128,128), 2)
+    # Koordinatenpunkte und Labels
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 1.2
+    font_thick = 2
+    dot_radius = 12
+    for gx in range(-(cx//spacing916), (width916-cx)//spacing916+1):
+        px = cx + gx*spacing916
+        if not (0 <= px < width916): continue
+        for gy in range(-(cy//spacing916), (height916-cy)//spacing916+1):
+            py = cy + gy*spacing916
+            if not (0 <= py < height916): continue
+            color = (0,128,0) if (gx,gy)==(0,0) else (0,0,255)
+            cv2.circle(bg, (px, py), dot_radius, color, -1)
+            label = f"({gx},{gy})"
+            tx, ty = px+18, py-18
+            cv2.putText(bg, label, (tx, ty), font, font_scale, (0,0,0), font_thick, cv2.LINE_AA)
+    return bg
 
 if __name__ == "__main__":
     # Alte Testbilder im aktuellen Verzeichnis löschen
-    for f in glob.glob(os.path.join(os.path.dirname(__file__), "testgrid_*_RANDOM*.png")):
-        try:
-            os.remove(f)
-        except Exception:
-            pass
+    # remove previous generated images (both testgrid_ and gridbase_ prefixes)
+    for pattern in ["testgrid_*_RANDOM*.png", "gridbase_*_RANDOM*.png"]:
+        for f in glob.glob(os.path.join(os.path.dirname(__file__), pattern)):
+            try:
+                os.remove(f)
+            except Exception:
+                pass
     ts = int(time.time())
 
     # --- 9:16 Testbilder (Portrait) ---
-    height916 = 2196
-    width916 = int(height916 * 9 / 16)
-    spacing916 = 512
-    def make_grid_image_916():
-        bg = np.full((height916, width916, 3), 255, np.uint8)
-        cx, cy = width916 // 2, height916 // 2
-        # Hauptachsen
-        cv2.line(bg, (cx, 0), (cx, height916), (0,0,0), 6)
-        cv2.line(bg, (0, cy), (width916, cy), (0,0,0), 6)
-        # Gitterlinien
-        for dx in range(spacing916, width916//2+1, spacing916):
-            for sign in [-1, 1]:
-                x = cx + sign*dx
-                if 0 <= x < width916:
-                    cv2.line(bg, (x, 0), (x, height916), (128,128,128), 2)
-        for dy in range(spacing916, height916//2+1, spacing916):
-            for sign in [-1, 1]:
-                y = cy + sign*dy
-                if 0 <= y < height916:
-                    cv2.line(bg, (0, y), (width916, y), (128,128,128), 2)
-        # Koordinatenpunkte und Labels
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 1.2
-        font_thick = 2
-        dot_radius = 12
-        for gx in range(-(cx//spacing916), (width916-cx)//spacing916+1):
-            px = cx + gx*spacing916
-            if not (0 <= px < width916): continue
-            for gy in range(-(cy//spacing916), (height916-cy)//spacing916+1):
-                py = cy + gy*spacing916
-                if not (0 <= py < height916): continue
-                color = (0,128,0) if (gx,gy)==(0,0) else (0,0,255)
-                cv2.circle(bg, (px, py), dot_radius, color, -1)
-                label = f"({gx},{gy})"
-                tx, ty = px+18, py-18
-                cv2.putText(bg, label, (tx, ty), font, font_scale, (0,0,0), font_thick, cv2.LINE_AA)
-        return bg
-
     img916 = make_grid_image_916()
     sbs916 = np.concatenate([img916, img916], axis=1)
-    cv2.imwrite(f"testgrid_{width916}x{height916}_RANDOM{ts}_SBS_LR.png", sbs916)
-    img916_fish, _, _ = cosinus_fisheye_transform(img916, spacing=spacing916, deg_per_step=15)
+    cv2.imwrite(f"gridbase_{sbs916.shape[1]}x{sbs916.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs916)
+    img916_fish, _, _ = cosinus_fisheye_transform(img916, spacing=spacing916, deg_per_step=15, output_scale=2.0)
     sbs916_fish = np.concatenate([img916_fish, img916_fish], axis=1)
     mid_col916 = sbs916_fish.shape[1] // 2
     sbs916_fish[:, mid_col916] = 0
-    cv2.imwrite(f"testgrid_{width916}x{height916}_RANDOM{ts}_LR_180.png", sbs916_fish)
+    cv2.imwrite(f"testgrid_{sbs916_fish.shape[1]}x{sbs916_fish.shape[0]}_RANDOM{ts}_LR_180.png", sbs916_fish)
 
+    # --- 16:9 Testbilder ---
     img = make_grid_image()
     sbs = np.concatenate([img, img], axis=1)
-    cv2.imwrite(f"testgrid_3840x2196_RANDOM{ts}_SBS_LR.png", sbs)
+    cv2.imwrite(f"gridbase_{sbs.shape[1]}x{sbs.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs)
     spacing = 512
     deg_per_step = 15
-    img_fish, _, _ = cosinus_fisheye_transform(img, spacing=spacing, deg_per_step=deg_per_step)
+    img_fish, _, _ = cosinus_fisheye_transform(img, spacing=spacing, deg_per_step=deg_per_step, output_scale=2.0)
     sbs_fish = np.concatenate([img_fish, img_fish], axis=1)
     # Mittelachse explizit auf schwarz setzen
     mid_col = sbs_fish.shape[1] // 2
     sbs_fish[:, mid_col] = 0
-    cv2.imwrite(f"testgrid_3840x2196_RANDOM{ts}_LR_180.png", sbs_fish)
+    cv2.imwrite(f"testgrid_{sbs_fish.shape[1]}x{sbs_fish.shape[0]}_RANDOM{ts}_LR_180.png", sbs_fish)
 
     # --- 4:3 Testbilder (4096x3072) ---
     height43 = 2196  # gleiche Höhe wie 16:9
@@ -182,11 +191,11 @@ if __name__ == "__main__":
     img43 = make_grid_image_43()
     # SBS: echte horizontale Verdopplung
     sbs43 = np.concatenate([img43, img43], axis=1)
-    cv2.imwrite(f"testgrid_{width43}x{height43}_RANDOM{ts}_SBS_LR.png", sbs43)
+    cv2.imwrite(f"gridbase_{sbs43.shape[1]}x{sbs43.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs43)
     # Fisheye für 4:3 (gleiche Transformation wie zuvor)
-    img43_fish, _, _ = cosinus_fisheye_transform(img43, spacing=spacing43, deg_per_step=15)
+    img43_fish, _, _ = cosinus_fisheye_transform(img43, spacing=spacing43, deg_per_step=15, output_scale=2.0)
     sbs43_fish = np.concatenate([img43_fish, img43_fish], axis=1)
     # Mittelachse explizit auf schwarz setzen
     mid_col43 = sbs43_fish.shape[1] // 2
     sbs43_fish[:, mid_col43] = 0
-    cv2.imwrite(f"testgrid_{width43}x{height43}_RANDOM{ts}_LR_180.png", sbs43_fish)
+    cv2.imwrite(f"testgrid_{sbs43_fish.shape[1]}x{sbs43_fish.shape[0]}_RANDOM{ts}_LR_180.png", sbs43_fish)
