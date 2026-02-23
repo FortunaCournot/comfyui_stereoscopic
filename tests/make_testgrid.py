@@ -1,5 +1,8 @@
 import numpy as np
 import cv2
+import glob
+import os
+import time
 
 def make_grid_image():
     width, height = 3840, 2196  # 16:9
@@ -42,6 +45,7 @@ def make_grid_image():
 def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15):
     import math
     h, w = src.shape[:2]
+    aspect = w / h
     dst = np.full_like(src, 255)
     cx = w // 2
     cy = h // 2
@@ -53,8 +57,23 @@ def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15):
     fix_angle = 4 * deg_per_step
     # Zoomfaktor für Benutzer
     user_zoom = 1.0  # <--- Hier anpassen für mehr/weniger Zoom
-    horizontal_stretch = 1.0  # <--- Hier anpassen für stärkere horizontale Stauchung (z.B. 1.1, 1.2)
+    # horizontales Stretching direkt aus Aspect Ratio
+    aspect_169 = 16/9
+    horizontal_stretch = aspect_169 / aspect
     aspect = w / h
+    # horizontal_stretch wird anhand des Seitenverhältnisses linear interpoliert:
+    # 16:9 (1.777...) -> 1.0, 4:3 (1.333...) -> 1.1
+    aspect_169 = 16/9
+    aspect_43 = 4/3
+    stretch_169 = 1.0
+    stretch_43 = 1.1
+    if aspect_169 == aspect_43:
+        horizontal_stretch = stretch_169
+    else:
+        # Linear interpolieren zwischen 16:9 und 4:3
+        t = (aspect_169 - aspect) / (aspect_169 - aspect_43)
+        t = min(max(t, 0.0), 1.0)  # Clamp auf [0,1]
+        horizontal_stretch = stretch_169 + t * (stretch_43 - stretch_169)
     # Horizontales Sichtfeld für 4:3 und 16:9 identisch behandeln
     zoom_x = (1.0 / abs(np.cos(np.deg2rad(fix_angle)))) * user_zoom
     zoom_y = (1.0 / abs(np.cos(np.deg2rad(fix_angle)))) * (16/9) * user_zoom
@@ -67,8 +86,12 @@ def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15):
     return dst, gx, gy
 
 if __name__ == "__main__":
-    # --- 16:9 Standardbilder ---
-    import time
+    # Alte Testbilder im aktuellen Verzeichnis löschen
+    for f in glob.glob(os.path.join(os.path.dirname(__file__), "testgrid_*_RANDOM*.png")):
+        try:
+            os.remove(f)
+        except Exception:
+            pass
     ts = int(time.time())
     img = make_grid_image()
     sbs = np.concatenate([img, img], axis=1)
