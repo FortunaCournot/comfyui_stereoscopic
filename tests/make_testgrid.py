@@ -42,10 +42,12 @@ def make_grid_image():
     return bg
 
 
-def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15, output_scale=1.0, debug_name=None):
+def cosinus_fisheye_transform(src, deg_per_step=15, output_scale=1.0, debug_name=None):
     import math
     h, w = src.shape[:2]
     aspect = w / h
+    # fixed internal spacing: keep sampling density stable and remove caller-side control
+    spacing = 512
     dst = np.full_like(src, 255)
     cx = w // 2
     cy = h // 2
@@ -154,7 +156,7 @@ if __name__ == "__main__":
     img916 = make_grid_image_916()
     sbs916 = np.concatenate([img916, img916], axis=1)
     cv2.imwrite(f"gridbase_{sbs916.shape[1]}x{sbs916.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs916)
-    img916_fish, _, _ = cosinus_fisheye_transform(img916, spacing=spacing916, deg_per_step=15, output_scale=2.0, debug_name=f"debug_916_{ts}")
+    img916_fish, _, _ = cosinus_fisheye_transform(img916, deg_per_step=15, output_scale=2.0, debug_name=f"debug_916_{ts}")
     sbs916_fish = np.concatenate([img916_fish, img916_fish], axis=1)
     mid_col916 = sbs916_fish.shape[1] // 2
     sbs916_fish[:, mid_col916] = 0
@@ -166,7 +168,7 @@ if __name__ == "__main__":
     cv2.imwrite(f"gridbase_{sbs.shape[1]}x{sbs.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs)
     spacing = 512
     deg_per_step = 15
-    img_fish, _, _ = cosinus_fisheye_transform(img, spacing=spacing, deg_per_step=deg_per_step, output_scale=2.0, debug_name=f"debug_169_{ts}")
+    img_fish, _, _ = cosinus_fisheye_transform(img, deg_per_step=deg_per_step, output_scale=2.0, debug_name=f"debug_169_{ts}")
     sbs_fish = np.concatenate([img_fish, img_fish], axis=1)
     # Mittelachse explizit auf schwarz setzen
     mid_col = sbs_fish.shape[1] // 2
@@ -217,7 +219,7 @@ if __name__ == "__main__":
     sbs43 = np.concatenate([img43, img43], axis=1)
     cv2.imwrite(f"gridbase_{sbs43.shape[1]}x{sbs43.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs43)
     # Fisheye für 4:3 (gleiche Transformation wie zuvor)
-    img43_fish, _, _ = cosinus_fisheye_transform(img43, spacing=spacing43, deg_per_step=15, output_scale=2.0, debug_name=f"debug_43_{ts}")
+    img43_fish, _, _ = cosinus_fisheye_transform(img43, deg_per_step=15, output_scale=2.0, debug_name=f"debug_43_{ts}")
     sbs43_fish = np.concatenate([img43_fish, img43_fish], axis=1)
     # Mittelachse explizit auf schwarz setzen
     mid_col43 = sbs43_fish.shape[1] // 2
@@ -235,7 +237,7 @@ if __name__ == "__main__":
             spacing_tb = max(1, int(round(512 * (tb_h / 2196.0))))
             deg_per_step = 15
 
-            tb_fish, _, _ = cosinus_fisheye_transform(src_tb, spacing=spacing_tb, deg_per_step=deg_per_step, output_scale=2.0, debug_name=f"debug_testbear_native_{ts}")
+            tb_fish, _, _ = cosinus_fisheye_transform(src_tb, deg_per_step=deg_per_step, output_scale=2.0, debug_name=f"debug_testbear_native_{ts}")
             sbs_tb = np.concatenate([tb_fish, tb_fish], axis=1)
             mid_col_tb = sbs_tb.shape[1] // 2
             sbs_tb[:, mid_col_tb] = 0
