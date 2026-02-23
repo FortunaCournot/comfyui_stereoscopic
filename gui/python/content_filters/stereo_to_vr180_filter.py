@@ -62,9 +62,8 @@ class StereoToVR180Filter(BaseImageFilter):
             pass
 
         strength = max(0.0, min(1.0, float(strength)))
-        if strength < 0.999:
-            map_x = map_x * strength + xs * (1.0 - strength)
-            map_y = map_y * strength + ys * (1.0 - strength)
+        map_x = xs 
+        map_y = ys 
         # apply a center-relative horizontal stretch so effect is visible
         horizontal_stretch = 1.5
         # apply center-relative horizontal stretch directly (previous single-line behavior)
