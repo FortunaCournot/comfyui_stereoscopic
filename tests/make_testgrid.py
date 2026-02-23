@@ -4,6 +4,17 @@ import glob
 import os
 import time
 
+
+def cap_image(img, max_dim=8192):
+    h, w = img.shape[:2]
+    m = max(h, w)
+    if m <= max_dim:
+        return img
+    scale = float(max_dim) / float(m)
+    new_w = max(1, int(round(w * scale)))
+    new_h = max(1, int(round(h * scale)))
+    return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
 def make_grid_image():
     width, height = 3840, 2196  # 16:9
     spacing = 512
@@ -57,15 +68,56 @@ def cosinus_fisheye_transform(src, deg_per_step=15, output_scale=1.0, debug_name
     scale = float(h) / ref_h
     effective_spacing = ref_spacing * scale
     effective_deg_per_step = ref_deg * scale
-    dst = np.full_like(src, 255)
-    cx = w // 2
-    cy = h // 2
-    yy, xx = np.indices((h, w))
-    gx = (xx - cx) / effective_spacing
-    gy = (yy - cy) / effective_spacing
-    angle_x = gx * effective_deg_per_step
-    angle_y = gy * effective_deg_per_step
-    fix_angle = 4 * effective_deg_per_step
+
+    # Portrait supersampling: if the image is taller than wide (aspect < 1)
+    # perform an internal upscale to increase horizontal sampling density,
+    # then downscale the mapped result back to the original size. This
+    # preserves geometry while improving remap quality for narrow images.
+    supersample = 1
+    w_up = w
+    h_up = h
+    if aspect < 1.0:
+        candidate = int(round(1.0 / aspect))
+        supersample = max(2, min(4, candidate))
+        w_up = int(round(w * supersample))
+        h_up = int(round(h * supersample))
+
+    # enforce hard maximum on any working dimension
+    MAX_DIM = 8192
+    max_up = max(w_up, h_up)
+    downscale_to_max = 1.0
+    if max_up > MAX_DIM:
+        downscale_to_max = float(MAX_DIM) / float(max_up)
+        w_work = max(1, int(round(w_up * downscale_to_max)))
+        h_work = max(1, int(round(h_up * downscale_to_max)))
+    else:
+        w_work = w_up
+        h_work = h_up
+
+    # choose interpolation depending on whether we're up- or downscaling
+    if w_work != w or h_work != h:
+        interp = cv2.INTER_CUBIC if (w_work > w or h_work > h) else cv2.INTER_AREA
+        src_work = cv2.resize(src, (w_work, h_work), interpolation=interp)
+    else:
+        src_work = src
+    # operate on working image (possibly supersampled/rescaled)
+    h_work, w_work = src_work.shape[:2]
+    dst_work = np.full_like(src_work, 255)
+    cx = w_work // 2
+    cy = h_work // 2
+    yy, xx = np.indices((h_work, w_work))
+
+    # recompute effective spacing/deg for the working resolution so mapping
+    # stays consistent with the 2196px reference
+    scale_work = float(h_work) / ref_h
+    effective_spacing_work = ref_spacing * scale_work
+    effective_deg_per_step_work = ref_deg * scale_work
+
+    gx = (xx - cx) / effective_spacing_work
+    gy = (yy - cy) / effective_spacing_work
+    angle_x = gx * effective_deg_per_step_work
+    angle_y = gy * effective_deg_per_step_work
+    fix_angle = 4 * effective_deg_per_step_work
     # Zoomfaktor für Benutzer
     user_zoom = 1.0  # <--- Hier anpassen für mehr/weniger Zoom
     # horizontales Stretching proportional zur Abweichung vom 16:9-Referenz.
@@ -81,7 +133,21 @@ def cosinus_fisheye_transform(src, deg_per_step=15, output_scale=1.0, debug_name
     src_y = cy + (yy - cy) * zoom_y * np.abs(np.cos(np.deg2rad(angle_y)))
     map_x = src_x.astype(np.float32)
     map_y = src_y.astype(np.float32)
-    dst = cv2.remap(src, map_x, map_y, interpolation=cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    dst_work = cv2.remap(src_work, map_x, map_y, interpolation=cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+
+    # resize mapped result back to original requested size if necessary
+    if (w_work, h_work) != (w, h):
+        # choose good resampling for the final step
+        final_interp = cv2.INTER_AREA if (w < w_work or h < h_work) else cv2.INTER_CUBIC
+        dst = cv2.resize(dst_work, (w, h), interpolation=final_interp)
+        try:
+            gx_res = cv2.resize(gx.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
+            gy_res = cv2.resize(gy.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
+        except Exception:
+            gx_res, gy_res = gx, gy
+        gx, gy = gx_res, gy_res
+    else:
+        dst = dst_work
     # optionally save pre-resize fisheye for debugging
     if debug_name is not None:
         try:
@@ -164,17 +230,20 @@ if __name__ == "__main__":
     # --- 9:16 Testbilder (Portrait) ---
     img916 = make_grid_image_916()
     sbs916 = np.concatenate([img916, img916], axis=1)
-    cv2.imwrite(f"gridbase_{sbs916.shape[1]}x{sbs916.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs916)
+    out_sbs916 = cap_image(sbs916, 8192)
+    cv2.imwrite(f"gridbase_{out_sbs916.shape[1]}x{out_sbs916.shape[0]}_RANDOM{ts}_SBS_LR.png", out_sbs916)
     img916_fish, _, _ = cosinus_fisheye_transform(img916, deg_per_step=15, output_scale=2.0, debug_name=f"debug_916_{ts}")
     sbs916_fish = np.concatenate([img916_fish, img916_fish], axis=1)
     mid_col916 = sbs916_fish.shape[1] // 2
     sbs916_fish[:, mid_col916] = 0
-    cv2.imwrite(f"testgrid_{sbs916_fish.shape[1]}x{sbs916_fish.shape[0]}_RANDOM{ts}_LR_180.png", sbs916_fish)
+    out_sbs916_fish = cap_image(sbs916_fish, 8192)
+    cv2.imwrite(f"testgrid_{out_sbs916_fish.shape[1]}x{out_sbs916_fish.shape[0]}_RANDOM{ts}_LR_180.png", out_sbs916_fish)
 
     # --- 16:9 Testbilder ---
     img = make_grid_image()
     sbs = np.concatenate([img, img], axis=1)
-    cv2.imwrite(f"gridbase_{sbs.shape[1]}x{sbs.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs)
+    out_sbs = cap_image(sbs, 8192)
+    cv2.imwrite(f"gridbase_{out_sbs.shape[1]}x{out_sbs.shape[0]}_RANDOM{ts}_SBS_LR.png", out_sbs)
     spacing = 512
     deg_per_step = 15
     img_fish, _, _ = cosinus_fisheye_transform(img, deg_per_step=deg_per_step, output_scale=2.0, debug_name=f"debug_169_{ts}")
@@ -182,7 +251,8 @@ if __name__ == "__main__":
     # Mittelachse explizit auf schwarz setzen
     mid_col = sbs_fish.shape[1] // 2
     sbs_fish[:, mid_col] = 0
-    cv2.imwrite(f"testgrid_{sbs_fish.shape[1]}x{sbs_fish.shape[0]}_RANDOM{ts}_LR_180.png", sbs_fish)
+    out_sbs_fish = cap_image(sbs_fish, 8192)
+    cv2.imwrite(f"testgrid_{out_sbs_fish.shape[1]}x{out_sbs_fish.shape[0]}_RANDOM{ts}_LR_180.png", out_sbs_fish)
 
     # --- 4:3 Testbilder (4096x3072) ---
     height43 = 2196  # gleiche Höhe wie 16:9
@@ -226,14 +296,16 @@ if __name__ == "__main__":
     img43 = make_grid_image_43()
     # SBS: echte horizontale Verdopplung
     sbs43 = np.concatenate([img43, img43], axis=1)
-    cv2.imwrite(f"gridbase_{sbs43.shape[1]}x{sbs43.shape[0]}_RANDOM{ts}_SBS_LR.png", sbs43)
+    out_sbs43 = cap_image(sbs43, 8192)
+    cv2.imwrite(f"gridbase_{out_sbs43.shape[1]}x{out_sbs43.shape[0]}_RANDOM{ts}_SBS_LR.png", out_sbs43)
     # Fisheye für 4:3 (gleiche Transformation wie zuvor)
     img43_fish, _, _ = cosinus_fisheye_transform(img43, deg_per_step=15, output_scale=2.0, debug_name=f"debug_43_{ts}")
     sbs43_fish = np.concatenate([img43_fish, img43_fish], axis=1)
     # Mittelachse explizit auf schwarz setzen
     mid_col43 = sbs43_fish.shape[1] // 2
     sbs43_fish[:, mid_col43] = 0
-    cv2.imwrite(f"testgrid_{sbs43_fish.shape[1]}x{sbs43_fish.shape[0]}_RANDOM{ts}_LR_180.png", sbs43_fish)
+    out_sbs43_fish = cap_image(sbs43_fish, 8192)
+    cv2.imwrite(f"testgrid_{out_sbs43_fish.shape[1]}x{out_sbs43_fish.shape[0]}_RANDOM{ts}_LR_180.png", out_sbs43_fish)
 
     # --- Zusatz: fisheye-Erzeugung für input/testbear.png in nativer Auflösung ---
     tb_path = os.path.join(os.path.dirname(__file__), "input", "testbear.png")
@@ -250,4 +322,5 @@ if __name__ == "__main__":
             sbs_tb = np.concatenate([tb_fish, tb_fish], axis=1)
             mid_col_tb = sbs_tb.shape[1] // 2
             sbs_tb[:, mid_col_tb] = 0
-            cv2.imwrite(f"testbear_native_{sbs_tb.shape[1]}x{sbs_tb.shape[0]}_RANDOM{ts}_LR_180.png", sbs_tb)
+            out_sbs_tb = cap_image(sbs_tb, 8192)
+            cv2.imwrite(f"testbear_native_{out_sbs_tb.shape[1]}x{out_sbs_tb.shape[0]}_RANDOM{ts}_LR_180.png", out_sbs_tb)
