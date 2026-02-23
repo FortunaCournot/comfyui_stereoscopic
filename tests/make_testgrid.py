@@ -51,34 +51,40 @@ def cosinus_fisheye_transform(src, spacing=512, deg_per_step=15):
     angle_x = gx * deg_per_step
     angle_y = gy * deg_per_step
     fix_angle = 4 * deg_per_step
-    # Seitenverhältnis berücksichtigen: horizontal bei 4:3 stärker stauchen
+    # Zoomfaktor für Benutzer
+    user_zoom = 1.0  # <--- Hier anpassen für mehr/weniger Zoom
+    horizontal_stretch = 1.0  # <--- Hier anpassen für stärkere horizontale Stauchung (z.B. 1.1, 1.2)
     aspect = w / h
-    # Für 4:3 stärkere horizontale Stauchung, für 16:9 Standard
-    if abs(aspect - (4/3)) < 0.01:
-        zoom_x = (1.0 / abs(np.cos(np.deg2rad(fix_angle)))) * (aspect / (16/9))
-    else:
-        zoom_x = 1.0 / abs(np.cos(np.deg2rad(fix_angle)))
-    zoom_y = (1.0 / abs(np.cos(np.deg2rad(fix_angle)))) * (16/9)
-    src_x = cx + (xx - cx) * zoom_x * np.abs(np.cos(np.deg2rad(angle_x)))
+    # Horizontales Sichtfeld für 4:3 und 16:9 identisch behandeln
+    zoom_x = (1.0 / abs(np.cos(np.deg2rad(fix_angle)))) * user_zoom
+    zoom_y = (1.0 / abs(np.cos(np.deg2rad(fix_angle)))) * (16/9) * user_zoom
+    # horizontal_stretch wirkt nur auf die horizontale Cosinus-Komponente
+    src_x = cx + (xx - cx) * zoom_x * np.abs(np.cos(np.deg2rad(angle_x))) * horizontal_stretch
     src_y = cy + (yy - cy) * zoom_y * np.abs(np.cos(np.deg2rad(angle_y)))
     map_x = src_x.astype(np.float32)
     map_y = src_y.astype(np.float32)
-    dst = cv2.remap(src, map_x, map_y, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    dst = cv2.remap(src, map_x, map_y, interpolation=cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
     return dst, gx, gy
 
 if __name__ == "__main__":
     # --- 16:9 Standardbilder ---
+    import time
+    ts = int(time.time())
     img = make_grid_image()
     sbs = np.concatenate([img, img], axis=1)
-    cv2.imwrite("testgrid_3840x2196_SBS_LR.png", sbs)
+    cv2.imwrite(f"testgrid_3840x2196_RANDOM{ts}_SBS_LR.png", sbs)
     spacing = 512
     deg_per_step = 15
     img_fish, _, _ = cosinus_fisheye_transform(img, spacing=spacing, deg_per_step=deg_per_step)
     sbs_fish = np.concatenate([img_fish, img_fish], axis=1)
-    cv2.imwrite("testgrid_3840x2196_LR_180.png", sbs_fish)
+    # Mittelachse explizit auf schwarz setzen
+    mid_col = sbs_fish.shape[1] // 2
+    sbs_fish[:, mid_col] = 0
+    cv2.imwrite(f"testgrid_3840x2196_RANDOM{ts}_LR_180.png", sbs_fish)
 
     # --- 4:3 Testbilder (4096x3072) ---
-    width43, height43 = 4096, 3072
+    height43 = 2196  # gleiche Höhe wie 16:9
+    width43 = int(height43 * 4 / 3)  # echtes 4:3-Verhältnis
     spacing43 = 512
     def make_grid_image_43():
         bg = np.full((height43, width43, 3), 255, np.uint8)
@@ -118,8 +124,11 @@ if __name__ == "__main__":
     img43 = make_grid_image_43()
     # SBS: echte horizontale Verdopplung
     sbs43 = np.concatenate([img43, img43], axis=1)
-    cv2.imwrite("testgrid_4096x3072_SBS_LR.png", sbs43)
+    cv2.imwrite(f"testgrid_{width43}x{height43}_RANDOM{ts}_SBS_LR.png", sbs43)
     # Fisheye für 4:3 (gleiche Transformation wie zuvor)
     img43_fish, _, _ = cosinus_fisheye_transform(img43, spacing=spacing43, deg_per_step=15)
     sbs43_fish = np.concatenate([img43_fish, img43_fish], axis=1)
-    cv2.imwrite("testgrid_4096x3072_LR_180.png", sbs43_fish)
+    # Mittelachse explizit auf schwarz setzen
+    mid_col43 = sbs43_fish.shape[1] // 2
+    sbs43_fish[:, mid_col43] = 0
+    cv2.imwrite(f"testgrid_{width43}x{height43}_RANDOM{ts}_LR_180.png", sbs43_fish)

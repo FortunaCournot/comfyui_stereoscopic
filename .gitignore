@@ -1,3 +1,5 @@
+# Testbilder mit RANDOM-Timestamp
+testgrid_*_RANDOM*.png
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
