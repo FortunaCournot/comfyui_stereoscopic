@@ -46,17 +46,26 @@ def cosinus_fisheye_transform(src, deg_per_step=15, output_scale=1.0, debug_name
     import math
     h, w = src.shape[:2]
     aspect = w / h
-    # fixed internal spacing: keep sampling density stable and remove caller-side control
-    spacing = 512
+    # Make mapping resolution-independent:
+    # Interpret the incoming `deg_per_step` as the reference value for a
+    # reference height of 2196 px. Scale both `spacing` and `deg_per_step`
+    # proportionally to the current image height so that results match the
+    # original behavior at h==2196 but otherwise are resolution-independent.
+    ref_h = 2196.0
+    ref_spacing = 512.0
+    ref_deg = float(deg_per_step)
+    scale = float(h) / ref_h
+    effective_spacing = ref_spacing * scale
+    effective_deg_per_step = ref_deg * scale
     dst = np.full_like(src, 255)
     cx = w // 2
     cy = h // 2
     yy, xx = np.indices((h, w))
-    gx = (xx - cx) / spacing
-    gy = (yy - cy) / spacing
-    angle_x = gx * deg_per_step
-    angle_y = gy * deg_per_step
-    fix_angle = 4 * deg_per_step
+    gx = (xx - cx) / effective_spacing
+    gy = (yy - cy) / effective_spacing
+    angle_x = gx * effective_deg_per_step
+    angle_y = gy * effective_deg_per_step
+    fix_angle = 4 * effective_deg_per_step
     # Zoomfaktor für Benutzer
     user_zoom = 1.0  # <--- Hier anpassen für mehr/weniger Zoom
     # horizontales Stretching proportional zur Abweichung vom 16:9-Referenz.
