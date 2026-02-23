@@ -1749,6 +1749,8 @@ class RateAndCutDialog(QDialog):
 
         self.switchDirectory(None, filename, self.drag_file_path)
 
+
+    # --- Drop utility helpers (moved for clarity) ---
     def _mime_to_ext(self, mime: str) -> str:
         m = (mime or '').lower()
         if m in ('image/jpeg', 'image/jpg'):
@@ -1784,11 +1786,13 @@ class RateAndCutDialog(QDialog):
     def switchDirectory(self, dirpath, filename, url):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         startAsyncTask()
+        self._drop_switch_op_id = getattr(self, '_drop_switch_op_id', 0) + 1
+        current_op_id = self._drop_switch_op_id
         cutModeFolderOverrideActive= not dirpath is None
         try:
             thread = threading.Thread(
                 target=self.switchDirectory_worker,
-                args=( cutModeFolderOverrideActive, dirpath, filename, url),
+                args=( cutModeFolderOverrideActive, dirpath, filename, url, current_op_id),
                 daemon=True
             )
             thread.start()
@@ -1796,45 +1800,7 @@ class RateAndCutDialog(QDialog):
             endAsyncTask()
             raise
 
-    def get_safe_unique_filename(self, directory: str, filename: str) -> str:
-        """
-        Generate a sanitized and unique filename within a given directory.
-        
-        Steps:
-          1. Remove problematic shell/batch characters from filename.
-          2. If a file with the same name already exists, append "_N" before the extension,
-             where N is an increasing integer.
-        
-        Args:
-            directory (str): Target directory path.
-            filename (str): Original filename (may contain unsafe characters).
-        
-        Returns:
-            str: A safe, unique filename (not a full path).
-        """
-        # Step 1: sanitize filename (remove unsafe characters)
-        # Keep letters, digits, dot, underscore, hyphen, and space
-        safe_name = re.sub(r'[^A-Za-z0-9._\- ]+', '_', filename)
-        
-        # Prevent hidden or empty names
-        if not safe_name or safe_name.startswith('.'):
-            safe_name = 'file'
-
-        # Separate base and extension
-        base, ext = os.path.splitext(safe_name)
-        if not ext:
-            ext = ""
-
-        # Step 2: ensure uniqueness
-        candidate = safe_name
-        counter = 1
-        while os.path.exists(os.path.join(directory, candidate)):
-            candidate = f"{base}_{counter}{ext}"
-            counter += 1
-
-        return candidate
-    
-    def switchDirectory_worker(self, override, dirpath, filename, url):
+    def switchDirectory_worker(self, override, dirpath, filename, url, op_id=None):
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         try:
             if not url is None:
@@ -1900,7 +1866,7 @@ class RateAndCutDialog(QDialog):
                 
             scanFilesToRate()   # can block on some drives
 
-            QTimer.singleShot(0, partial(self.switchDirectory_updater, override, dirpath, filename))
+            QTimer.singleShot(0, partial(self.switchDirectory_updater, override, dirpath, filename, op_id))
         except:
             endAsyncTask()
             if not url is None:
@@ -1911,20 +1877,26 @@ class RateAndCutDialog(QDialog):
             else:
                 print(traceback.format_exc(), flush=True)
 
-    def switchDirectory_updater(self, override, dirpath, filename):
+    def switchDirectory_updater(self, override, dirpath, filename, op_id=None):
 
         global _cutModeFolderOverrideFiles, cutModeFolderOverrideActive, cutModeFolderOverridePath
         try:
+            if op_id is not None and op_id != getattr(self, '_drop_switch_op_id', None):
+                return
             f=getFilesToRate()
             if len(f) > 0:
-                self.currentIndex=0
-                self.currentFile=f[self.currentIndex]
+                self.currentIndex=1
+                self.currentFile=f[0]
                 if not filename is None:
                     try:
                         self.currentFile=filename
                         self.currentIndex=f.index(self.currentFile)+1
                     except ValueError as ve:
-                        self.currentFile=f[self.currentIndex]
+                        if self.currentFile in f:
+                            self.currentIndex=f.index(self.currentFile)+1
+                        else:
+                            self.currentIndex=1
+                            self.currentFile=f[0]
             else:
                 self.currentFile=""
                 self.currentIndex=-1
