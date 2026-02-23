@@ -10,7 +10,7 @@ class StereoToVR180Filter(BaseImageFilter):
     display_name = "content filter: stereo to vr180"
     icon_name = "filter64_stereo2vr180.png"
     parameter_defaults = [
-        ("fisheye_strength", 0.0),
+        ("fisheye_strength", 0.07),
         ("zoom_out", 0.6),
     ]
 
