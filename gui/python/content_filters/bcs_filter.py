@@ -1,4 +1,5 @@
 import math
+import numpy as np
 from PIL import Image, ImageEnhance
 
 from .base_filter import BaseImageFilter
@@ -64,3 +65,54 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
             return img
         except Exception:
             return image
+
+    def suggest_parameters(self, image: Image.Image) -> dict:
+        """Estimate reasonable brightness/contrast/saturation parameters for `image`.
+
+        Returns a dict with keys possibly among 'brightness','contrast','saturation'.
+        """
+        try:
+            if image is None:
+                return {}
+            pil = image.convert('RGB')
+            arr = np.array(pil).astype(np.float32) / 255.0
+            if arr.size == 0:
+                return {}
+
+            # luminance (perceptual)
+            lum = 0.2126 * arr[:, :, 0] + 0.7152 * arr[:, :, 1] + 0.0722 * arr[:, :, 2]
+            mean_l = float(np.mean(lum))
+            std_l = float(np.std(lum))
+
+            # target heuristics
+            target_mean = 0.5
+            target_std = 0.25
+
+            # brightness parameter b where factor = 1 + b
+            bright_factor = target_mean / max(1e-6, mean_l) if mean_l > 0 else 1.0
+            bright_param = max(-1.0, min(1.0, bright_factor - 1.0))
+
+            contrast_factor = target_std / max(1e-6, std_l) if std_l > 0 else 1.0
+            contrast_param = max(0.0, min(2.0, contrast_factor))
+
+            try:
+                hsv = np.array(pil.convert('HSV')).astype(np.float32)
+                sat = hsv[:, :, 1] / 255.0
+                mean_sat = float(np.mean(sat)) if sat.size else 0.5
+            except Exception:
+                mean_sat = 0.5
+            target_sat = 0.8
+            sat_factor = target_sat / max(1e-6, mean_sat) if mean_sat > 0 else 1.0
+            sat_param = max(0.0, min(2.0, sat_factor))
+
+            return {
+                'brightness': bright_param,
+                'contrast': contrast_param,
+                'saturation': sat_param,
+            }
+        except Exception as e:
+            try:
+                print(f"[OPTIMAL] suggest_parameters error: {e}", flush=True)
+            except Exception:
+                pass
+            return {}

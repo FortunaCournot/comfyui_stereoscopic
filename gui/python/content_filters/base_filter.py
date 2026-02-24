@@ -143,3 +143,12 @@ class BaseImageFilter:
 
     def transform(self, image: Image.Image) -> Image.Image:
         return image
+
+    def suggest_parameters(self, image: Image.Image) -> dict:
+        """Optional: return a dict of parameter_name->value suggested for the given image.
+
+        Default implementation returns empty dict. Filters that support automatic
+        parameter estimation (e.g. BCS) should override this method and return
+        values in the declared parameter ranges.
+        """
+        return {}

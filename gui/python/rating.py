@@ -749,6 +749,13 @@ class FilterParameterMenu(QMenu):
 
             self._parameter_sliders.append(slider)
             self._parameter_spinboxes.append(spin)
+            # keep parameter names in the same order to support 'Reset All' and other actions
+            try:
+                if not hasattr(self, '_parameter_names'):
+                    self._parameter_names = []
+                self._parameter_names.append(str(param_name))
+            except Exception:
+                pass
 
             row_layout.addWidget(name_label)
             row_layout.addWidget(slider, 1)
@@ -758,6 +765,273 @@ class FilterParameterMenu(QMenu):
             row_action = QWidgetAction(self)
             row_action.setDefaultWidget(row_widget)
             self.addAction(row_action)
+
+        # --- Secondary action row: buttons that operate on the whole filter ---
+        try:
+            # Create a container widget for actions
+            action_widget = QWidget(self)
+            action_layout = QHBoxLayout(action_widget)
+            action_layout.setContentsMargins(8, 6, 8, 6)
+            action_layout.setSpacing(8)
+
+            # Spacer to align buttons to the right
+            filler = QWidget(action_widget)
+            filler.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            action_layout.addWidget(filler)
+
+            # Reset All button: present when filter has more than one parameter
+            try:
+                if len(getattr(self, '_parameter_names', [])) > 1:
+                    reset_all_btn = QPushButton("Reset All", action_widget)
+                    reset_all_btn.setFixedWidth(100)
+                    reset_all_btn.setStyleSheet("QPushButton { color: white; background-color: #2a2a2a; border: 1px solid #444; padding: 4px; }")
+                    def _on_reset_all():
+                        try:
+                            # loop through parameter names and reset each
+                            for i, name in enumerate(getattr(self, '_parameter_names', []) or []):
+                                try:
+                                    # get default from meta if available
+                                    meta = param_meta.get(name, None)
+                                    if meta is not None:
+                                        _def, lo, hi, _hm = meta
+                                    else:
+                                        _def = 0.0
+                                    # update spin and slider if present
+                                    try:
+                                        spin = self._parameter_spinboxes[i]
+                                        slider = self._parameter_sliders[i]
+                                        val = float(_def)
+                                        spin.blockSignals(True)
+                                        spin.setValue(self._clamp_spin_value(val, lo, hi))
+                                        spin.blockSignals(False)
+                                        frac = 0.0
+                                        if hi > lo:
+                                            frac = (val - lo) / (hi - lo)
+                                        slider.blockSignals(True)
+                                        slider.setValue(int(round(max(0.0, min(1.0, frac)) * 10000.0)))
+                                        slider.blockSignals(False)
+                                    except Exception:
+                                        pass
+                                    # queue the parameter change to apply and persist
+                                    try:
+                                        self._queue_parameter_change(name, float(_def))
+                                    except Exception:
+                                        pass
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+                    reset_all_btn.clicked.connect(_on_reset_all)
+                    action_layout.addWidget(reset_all_btn)
+            except Exception:
+                pass
+
+            # Filter-specific actions: e.g., for bcs add 'Optimal'
+            try:
+                fid = getattr(self.filter_instance, 'filter_id', '')
+                if str(fid).strip().lower() == 'bcs':
+                    opt_btn = QPushButton("Optimal", action_widget)
+                    opt_btn.setFixedWidth(100)
+                    opt_btn.setStyleSheet("QPushButton { color: white; background-color: #2a2a2a; border: 1px solid #444; padding: 4px; }")
+                    def _on_optimal():
+                        try:
+                            QApplication.setOverrideCursor(Qt.WaitCursor)
+                            QApplication.processEvents()
+                            # Resolve the actual parent widget: support bound method or attribute
+                            p_attr = getattr(self, 'parent', None)
+                            parent = None
+                            try:
+                                if callable(p_attr):
+                                    parent = p_attr()
+                                else:
+                                    parent = p_attr
+                            except Exception:
+                                parent = None
+                            if parent is None:
+                                try:
+                                    parent = self.parent()
+                                except Exception:
+                                    parent = None
+                            try:
+                                print(f"[OPTIMAL] parent_repr={parent!r}", flush=True)
+                            except Exception:
+                                pass
+                            if parent is None:
+                                return
+                            # Try to get a source pixmap from several known locations on the parent
+                            src = None
+                            try:
+                                if hasattr(parent, 'display') and parent.display is not None:
+                                    try:
+                                        print("[OPTIMAL] parent has attribute 'display'", flush=True)
+                                        src = parent.display.getSourcePixmap()
+                                    except Exception as e:
+                                        print(f"[OPTIMAL] parent.display.getSourcePixmap() error: {e}", flush=True)
+                                        src = None
+                                # prefer display, but also check image_label (separate UI flows)
+                                if (src is None or (hasattr(src, 'isNull') and src.isNull())) and hasattr(parent, 'image_label') and parent.image_label is not None:
+                                    try:
+                                        print("[OPTIMAL] parent has attribute 'image_label'", flush=True)
+                                        src = parent.image_label.getSourcePixmap()
+                                    except Exception as e:
+                                        print(f"[OPTIMAL] parent.image_label.getSourcePixmap() error: {e}", flush=True)
+                                        src = None
+                            except Exception:
+                                src = None
+
+                            # If still no src, probe additional attributes that may hold the pixmap
+                            try:
+                                if (src is None or (hasattr(src, 'isNull') and src.isNull())):
+                                    for attr in ('original_pixmap', 'display_pixmap', '_original_pixmap'):
+                                        cand = getattr(parent, attr, None)
+                                        try:
+                                            print(f"[OPTIMAL] parent.{attr} -> {cand!r}", flush=True)
+                                        except Exception:
+                                            pass
+                                        if cand is not None and hasattr(cand, 'isNull') and not cand.isNull():
+                                            src = cand
+                                            try:
+                                                print(f"[OPTIMAL] using parent.{attr}", flush=True)
+                                            except Exception:
+                                                pass
+                                            break
+                            except Exception:
+                                pass
+
+                            # Also try image_label.pixmap() and scaled pixmap
+                            try:
+                                if (src is None or (hasattr(src, 'isNull') and src.isNull())) and hasattr(parent, 'image_label') and parent.image_label is not None:
+                                    try:
+                                        cand = parent.image_label.pixmap()
+                                        if cand is not None and not cand.isNull():
+                                            src = cand
+                                            try:
+                                                print("[OPTIMAL] using parent.image_label.pixmap()", flush=True)
+                                            except Exception:
+                                                pass
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+
+                            # Log last-loaded path if available
+                            try:
+                                lp = getattr(parent, '_last_loaded_content_path', None)
+                                print(f"[OPTIMAL] parent._last_loaded_content_path={lp}", flush=True)
+                            except Exception:
+                                pass
+
+                            pil_img = None
+                            # conversion helper: prefer parent's conversion if available
+                            conv = None
+                            try:
+                                conv = getattr(parent, '_pixmap_to_pil_rgba', None)
+                            except Exception:
+                                conv = None
+                            try:
+                                if src is not None and not getattr(src, 'isNull', lambda: False)():
+                                    try:
+                                        try:
+                                            print(f"[OPTIMAL] src present width={src.width()} height={src.height()}", flush=True)
+                                        except Exception:
+                                            pass
+                                        if callable(conv):
+                                            pil_img = conv(src)
+                                        else:
+                                            # local fallback conversion
+                                            image = src.toImage()
+                                            buffer = QBuffer()
+                                            buffer.open(QIODevice.WriteOnly)
+                                            image.save(buffer, "PNG")
+                                            pil_img = Image.open(io.BytesIO(buffer.data())).convert('RGBA')
+                                    except Exception:
+                                        pil_img = None
+                            except Exception:
+                                pil_img = None
+
+                            # Ask the filter instance to suggest values when given the image
+                            suggested = {}
+                            try:
+                                try:
+                                    if pil_img is None:
+                                        print("[OPTIMAL] pil_img is None", flush=True)
+                                    else:
+                                        try:
+                                            print(f"[OPTIMAL] pil_img mode={pil_img.mode} size={pil_img.size}", flush=True)
+                                        except Exception:
+                                            print(f"[OPTIMAL] pil_img present (no mode/size)", flush=True)
+                                except Exception:
+                                    pass
+                                suggested = self.filter_instance.suggest_parameters(pil_img)
+                            except Exception:
+                                suggested = {}
+
+                            # Fallback: if no suggestion and no pil image, try loading the last-loaded file
+                            try:
+                                if (not suggested) and pil_img is None:
+                                    lp = getattr(parent, '_last_loaded_content_path', None)
+                                    if lp and os.path.exists(lp):
+                                        try:
+                                            pil_img = Image.open(lp).convert('RGBA')
+                                            suggested = self.filter_instance.suggest_parameters(pil_img)
+                                            try:
+                                                print(f"[OPTIMAL] fallback loaded file {lp}, suggested={suggested}", flush=True)
+                                            except Exception:
+                                                pass
+                                        except Exception:
+                                            suggested = {}
+                            except Exception:
+                                pass
+
+                            try:
+                                print(f"[OPTIMAL] suggested={suggested}", flush=True)
+                            except Exception:
+                                pass
+
+                            # Apply suggested values to controls
+                            for i, name in enumerate(getattr(self, '_parameter_names', []) or []):
+                                try:
+                                    if name in suggested:
+                                        val = float(suggested[name])
+                                    else:
+                                        continue
+                                    try:
+                                        spin = self._parameter_spinboxes[i]
+                                        slider = self._parameter_sliders[i]
+                                        lo = param_meta.get(name, (0.0, 0.0, 1.0, False))[1]
+                                        hi = param_meta.get(name, (0.0, 0.0, 1.0, False))[2]
+                                        spin.blockSignals(True)
+                                        spin.setValue(self._clamp_spin_value(val, lo, hi))
+                                        spin.blockSignals(False)
+                                        frac = 0.0
+                                        if hi > lo:
+                                            frac = (val - lo) / (hi - lo)
+                                        slider.blockSignals(True)
+                                        slider.setValue(int(round(max(0.0, min(1.0, frac)) * 10000.0)))
+                                        slider.blockSignals(False)
+                                    except Exception:
+                                        pass
+                                    try:
+                                        self._queue_parameter_change(name, float(val))
+                                    except Exception:
+                                        pass
+                                except Exception:
+                                    pass
+                        finally:
+                            try:
+                                QApplication.restoreOverrideCursor()
+                            except Exception:
+                                pass
+                    opt_btn.clicked.connect(_on_optimal)
+                    action_layout.addWidget(opt_btn)
+            except Exception:
+                pass
+
+            row_action = QWidgetAction(self)
+            row_action.setDefaultWidget(action_widget)
+            self.addAction(row_action)
+        except Exception:
+            pass
 
     def _set_controls_enabled(self, enabled: bool):
         for slider in self._parameter_sliders:
@@ -976,6 +1250,7 @@ class RateAndCutDialog(QDialog):
             self.active_content_filter: BaseImageFilter = BaseImageFilter()
             self._last_loaded_content_path = None
             self._content_filter_properties_path = os.path.join(get_user_config_dir(), CONTENT_FILTER_PROPERTIES_FILENAME)
+            pass
             
             self._load_content_filter_parameter_values()
             self._initialize_content_filter_lists()
@@ -2308,6 +2583,7 @@ class RateAndCutDialog(QDialog):
                 self.refresh_filtered_view()
         except Exception:
             pass
+        pass
 
     def _load_content_filter_parameter_values(self):
         values = read_properties_file(self._content_filter_properties_path)
