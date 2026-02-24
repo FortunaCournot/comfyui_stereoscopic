@@ -716,6 +716,11 @@ class FilterParameterMenu(QMenu):
                 "QDoubleSpinBox:disabled { color: #888; border: 1px solid #444; }"
             )
 
+            reset_btn = QPushButton("Reset", row_widget)
+            reset_btn.setFixedWidth(64)
+            reset_btn.setStyleSheet("QPushButton { color: white; background-color: #2a2a2a; border: 1px solid #444; padding: 2px; }")
+            reset_btn.clicked.connect(partial(self._on_reset_clicked, str(param_name), slider, spin, _def, lo, hi))
+
             slider.valueChanged.connect(partial(self._on_slider_value_changed, spin, lo, hi))
             slider.sliderReleased.connect(partial(self._on_slider_released, str(param_name), slider, spin, lo, hi))
             spin.editingFinished.connect(partial(self._on_spinbox_edit_finished, str(param_name), slider, spin, lo, hi))
@@ -726,6 +731,7 @@ class FilterParameterMenu(QMenu):
             row_layout.addWidget(name_label)
             row_layout.addWidget(slider, 1)
             row_layout.addWidget(spin)
+            row_layout.addWidget(reset_btn)
 
             row_action = QWidgetAction(self)
             row_action.setDefaultWidget(row_widget)
@@ -757,8 +763,24 @@ class FilterParameterMenu(QMenu):
         try:
             # value is actual parameter value in its own range
             self.filter_instance.set_parameter(param_name, value)
-            if callable(self.on_change_callback):
-                self.on_change_callback()
+            # Call the provided callback (usually saves + UI update)
+            try:
+                if callable(self.on_change_callback):
+                    self.on_change_callback()
+            except Exception:
+                pass
+            # As a fallback ensure the parent/dialog persistence method is invoked
+            try:
+                parent = getattr(self, 'parent', None)
+                if parent is None:
+                    parent = self.parent()
+                if parent is not None and hasattr(parent, '_save_content_filter_parameter_values'):
+                    try:
+                        parent._save_content_filter_parameter_values()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
         except Exception:
             pass
         finally:
@@ -829,6 +851,29 @@ class FilterParameterMenu(QMenu):
             return
 
         self._queue_parameter_change(param_name, actual)
+
+    def _on_reset_clicked(self, param_name: str, slider: QSlider, spin: QDoubleSpinBox, default_value, lo: float, hi: float):
+        try:
+            try:
+                val = float(default_value)
+            except Exception:
+                val = float(lo)
+            val = self._clamp_spin_value(val, lo, hi)
+
+            spin.blockSignals(True)
+            spin.setValue(val)
+            spin.blockSignals(False)
+
+            frac = 0.0
+            if hi > lo:
+                frac = (val - lo) / (hi - lo)
+            slider.blockSignals(True)
+            slider.setValue(int(round(max(0.0, min(1.0, frac)) * 10000.0)))
+            slider.blockSignals(False)
+
+            self._queue_parameter_change(param_name, val)
+        except Exception:
+            pass
 
     def mousePressEvent(self, event):
         try:
@@ -2222,7 +2267,6 @@ class RateAndCutDialog(QDialog):
                             raw = float(values[key])
                         except Exception:
                             continue
-
                         # If stored value looks like legacy normalized [0,1] and
                         # the parameter range is different, map into new range
                         if param_name in meta:
