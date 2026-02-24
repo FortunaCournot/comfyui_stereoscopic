@@ -1572,6 +1572,22 @@ class RateAndCutDialog(QDialog):
             self.sortfiles_combo.setIconSize(QSize(32,32))
             self.sortfiles_combo.setCurrentIndex(_sortOrderIndex)
             self.sortfiles_combo.setStyleSheet('selection-background-color: rgb(0,0,0)')
+            # Show icon-only: fix width to icon width + small padding so no text area remains
+            # Make the combo show icon-only by hiding the drop-down arrow and
+            # removing internal paddings; keep a small padding around the icon.
+            # Fixed width requested by user (56 px)
+            w = 56
+            try:
+                self.sortfiles_combo.setFixedWidth(w)
+                self.sortfiles_combo.setFocusPolicy(Qt.NoFocus)
+                self.sortfiles_combo.setStyleSheet(
+                    'selection-background-color: rgb(0,0,0); '
+                    'QComboBox::drop-down{width:0px; border: none;} '
+                    'QComboBox::down-arrow{image: none;} '
+                    'QComboBox { padding-left: 0px; padding-right: 0px; }'
+                )
+            except Exception:
+                pass
             self.cutMode_toolbar.addWidget(self.sortfiles_combo)
             self.sortfiles_combo.currentIndexChanged.connect(self.on_sortfiles_combobox_index_changed)
 
@@ -1602,7 +1618,20 @@ class RateAndCutDialog(QDialog):
             self.filter_mode_combo.setEditable(False)
             self.filter_mode_combo.setVisible(self.cutMode)
             self.filter_mode_combo.setIconSize(QSize(32,32))
-            self.filter_mode_combo.setStyleSheet('selection-background-color: rgb(0,0,0)')
+            # Make filter mode combobox icon-only in the toolbar
+            # Fixed width requested by user (56 px)
+            w2 = 56
+            try:
+                self.filter_mode_combo.setFixedWidth(w2)
+                self.filter_mode_combo.setFocusPolicy(Qt.NoFocus)
+                self.filter_mode_combo.setStyleSheet(
+                    'selection-background-color: rgb(0,0,0); '
+                    'QComboBox::drop-down{width:0px; border: none;} '
+                    'QComboBox::down-arrow{image: none;} '
+                    'QComboBox { padding-left: 0px; padding-right: 0px; }'
+                )
+            except Exception:
+                pass
             self.cutMode_toolbar.addWidget(self.filter_mode_combo)
             self.filter_mode_combo.currentIndexChanged.connect(self.on_filter_mode_combobox_index_changed)
             self._apply_content_filter_list_for_content_type(self._get_current_content_type())
