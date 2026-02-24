@@ -15,8 +15,8 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
     # (name, default, min, max, has_mid)
     parameter_defaults = [
         ("brightness", 0.0, -1.0, 1.0, True),
-        ("contrast", 1.0, 0.0, 2.0, True),
-        ("saturation", 1.0, 0.0, 2.0, True),
+        ("contrast", 0.0, -1.0, 1.0, True),
+        ("saturation", 0.0, -1.0, 1.0, True),
     ]
 
     def transform(self, image: Image.Image) -> Image.Image:
@@ -43,17 +43,19 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
                 bright_factor = 1.0
             bright_factor = max(0.0, bright_factor)
 
-            # Contrast: factor is c
+            # Contrast: interpret c as delta around 1.0 (c in [-1,1] -> factor = 1 + c)
             try:
-                contrast_factor = float(c)
+                contrast_factor = 1.0 + float(c)
             except Exception:
                 contrast_factor = 1.0
+            contrast_factor = max(0.0, contrast_factor)
 
-            # Saturation (color): factor is s
+            # Saturation (color): interpret s as delta around 1.0 (s in [-1,1] -> factor = 1 + s)
             try:
-                color_factor = float(s)
+                color_factor = 1.0 + float(s)
             except Exception:
                 color_factor = 1.0
+            color_factor = max(0.0, color_factor)
 
             img = ImageEnhance.Brightness(base).enhance(bright_factor)
             img = ImageEnhance.Contrast(img).enhance(contrast_factor)
@@ -93,7 +95,8 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
             bright_param = max(-1.0, min(1.0, bright_factor - 1.0))
 
             contrast_factor = target_std / max(1e-6, std_l) if std_l > 0 else 1.0
-            contrast_param = max(0.0, min(2.0, contrast_factor))
+            # contrast_param should be in [-1,1] representing delta from 1.0
+            contrast_param = max(-1.0, min(1.0, contrast_factor - 1.0))
 
             try:
                 hsv = np.array(pil.convert('HSV')).astype(np.float32)
@@ -103,7 +106,8 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
                 mean_sat = 0.5
             target_sat = 0.8
             sat_factor = target_sat / max(1e-6, mean_sat) if mean_sat > 0 else 1.0
-            sat_param = max(0.0, min(2.0, sat_factor))
+            # saturation param as delta from 1.0 in [-1,1]
+            sat_param = max(-1.0, min(1.0, sat_factor - 1.0))
 
             return {
                 'brightness': bright_param,
