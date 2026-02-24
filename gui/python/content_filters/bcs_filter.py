@@ -1,8 +1,107 @@
 import math
 import numpy as np
 from PIL import Image, ImageEnhance
+try:
+    import cv2
+except Exception:
+    cv2 = None
 
 from .base_filter import BaseImageFilter
+
+
+def lab_chroma(pil_image: Image.Image, factor: float) -> Image.Image:
+    """Experimental: scale chroma in CIELab color space.
+
+    - `pil_image`: PIL.Image (RGB or RGBA accepted)
+    - `factor`: multiplicative factor for chroma (1.0 = no change)
+
+    Returns a new PIL.Image. If OpenCV (`cv2`) is not available, raises RuntimeError.
+    This function is experimental and intended as an opt-in alternative to simple
+    HSV-based saturation scaling because it preserves hue while modifying chroma.
+    """
+    if pil_image is None:
+        return pil_image
+    if cv2 is None:
+        raise RuntimeError("OpenCV (cv2) is required for Lab chroma scaling")
+
+    # Preserve alpha if present
+    has_alpha = pil_image.mode == 'RGBA'
+    if has_alpha:
+        alpha = pil_image.split()[-1]
+        rgb = pil_image.convert('RGB')
+    else:
+        rgb = pil_image.convert('RGB')
+
+    arr = np.array(rgb)
+    # OpenCV uses BGR ordering
+    bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+    lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+    L = lab[:, :, 0]
+    A = lab[:, :, 1].astype(np.float32) - 128.0
+    Bc = lab[:, :, 2].astype(np.float32) - 128.0
+
+    # Scale chroma components (A,B) around neutral (128)
+    A = 128.0 + A * float(factor)
+    Bc = 128.0 + Bc * float(factor)
+    A = np.clip(A, 0.0, 255.0)
+    Bc = np.clip(Bc, 0.0, 255.0)
+
+    lab2 = np.stack([L, A, Bc], axis=2).astype(np.uint8)
+    bgr2 = cv2.cvtColor(lab2, cv2.COLOR_LAB2BGR)
+    rgb2 = cv2.cvtColor(bgr2, cv2.COLOR_BGR2RGB)
+    out = Image.fromarray(rgb2)
+    if has_alpha:
+        out.putalpha(alpha)
+    return out
+
+
+def lab_chroma_suggest(pil_image: Image.Image) -> dict:
+    """Experimental suggestion: estimate a saturation delta based on Lab chroma.
+
+    Returns a dict {'saturation': delta} where delta is in [-0.5, 0.5].
+    """
+    try:
+        if pil_image is None:
+            return {}
+        if cv2 is None:
+            # fallback to HSV-based median if OpenCV not available
+            pil = pil_image.convert('RGB')
+            hsv = np.array(pil.convert('HSV')).astype(np.float32)
+            sat = hsv[:, :, 1] / 255.0
+            if sat.size:
+                mean_sat = float(np.median(sat))
+            else:
+                mean_sat = 0.5
+            target_sat = 0.8
+            min_mean = 0.05
+            scaled = target_sat / max(min_mean, mean_sat)
+            alpha = 0.35
+            damped = 1.0 + (scaled - 1.0) * alpha
+            delta = max(-0.5, min(0.5, damped - 1.0))
+            return {'saturation': float(delta)}
+
+        # Use Lab chroma estimation
+        pil = pil_image.convert('RGB')
+        arr = np.array(pil)
+        bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+        lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+        A = lab[:, :, 1].astype(np.float32) - 128.0
+        Bc = lab[:, :, 2].astype(np.float32) - 128.0
+        chroma = np.sqrt(A * A + Bc * Bc)
+        if chroma.size == 0:
+            return {}
+        # robust estimator: median normalized to [0,1] by 127.0
+        median_chroma = float(np.median(chroma)) / 127.0
+        median_chroma = max(0.0, min(1.0, median_chroma))
+        target_chroma = 0.5
+        min_mean = 0.05
+        scaled = target_chroma / max(min_mean, median_chroma)
+        alpha = 0.35
+        damped = 1.0 + (scaled - 1.0) * alpha
+        delta = max(-0.5, min(0.5, damped - 1.0))
+        return {'saturation': float(delta)}
+    except Exception:
+        return {}
 
 
 class BrightnessContrastSaturationFilter(BaseImageFilter):
@@ -25,8 +124,8 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
 
         try:
             b = self.get_parameter("brightness", 0.0)
-            c = self.get_parameter("contrast", 1.0)
-            s = self.get_parameter("saturation", 1.0)
+            c = self.get_parameter("contrast", 0.0)
+            s = self.get_parameter("saturation", 0.0)
 
             has_alpha = image.mode == "RGBA"
             if has_alpha:
@@ -59,7 +158,19 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
 
             img = ImageEnhance.Brightness(base).enhance(bright_factor)
             img = ImageEnhance.Contrast(img).enhance(contrast_factor)
-            img = ImageEnhance.Color(img).enhance(color_factor)
+
+            # Apply saturation/chroma scaling using Lab if available (preserves hue better)
+            try:
+                # Always prefer Lab chroma scaling when OpenCV is available.
+                if cv2 is not None and abs(color_factor - 1.0) > 1e-6:
+                    try:
+                        img = lab_chroma(img, color_factor)
+                    except Exception:
+                        img = ImageEnhance.Color(img).enhance(color_factor)
+                else:
+                    img = ImageEnhance.Color(img).enhance(color_factor)
+            except Exception:
+                img = ImageEnhance.Color(img).enhance(color_factor)
 
             if has_alpha:
                 img.putalpha(alpha)
@@ -69,6 +180,8 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
             return image
 
     def suggest_parameters(self, image: Image.Image) -> dict:
+        
+
         """Estimate reasonable brightness/contrast/saturation parameters for `image`.
 
         Returns a dict with keys possibly among 'brightness','contrast','saturation'.
@@ -101,18 +214,31 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
             try:
                 hsv = np.array(pil.convert('HSV')).astype(np.float32)
                 sat = hsv[:, :, 1] / 255.0
-                mean_sat = float(np.mean(sat)) if sat.size else 0.5
+                # use a robust estimator (median) and ignore near-zero noise
+                if sat.size:
+                    mean_sat = float(np.median(sat))
+                else:
+                    mean_sat = 0.5
             except Exception:
                 mean_sat = 0.5
             target_sat = 0.8
-            sat_factor = target_sat / max(1e-6, mean_sat) if mean_sat > 0 else 1.0
-            # saturation param as delta from 1.0 in [-1,1]
-            sat_param = max(-1.0, min(1.0, sat_factor - 1.0))
+            # avoid division by tiny numbers and extreme scaling
+            # make estimator more conservative: larger min_mean, smaller alpha, tighter clamp
+            min_mean = 0.05
+            scaled = target_sat / max(min_mean, mean_sat)
+            # damp the adjustment to avoid full-step jumps (alpha in (0,1])
+            alpha = 0.35
+            damped_factor = 1.0 + (scaled - 1.0) * alpha
+            # final parameter is delta from 1.0, clamp to a conservative range (±0.5)
+            sat_param = max(-0.5, min(0.5, damped_factor - 1.0))
 
+            # Conservative choice: do not auto-adjust saturation by default because
+            # automatic saturation changes often produce unnatural primary colors
+            # and there is no single "TV-style" universal algorithm. Return only
+            # brightness and contrast suggestions; keep saturation unchanged.
             return {
                 'brightness': bright_param,
                 'contrast': contrast_param,
-                'saturation': sat_param,
             }
         except Exception as e:
             try:
