@@ -72,12 +72,16 @@ def lab_chroma_suggest(pil_image: Image.Image) -> dict:
                 mean_sat = float(np.median(sat))
             else:
                 mean_sat = 0.5
-            target_sat = 0.8
-            min_mean = 0.05
-            scaled = target_sat / max(min_mean, mean_sat)
-            alpha = 0.35
-            damped = 1.0 + (scaled - 1.0) * alpha
-            delta = max(-0.5, min(0.5, damped - 1.0))
+            # Only suggest change if mean saturation is notably outside the central band
+            low_thr = 0.3
+            high_thr = 0.7
+            if low_thr <= mean_sat <= high_thr:
+                return {}
+            # Compute small proportional correction toward target (gain small)
+            target_sat = 0.5
+            gain = 0.25
+            delta = (target_sat - mean_sat) * gain
+            delta = max(-0.25, min(0.25, delta))
             return {'saturation': float(delta)}
 
         # Use Lab chroma estimation
@@ -93,12 +97,15 @@ def lab_chroma_suggest(pil_image: Image.Image) -> dict:
         # robust estimator: median normalized to [0,1] by 127.0
         median_chroma = float(np.median(chroma)) / 127.0
         median_chroma = max(0.0, min(1.0, median_chroma))
+        # Only suggest when chroma is notably outside the central band; otherwise leave unchanged
+        low_thr = 0.3
+        high_thr = 0.7
+        if low_thr <= median_chroma <= high_thr:
+            return {}
         target_chroma = 0.5
-        min_mean = 0.05
-        scaled = target_chroma / max(min_mean, median_chroma)
-        alpha = 0.35
-        damped = 1.0 + (scaled - 1.0) * alpha
-        delta = max(-0.5, min(0.5, damped - 1.0))
+        gain = 0.25
+        delta = (target_chroma - median_chroma) * gain
+        delta = max(-0.25, min(0.25, delta))
         return {'saturation': float(delta)}
     except Exception:
         return {}
