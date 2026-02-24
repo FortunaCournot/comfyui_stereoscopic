@@ -123,6 +123,9 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
         ("brightness", 0.0, -1.0, 1.0, True),
         ("contrast", 0.0, -1.0, 1.0, True),
         ("saturation", 0.0, -1.0, 1.0, True),
+        # Maximum allowed fraction of fully black/white pixels (0..0.1). Default 3%.
+        # Max is 0.1 (10%) as requested.
+        ("clip_fraction", 0.03, 0.0, 0.1, False),
     ]
 
     def transform(self, image: Image.Image) -> Image.Image:
@@ -238,6 +241,69 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
             damped_factor = 1.0 + (scaled - 1.0) * alpha
             # final parameter is delta from 1.0, clamp to a conservative range (±0.5)
             sat_param = max(-0.5, min(0.5, damped_factor - 1.0))
+
+            # Clip-control: if too many fully-black or fully-white pixels exist,
+            # perform a gentle black/white balance by remapping lower/upper
+            # percentiles into a target dynamic range. The allowed fraction is
+            # configurable via the 'clip_fraction' parameter (0..1, default 0.03).
+            try:
+                allowed_frac = float(self.get_parameter('clip_fraction', 0.03))
+            except Exception:
+                allowed_frac = 0.03
+            allowed_frac = max(0.0, min(1.0, allowed_frac))
+
+            # Count (approx) fully black/white pixels using near-extreme thresholds
+            black_thresh = 1.0 / 255.0
+            white_thresh = 254.0 / 255.0
+            black_frac = float(np.mean(lum <= black_thresh))
+            white_frac = float(np.mean(lum >= white_thresh))
+
+            if (black_frac > allowed_frac) or (white_frac > allowed_frac):
+                # Compute lower/upper percentiles corresponding to allowed fraction
+                q = max(0.0, min(50.0, allowed_frac * 100.0))
+                lower = float(np.percentile(lum, q))
+                upper = float(np.percentile(lum, 100.0 - q))
+
+                # Target mapping (preserve most dynamics but avoid clipping)
+                target_lower = 0.02
+                target_upper = 0.98
+
+                span = max(1e-6, upper - lower)
+                target_span = max(1e-6, target_upper - target_lower)
+
+                contrast_factor_clip = target_span / span if span > 0 else 1.0
+                contrast_param_clip_raw = contrast_factor_clip - 1.0
+
+                target_mean = 0.5 * (target_lower + target_upper)
+                bright_factor_clip_raw = target_mean / max(1e-6, mean_l)
+                bright_param_clip_raw = bright_factor_clip_raw - 1.0
+
+                # Only constrain the extremes: compute small deltas from the
+                # originally estimated brightness/contrast toward the clip-based
+                # adjustment, and limit the maximum per-parameter change so the
+                # overall image dynamics are preserved.
+                max_delta = 0.2
+
+                delta_c = contrast_param_clip_raw - contrast_param
+                if delta_c > 0:
+                    delta_c = min(delta_c, max_delta)
+                else:
+                    delta_c = max(delta_c, -max_delta)
+                final_contrast = contrast_param + delta_c
+                final_contrast = max(-1.0, min(1.0, final_contrast))
+
+                delta_b = bright_param_clip_raw - bright_param
+                if delta_b > 0:
+                    delta_b = min(delta_b, max_delta)
+                else:
+                    delta_b = max(delta_b, -max_delta)
+                final_brightness = bright_param + delta_b
+                final_brightness = max(-1.0, min(1.0, final_brightness))
+
+                return {
+                    'brightness': float(final_brightness),
+                    'contrast': float(final_contrast),
+                }
 
             # Conservative choice: do not auto-adjust saturation by default because
             # automatic saturation changes often produce unnatural primary colors
