@@ -103,6 +103,7 @@ class BaseImageFilter:
         values = self._ensure_parameter_values()
         _d, lo, hi, _hm = defaults[name]
         values[name] = self._clamp(value, lo, hi)
+        # Parameter applied to instance; no debug logging by default.
         return True
 
     def _normalize_content_types(self, values, fallback, allow_empty: bool = False):

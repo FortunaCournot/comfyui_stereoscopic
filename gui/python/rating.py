@@ -648,7 +648,29 @@ class FilterParameterMenu(QMenu):
             self.addAction(no_params_action)
             return
 
+        # Try to read persisted property values directly so the UI shows stored
+        # settings even if the in-memory filter instance wasn't updated earlier.
+        try:
+            props = {}
+            props_path = getattr(parent, '_content_filter_properties_path', None) if parent is not None else None
+            if not props_path:
+                props_path = os.path.join(get_user_config_dir(), CONTENT_FILTER_PROPERTIES_FILENAME)
+            props = read_properties_file(props_path)
+        except Exception:
+            props = {}
+
         for param_name, param_value in parameters:
+            # If a persisted value exists for this filter+param, prefer it for the UI
+            try:
+                filter_id = getattr(filter_instance, 'filter_id', 'none')
+                key = f"{filter_id}.{param_name}"
+                if key in props:
+                    try:
+                        param_value = float(props[key])
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             row_widget = QWidget(self)
             row_widget.setStyleSheet("background-color: black;")
             row_layout = QHBoxLayout(row_widget)
@@ -1325,6 +1347,17 @@ class RateAndCutDialog(QDialog):
             else:
                 self.display.setMinimumSize(1000, 750)
                 self.display_layout.addWidget(self.display)
+
+            # Ensure preview updates after UI is constructed so loaded
+            # parameter values are applied to the visible preview.
+            try:
+                # `refresh_filtered_view` is implemented on this class,
+                # not on `Display` — call the wrapper so filters are applied.
+                QTimer.singleShot(0, lambda: (self.refresh_filtered_view() if hasattr(self, 'refresh_filtered_view') else None))
+                if hasattr(self, 'cropWidget') and self.cropWidget is not None:
+                    QTimer.singleShot(0, lambda: self.cropWidget.refresh_filtered_view())
+            except Exception:
+                pass
 
 
             # Video Tool layout
@@ -2119,6 +2152,14 @@ class RateAndCutDialog(QDialog):
                     selected_filter_id = str(getattr(filters[0], 'filter_id', '')).strip() if len(filters) > 0 else ""
             self._selected_filter_id_by_content_type[content_type] = str(selected_filter_id or "")
 
+        # Re-apply persisted parameter values to the actual filter instances
+        # after lists have been initialized to ensure the instances shown in
+        # the UI reflect saved settings.
+        try:
+            self._load_content_filter_parameter_values()
+        except Exception:
+            pass
+
     def _update_selected_filter_tooltip(self):
         if not hasattr(self, 'filter_mode_combo') or self.filter_mode_combo is None:
             return
@@ -2193,6 +2234,20 @@ class RateAndCutDialog(QDialog):
         self._update_filter_settings_action_icon()
         self._update_filter_settings_action_state()
         self._update_selected_filter_tooltip()
+        try:
+            # Ensure the preview reflects the newly selected filter instance
+            if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None:
+                try:
+                    self.cropWidget.refresh_filtered_view()
+                except Exception:
+                    pass
+            else:
+                try:
+                    self.refresh_filtered_view()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def _reset_content_filter_selection(self):
         try:
@@ -2247,6 +2302,12 @@ class RateAndCutDialog(QDialog):
                 self.cropWidget.refresh_filtered_view()
         except Exception:
             pass
+        try:
+            # For non-cut display refresh, call the main refresh wrapper
+            if not getattr(self, 'cutMode', False):
+                self.refresh_filtered_view()
+        except Exception:
+            pass
 
     def _load_content_filter_parameter_values(self):
         values = read_properties_file(self._content_filter_properties_path)
@@ -2254,6 +2315,7 @@ class RateAndCutDialog(QDialog):
         for filter_instance in self.content_filters:
             try:
                 filter_id = getattr(filter_instance, 'filter_id', 'none')
+                pass
                 # get parameter metadata to detect ranges
                 try:
                     meta = {n: (d, lo, hi, has_mid) for n, d, lo, hi, has_mid in filter_instance._parse_parameter_defaults()}
@@ -2263,6 +2325,7 @@ class RateAndCutDialog(QDialog):
                 for param_name, _ in filter_instance.get_parameters():
                     key = f"{filter_id}.{param_name}"
                     if key in values:
+                        pass
                         try:
                             raw = float(values[key])
                         except Exception:
@@ -2308,6 +2371,12 @@ class RateAndCutDialog(QDialog):
         try:
             if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None and not self.isVideo:
                 self.cropWidget.refresh_filtered_view()
+        except Exception:
+            pass
+        try:
+            # Also refresh main display preview when parameters change
+            if not getattr(self, 'cutMode', False):
+                self.refresh_filtered_view()
         except Exception:
             pass
 
@@ -2471,6 +2540,42 @@ class RateAndCutDialog(QDialog):
             return pixmap
 
         try:
+            # Ensure persisted properties are applied to the active filter instance
+            try:
+                props = read_properties_file(getattr(self, '_content_filter_properties_path', os.path.join(get_user_config_dir(), CONTENT_FILTER_PROPERTIES_FILENAME)))
+            except Exception:
+                props = {}
+            try:
+                fid = getattr(self.active_content_filter, 'filter_id', None) if hasattr(self, 'active_content_filter') else None
+                if fid:
+                    try:
+                        for name, default, lo, hi, has_mid in getattr(self.active_content_filter, '_parse_parameter_defaults')():
+                            key = f"{fid}.{name}"
+                            if key in props:
+                                try:
+                                    val = float(props[key])
+                                    self.active_content_filter.set_parameter(name, val)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        # fallback: use get_parameters to iterate
+                        try:
+                            for name, _ in self.active_content_filter.get_parameters():
+                                key = f"{fid}.{name}"
+                                if key in props:
+                                    try:
+                                        val = float(props[key])
+                                        self.active_content_filter.set_parameter(name, val)
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            # Debug: report active filter and parameter values when TRACELEVEL >= 3
+            pass
+
             pil_image = self._pixmap_to_pil_rgba(pixmap)
             if pil_image is None:
                 return pixmap
