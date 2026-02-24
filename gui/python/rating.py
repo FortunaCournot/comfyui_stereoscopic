@@ -638,6 +638,10 @@ class FilterParameterMenu(QMenu):
         except Exception:
             parameters = []
 
+        try:
+            param_meta = {n: (d, lo, hi) for n, d, lo, hi in filter_instance._parse_parameter_defaults()}
+        except Exception:
+            param_meta = {}
         if len(parameters) == 0:
             no_params_action = QAction("No parameters available for this filter.", self)
             no_params_action.setEnabled(False)
@@ -658,7 +662,24 @@ class FilterParameterMenu(QMenu):
             slider = QSlider(Qt.Horizontal, row_widget)
             slider.setRange(0, 10000)
             slider.setSingleStep(1)
-            slider.setValue(int(round(max(0.0, min(1.0, float(param_value))) * 10000.0)))
+            # parameter range
+            _meta = param_meta.get(param_name, (param_value, 0.0, 1.0))
+            _def, lo, hi = _meta
+            try:
+                lo = float(lo)
+                hi = float(hi)
+            except Exception:
+                lo, hi = 0.0, 1.0
+            # compute slider position corresponding to param_value
+            try:
+                if hi > lo:
+                    slider_pos = int(round((float(param_value) - lo) / (hi - lo) * 10000.0))
+                else:
+                    slider_pos = 0
+            except Exception:
+                slider_pos = 0
+            slider_pos = max(0, min(10000, slider_pos))
+            slider.setValue(slider_pos)
             slider.setFixedWidth(220)
             slider.setStyleSheet(
                 "QSlider::groove:horizontal { height: 5px; background: #5a5a5a; border-radius: 2px; }"
@@ -670,19 +691,23 @@ class FilterParameterMenu(QMenu):
             )
 
             spin = QDoubleSpinBox(row_widget)
-            spin.setRange(0.0, 1.0)
+            spin.setRange(lo, hi)
             spin.setDecimals(4)
-            spin.setSingleStep(0.0005)
-            spin.setValue(max(0.0, min(1.0, float(param_value))))
+            spin.setSingleStep(max(1e-6, (hi - lo) / 1000.0))
+            try:
+                spin_val = float(param_value)
+            except Exception:
+                spin_val = lo
+            spin.setValue(self._clamp_spin_value(spin_val, lo, hi))
             spin.setFixedWidth(90)
             spin.setStyleSheet(
                 "QDoubleSpinBox { color: white; background-color: black; border: 1px solid #666; padding: 2px; }"
                 "QDoubleSpinBox:disabled { color: #888; border: 1px solid #444; }"
             )
 
-            slider.valueChanged.connect(partial(self._on_slider_value_changed, spin))
-            slider.sliderReleased.connect(partial(self._on_slider_released, str(param_name), slider, spin))
-            spin.editingFinished.connect(partial(self._on_spinbox_edit_finished, str(param_name), slider, spin))
+            slider.valueChanged.connect(partial(self._on_slider_value_changed, spin, lo, hi))
+            slider.sliderReleased.connect(partial(self._on_slider_released, str(param_name), slider, spin, lo, hi))
+            spin.editingFinished.connect(partial(self._on_spinbox_edit_finished, str(param_name), slider, spin, lo, hi))
 
             self._parameter_sliders.append(slider)
             self._parameter_spinboxes.append(spin)
@@ -706,10 +731,21 @@ class FilterParameterMenu(QMenu):
                 spin.setEnabled(enabled)
             except Exception:
                 pass
-
-    def _apply_parameter_change(self, param_name: str, normalized_value: float):
+    def _clamp_spin_value(self, v: float, lo: float, hi: float) -> float:
         try:
-            self.filter_instance.set_parameter(param_name, normalized_value)
+            vv = float(v)
+            if vv < lo:
+                return lo
+            if vv > hi:
+                return hi
+            return vv
+        except Exception:
+            return lo
+
+    def _apply_parameter_change(self, param_name: str, value: float):
+        try:
+            # value is actual parameter value in its own range
+            self.filter_instance.set_parameter(param_name, value)
             if callable(self.on_change_callback):
                 self.on_change_callback()
         except Exception:
@@ -721,12 +757,12 @@ class FilterParameterMenu(QMenu):
             except Exception:
                 pass
 
-    def _queue_parameter_change(self, param_name: str, normalized_value: float):
+    def _queue_parameter_change(self, param_name: str, value: float):
         try:
             self._set_controls_enabled(False)
             QApplication.setOverrideCursor(Qt.WaitCursor)
             QApplication.processEvents()
-            QTimer.singleShot(0, partial(self._apply_parameter_change, param_name, normalized_value))
+            QTimer.singleShot(0, partial(self._apply_parameter_change, param_name, value))
         except Exception:
             self._set_controls_enabled(True)
             try:
@@ -734,11 +770,13 @@ class FilterParameterMenu(QMenu):
             except Exception:
                 pass
 
-    def _on_slider_value_changed(self, spin: QDoubleSpinBox, slider_value: int):
+    def _on_slider_value_changed(self, spin: QDoubleSpinBox, lo: float, hi: float, slider_value: int):
         try:
-            normalized_value = max(0.0, min(1.0, float(slider_value) / 10000.0))
+            # map slider [0,10000] -> [lo,hi]
+            frac = max(0.0, min(1.0, float(slider_value) / 10000.0))
+            actual = lo + frac * (hi - lo)
             spin.blockSignals(True)
-            spin.setValue(normalized_value)
+            spin.setValue(actual)
             spin.blockSignals(False)
         except Exception:
             try:
@@ -746,26 +784,29 @@ class FilterParameterMenu(QMenu):
             except Exception:
                 pass
 
-    def _on_slider_released(self, param_name: str, slider: QSlider, spin: QDoubleSpinBox):
+    def _on_slider_released(self, param_name: str, slider: QSlider, spin: QDoubleSpinBox, lo: float, hi: float):
         try:
             slider_value = int(slider.value())
-            normalized_value = max(0.0, min(1.0, float(slider_value) / 10000.0))
+            frac = max(0.0, min(1.0, float(slider_value) / 10000.0))
+            actual = lo + frac * (hi - lo)
             spin.blockSignals(True)
-            spin.setValue(normalized_value)
+            spin.setValue(actual)
             spin.blockSignals(False)
         except Exception:
             try:
                 spin.blockSignals(False)
             except Exception:
                 pass
-            return
 
-        self._queue_parameter_change(param_name, normalized_value)
+        self._queue_parameter_change(param_name, actual)
 
-    def _on_spinbox_edit_finished(self, param_name: str, slider: QSlider, spin: QDoubleSpinBox):
+    def _on_spinbox_edit_finished(self, param_name: str, slider: QSlider, spin: QDoubleSpinBox, lo: float, hi: float):
         try:
-            normalized_value = max(0.0, min(1.0, float(spin.value())))
-            slider_value = int(round(normalized_value * 10000.0))
+            actual = float(spin.value())
+            frac = 0.0
+            if hi > lo:
+                frac = (actual - lo) / (hi - lo)
+            slider_value = int(round(max(0.0, min(1.0, frac)) * 10000.0))
             slider.blockSignals(True)
             slider.setValue(slider_value)
             slider.blockSignals(False)
@@ -776,7 +817,7 @@ class FilterParameterMenu(QMenu):
                 pass
             return
 
-        self._queue_parameter_change(param_name, normalized_value)
+        self._queue_parameter_change(param_name, actual)
 
     def mousePressEvent(self, event):
         try:
@@ -2153,15 +2194,45 @@ class RateAndCutDialog(QDialog):
 
     def _load_content_filter_parameter_values(self):
         values = read_properties_file(self._content_filter_properties_path)
+        migrated = False
         for filter_instance in self.content_filters:
             try:
                 filter_id = getattr(filter_instance, 'filter_id', 'none')
+                # get parameter metadata to detect ranges
+                try:
+                    meta = {n: (d, lo, hi) for n, d, lo, hi in filter_instance._parse_parameter_defaults()}
+                except Exception:
+                    meta = {}
+
                 for param_name, _ in filter_instance.get_parameters():
                     key = f"{filter_id}.{param_name}"
                     if key in values:
-                        filter_instance.set_parameter(param_name, float(values[key]))
+                        try:
+                            raw = float(values[key])
+                        except Exception:
+                            continue
+
+                        # If stored value looks like legacy normalized [0,1] and
+                        # the parameter range is different, map into new range
+                        if param_name in meta:
+                            _d, lo, hi = meta[param_name]
+                            if 0.0 <= raw <= 1.0 and (lo != 0.0 or hi != 1.0):
+                                mapped = lo + raw * (hi - lo)
+                                values[key] = f"{mapped:.6f}"
+                                filter_instance.set_parameter(param_name, mapped)
+                                migrated = True
+                                continue
+
+                        # otherwise use the stored absolute value
+                        filter_instance.set_parameter(param_name, raw)
             except Exception:
                 continue
+        # if any migration occurred, persist the updated values back
+        if migrated:
+            try:
+                write_properties_file(self._content_filter_properties_path, values)
+            except Exception:
+                pass
 
     def _save_content_filter_parameter_values(self):
         values = {}

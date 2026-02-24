@@ -13,55 +13,94 @@ class BaseImageFilter:
     preview_content_types = [CONTENT_TYPE_IMAGE]
 
     @staticmethod
-    def _clamp01(value: float) -> float:
+    def _clamp(value: float, lo: float, hi: float) -> float:
         try:
-            return max(0.0, min(1.0, float(value)))
+            v = float(value)
+            if v < lo:
+                return lo
+            if v > hi:
+                return hi
+            return v
         except Exception:
-            return 0.0
+            return lo
 
-    def _normalized_parameter_defaults(self):
+    def _parse_parameter_defaults(self):
+        """Return list of parameter meta tuples: (name, default, min, max).
+
+        Supported entry formats in `parameter_defaults`:
+        - (name, default)  -- legacy: default assumed normalized in [0,1], range=[0,1]
+        - (name, default, min, max) -- explicit range and default in that range
+        """
         result = []
         defaults = getattr(self, "parameter_defaults", []) or []
         for item in defaults:
             try:
                 name = str(item[0]).strip()
-                default_value = self._clamp01(item[1])
-                if name:
-                    result.append((name, default_value))
+                if not name:
+                    continue
+                if len(item) >= 4:
+                    lo = float(item[2])
+                    hi = float(item[3])
+                    default = float(item[1])
+                    default = self._clamp(default, lo, hi)
+                else:
+                    # legacy normalized default in [0,1]
+                    lo = 0.0
+                    hi = 1.0
+                    default = self._clamp(item[1], lo, hi)
+                result.append((name, default, lo, hi))
             except Exception:
                 continue
         return result
 
     def _ensure_parameter_values(self):
-        defaults = self._normalized_parameter_defaults()
+        defaults = self._parse_parameter_defaults()
         if not hasattr(self, "_parameter_values") or not isinstance(self._parameter_values, dict):
-            self._parameter_values = {name: default for name, default in defaults}
+            self._parameter_values = {name: default for name, default, _lo, _hi in defaults}
             return self._parameter_values
-
-        for name, default in defaults:
+        # Ensure existing stored values are present and clamped to the
+        # declared parameter ranges. Do NOT perform legacy normalized
+        # (0..1) -> range conversion here; migration must update persisted
+        # storage separately.
+        for name, default, lo, hi in defaults:
             if name not in self._parameter_values:
+                # missing -> initialize with default
                 self._parameter_values[name] = default
             else:
-                self._parameter_values[name] = self._clamp01(self._parameter_values[name])
+                try:
+                    raw = float(self._parameter_values[name])
+                    # clamp into declared range
+                    self._parameter_values[name] = self._clamp(raw, lo, hi)
+                except Exception:
+                    self._parameter_values[name] = default
         return self._parameter_values
 
     def get_parameters(self):
-        defaults = self._normalized_parameter_defaults()
+        defaults = self._parse_parameter_defaults()
         values = self._ensure_parameter_values()
-        return [(name, self._clamp01(values.get(name, default))) for name, default in defaults]
+        return [(name, self._clamp(values.get(name, default), lo, hi)) for name, default, lo, hi in defaults]
 
     def get_parameter(self, name: str, fallback: float = 0.0) -> float:
         values = self._ensure_parameter_values()
+        defaults = {n: (d, lo, hi) for n, d, lo, hi in self._parse_parameter_defaults()}
         if name in values:
-            return self._clamp01(values.get(name))
-        return self._clamp01(fallback)
+            if name in defaults:
+                _d, lo, hi = defaults[name]
+                return self._clamp(values.get(name), lo, hi)
+            return float(values.get(name))
+        # fallback: clamp into declared range if available
+        if name in defaults:
+            _d, lo, hi = defaults[name]
+            return self._clamp(fallback, lo, hi)
+        return float(fallback)
 
     def set_parameter(self, name: str, value: float) -> bool:
-        valid_names = {param_name for param_name, _ in self._normalized_parameter_defaults()}
-        if name not in valid_names:
+        defaults = {param_name: (default, lo, hi) for param_name, default, lo, hi in self._parse_parameter_defaults()}
+        if name not in defaults:
             return False
         values = self._ensure_parameter_values()
-        values[name] = self._clamp01(value)
+        _d, lo, hi = defaults[name]
+        values[name] = self._clamp(value, lo, hi)
         return True
 
     def _normalize_content_types(self, values, fallback, allow_empty: bool = False):
