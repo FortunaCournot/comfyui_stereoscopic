@@ -1024,6 +1024,150 @@ class FilterParameterMenu(QMenu):
                                 pass
                     opt_btn.clicked.connect(_on_optimal)
                     action_layout.addWidget(opt_btn)
+                    # Lab chroma experimental action: applies lab_chroma to current preview
+                    lab_btn = QPushButton("Lab chroma", action_widget)
+                    lab_btn.setFixedWidth(100)
+                    lab_btn.setStyleSheet("QPushButton { color: white; background-color: #2a2a2a; border: 1px solid #444; padding: 4px; }")
+                    def _on_lab_chroma():
+                        try:
+                            QApplication.setOverrideCursor(Qt.WaitCursor)
+                            QApplication.processEvents()
+                            # Resolve the actual parent widget: support bound method or attribute
+                            p_attr = getattr(self, 'parent', None)
+                            parent = None
+                            try:
+                                if callable(p_attr):
+                                    parent = p_attr()
+                                else:
+                                    parent = p_attr
+                            except Exception:
+                                parent = None
+                            if parent is None:
+                                try:
+                                    parent = self.parent()
+                                except Exception:
+                                    parent = None
+                            try:
+                                print(f"[LAB] parent_repr={parent!r}", flush=True)
+                            except Exception:
+                                pass
+                            if parent is None:
+                                return
+                            # find source pixmap (reuse same probing logic as Optimal)
+                            src = None
+                            try:
+                                if hasattr(parent, 'display') and parent.display is not None:
+                                    try:
+                                        src = parent.display.getSourcePixmap()
+                                    except Exception:
+                                        src = None
+                                if (src is None or (hasattr(src, 'isNull') and src.isNull())) and hasattr(parent, 'image_label') and parent.image_label is not None:
+                                    try:
+                                        src = parent.image_label.getSourcePixmap()
+                                    except Exception:
+                                        src = None
+                            except Exception:
+                                src = None
+
+                            pil_img = None
+                            # conversion helper: prefer parent's conversion if available
+                            conv = None
+                            try:
+                                conv = getattr(parent, '_pixmap_to_pil_rgba', None)
+                            except Exception:
+                                conv = None
+                            try:
+                                if src is not None and not getattr(src, 'isNull', lambda: False)():
+                                    try:
+                                        try:
+                                            print(f"[LAB] src present width={src.width()} height={src.height()}", flush=True)
+                                        except Exception:
+                                            pass
+                                        if callable(conv):
+                                            pil_img = conv(src)
+                                        else:
+                                            image = src.toImage()
+                                            buffer = QBuffer()
+                                            buffer.open(QIODevice.WriteOnly)
+                                            image.save(buffer, "PNG")
+                                            pil_img = Image.open(io.BytesIO(buffer.data())).convert('RGBA')
+                                    except Exception:
+                                        pil_img = None
+                            except Exception:
+                                pil_img = None
+
+                            if pil_img is None:
+                                return
+
+                            # find lab_chroma_suggest helper from filter module if available
+                            helper = None
+                            try:
+                                modname = getattr(self.filter_instance, '__module__', None)
+                                if modname:
+                                    mod = __import__(modname, fromlist=['lab_chroma_suggest'])
+                                    helper = getattr(mod, 'lab_chroma_suggest', None)
+                            except Exception:
+                                helper = None
+
+                            # fallback to module-level function if importable
+                            if helper is None:
+                                try:
+                                    from gui.python.content_filters.bcs_filter import lab_chroma_suggest as _lc
+                                    helper = _lc
+                                except Exception:
+                                    helper = None
+
+                            if helper is None:
+                                return
+
+                            # Ask the helper for suggestions (same return type as suggest_parameters)
+                            suggested = {}
+                            try:
+                                suggested = helper(pil_img) or {}
+                            except Exception:
+                                suggested = {}
+
+                            try:
+                                print(f"[LAB] suggested={suggested}", flush=True)
+                            except Exception:
+                                pass
+
+                            # Apply suggested values to controls (same as Optimal)
+                            for i, name in enumerate(getattr(self, '_parameter_names', []) or []):
+                                try:
+                                    if name in suggested:
+                                        val = float(suggested[name])
+                                    else:
+                                        continue
+                                    try:
+                                        spin = self._parameter_spinboxes[i]
+                                        slider = self._parameter_sliders[i]
+                                        lo = param_meta.get(name, (0.0, 0.0, 1.0, False))[1]
+                                        hi = param_meta.get(name, (0.0, 0.0, 1.0, False))[2]
+                                        spin.blockSignals(True)
+                                        spin.setValue(self._clamp_spin_value(val, lo, hi))
+                                        spin.blockSignals(False)
+                                        frac = 0.0
+                                        if hi > lo:
+                                            frac = (val - lo) / (hi - lo)
+                                        slider.blockSignals(True)
+                                        slider.setValue(int(round(max(0.0, min(1.0, frac)) * 10000.0)))
+                                        slider.blockSignals(False)
+                                    except Exception:
+                                        pass
+                                    try:
+                                        self._queue_parameter_change(name, float(val))
+                                    except Exception:
+                                        pass
+                                except Exception:
+                                    pass
+                        finally:
+                            try:
+                                QApplication.restoreOverrideCursor()
+                            except Exception:
+                                pass
+                    lab_btn.clicked.connect(_on_lab_chroma)
+                    action_layout.addWidget(lab_btn)
             except Exception:
                 pass
 
