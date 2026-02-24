@@ -48,7 +48,9 @@ class BaseImageFilter:
                     lo = 0.0
                     hi = 1.0
                     default = self._clamp(item[1], lo, hi)
-                result.append((name, default, lo, hi))
+                # optional has_mid flag (boolean) at index 4
+                has_mid = bool(item[4]) if len(item) >= 5 else False
+                result.append((name, default, lo, hi, has_mid))
             except Exception:
                 continue
         return result
@@ -56,13 +58,13 @@ class BaseImageFilter:
     def _ensure_parameter_values(self):
         defaults = self._parse_parameter_defaults()
         if not hasattr(self, "_parameter_values") or not isinstance(self._parameter_values, dict):
-            self._parameter_values = {name: default for name, default, _lo, _hi in defaults}
+            self._parameter_values = {name: default for name, default, _lo, _hi, _hm in defaults}
             return self._parameter_values
         # Ensure existing stored values are present and clamped to the
         # declared parameter ranges. Do NOT perform legacy normalized
         # (0..1) -> range conversion here; migration must update persisted
         # storage separately.
-        for name, default, lo, hi in defaults:
+        for name, default, lo, hi, _has_mid in defaults:
             if name not in self._parameter_values:
                 # missing -> initialize with default
                 self._parameter_values[name] = default
@@ -78,28 +80,28 @@ class BaseImageFilter:
     def get_parameters(self):
         defaults = self._parse_parameter_defaults()
         values = self._ensure_parameter_values()
-        return [(name, self._clamp(values.get(name, default), lo, hi)) for name, default, lo, hi in defaults]
+        return [(name, self._clamp(values.get(name, default), lo, hi)) for name, default, lo, hi, _has_mid in defaults]
 
     def get_parameter(self, name: str, fallback: float = 0.0) -> float:
         values = self._ensure_parameter_values()
-        defaults = {n: (d, lo, hi) for n, d, lo, hi in self._parse_parameter_defaults()}
+        defaults = {n: (d, lo, hi, has_mid) for n, d, lo, hi, has_mid in self._parse_parameter_defaults()}
         if name in values:
             if name in defaults:
-                _d, lo, hi = defaults[name]
+                _d, lo, hi, _hm = defaults[name]
                 return self._clamp(values.get(name), lo, hi)
             return float(values.get(name))
         # fallback: clamp into declared range if available
         if name in defaults:
-            _d, lo, hi = defaults[name]
+            _d, lo, hi, _hm = defaults[name]
             return self._clamp(fallback, lo, hi)
         return float(fallback)
 
     def set_parameter(self, name: str, value: float) -> bool:
-        defaults = {param_name: (default, lo, hi) for param_name, default, lo, hi in self._parse_parameter_defaults()}
+        defaults = {param_name: (default, lo, hi, has_mid) for param_name, default, lo, hi, has_mid in self._parse_parameter_defaults()}
         if name not in defaults:
             return False
         values = self._ensure_parameter_values()
-        _d, lo, hi = defaults[name]
+        _d, lo, hi, _hm = defaults[name]
         values[name] = self._clamp(value, lo, hi)
         return True
 

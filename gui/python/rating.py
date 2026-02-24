@@ -639,7 +639,7 @@ class FilterParameterMenu(QMenu):
             parameters = []
 
         try:
-            param_meta = {n: (d, lo, hi) for n, d, lo, hi in filter_instance._parse_parameter_defaults()}
+            param_meta = {n: (d, lo, hi, has_mid) for n, d, lo, hi, has_mid in filter_instance._parse_parameter_defaults()}
         except Exception:
             param_meta = {}
         if len(parameters) == 0:
@@ -663,8 +663,8 @@ class FilterParameterMenu(QMenu):
             slider.setRange(0, 10000)
             slider.setSingleStep(1)
             # parameter range
-            _meta = param_meta.get(param_name, (param_value, 0.0, 1.0))
-            _def, lo, hi = _meta
+            _meta = param_meta.get(param_name, (param_value, 0.0, 1.0, False))
+            _def, lo, hi, has_mid = _meta
             try:
                 lo = float(lo)
                 hi = float(hi)
@@ -680,6 +680,17 @@ class FilterParameterMenu(QMenu):
                 slider_pos = 0
             slider_pos = max(0, min(10000, slider_pos))
             slider.setValue(slider_pos)
+            # tick marks: center tick for parameters with a middle value,
+            # otherwise show ticks below at 10% intervals
+            try:
+                if has_mid:
+                    slider.setTickPosition(QSlider.TicksBothSides)
+                    slider.setTickInterval(5000)
+                else:
+                    slider.setTickPosition(QSlider.TicksBelow)
+                    slider.setTickInterval(1000)
+            except Exception:
+                pass
             slider.setFixedWidth(220)
             slider.setStyleSheet(
                 "QSlider::groove:horizontal { height: 5px; background: #5a5a5a; border-radius: 2px; }"
@@ -2200,7 +2211,7 @@ class RateAndCutDialog(QDialog):
                 filter_id = getattr(filter_instance, 'filter_id', 'none')
                 # get parameter metadata to detect ranges
                 try:
-                    meta = {n: (d, lo, hi) for n, d, lo, hi in filter_instance._parse_parameter_defaults()}
+                    meta = {n: (d, lo, hi, has_mid) for n, d, lo, hi, has_mid in filter_instance._parse_parameter_defaults()}
                 except Exception:
                     meta = {}
 

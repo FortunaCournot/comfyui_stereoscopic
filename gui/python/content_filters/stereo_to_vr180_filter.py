@@ -10,8 +10,8 @@ class StereoToVR180Filter(BaseImageFilter):
     display_name = "content filter: stereo to vr180"
     icon_name = "filter64_stereo2vr180.png"
     parameter_defaults = [
-        ("fisheye_strength", 0.07, 0.0, 1.0),
-        ("zoom_out", 0.6, 0.0, 1.0),
+        ("fisheye_strength", 0.07, 0.0, 1.0, False),
+        ("zoom_out", 0.6, 0.0, 1.0, False),
     ]
 
     # duplicate of _remap_rectilinear_to_fisheye for experimentation/comparison

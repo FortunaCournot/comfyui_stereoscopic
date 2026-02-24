@@ -10,8 +10,8 @@ class VR180MonoFilter(BaseImageFilter):
     display_name = "content filter: vr180 mono"
     icon_name = "filter64_vr180mono.png"
     parameter_defaults = [
-        ("defisheye_strength", 0.714, 0.0, 1.0),
-        ("output_fov_deg", 103.04, 60.0, 160.0),
+        ("defisheye_strength", 0.714, 0.0, 1.0, False),
+        ("output_fov_deg", 103.04, 60.0, 160.0, False),
     ]
 
     def _remap_fisheye_to_rectilinear(self, src_rgb, fov_out_deg: float, strength: float):
