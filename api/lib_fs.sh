@@ -24,34 +24,89 @@ if [ -z "${PYTHON_BIN_PATH:-}" ]; then
     fi
 fi
 export PYTHON_BIN_PATH
-echo "LOG: PYTHON_BIN_PATH=\"${PYTHON_BIN_PATH}\""
+# Only emit PYTHON-related logs when Python is not found (error case).
 
 # Resolve a PYTHON executable to use for internal Python calls
-PYTHON=""
-# If caller provided an absolute PYTHON path, keep it. Otherwise prefer explicit python.exe path.
-if [ -n "${PYTHON:-}" ] && [ -x "${PYTHON}" ]; then
-    :
-elif [ -n "${PYTHON_BIN_PATH:-}" ] && [ -x "${PYTHON_BIN_PATH}python.exe" ]; then
-    PYTHON="${PYTHON_BIN_PATH}python.exe"
-elif command -v python >/dev/null 2>&1; then
-    PYTHON=python
-elif command -v python3 >/dev/null 2>&1; then
-    PYTHON=python3
-else
-    PYTHON=""
-fi
+PYTHON="${PYTHON_BIN_PATH}python.exe"
 export PYTHON
 
-if [ -n "$PYTHON" ]; then
-    echo "LOG: PYTHON_RESOLVED=\"${PYTHON}\" PYTHON_BIN_PATH=\"${PYTHON_BIN_PATH}\""
-else
-    echo "LOG: PYTHON_RESOLVED=\"\" PYTHON_BIN_PATH=\"${PYTHON_BIN_PATH}\""
-    echo "LOG: PYTHON_FALLBACK=\"using find-based fallback for counts\""
+if [ -z "$PYTHON" ]; then
+    echo "LOG: ERROR=\"python not found; using find-based fallback for counts\"" >&2
 fi
+
+# --- Tracing helpers ---
+# Minimal start/end trace to measure call durations (seconds, milliseconds when available)
+_trace_start() {
+    # try sub-second precision; fall back to integer seconds
+    _TRACE_START=$(date +%s.%N 2>/dev/null || date +%s)
+}
+
+_trace_end() {
+    func="$1"; shift || true
+    params="$*"
+    _TRACE_END=$(date +%s.%N 2>/dev/null || date +%s)
+    # compute elapsed using awk for floating arithmetic
+    elapsed=$(awk -v s="${_TRACE_START}" -v e="${_TRACE_END}" 'BEGIN{printf "%.3f", e - s}')
+    # echo "LOG: TRACE=\"${func} params=[${params}] elapsed=${elapsed}s\"" >&2
+}
 
 
 _py_count() {
     dir="$1"; mode="$2"; shift 2
+    # Optional debug instrumentation when FS_DEBUG=1 to separate Python startup vs scan time
+    if [ "${FS_DEBUG:-0}" -eq 1 ]; then
+        PY_STDERR_TMP=$(mktemp 2>/dev/null || echo /tmp/libfs_dbg.$$)
+        PY_CALL_START=$(date +%s.%N 2>/dev/null || date +%s)
+        pyout=$("$PYTHON" - "$dir" "$mode" "$@" <<'PY' 2>"$PY_STDERR_TMP"
+import os,sys,time
+def safe_int(x):
+    try:
+        return int(x)
+    except Exception:
+        return 0
+
+d=sys.argv[1]
+mode=sys.argv[2]
+args=sys.argv[3:]
+if not os.path.isdir(d):
+    print(0); sys.exit(0)
+cnt=0
+scan_t0=time.time()
+try:
+    it=os.scandir(d)
+    if mode=='any':
+        cnt = sum(1 for e in it if e.is_file() and '.' in e.name)
+    elif mode=='exts':
+        exts=[a.lstrip('.').lower() for a in args]
+        for e in it:
+            if not e.is_file():
+                continue
+            nm=e.name.lower()
+            for ex in exts:
+                if nm.endswith('.'+ex):
+                    cnt += 1
+                    break
+    elif mode=='dirs_prefix':
+        pref=args[0] if args else ''
+        cnt = sum(1 for e in it if e.is_dir() and e.name.startswith(pref))
+    else:
+        cnt = 0
+except Exception:
+    cnt = 0
+scan_t1=time.time()
+print(cnt)
+sys.stderr.write(f"LOG: PY_SCAN=\"{(scan_t1-scan_t0):.6f}s\"\n")
+PY
+        )
+        # forward python stderr to our stderr and remove tmp
+        [ -f "$PY_STDERR_TMP" ] && cat "$PY_STDERR_TMP" >&2 && rm -f "$PY_STDERR_TMP"
+        PY_CALL_END=$(date +%s.%N 2>/dev/null || date +%s)
+        # compute python process elapsed
+        py_elapsed=$(awk -v s="$PY_CALL_START" -v e="$PY_CALL_END" 'BEGIN{printf "%.6f", e - s}')
+        # echo "LOG: PY_CALL=\"${py_elapsed}s\"" >&2
+        echo "$pyout"
+        return
+    fi
     # Call Python with script read from stdin; pass args after '-'
     "$PYTHON" - "$dir" "$mode" "$@" <<'PY'
 import os,sys
@@ -94,33 +149,46 @@ PY
 }
 
 count_files_any_ext() {
+    _trace_start
     dir="$1"
-    _py_count "$dir" any
+    result=$(_py_count "$dir" any)
+    echo "$result"
+    _trace_end count_files_any_ext "$dir"
 }
 
 count_files_with_exts() {
+    _trace_start
     dir="$1"; shift || true
-    _py_count "$dir" exts "$@"
+    result=$(_py_count "$dir" exts "$@")
+    echo "$result"
+    _trace_end count_files_with_exts "$dir" "$@"
 }
 
 count_dirs_with_prefix() {
+    _trace_start
     dir="$1"; pref="$2"
-    _py_count "$dir" dirs_prefix "$pref"
+    result=$(_py_count "$dir" dirs_prefix "$pref")
+    echo "$result"
+    _trace_end count_dirs_with_prefix "$dir" "$pref"
 }
 
 # If no Python detected, provide a find-based fallback to preserve behavior
 if [ -z "$PYTHON" ]; then
     count_files_any_ext() {
+        _trace_start
         dir="$1"
         if [ ! -d "$dir" ]; then
-            echo 0; return
+            echo 0; _trace_end count_files_any_ext "$dir"; return
         fi
-        find "$dir" -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l
+        result=$(find "$dir" -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l)
+        echo "$result"
+        _trace_end count_files_any_ext "$dir"
     }
     count_files_with_exts() {
+        _trace_start
         dir="$1"; shift || true
         if [ ! -d "$dir" ]; then
-            echo 0; return
+            echo 0; _trace_end count_files_with_exts "$dir" "$@"; return
         fi
         total=0
         for ext in "$@"; do
@@ -132,13 +200,17 @@ if [ -z "$PYTHON" ]; then
             total=$((total + cnt))
         done
         echo "$total"
+        _trace_end count_files_with_exts "$dir" "$@"
     }
     count_dirs_with_prefix() {
+        _trace_start
         dir="$1"; prefix="$2"
         if [ ! -d "$dir" ]; then
-            echo 0; return
+            echo 0; _trace_end count_dirs_with_prefix "$dir" "$prefix"; return
         fi
-        find "$dir" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null | wc -l
+        result=$(find "$dir" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null | wc -l)
+        echo "$result"
+        _trace_end count_dirs_with_prefix "$dir" "$prefix"
     }
 fi
 

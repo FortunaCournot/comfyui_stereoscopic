@@ -168,12 +168,19 @@ else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
 
-	COUNT=0
-	for d in input/vr/tasks/*/; do
-		[ -d "$d" ] || continue
-		c=$(count_files_any_ext "$d")
-		COUNT=$((COUNT + c))
-	done
+		# Count files located directly inside each immediate task subfolder only
+		# (ignore deeper nested subdirectories which are irrelevant)
+		COUNT=0
+		# shell glob for immediate subdirs (trailing slash ensures directories)
+		shopt_glob=0
+		# bash-only: use globbing; fallback to find-based count if glob fails
+		if ls -d input/vr/tasks/*/ >/dev/null 2>&1; then
+			# Use a single find invocation with multiple starting points to avoid per-dir forks
+			COUNT=$(find input/vr/tasks/*/ -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l)
+		else
+			# no task subdirs
+			COUNT=0
+		fi
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		TASKFILES=`find input/vr/tasks/*/ -maxdepth 1 -type f`
@@ -223,24 +230,60 @@ else
 			
 			if [ -e "$jsonblueprint" ] ; then
 				resolved_blueprint_dir="input/vr/tasks/intermediate/blueprint_resolved"
+				cache_dir="input/vr/tasks/intermediate/blueprint_cache"
 				resolved_jsonblueprint="$resolved_blueprint_dir/blueprint_resolved_${TASKNAME}_${INDEX}.json"
 				effective_jsonblueprint="$jsonblueprint"
-				mkdir -p "$resolved_blueprint_dir"
-				if resolve_blueprint_placeholders_to_file "$jsonblueprint" "$resolved_jsonblueprint" ; then
-					if [ -s "$resolved_jsonblueprint" ] ; then
-						effective_jsonblueprint="$resolved_jsonblueprint"
-					else
-						echo -e $"\e[93mWarning:\e[0m Resolved blueprint empty. Fallback to original: $jsonblueprint"
-					fi
+				mkdir -p "$resolved_blueprint_dir" "$cache_dir"
+				# Try to use a cache based on file hash to skip resolving when unchanged
+				cache_file="$cache_dir/$(basename "$jsonblueprint")"
+				cache_hash_file="$cache_file.hash"
+				# compute source hash (prefer sha1sum, fallback to md5sum)
+				src_hash=''
+				if command -v sha1sum >/dev/null 2>&1 ; then
+					src_hash=$(sha1sum "$jsonblueprint" | awk '{print $1}')
+				elif command -v md5sum >/dev/null 2>&1 ; then
+					src_hash=$(md5sum "$jsonblueprint" | awk '{print $1}')
+				fi
+				if [ -n "$src_hash" ] && [ -f "$cache_file" ] && [ -f "$cache_hash_file" ] && [ "$(cat "$cache_hash_file")" = "$src_hash" ] ; then
+					# cache hit: copy cached resolved blueprint
+					cp -f -- "$cache_file" "$resolved_jsonblueprint"
+					effective_jsonblueprint="$resolved_jsonblueprint"
+					[ $loglevel -ge 2 ] && echo "Using cached resolved blueprint for $jsonblueprint"
 				else
-					echo -e $"\e[93mWarning:\e[0m Placeholder resolve failed. Fallback to original: $jsonblueprint"
+					# cache miss or no hashing available: resolve and update cache on success
+					if resolve_blueprint_placeholders_to_file "$jsonblueprint" "$resolved_jsonblueprint" ; then
+						if [ -s "$resolved_jsonblueprint" ] ; then
+							effective_jsonblueprint="$resolved_jsonblueprint"
+							# update cache
+							cp -f -- "$resolved_jsonblueprint" "$cache_file"
+							if [ -n "$src_hash" ] ; then
+								echo "$src_hash" > "$cache_hash_file"
+							fi
+						else
+							echo -e $"\e[93mWarning:\e[0m Resolved blueprint empty. Fallback to original: $jsonblueprint"
+						fi
+					else
+						echo -e $"\e[93mWarning:\e[0m Placeholder resolve failed. Fallback to original: $jsonblueprint"
+					fi
 				fi
 
 				# handle only current version
 				taskversion="-1"
-				taskversion=`cat "$effective_jsonblueprint" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+				# extract numeric version robustly from JSON (prefer digits only)
+				if [ -f "$effective_jsonblueprint" ]; then
+					ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$effective_jsonblueprint" | head -n1 || true)
+					if [ -n "$ver_line" ]; then
+						taskversion=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*//')
+					else
+						# fallback: quoted numeric version
+						ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+"' "$effective_jsonblueprint" | head -n1 || true)
+						if [ -n "$ver_line" ]; then
+							taskversion=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*"([0-9]+)"/\1/')
+						fi
+					fi
+				fi
 				CURRENTVERSION=1
-				if [ $taskversion -eq $CURRENTVERSION ] ; then
+				if printf '%s' "$taskversion" | grep -qE '^[0-9]+$' && [ "$taskversion" -eq "$CURRENTVERSION" ] ; then
 					blueprint=`cat "$effective_jsonblueprint" | grep -o '"blueprint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 					blueprint=${blueprint##*/}
 					blueprint=${blueprint//[^[:alnum:].-]/_}

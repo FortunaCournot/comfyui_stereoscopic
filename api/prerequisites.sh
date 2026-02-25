@@ -382,8 +382,20 @@ taskdefinitions=`ls custom_nodes/comfyui_stereoscopic/config/tasks/*.json`
 for task in $taskdefinitions ; do
 	taskname=${task##*/}
 	taskname=${taskname%.json}
-	version=`cat "$task" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-	if [ $version -eq 1 ] ; then
+	version="0"
+	if [ -f "$task" ]; then
+		ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$task" | head -n1 || true)
+		if [ -n "$ver_line" ]; then
+			version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*//')
+		else
+			# fallback: try to extract quoted numeric version
+			ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+"' "$task" | head -n1 || true)
+			if [ -n "$ver_line" ]; then
+				version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*"([0-9]+)"/\1/')
+			fi
+		fi
+	fi
+	if printf '%s' "$version" | grep -qE '^[0-9]+$' && [ "$version" -eq 1 ] ; then
 		mkdir -p input/vr/tasks/$taskname output/vr/tasks/$taskname
 	fi
 done
@@ -400,14 +412,25 @@ for task in $taskdefinitions ; do
     taskname=${taskname// /_}
     taskname=${taskname//\(/_}
     taskname=${taskname//\)/_}
-    version=`cat "$task" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-    if [ -z "$version" ] ; then
-      version=0
-      echo -e $"\e[93mWarning: Invalid Version definition: $task \e[0m"
-    fi
-    if [ $version -eq 1 ] ; then
-      mkdir -p input/vr/tasks/"_"$taskname output/vr/tasks/"_"$taskname
-    fi
+		version="0"
+		if [ -f "$task" ]; then
+			ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$task" | head -n1 || true)
+			if [ -n "$ver_line" ]; then
+				version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*//')
+			else
+				ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+"' "$task" | head -n1 || true)
+				if [ -n "$ver_line" ]; then
+					version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*"([0-9]+)"/\1/')
+				fi
+			fi
+		fi
+		if [ -z "$version" ] ; then
+			version=0
+			echo -e $"\e[93mWarning: Invalid Version definition: $task \e[0m"
+		fi
+		if printf '%s' "$version" | grep -qE '^[0-9]+$' && [ "$version" -eq 1 ] ; then
+			mkdir -p input/vr/tasks/"_"$taskname output/vr/tasks/"_"$taskname
+		fi
   fi
 done
 

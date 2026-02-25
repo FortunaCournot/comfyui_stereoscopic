@@ -15,7 +15,7 @@ fi
 do_autoforward() {
     echo -e $"\e[2mSearching for files left to forward and cleanup.\e[0m"
     for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
-        [ $loglevel -ge 1 ] && echo " - $stagepath"
+        [ "${loglevel:-0}" -ge 1 ] && echo " - $stagepath"
         FILECOUNT=$(count_files_any_ext "output/vr/$stagepath")
         # forward.txt + one media
         if [ "$FILECOUNT" -gt 1 ] ; then
@@ -27,8 +27,8 @@ do_autoforward() {
     TASKDIR=`find output/vr/tasks -maxdepth 1 -type d`
     for task in $TASKDIR; do
         task=${task#output/vr/tasks/}
-        if [ ! -z $task ] ; then
-            [ $loglevel -ge 1 ] && echo " - tasks/$task"
+        if [ -n "$task" ] ; then
+            [ "${loglevel:-0}" -ge 1 ] && echo " - tasks/$task"
             FILECOUNT=$(count_files_any_ext "output/vr/tasks/$task")
             # forward.txt + one media
             if [ "$FILECOUNT" -gt 1 ] ; then

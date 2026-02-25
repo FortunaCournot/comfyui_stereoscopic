@@ -139,28 +139,41 @@ is_disabled() {
 # Compute TASKCOUNT by summing files in input/vr/tasks/*/** excluding disabled tasks listed in unused.properties
 compute_task_count() {
 	local base="input/vr/tasks"
-	local total=0
-	if [ -d "$base" ]; then
-		for sub in "$base"/*; do
-			[ -d "$sub" ] || continue
-			subname=$(basename "$sub")
-			stage_key="tasks/$subname"
-			# Build candidates to check in unused.properties: the literal folder form
-			# and the underscored/non-underscored counterpart to be robust
-			cand1="$stage_key"
-			if [[ "$subname" == _* ]]; then
-				cand2="tasks/${subname#_}"
-			else
-				cand2="tasks/_$subname"
-			fi
-			if is_disabled "$cand1" || is_disabled "$cand2"; then
-				continue
-			fi
-			n=$(count_files_any_ext "$sub")
-			total=$((total + n))
-		done
+	if [ ! -d "$base" ]; then
+		echo 0
+		return
 	fi
-	echo "$total"
+	# Read disabled entries once (keep raw values like 'tasks/foo' or 'tasks/_bar')
+	disabled_raw=""
+	if [ -f "$UNUSED_PROPS" ]; then
+		disabled_raw=$(awk -F"=" '$1=="task" || $1=="customtask" {print $2}' "$UNUSED_PROPS" | tr -d '\r' | paste -sd "," -)
+	fi
+	# Use a single find to list parent folder names for files that are directly in immediate task subfolders
+	# Then use awk to filter out disabled task names (checks both underscored and non-underscored variants)
+	find "$base" -mindepth 2 -maxdepth 2 -type f -printf '%h\n' 2>/dev/null | awk -v disabled="${disabled_raw}" -F'/' '
+	BEGIN{
+		# build disabled map
+		n=split(disabled, arr, ",")
+		for(i=1;i<=n;i++){
+			v=arr[i]
+			gsub(/^[ \t]+|[ \t]+$/,"",v)
+			if(v!="") dis[v]=1
+		}
+	}
+	{
+		parent=$NF
+		cand1="tasks/"parent
+		cand2="tasks/_"parent
+		# also consider removing leading underscore
+		if(substr(parent,1,1)=="_"){
+			cand3="tasks/"substr(parent,2)
+		} else {
+			cand3=""
+		}
+		if(dis[cand1] || dis[cand2] || (cand3!="" && dis[cand3])) next
+		count++
+	}
+	END{print count+0}'
 }
 
 
