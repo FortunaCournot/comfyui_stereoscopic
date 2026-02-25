@@ -3562,8 +3562,7 @@ class HoverTableWidget(QTableWidget):
                             roles = (item.data(_QtRoles.UserRole + 1), item.data(_QtRoles.UserRole + 2), item.data(_QtRoles.UserRole + 4))
                         except Exception:
                             roles = None
-                        if TRACELEVEL >= 1:
-                            print(f"Hover debug row={row} col={col} text={txt!r} roles={roles!r} preview_var={preview!r} status_var={preview_status!r} app.current_processing_file={getattr(self.app, 'current_processing_file', None)!r}", flush=True)
+                        # hover debug print removed
                     except Exception:
                         pass
                     try:
