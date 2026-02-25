@@ -77,8 +77,17 @@ else
 	for f in input/vr/scaling/*\(*; do mv "$f" "${f//\(/_}"; done 2>/dev/null
 	for f in input/vr/scaling/*\)*; do mv "$f" "${f//\)/_}"; done 2>/dev/null
 	for f in input/vr/scaling/*\'*; do mv "$f" "${f//\'/_}"; done 2>/dev/null
-	
-	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+		if [ -z "$COMFYUIPATH" ]; then
+			echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+		fi
+		LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+		if [ -f "$LIB_FS" ]; then
+			. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+		else
+			echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+		fi
+		COUNT=$(count_files_with_exts "input/vr/scaling" mp4 webm)
+	COUNT=$(count_files_with_exts "input/vr/scaling" mp4 webm)
 	[ $loglevel -ge 1 ] && echo "Video Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
@@ -136,7 +145,7 @@ else
 	
 
 	IMGFILES=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webp'`
-	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webp' | wc -l`
+	COUNT=$(count_files_with_exts "input/vr/scaling" png jpg jpeg webp)
 	declare -i INDEX=0
 	[ $loglevel -ge 1 ] && echo "Image Count: $COUNT"
 	if [[ $COUNT -gt 0 ]] ; then

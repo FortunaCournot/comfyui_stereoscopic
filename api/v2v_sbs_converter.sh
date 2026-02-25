@@ -39,6 +39,20 @@ else
 
 	cd $COMFYUIPATH
 
+	# filesystem helpers (canonical sourcing)
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	if ! command -v count_dirs_with_prefix >/dev/null 2>&1 || ! command -v count_files_with_exts >/dev/null 2>&1 ; then
+		echo "Error: lib_fs functions missing after sourcing $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1;
+	fi
+
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 	export CONFIGFILE
@@ -104,7 +118,7 @@ else
 	
 	# RECOVERY : CHECK FOR OLD FILES AND EXTRACT UUID
 	RECOVERY=
-	OLDINTERMEDIATEFOLDERCOUNT=`find output/vr/fullsbs/intermediate -type d -name "$TARGETPREFIX_SBS-"* | wc -l`
+	OLDINTERMEDIATEFOLDERCOUNT=$(count_dirs_with_prefix "output/vr/fullsbs/intermediate" "$TARGETPREFIX_SBS-")
 	if [ $OLDINTERMEDIATEFOLDERCOUNT -eq 1 ]; then
 		SEGDIR=`find input/vr/fullsbs/intermediate -type d -name "$TARGETPREFIX_SBS-"*`
 		olduuid=${SEGDIR##*-}

@@ -60,6 +60,20 @@ else
 	
 	cd $COMFYUIPATH
 
+	# filesystem helpers (canonical sourcing)
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	if ! command -v count_files_with_exts >/dev/null 2>&1 || ! command -v count_files_any_ext >/dev/null 2>&1 ; then
+		echo "Error: lib_fs functions missing after sourcing $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1;
+	fi
+
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 	NOLINE=-ne
@@ -233,7 +247,7 @@ else
 		echo $NOLINE "Prompting $p/$PARALLELITY ...         \r"
 		mkdir -p $DUBBINGDIR/$p
 
-		SEGCOUNT=`find $SEGDIR -maxdepth 1 -type f -name 'segment*.mp4' | wc -l`
+		SEGCOUNT=$(count_files_with_exts "$SEGDIR" mp4)
 
 		declare -i i=0
 		declare -i pindex=0
@@ -295,7 +309,7 @@ else
 
 		cd "$DUBBINGDIR/$p"
 		echo "" >list.txt
-		COUNT=`find . -maxdepth 1 -type f -name '*.flac' | wc -l`
+		COUNT=$(count_files_with_exts "." flac)
 		if [[ $COUNT -eq 0 ]] ; then
 			PARALLELITY=$p
 			cd "$COMFYUIPATH"

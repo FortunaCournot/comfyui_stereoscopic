@@ -9,6 +9,20 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
+# filesystem helpers (canonical sourcing)
+if [ -z "$COMFYUIPATH" ]; then
+	echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+fi
+LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+if [ -f "$LIB_FS" ]; then
+	. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+else
+	echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+fi
+if ! command -v count_files_any_ext >/dev/null 2>&1 || ! command -v count_files_with_exts >/dev/null 2>&1 ; then
+	echo "Error: lib_fs functions missing after sourcing $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1;
+fi
+
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 export CONFIGFILE
@@ -42,16 +56,34 @@ if [[ $logsize -gt 0 ]] ; then
 fi
 rm user/default/comfyui_stereoscopic/tmplog
 
-find input/vr -type d -name error -o -name stopped  | { while read path; do files=`ls -F $path |grep -v / |grep [.] | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } | wc -l >.tmperrcount
+# Count error/stopped folders that contain files using lib_fs helper
+rm -f .tmperrcount.list .tmperrcount 2>/dev/null
+find input/vr -type d \( -name error -o -name stopped \) | while IFS= read -r path; do
+	files=$(count_files_any_ext "$path")
+	if [ "$files" -gt 0 ]; then
+		printf "%s\t%s\n" "$files" "$path"
+	fi
+done >.tmperrcount.list
+wc -l < .tmperrcount.list >.tmperrcount
 ERRFOLDERCOUNT=`cat .tmperrcount`
-rm .tmperrcount
+rm -f .tmperrcount.list .tmperrcount
 if [[ "$ERRFOLDERCOUNT" -gt 0 ]] ; then
 	echo " "
 	echo -e $"\e[31m\e[4m+++ Summary of Folders with Errors +++\e[0m"
 	echo -ne "\e[91m"
-	find input/vr -type d -name error  | { while read path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
+	find input/vr -type d -name error | while IFS= read -r path; do
+		files=$(count_files_any_ext "$path")
+		if [ "$files" -gt 0 ]; then
+			printf "%s\t%s\n" "$files" "$path"
+		fi
+	done
 	echo -ne $"\e[0m\e[93m"
-	find input/vr -type d -name stopped | { while read path; do files=`ls -F $path |grep -v / | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
+	find input/vr -type d -name stopped | while IFS= read -r path; do
+		files=$(count_files_any_ext "$path")
+		if [ "$files" -gt 0 ]; then
+			printf "%s\t%s\n" "$files" "$path"
+		fi
+	done
 	echo -ne $"\e[0m"
 fi
 exit 0

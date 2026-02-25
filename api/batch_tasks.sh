@@ -157,7 +157,23 @@ elif test $# -ne 0 ; then
 else
 	for d in input/vr/tasks/*; do for f in $d/*\ *; do mv -- "$f" "${f// /_}"; done; done 2>/dev/null
 
-	COUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
+
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+
+	COUNT=0
+	for d in input/vr/tasks/*/; do
+		[ -d "$d" ] || continue
+		c=$(count_files_any_ext "$d")
+		COUNT=$((COUNT + c))
+	done
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		TASKFILES=`find input/vr/tasks/*/ -maxdepth 1 -type f`

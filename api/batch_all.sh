@@ -23,6 +23,16 @@ if [ -e $CONFIGFILE ] ; then
 	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 	export COMFYUIHOST COMFYUIPORT
+	# Source filesystem helpers (baseline counting functions)
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
 else
     touch "$CONFIGFILE"
 fi
@@ -107,7 +117,7 @@ elif [ -d "custom_nodes" ]; then
 	#./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
+	CAPCOUNT=$(count_files_with_exts "input/vr/caption" mp4 webm png jpg jpeg webp)
 	# zero if caption stage disabled
 	if is_disabled "caption"; then CAPCOUNT=0; fi
 	if [ $CAPCOUNT -gt 0 ] ; then
@@ -120,8 +130,8 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
-	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	SCALECOUNT=$(count_files_with_exts "input/vr/scaling" mp4 png jpg jpeg webm webp)
+	OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" mp4 png jpg jpeg webm webp)
 	# zero if scaling stage disabled
 	if is_disabled "scaling"; then SCALECOUNT=0; OVERRIDECOUNT=0; fi
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
@@ -150,7 +160,7 @@ elif [ -d "custom_nodes" ]; then
 
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	SLIDECOUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm webp)
 	# zero if slides stage disabled
 	if is_disabled "slides"; then SLIDECOUNT=0; fi
 	if [ $SLIDECOUNT -ge 2 ]; then
@@ -168,7 +178,7 @@ elif [ -d "custom_nodes" ]; then
 	
 	
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 png jpg jpeg webm webp)
 	# zero if fullsbs stage disabled
 	if is_disabled "fullsbs"; then SBSCOUNT=0; fi
 	if [ $SBSCOUNT -ge 1 ]; then
@@ -186,7 +196,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	INTERPOLATECOUNT=$(count_files_with_exts "input/vr/interpolate" mp4 webm)
 	# zero if interpolate stage disabled
 	if is_disabled "interpolate"; then INTERPOLATECOUNT=0; fi
 	if [ $INTERPOLATECOUNT -gt 0 ] ; then
@@ -200,7 +210,7 @@ elif [ -d "custom_nodes" ]; then
 
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm' | wc -l`
+	SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" mp4 webm)
 	# zero if singleloop stage disabled
 	if is_disabled "singleloop"; then SINGLELOOPCOUNT=0; fi
 	if [ $SINGLELOOPCOUNT -ge 1 ]; then
@@ -217,7 +227,7 @@ elif [ -d "custom_nodes" ]; then
 
 	
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
+	SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" png)
 	# zero if slideshow stage disabled
 	if is_disabled "slideshow"; then SLIDESBSCOUNT=0; fi
 	if [ $SLIDESBSCOUNT -ge 2 ]; then
@@ -234,7 +244,7 @@ elif [ -d "custom_nodes" ]; then
 
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
 	# zero if concat stage disabled
 	if is_disabled "concat"; then CONCATCOUNT=0; fi
 	if [ $CONCATCOUNT -ge 1 ]; then
@@ -251,7 +261,7 @@ elif [ -d "custom_nodes" ]; then
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	DUBCOUNTSFX=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
+	DUBCOUNTSFX=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
 	# zero if dubbing/sfx disabled
 	if is_disabled "dubbing/sfx"; then DUBCOUNTSFX=0; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
@@ -276,7 +286,7 @@ elif [ -d "custom_nodes" ]; then
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	DUBCOUNTMUSIC=`find input/vr/dubbing/music -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
+	DUBCOUNTMUSIC=$(count_files_with_exts "input/vr/dubbing/music" mp4 webm)
 	# zero if dubbing/music disabled
 	if is_disabled "dubbing/music"; then DUBCOUNTMUSIC=0; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTMUSIC -gt 0 ]; then
@@ -301,8 +311,8 @@ elif [ -d "custom_nodes" ]; then
 
 	### SKIP IF CONFIG CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-	WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" png jpg jpeg)
+	WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" png jpg jpeg)
 	# zero if watermark stages disabled
 	if is_disabled "watermark/encrypt"; then WMECOUNT=0; fi
 	if is_disabled "watermark/decrypt"; then WMDCOUNT=0; fi
@@ -323,7 +333,15 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	TASKCOUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
+	# TASKCOUNT: sum files in each task directory (non-recursive)
+	TASKCOUNT=0
+	if [ -d "input/vr/tasks" ]; then
+		for d in input/vr/tasks/*/; do
+			[ -d "$d" ] || continue
+			n=$(count_files_any_ext "$d")
+			TASKCOUNT=$((TASKCOUNT + n))
+		done
+	fi
 	if [ $TASKCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "********* TASKS **********"

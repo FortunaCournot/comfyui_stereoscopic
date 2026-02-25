@@ -65,7 +65,8 @@ else
 	for f in input/vr/slideshow/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
 
 	IMGFILES=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	COUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	# (canonical lib_fs sourcing handled above)
+	COUNT=$(count_files_with_exts "input/vr/slideshow" png jpg jpeg)
 	INDEX=0
 	INTERMEDIATEFOLDER=output/vr/slideshow/intermediate
 	mkdir -p "$INTERMEDIATEFOLDER"

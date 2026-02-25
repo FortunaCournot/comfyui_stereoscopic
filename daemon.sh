@@ -46,6 +46,21 @@ mkdir -p output/vr/check/rate output/vr/check/released
 source ./user/default/comfyui_stereoscopic/.environment
 ./custom_nodes/comfyui_stereoscopic/api/prerequisites.sh || exit 1
 
+# filesystem counting helpers (robust sourcing with diagnostics)
+# Prefer the canonical location inside the repo root (COMFYUIPATH).
+# Fallback to script-relative locations if necessary.
+LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+if [ -f "$LIB_FS" ]; then
+	. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+else
+	echo "Error: required lib_fs not found at canonical path: $LIB_FS";
+	echo "Please ensure you run the daemon from the repository root (COMFYUIPATH) and that the file exists.";
+	exit 1;
+fi
+if ! command -v count_files_any_ext >/dev/null 2>&1 || ! command -v count_files_with_exts >/dev/null 2>&1 ; then
+	echo "Error: lib_fs functions missing after sourcing $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1;
+fi
+
 
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
@@ -141,7 +156,7 @@ compute_task_count() {
 			if is_disabled "$cand1" || is_disabled "$cand2"; then
 				continue
 			fi
-			n=$(find "$sub" -maxdepth 1 -type f | wc -l)
+			n=$(count_files_any_ext "$sub")
 			total=$((total + n))
 		done
 	fi
@@ -278,24 +293,24 @@ else
 				SERVERERROR=
 			fi
 			
-			SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
-			SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
+			SLIDECOUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm webp)
+			SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" png)
 			if [ -x "$(command -v nvidia-smi)" ]; then
-				DUBSFXCOUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
-				DUBMUSICCOUNT=`find input/vr/dubbing/music -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+				DUBSFXCOUNT=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
+				DUBMUSICCOUNT=$(count_files_with_exts "input/vr/dubbing/music" mp4 webm)
 			else
 				DUBSFXCOUNT=0
 				DUBMUSICCOUNT=0
 			fi
-			SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-			SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-			OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-			SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
-			INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
-			CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
-			WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-			WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-			CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
+			SCALECOUNT=$(count_files_with_exts "input/vr/scaling" mp4 webp png jpg jpeg)
+			SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 webm webp png jpg jpeg)
+			OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" mp4 webm png jpg jpeg)
+			SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" mp4 webm)
+			INTERPOLATECOUNT=$(count_files_with_exts "input/vr/interpolate" mp4 webm)
+			CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
+			WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" png jpg jpeg)
+			WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" png jpg jpeg)
+			CAPCOUNT=$(count_files_with_exts "input/vr/caption" mp4 webm png jpg jpeg webp)
 			TASKCOUNT=$(compute_task_count)
 
 			# If a stage is disabled via unused.properties, set its sub-count to 0
@@ -352,12 +367,12 @@ else
 			
 			PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD=/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
 
-			WORKFLOW_FORWARDER_COUNT=`find output/vr/tasks/forwarder -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.ts' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+			WORKFLOW_FORWARDER_COUNT=$(count_files_with_exts "output/vr/tasks/forwarder" mp4 webm ts webp png jpg jpeg)
 			if [[ $WORKFLOW_FORWARDER_COUNT -gt 0 ]] ; then
 				sleep 1
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/forwarder || exit 1 )
 			fi
-			WORKFLOW_RELEASED_COUNT=`find output/vr/check/released -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.webp' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+			WORKFLOW_RELEASED_COUNT=$(count_files_with_exts "output/vr/check/released" mp4 webm webp png jpg jpeg)
 			if [[ $WORKFLOW_RELEASED_COUNT -gt 0 ]] ; then
 				sleep 1
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/released || exit 1 )

@@ -30,6 +30,20 @@ else
 	
 	cd $COMFYUIPATH
 
+	# filesystem helpers (canonical sourcing)
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	if ! command -v count_files_with_exts >/dev/null 2>&1 ; then
+		echo "Error: lib_fs functions missing after sourcing $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1;
+	fi
+
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 	NOLINE=-ne
@@ -102,7 +116,7 @@ else
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" $options "$TARGETPREFIX""$seqformat"".mp4"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
-	COUNT=`find output/vr/tasks/intermediate -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	COUNT=$(count_files_with_exts "output/vr/tasks/intermediate" mp4)
 	if [ $COUNT -gt 0 ] ; then
 		FILES=`find output/vr/tasks/intermediate -maxdepth 1 -type f -name '*.mp4'`
 		mv -- $FILES $FINALTARGETFOLDER

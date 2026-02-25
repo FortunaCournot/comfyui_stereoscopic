@@ -93,7 +93,16 @@ else
 	mkdir -p $INTERMEDIATEFOLDER
 	mkdir -p output/vr/caption/intermediate
 	
-	COUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	COUNT=$(count_files_with_exts "input/vr/caption" mp4 webm)
 	declare -i INDEX=0
 	declare -i WAIT=0
 	if [[ $COUNT -gt 0 ]] ; then
@@ -208,7 +217,8 @@ else
 	fi	
 
 	IMGFILES=`find input/vr/caption -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp'`
-	COUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
+	# lib_fs already sourced above
+	COUNT=$(count_files_with_exts "input/vr/caption" png jpg jpeg webp)
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
