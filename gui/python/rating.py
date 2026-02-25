@@ -55,7 +55,7 @@ if USE_TRASHBIN:
     except ImportError:
         USE_TRASHBIN=False
 
-TRACELEVEL=3
+TRACELEVEL=1
 
 # Globale statische Liste der erlaubten Suffixe
 VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ts', '.flv', '.mkv']
