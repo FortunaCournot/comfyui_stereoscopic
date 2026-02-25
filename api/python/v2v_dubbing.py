@@ -61,7 +61,7 @@ prompt_text = """
       ],
       "steps": 25,
       "cfg": 6,
-      "seed": 1028263407902775,
+      "seed": -1,
       "prompt": [
         "193",
         0
@@ -100,7 +100,7 @@ prompt_text = """
       "num_beams": 3,
       "do_sample": false,
       "output_mask_select": "",
-      "seed": 589322187884242,
+      "seed": -1,
       "image": [
         "182",
         0
