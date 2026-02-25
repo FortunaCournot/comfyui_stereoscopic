@@ -2052,21 +2052,15 @@ class SpreadsheetApp(QMainWindow):
             if col == self.COL_IDX_IN:
                 folder =  os.path.abspath( os.path.join(path, "../../../../input/vr/" + STAGES[idx]) )
                 cmd = f'start "" "{folder}"'
-                if TRACELEVEL >= 1:
-                    print(f"[CLICK] input row={row} stage={STAGES[idx]!r} cmd={cmd!r}", flush=True)
                 exit_code = os.system(cmd)
-                if TRACELEVEL >= 1:
-                    print(f"[CLICK] input row={row} exit_code={exit_code}", flush=True)
+                
                 # subprocess.Popen(["explorer", folder ], close_fds=True) - does not close properly
 
             if col == self.COL_IDX_OUT:
                 folder =  os.path.abspath( os.path.join(path, "../../../../output/vr/" + STAGES[idx]) )
                 cmd = f'start "" "{folder}"'
-                if TRACELEVEL >= 1:
-                    print(f"[CLICK] output row={row} stage={STAGES[idx]!r} cmd={cmd!r}", flush=True)
                 exit_code = os.system(cmd)
-                if TRACELEVEL >= 1:
-                    print(f"[CLICK] output row={row} exit_code={exit_code}", flush=True)
+                
                 # subprocess.Popen(["explorer", folder ], close_fds=True) - does not close properly
 
             # Config column (open definition)
@@ -3849,8 +3843,7 @@ class HoverTableWidget(QTableWidget):
                 prow, pcol, pts = self._last_press_handled
                 if prow == row and pcol == col and (time.monotonic() - float(pts)) < 0.7:
                     self._last_press_handled = None
-                    if TRACELEVEL >= 1:
-                        print(f"[CLICK] release-ignored row={row} col={col} reason='already handled on press'", flush=True)
+                    
                     return
         except Exception:
             pass
