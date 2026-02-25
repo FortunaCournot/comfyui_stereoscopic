@@ -70,6 +70,8 @@ loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${logleve
 
 config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
 PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD=/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
+# Track previous PIPELINE_AUTOFORWARD to detect 0->1 transitions
+PREV_PIPELINE_AUTOFORWARD=$PIPELINE_AUTOFORWARD
 FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4=/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx4=${UPSCALEMODELx4:-"RealESRGAN_x4plus.pth"}
 UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2=/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"RealESRGAN_x4plus.pth"}
@@ -334,7 +336,7 @@ else
 				touch user/default/comfyui_stereoscopic/.pipelineactive
 				sleep 1
 
-        TVAIREPORTED=-1
+        		TVAIREPORTED=-1
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh || exit 1
 				[ $loglevel -ge 0 ] && echo "****************************************************"
 				[ $loglevel -ge 0 ] && echo "Using ComfyUI on $COMFYUIHOST port $COMFYUIPORT"
@@ -361,6 +363,15 @@ else
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/released || exit 1 )
 			fi
 			
+			# CHECK FOR FORWAPIPELINE_AUTOFORWARD ACTIVATION IN CONFIG AND DO A FULL FORWARD OVER ALL STAGES AND TASKS.
+			# Source forward helper and trigger full forward only when PIPELINE_AUTOFORWARD
+			# changed from 0 to 1 since the last loop iteration.
+			. ./custom_nodes/comfyui_stereoscopic/api/lib_forward.sh
+			if [ "$PREV_PIPELINE_AUTOFORWARD" -eq 0 ] && [ "$PIPELINE_AUTOFORWARD" -ge 1 ] ; then
+				do_autoforward
+			fi
+			# update previous value for next iteration
+			PREV_PIPELINE_AUTOFORWARD=$PIPELINE_AUTOFORWARD
 			
 		fi
 		
