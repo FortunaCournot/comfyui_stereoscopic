@@ -1701,8 +1701,8 @@ class SpreadsheetApp(QMainWindow):
                                 f.setPointSize(12)
                                 f.setBold(True)
                                 item.setFont(f)
-                                # Pin color: white when pinned, gray when not
-                                item.setForeground(QBrush(QColor("white" if active else "#666666")))
+                                # Pin color: white when pinned, dark gray when not
+                                item.setForeground(QBrush(QColor("white" if active else "#333333")))
                                 item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                             except Exception:
                                 pass
