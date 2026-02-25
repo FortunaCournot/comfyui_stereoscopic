@@ -35,6 +35,40 @@ onExit() {
 trap onExit EXIT
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
+
+# Path to unused flags (list of disabled items)
+UNUSED_PROPS=./user/default/comfyui_stereoscopic/unused.properties
+
+# Check if a given stage/task/customtask name is listed as unused (disabled).
+# Returns 0 if disabled, 1 otherwise.
+is_disabled() {
+	local name="$1"
+	local key
+	if [[ "$name" =~ ^tasks/_ ]]; then
+		key=customtask
+	elif [[ "$name" =~ ^tasks/ ]]; then
+		key=task
+	else
+		key=stage
+	fi
+	if [ ! -f "$UNUSED_PROPS" ]; then
+		return 1
+	fi
+	local vals
+	vals=$(awk -F"=" -v k="$key" '$1==k {print $2; exit}' "$UNUSED_PROPS" | tr -d '\r')
+	if [ -z "$vals" ]; then
+		return 1
+	fi
+	IFS=',' read -ra arr <<< "$vals"
+	for v in "${arr[@]}"; do
+		v=$(echo "$v" | sed -e 's/^\s*//' -e 's/\s*$//')
+		if [ "$v" = "$name" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
 FREESPACE=${FREESPACE%G}
 MINSPACE=10
 status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
@@ -74,6 +108,8 @@ elif [ -d "custom_nodes" ]; then
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
+	# zero if caption stage disabled
+	if is_disabled "caption"; then CAPCOUNT=0; fi
 	if [ $CAPCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
@@ -86,6 +122,8 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
 	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	# zero if scaling stage disabled
+	if is_disabled "scaling"; then SCALECOUNT=0; OVERRIDECOUNT=0; fi
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
 		MEMFREE=`awk '/MemFree/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
 		MEMTOTAL=`awk '/MemTotal/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
@@ -113,6 +151,8 @@ elif [ -d "custom_nodes" ]; then
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	# zero if slides stage disabled
+	if is_disabled "slides"; then SLIDECOUNT=0; fi
 	if [ $SLIDECOUNT -ge 2 ]; then
 		# PREPARE 4K SLIDES
 		# In:  input/vr/slides
@@ -129,6 +169,8 @@ elif [ -d "custom_nodes" ]; then
 	
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	# zero if fullsbs stage disabled
+	if is_disabled "fullsbs"; then SBSCOUNT=0; fi
 	if [ $SBSCOUNT -ge 1 ]; then
 		# SBS CONVERTER: Video -> Video, Image -> Image
 		# In:  input/vr/fullsbs
@@ -145,6 +187,8 @@ elif [ -d "custom_nodes" ]; then
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	# zero if interpolate stage disabled
+	if is_disabled "interpolate"; then INTERPOLATECOUNT=0; fi
 	if [ $INTERPOLATECOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** INTERPOLATE *******"
@@ -157,6 +201,8 @@ elif [ -d "custom_nodes" ]; then
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm' | wc -l`
+	# zero if singleloop stage disabled
+	if is_disabled "singleloop"; then SINGLELOOPCOUNT=0; fi
 	if [ $SINGLELOOPCOUNT -ge 1 ]; then
 		# SINGLE LOOP
 		# In:  input/vr/singleloop_in
@@ -172,6 +218,8 @@ elif [ -d "custom_nodes" ]; then
 	
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
+	# zero if slideshow stage disabled
+	if is_disabled "slideshow"; then SLIDESBSCOUNT=0; fi
 	if [ $SLIDESBSCOUNT -ge 2 ]; then
 		# MAKE SLIDESHOW
 		# In:  input/vr/slideshow
@@ -187,6 +235,8 @@ elif [ -d "custom_nodes" ]; then
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	# zero if concat stage disabled
+	if is_disabled "concat"; then CONCATCOUNT=0; fi
 	if [ $CONCATCOUNT -ge 1 ]; then
 		# CONCAT
 		# In:  input/vr/concat_in
@@ -202,6 +252,8 @@ elif [ -d "custom_nodes" ]; then
 	### SKIP IF DEPENDENCY CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	DUBCOUNTSFX=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
+	# zero if dubbing/sfx disabled
+	if is_disabled "dubbing/sfx"; then DUBCOUNTSFX=0; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
 		if [ -x "$(command -v nvidia-smi)" ]; then
 			# DUBBING: Video -> Video with SFX
@@ -225,6 +277,8 @@ elif [ -d "custom_nodes" ]; then
 	### SKIP IF DEPENDENCY CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	DUBCOUNTMUSIC=`find input/vr/dubbing/music -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
+	# zero if dubbing/music disabled
+	if is_disabled "dubbing/music"; then DUBCOUNTMUSIC=0; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTMUSIC -gt 0 ]; then
 		if [ -x "$(command -v nvidia-smi)" ]; then
 			# DUBBING: Video -> Video with music
@@ -249,6 +303,9 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 	WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	# zero if watermark stages disabled
+	if is_disabled "watermark/encrypt"; then WMECOUNT=0; fi
+	if is_disabled "watermark/decrypt"; then WMDCOUNT=0; fi
 	if [ $WMECOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** ENCRYPTING ********"

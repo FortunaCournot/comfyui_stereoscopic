@@ -105,6 +105,39 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
+# Path to unused flags (list of disabled items)
+UNUSED_PROPS=./user/default/comfyui_stereoscopic/unused.properties
+
+# Check if a given stage/task/customtask name is listed as unused (disabled).
+# Returns 0 if disabled, 1 otherwise.
+is_disabled() {
+	local name="$1"
+	local key
+	if [[ "$name" =~ ^tasks/_ ]]; then
+		key=customtask
+	elif [[ "$name" =~ ^tasks/ ]]; then
+		key=task
+	else
+		key=stage
+	fi
+	if [ ! -f "$UNUSED_PROPS" ]; then
+		return 1
+	fi
+	local vals
+	vals=$(awk -F"=" -v k="$key" '$1==k {print $2; exit}' "$UNUSED_PROPS" | tr -d '\r')
+	if [ -z "$vals" ]; then
+		return 1
+	fi
+	IFS=',' read -ra arr <<< "$vals"
+	for v in "${arr[@]}"; do
+		v=$(echo "$v" | sed -e 's/^\s*//' -e 's/\s*$//')
+		if [ "$v" = "$name" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
 MINSPACE=10
@@ -134,6 +167,19 @@ else
 
 			INPUTDIR=`dirname -- $nextinputfile`
 			TASKNAME=${INPUTDIR##*/}
+
+			# Skip tasks marked as unused/disabled in unused.properties
+			if [[ "$TASKNAME" == _* ]] ; then
+				cand1="tasks/$TASKNAME"
+				cand2="tasks/${TASKNAME#_}"
+			else
+				cand1="tasks/$TASKNAME"
+				cand2="tasks/_$TASKNAME"
+			fi
+			if is_disabled "$cand1" || is_disabled "$cand2" ; then
+				[ $loglevel -ge 1 ] && echo "Skipping disabled task $cand1"
+				continue
+			fi
 
 			INDEX+=1
 			echo "tasks/$TASKNAME" >user/default/comfyui_stereoscopic/.daemonstatus

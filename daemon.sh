@@ -84,6 +84,68 @@ CONFIGERROR=
 
 columns=$(tput cols)
 
+# Path to unused flags (list of disabled items)
+UNUSED_PROPS=./user/default/comfyui_stereoscopic/unused.properties
+
+# Check if a given stage/task/customtask name is listed as unused (disabled).
+# Returns 0 if disabled, 1 otherwise.
+is_disabled() {
+	local name="$1"
+	local key
+	if [[ "$name" =~ ^tasks/_ ]]; then
+		key=customtask
+	elif [[ "$name" =~ ^tasks/ ]]; then
+		key=task
+	else
+		key=stage
+	fi
+	if [ ! -f "$UNUSED_PROPS" ]; then
+		return 1
+	fi
+	# get the comma-separated value for the key robustly
+	local vals
+	vals=$(awk -F"=" -v k="$key" '$1==k {print $2; exit}' "$UNUSED_PROPS" | tr -d '\r')
+	if [ -z "$vals" ]; then
+		return 1
+	fi
+	# split and compare exact matches
+	IFS=',' read -ra arr <<< "$vals"
+	for v in "${arr[@]}"; do
+		v=$(echo "$v" | sed -e 's/^\s*//' -e 's/\s*$//')
+		if [ "$v" = "$name" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+# Compute TASKCOUNT by summing files in input/vr/tasks/*/** excluding disabled tasks listed in unused.properties
+compute_task_count() {
+	local base="input/vr/tasks"
+	local total=0
+	if [ -d "$base" ]; then
+		for sub in "$base"/*; do
+			[ -d "$sub" ] || continue
+			subname=$(basename "$sub")
+			stage_key="tasks/$subname"
+			# Build candidates to check in unused.properties: the literal folder form
+			# and the underscored/non-underscored counterpart to be robust
+			cand1="$stage_key"
+			if [[ "$subname" == _* ]]; then
+				cand2="tasks/${subname#_}"
+			else
+				cand2="tasks/_$subname"
+			fi
+			if is_disabled "$cand1" || is_disabled "$cand2"; then
+				continue
+			fi
+			n=$(find "$sub" -maxdepth 1 -type f | wc -l)
+			total=$((total + n))
+		done
+	fi
+	echo "$total"
+}
+
 
 if test $# -ne 0
 then
@@ -232,7 +294,22 @@ else
 			WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
 			CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
-			TASKCOUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
+			TASKCOUNT=$(compute_task_count)
+
+			# If a stage is disabled via unused.properties, set its sub-count to 0
+			if is_disabled "slides"; then SLIDECOUNT=0; fi
+			if is_disabled "slideshow"; then SLIDESBSCOUNT=0; fi
+			if is_disabled "dubbing/sfx"; then DUBSFXCOUNT=0; fi
+			if is_disabled "dubbing/music"; then DUBMUSICCOUNT=0; fi
+			if is_disabled "scaling"; then SCALECOUNT=0; fi
+			if is_disabled "fullsbs"; then SBSCOUNT=0; fi
+			if is_disabled "scaling"; then OVERRIDECOUNT=0; fi
+			if is_disabled "singleloop"; then SINGLELOOPCOUNT=0; fi
+			if is_disabled "interpolate"; then INTERPOLATECOUNT=0; fi
+			if is_disabled "concat"; then CONCATCOUNT=0; fi
+			if is_disabled "watermark/encrypt"; then WMECOUNT=0; fi
+			if is_disabled "watermark/decrypt"; then WMDCOUNT=0; fi
+			if is_disabled "caption"; then CAPCOUNT=0; fi
 			
 			if [ $WMECOUNT -gt 0 ] ; then
 				WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL=/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}

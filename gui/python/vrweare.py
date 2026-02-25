@@ -1493,6 +1493,21 @@ class SpreadsheetApp(QMainWindow):
                                 item.setForeground(QBrush(QColor("#888888")))
                             else:
                                 item.setForeground(QBrush(QColor("#CCCCCC")))
+                            # If this stage/task is disabled via unused.properties, highlight name in red
+                            try:
+                                stage_name = STAGES[r-1]
+                                states = getattr(self, '_unused_states', None)
+                                if states is not None:
+                                    if re.match(r"tasks/_.*", stage_name):
+                                        key = 'customtask'
+                                    elif re.match(r"tasks/.*", stage_name):
+                                        key = 'task'
+                                    else:
+                                        key = 'stage'
+                                    if stage_name in states.get(key, set()):
+                                        item.setForeground(QBrush(QColor("red")))
+                            except Exception:
+                                pass
                         else:
                             item.setForeground(QBrush(QColor("#CCCCCC")))
                         item.setBackground(QBrush(QColor("black")))
@@ -2636,8 +2651,7 @@ class HoverTableWidget(QTableWidget):
                             self._last_press_handled = (row, col, time.monotonic())
                         except Exception:
                             self._last_press_handled = (row, col, 0.0)
-                        if TRACELEVEL >= 1:
-                            print(f"[CLICK] press-dispatch row={row} col={col}", flush=True)
+                        # press-dispatch handled; debug print removed
                         self.onCellClick(row, col)
                         event.accept()
                         return
