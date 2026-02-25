@@ -11,28 +11,30 @@ _COMFYUIPATH="$(realpath "$SCRIPT_DIR/../../..")"
 
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 # Try to set PYTHON_BIN_PATH if not already set by caller scripts
+## PYTHON handling: strict embedded python only (no system fallback)
+# If caller did not set PYTHON_BIN_PATH, prefer the repository's python_embeded relative to _COMFYUIPATH
 if [ -z "${PYTHON_BIN_PATH:-}" ]; then
-    # Prefer the node's embedded virtualenv (relative to this script), then other common locations
-    if [ -x "${_COMFYUIPATH}/custom_nodes/comfyui_stereoscopic/.venv/Scripts/python.exe" ]; then
-        PYTHON_BIN_PATH="${_COMFYUIPATH}/custom_nodes/comfyui_stereoscopic/.venv/Scripts/"
-    elif [ -x "${_COMFYUIPATH}/python_embeded/python.exe" ]; then
-        PYTHON_BIN_PATH="${_COMFYUIPATH}/python_embeded/"
-    elif [ -x "${_COMFYUIPATH}/.venv/Scripts/python.exe" ]; then
-        PYTHON_BIN_PATH="${_COMFYUIPATH}/.venv/Scripts/"
+    PYTHON_BIN_PATH="python_embeded/"
+fi
+# Normalize PYTHON_BIN_PATH: make absolute relative to _COMFYUIPATH when not absolute
+case "$PYTHON_BIN_PATH" in
+    /*|?:\\*) ;; # absolute Unix path or Windows drive letter
+    *) PYTHON_BIN_PATH="${_COMFYUIPATH%/}/${PYTHON_BIN_PATH%/}/" ;;
+esac
+export PYTHON_BIN_PATH
+
+# Resolve embedded python.exe path (must exist). Do NOT fallback to system python.
+PYTHON="${PYTHON_BIN_PATH}python.exe"
+if [ ! -x "$PYTHON" ]; then
+    echo "LOG: ERROR=\"embedded python not found at $PYTHON; set PYTHON_BIN_PATH to the embedded Python directory\"" >&2
+    # if sourced, return non-zero; if executed directly, exit
+    if [ "${BASH_SOURCE[0]:-$0}" != "$0" ]; then
+        return 1
     else
-        PYTHON_BIN_PATH=""
+        exit 1
     fi
 fi
-export PYTHON_BIN_PATH
-# Only emit PYTHON-related logs when Python is not found (error case).
-
-# Resolve a PYTHON executable to use for internal Python calls
-PYTHON="${PYTHON_BIN_PATH}python.exe"
 export PYTHON
-
-if [ -z "$PYTHON" ]; then
-    echo "LOG: ERROR=\"python not found; using find-based fallback for counts\"" >&2
-fi
 
 # --- Tracing helpers ---
 # Minimal start/end trace to measure call durations (seconds, milliseconds when available)
