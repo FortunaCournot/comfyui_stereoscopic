@@ -57,6 +57,49 @@ idletime = 0
 
 COLS = 4
 
+# Files to store pin/used states (simple properties format: key=csv)
+
+PIN_STATE_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/pin.properties'))
+UNUSED_STATE_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/unused.properties'))
+
+def _load_flag_file(file_path: str) -> dict:
+    """Load a simple properties file with keys 'stage','task','customtask' mapping to comma-separated lists.
+    Returns dict of sets.
+    """
+    result = {'stage': set(), 'task': set(), 'customtask': set()}
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                k = k.strip()
+                v = v.strip()
+                if k in result and v:
+                    for part in v.split(','):
+                        p = part.strip()
+                        if p:
+                            result[k].add(p)
+    except FileNotFoundError:
+        # treat missing file as empty
+        pass
+    except Exception:
+        pass
+    return result
+
+def _save_flag_file(file_path: str, data: dict):
+    try:
+        d = {'stage':'', 'task':'', 'customtask':''}
+        for k in ['stage','task','customtask']:
+            vals = list(data.get(k, []))
+            d[k] = ','.join(vals)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            for k in ['stage','task','customtask']:
+                f.write(f"{k}={d[k]}\n")
+    except Exception:
+        pass
+
 pipelinePauseLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelinepause'))
 pipelineActiveLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelineactive'))
 pipelineFowardingLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.forwardstop'))
@@ -502,6 +545,40 @@ class SpreadsheetApp(QMainWindow):
 
         # Initialize caches
         self.stageTypes = []
+        # Load persisted pin/unused states once at startup to avoid repeated I/O
+        self._pin_states = _load_flag_file(PIN_STATE_FILE)
+        self._pin_states_file = PIN_STATE_FILE
+        # Rename used -> unused semantics: file lists disabled (unused) entries
+        self._unused_states_file = UNUSED_STATE_FILE
+        self._unused_states = _load_flag_file(self._unused_states_file)
+        # Preload stage types once at startup to avoid repeated file I/O during updates
+        try:
+            for stage in STAGES:
+                value = "?"
+                if re.match(r"tasks/_.*", stage):
+                    stageDefRes = "user/default/comfyui_stereoscopic/tasks/" + stage[7:] + ".json"
+                elif re.match(r"tasks/.*", stage):
+                    stageDefRes = "custom_nodes/comfyui_stereoscopic/config/tasks/" + stage[6:] + ".json"
+                else:
+                    stageDefRes = "custom_nodes/comfyui_stereoscopic/config/stages/" + stage + ".json"
+                defFile = os.path.join(path, "../../../../" + stageDefRes)
+                if os.path.exists(defFile):
+                    try:
+                        with open(defFile, encoding="utf-8", errors="replace") as file:
+                            deflines = [line.rstrip() for line in file]
+                            for line in range(len(deflines)):
+                                inputMatch = re.match(r".*\"input\":", deflines[line])
+                                if inputMatch:
+                                    valuepart = deflines[line][inputMatch.end():]
+                                    match = re.search(r"\".*\"", valuepart)
+                                    if match:
+                                        value = valuepart[match.start()+1:match.end()][:-1]
+                                        break
+                    except Exception:
+                        value = "?"
+                self.stageTypes.append(value)
+        except Exception:
+            self.stageTypes = []
         # cache mapping (raw_preview_candidate, stage_name) -> (final_path_or_None, status)
         self._preview_path_cache = {}
         # remember last read daemonstatus lines to avoid re-parsing unchanged status repeatedly
@@ -1053,17 +1130,10 @@ class SpreadsheetApp(QMainWindow):
                 print("QUIT (external signal)", flush=True)
                 sys.exit(app.exec_())
 
-            pipeline_status = not os.path.exists(pipelinePauseLockPath)
-            self.toogle_pipeline_active = pipeline_status
+            self.toogle_pipeline_active = not os.path.exists(pipelinePauseLockPath)
             self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
-            self.update_comfyui_count()
-
-            self.toogle_pipeline_isForwarding = config("PIPELINE_AUTOFORWARD", "0") == "1"
-            self.toggle_pipeline_forwarding_action.setChecked(self.toogle_pipeline_isForwarding)
-            if self.toogle_pipeline_isForwarding:
-                self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true)
-            else:
-                self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_false)
+            self.toggle_pipeline_forwarding_action.setChecked(config("PIPELINE_AUTOFORWARD", "0") == "1")
+            self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true if self.toggle_pipeline_forwarding_action.isChecked() else self.toggle_pipeline_forwarding_icon_false)
 
             # Decide whether to refresh cached data this tick
             try:
@@ -1339,46 +1409,61 @@ class SpreadsheetApp(QMainWindow):
 
             COLNAMES = []
             if self.toogle_stages_expanded:
-                COLS=6
+                COLS = 8
                 self.table.setColumnCount(COLS)
-                header = self.table.horizontalHeader()    
-                header.setSectionResizeMode(QHeaderView.Fixed);
+                header = self.table.horizontalHeader()
+                header.setSectionResizeMode(QHeaderView.Fixed)
                 COLNAMES.clear()
-                COL_IDX_STAGENAME=0        
+                COL_IDX_STAGENAME = 0
                 header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
                 COLNAMES.append("")
-                self.COL_IDX_IN_TYPES=1
+                self.COL_IDX_IN_TYPES = 1
                 header.setSectionResizeMode(self.COL_IDX_IN_TYPES, QHeaderView.ResizeToContents)
                 COLNAMES.append("type")
-                self.COL_IDX_IN=2
-                #header.setSectionResizeMode(self.COL_IDX_IN, QHeaderView.ResizeToContents)
+                self.COL_IDX_IN = 2
                 COLNAMES.append("input (done)")
-                COL_IDX_PROCESSING=3
-                #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
+                COL_IDX_PROCESSING = 3
                 COLNAMES.append("processing")
-                self.COL_IDX_OUT=4
+                self.COL_IDX_OUT = 4
                 header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
                 COLNAMES.append("output")
-                header.setSectionResizeMode(self.COL_IDX_OUT+1, QHeaderView.Fixed)
-                self.table.setColumnWidth(self.COL_IDX_OUT+1, 56)
+                # Insert Pin and Used columns before Config; keep Config at the end
+                self.COL_IDX_PIN = self.COL_IDX_OUT + 1
+                self.COL_IDX_USED = self.COL_IDX_OUT + 2
+                self.COL_IDX_CONFIG = self.COL_IDX_OUT + 3
+                header.setSectionResizeMode(self.COL_IDX_PIN, QHeaderView.Fixed)
+                header.setSectionResizeMode(self.COL_IDX_USED, QHeaderView.Fixed)
+                header.setSectionResizeMode(self.COL_IDX_CONFIG, QHeaderView.Fixed)
+                # small fixed widths for icon-only columns
+                self.table.setColumnWidth(self.COL_IDX_PIN, 56)
+                self.table.setColumnWidth(self.COL_IDX_USED, 56)
+                self.table.setColumnWidth(self.COL_IDX_CONFIG, 56)
+                COLNAMES.append("Pin")
+                COLNAMES.append("Used")
                 COLNAMES.append("Config")
             else:
-                COLS=4
+                # Compact view: include Used column always (icon-only)
+                COLS = 5
                 self.table.setColumnCount(COLS)
-                header = self.table.horizontalHeader()       
+                header = self.table.horizontalHeader()
                 COLNAMES.clear()
-                COL_IDX_STAGENAME=0        
+                COL_IDX_STAGENAME = 0
                 header.setSectionResizeMode(COL_IDX_STAGENAME, QHeaderView.ResizeToContents)
                 COLNAMES.append("")
-                self.COL_IDX_IN=1
-                #header.setSectionResizeMode(self.COL_IDX_IN, QHeaderView.ResizeToContents)
+                self.COL_IDX_IN = 1
                 COLNAMES.append("input (done)")
-                COL_IDX_PROCESSING=2
-                #header.setSectionResizeMode(COL_IDX_PROCESSING, QHeaderView.ResizeToContents)
+                COL_IDX_PROCESSING = 2
                 COLNAMES.append("processing")
-                self.COL_IDX_OUT=3
+                self.COL_IDX_OUT = 3
                 header.setSectionResizeMode(self.COL_IDX_OUT, QHeaderView.Stretch)
                 COLNAMES.append("output")
+                # In compact mode we do not show Pin/Config, but Always show Used
+                self.COL_IDX_PIN = None
+                self.COL_IDX_USED = self.COL_IDX_OUT + 1
+                self.COL_IDX_CONFIG = None
+                header.setSectionResizeMode(self.COL_IDX_USED, QHeaderView.Fixed)
+                self.table.setColumnWidth(self.COL_IDX_USED, 56)
+                COLNAMES.append("Used")
             
             skippedrows = 0
             self.table.clear()
@@ -1527,6 +1612,15 @@ class SpreadsheetApp(QMainWindow):
                                             displayRequired = True
                                             color = "red"
                                 elif c == self.COL_IDX_OUT + 1:
+                                    # Pin column (icon-only)
+                                    value = ""
+                                    color = "lightgray"
+                                elif c == self.COL_IDX_OUT + 2:
+                                    # Used column (icon-only)
+                                    value = ""
+                                    color = "lightgray"
+                                elif c == self.COL_IDX_OUT + 3:
+                                    # Config column (gear) only for tasks
                                     if re.match(r"tasks/.*", STAGES[r-1]):
                                         value = "⚙"
                                     else:
@@ -1568,6 +1662,53 @@ class SpreadsheetApp(QMainWindow):
                         item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                         item.setBackground(QBrush(QColor("black")))
 
+                    # Substitute Pin/Used/Config items with icons. Pin/Config only in expanded view; Used always visible if column present.
+                    if r > 0:
+                        c_pin = getattr(self, 'COL_IDX_PIN', None)
+                        c_used = getattr(self, 'COL_IDX_USED', None)
+                        c_config = getattr(self, 'COL_IDX_CONFIG', None)
+                        if c == c_pin and getattr(self, 'toogle_stages_expanded', False):
+                            # create icon item for pin state (use cached pin states)
+                            try:
+                                stage_name = STAGES[r-1]
+                                states = getattr(self, '_pin_states', _load_flag_file(PIN_STATE_FILE))
+                                if re.match(r"tasks/_.*", stage_name):
+                                    key = 'customtask'
+                                elif re.match(r"tasks/.*", stage_name):
+                                    key = 'task'
+                                else:
+                                    key = 'stage'
+                                active = stage_name in states.get(key, set())
+                                icon_path = os.path.join(path, '../../gui/img', 'pin_on.png' if active else 'pin_off.png')
+                                item.setIcon(QIcon(icon_path))
+                                item.setText('')
+                            except Exception:
+                                pass
+                        elif c == c_used and c_used is not None:
+                            # show Used status even in compact view
+                            try:
+                                stage_name = STAGES[r-1]
+                                # UNUSED file stores disabled items. If not present => default active
+                                if not os.path.exists(getattr(self, '_unused_states_file', UNUSED_STATE_FILE)):
+                                    active = True
+                                else:
+                                    states = getattr(self, '_unused_states', _load_flag_file(getattr(self, '_unused_states_file', UNUSED_STATE_FILE)))
+                                    if re.match(r"tasks/_.*", stage_name):
+                                        key = 'customtask'
+                                    elif re.match(r"tasks/.*", stage_name):
+                                        key = 'task'
+                                    else:
+                                        key = 'stage'
+                                    # active if NOT listed in unused set
+                                    active = stage_name not in states.get(key, set())
+                                icon_path = os.path.join(path, '../../gui/img', 'used_on.png' if active else 'used_off.png')
+                                item.setIcon(QIcon(icon_path))
+                                item.setText('')
+                            except Exception:
+                                pass
+                        elif c == c_config and getattr(self, 'toogle_stages_expanded', False):
+                            # keep existing config glyph (text) for now; icon will be set via style if available
+                            pass
                     currentRowItems.append(item)
                     # attach preview data to processing item if available
                     try:
@@ -1859,8 +2000,20 @@ class SpreadsheetApp(QMainWindow):
                 return True
             if col == self.COL_IDX_OUT:
                 return True
-            if col == self.COL_IDX_OUT+1:
-                return True
+            # allow clicks on Config and our new Pin/Used columns when expanded
+            try:
+                # Always allow clicking the Used column when present
+                try:
+                    if col == self.COL_IDX_USED:
+                        return True
+                except Exception:
+                    pass
+                # Pin and Config remain expanded-only
+                if getattr(self, 'toogle_stages_expanded', False):
+                    if col in (self.COL_IDX_PIN, self.COL_IDX_CONFIG):
+                        return True
+            except Exception:
+                pass
         return False
 
     def onCellClick(self, row, col):
@@ -1887,16 +2040,91 @@ class SpreadsheetApp(QMainWindow):
                     print(f"[CLICK] output row={row} exit_code={exit_code}", flush=True)
                 # subprocess.Popen(["explorer", folder ], close_fds=True) - does not close properly
 
-            if col == self.COL_IDX_OUT+1:
-                if re.match(r"tasks/_.*", STAGES[idx]):
-                    stageDefRes="user/default/comfyui_stereoscopic/tasks/" + STAGES[idx][7:] + ".json"
-                elif re.match(r"tasks/.*", STAGES[idx]):
-                    stageDefRes="custom_nodes/comfyui_stereoscopic/config/tasks/" + STAGES[idx][6:] + ".json"
-                else:
-                    stageDefRes=""
-                defFile = os.path.join(path, "../../../../" + stageDefRes)
-                if os.path.exists(defFile):
-                    os.startfile(defFile)
+            # Config column (open definition)
+            try:
+                if getattr(self, 'toogle_stages_expanded', False) and col == self.COL_IDX_CONFIG:
+                    if re.match(r"tasks/_.*", STAGES[idx]):
+                        stageDefRes="user/default/comfyui_stereoscopic/tasks/" + STAGES[idx][7:] + ".json"
+                    elif re.match(r"tasks/.*", STAGES[idx]):
+                        stageDefRes="custom_nodes/comfyui_stereoscopic/config/tasks/" + STAGES[idx][6:] + ".json"
+                    else:
+                        stageDefRes=""
+                    defFile = os.path.join(path, "../../../../" + stageDefRes)
+                    if os.path.exists(defFile):
+                        os.startfile(defFile)
+            except Exception:
+                pass
+
+            # Pin toggle
+            try:
+                if getattr(self, 'toogle_stages_expanded', False) and col == self.COL_IDX_PIN:
+                    stage_name = STAGES[idx]
+                    # use cached pin states
+                    states = self._pin_states
+                    # determine type key
+                    if re.match(r"tasks/_.*", stage_name):
+                        key = 'customtask'
+                    elif re.match(r"tasks/.*", stage_name):
+                        key = 'task'
+                    else:
+                        key = 'stage'
+                    sset = states.get(key, set())
+                    if stage_name in sset:
+                        sset.remove(stage_name)
+                        activated = False
+                    else:
+                        sset.add(stage_name)
+                        activated = True
+                    states[key] = sset
+                    _save_flag_file(self._pin_states_file, states)
+                    # update cell icon immediately
+                    try:
+                        img_dir = os.path.join(path, '../../gui/img')
+                        icon = QIcon(os.path.join(img_dir, 'pin_on.png' if activated else 'pin_off.png'))
+                        itm = self.table.item(row, col)
+                        if itm:
+                            itm.setIcon(icon)
+                    except Exception:
+                        pass
+                    return
+            except Exception:
+                pass
+
+            # Used/Unused toggle (unused.properties lists disabled entries)
+            try:
+                if col == self.COL_IDX_USED:
+                    stage_name = STAGES[idx]
+                    # use cached unused states
+                    states = self._unused_states
+                    if re.match(r"tasks/_.*", stage_name):
+                        key = 'customtask'
+                    elif re.match(r"tasks/.*", stage_name):
+                        key = 'task'
+                    else:
+                        key = 'stage'
+                    sset = states.get(key, set())
+                    # presence in the set means "unused" (disabled)
+                    if stage_name in sset:
+                        # remove -> now activated/used
+                        sset.remove(stage_name)
+                        activated = True
+                    else:
+                        # add -> now deactivated/unused
+                        sset.add(stage_name)
+                        activated = False
+                    states[key] = sset
+                    _save_flag_file(self._unused_states_file, states)
+                    try:
+                        img_dir = os.path.join(path, '../../gui/img')
+                        icon = QIcon(os.path.join(img_dir, 'used_on.png' if activated else 'used_off.png'))
+                        itm = self.table.item(row, col)
+                        if itm:
+                            itm.setIcon(icon)
+                    except Exception:
+                        pass
+                    return
+            except Exception:
+                pass
 
         except Exception as e:
             print(f"Error on cell click: row={row}, col={col}", flush=True)
@@ -2396,11 +2624,13 @@ class HoverTableWidget(QTableWidget):
                     try:
                         in_col = getattr(self.app, 'COL_IDX_IN', None)
                         out_col = getattr(self.app, 'COL_IDX_OUT', None)
+                        used_col = getattr(self.app, 'COL_IDX_USED', None)
+                        pin_col = getattr(self.app, 'COL_IDX_PIN', None)
                     except Exception:
-                        in_col = None
-                        out_col = None
+                        in_col = out_col = used_col = pin_col = None
 
-                    is_io_col = (col == in_col) or (col == out_col)
+                    # treat IO, Used and Pin columns as press-dispatch targets to avoid missed clicks
+                    is_io_col = (col == in_col) or (col == out_col) or (col == used_col) or (col == pin_col)
                     if is_io_col and self.isCellClickable(row, col):
                         try:
                             self._last_press_handled = (row, col, time.monotonic())
