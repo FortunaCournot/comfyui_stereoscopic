@@ -14,7 +14,7 @@ _COMFYUIPATH="$(realpath "$SCRIPT_DIR/../../..")"
 ## PYTHON handling: strict embedded python only (no system fallback)
 # If caller did not set PYTHON_BIN_PATH, prefer the repository's python_embeded relative to _COMFYUIPATH
 if [ -z "${PYTHON_BIN_PATH:-}" ]; then
-    PYTHON_BIN_PATH="python_embeded/"
+    PYTHON_BIN_PATH="../python_embeded/"
 fi
 # Normalize PYTHON_BIN_PATH: make absolute relative to _COMFYUIPATH when not absolute
 case "$PYTHON_BIN_PATH" in
