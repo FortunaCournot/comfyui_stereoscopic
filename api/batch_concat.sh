@@ -110,8 +110,9 @@ else
 			echo -e $"\e[92mdone (${BASE}).\e[0m                            "
 		}
 		
-		# build group keys by replacing the numeric token (_NNN_) with _NUM_
-		KEYS=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' -printf '%f\n' | grep -E '_[0-9]{3,}_' | sed -E 's/_([0-9]{3,})_/_NUM_/' | sort -u)
+		# build group keys by replacing the last numeric token (_NNN_) with _NUM_
+		# use greedy capture so we only replace the final _NNN_ occurrence (avoids requiring `rev`)
+		KEYS=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' -printf '%f\n' | grep -E '_[0-9]{3,}_' | sed -E 's/^(.*)_[0-9]{3,}_/\1_NUM_/' | sort -u)
 		for KEY in $KEYS ; do
 			# create a glob pattern by replacing the marker back to wildcard
 			PATTERN=$(echo "$KEY" | sed 's/_NUM_/_*_/')
