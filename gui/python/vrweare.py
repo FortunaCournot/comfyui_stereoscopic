@@ -1318,7 +1318,7 @@ class SpreadsheetApp(QMainWindow):
                         # pick the longest to favor full names over fragments
                         rel_candidate = max(all_matches, key=len)
                         try:
-                            if TRACELEVEL >= 1:
+                            if TRACELEVEL >= 3:
                                 print(f"daemonstatus matches: {all_matches} -> chosen: {rel_candidate}", flush=True)
                         except Exception:
                             pass
@@ -1388,7 +1388,7 @@ class SpreadsheetApp(QMainWindow):
                         except Exception:
                             exists = False
                         try:
-                            if TRACELEVEL >= 1:
+                            if TRACELEVEL >= 3:
                                 print(f"daemonstatus candidate: {rel_candidate} -> {pth} exists={exists}", flush=True)
                         except Exception:
                             pass
@@ -1820,7 +1820,7 @@ class SpreadsheetApp(QMainWindow):
                                         item.setData(_QtRoles.UserRole + 2, stage_name)
                                         item.setData(_QtRoles.UserRole + 4, new_tuple[1])
                                         try:
-                                            if TRACELEVEL >= 1:
+                                            if TRACELEVEL >= 3:
                                                 if new_tuple[1] == 'found':
                                                     print(f"Attached preview for row {stage_idx}: {new_tuple[0]}", flush=True)
                                                 else:
