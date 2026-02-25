@@ -1694,9 +1694,16 @@ class SpreadsheetApp(QMainWindow):
                                 else:
                                     key = 'stage'
                                 active = stage_name in states.get(key, set())
-                                icon_path = os.path.join(path, '../../gui/img', 'pin_on.png' if active else 'pin_off.png')
-                                item.setIcon(QIcon(icon_path))
-                                item.setText('')
+                                # Use monochrome glyph (U+25CF) centered in cell so coloring works reliably
+                                glyph = '\u25CF'
+                                item.setText(glyph)
+                                f = QFont(item.font())
+                                f.setPointSize(12)
+                                f.setBold(True)
+                                item.setFont(f)
+                                # Pin color: white when pinned, gray when not
+                                item.setForeground(QBrush(QColor("white" if active else "#666666")))
+                                item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                             except Exception:
                                 pass
                         elif c == c_used and c_used is not None:
@@ -1716,9 +1723,16 @@ class SpreadsheetApp(QMainWindow):
                                         key = 'stage'
                                     # active if NOT listed in unused set
                                     active = stage_name not in states.get(key, set())
-                                icon_path = os.path.join(path, '../../gui/img', 'used_on.png' if active else 'used_off.png')
-                                item.setIcon(QIcon(icon_path))
-                                item.setText('')
+                                # Use monochrome glyph (U+25CF) centered and colored by used-state
+                                glyph = '\u25CF'
+                                item.setText(glyph)
+                                f = QFont(item.font())
+                                f.setPointSize(12)
+                                f.setBold(True)
+                                item.setFont(f)
+                                # Used color: green when enabled, red when disabled
+                                item.setForeground(QBrush(QColor("green" if active else "red")))
+                                item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
                             except Exception:
                                 pass
                         elif c == c_config and getattr(self, 'toogle_stages_expanded', False):
