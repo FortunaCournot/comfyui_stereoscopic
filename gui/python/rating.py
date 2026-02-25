@@ -5290,7 +5290,7 @@ class VideoThread(QThread):
         self.slider = slider
         self.update = update
         self.cap=None
-        self.pause = False
+        self.pause = True
         self.update(self.pause)
         self.onVideoLoaded = onVideoLoaded
         self.currentFrame=-1
@@ -5386,7 +5386,7 @@ class VideoThread(QThread):
                 if TRACELEVEL >= 4:
                     print("VideoThread run ", self.currentFrame, int(timestamp*1000), flush=True)
                 self.idle=False
-                if not self.pause:
+                if not self.pause or self.lastLoadedFrame==-1:
                     if self.pingPongModeEnabled and self.pingPongReverseState and self.currentFrame>self.a:
                         self.currentFrame-=1
                         self.seek(self.currentFrame)
@@ -5414,7 +5414,7 @@ class VideoThread(QThread):
                                 # Fehlerbehandlung: EOF, defekter Frame oder Lesefehler
                                 print("Fehler beim Laden des Frames", flush=True)
                             
-                            if self.pause:
+                            if self.pause and self.lastLoadedFrame>=0:
                                 print("meanwhile paused. ignore image.", flush=True)
                                 pass # ignore image
                             elif self._run_flag:
