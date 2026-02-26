@@ -150,7 +150,7 @@ else
 		EXTENSION="."${INPUT##*.}
 	fi
 	
-	[ $loglevel -lt 2 ] && set -x
+	[ $loglevel -ge 2 ] && set -x
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX""$EXTENSION"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	

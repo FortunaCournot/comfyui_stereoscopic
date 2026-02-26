@@ -44,30 +44,32 @@ du -s -BG *put/vr
 echo " "
 
 # Report completed files
-du --inodes -d 0 -S output/vr/*           | { while read inodes path; do files=`ls -F $path |grep -v / |grep -v .txt | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >user/default/comfyui_stereoscopic/tmplog
-du --inodes -d 0 -S output/vr/dubbing/*   | { while read inodes path; do files=`ls -F $path |grep -v / |grep -v .txt | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >>user/default/comfyui_stereoscopic/tmplog
-du --inodes -d 0 -S output/vr/tasks/*   | { while read inodes path; do files=`ls -F $path |grep -v / |grep -v .txt | wc -l`; [ $files -gt 0 ] && printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done } >>user/default/comfyui_stereoscopic/tmplog
-logsize=`stat -c %s user/default/comfyui_stereoscopic/tmplog`
-if [[ $logsize -gt 0 ]] ; then
+mkdir -p user/default/comfyui_stereoscopic
+TMPLOG=user/default/comfyui_stereoscopic/tmplog
+>"$TMPLOG"
+du --inodes -d 0 -S output/vr/*           | { while read inodes path; do files=`ls -F "$path" 2>/dev/null |grep -v / |grep -v .txt | wc -l`; [ "$files" -gt 0 ] && printf "%s\t%s\n" "$files" "$path"; done } >>"$TMPLOG"
+du --inodes -d 0 -S output/vr/dubbing/*   | { while read inodes path; do files=`ls -F "$path" 2>/dev/null |grep -v / |grep -v .txt | wc -l`; [ "$files" -gt 0 ] && printf "%s\t%s\n" "$files" "$path"; done } >>"$TMPLOG"
+du --inodes -d 0 -S output/vr/tasks/*   | { while read inodes path; do files=`ls -F "$path" 2>/dev/null |grep -v / |grep -v .txt | wc -l`; [ "$files" -gt 0 ] && printf "%s\t%s\n" "$files" "$path"; done } >>"$TMPLOG"
+if [ -s "$TMPLOG" ] ; then
 	echo -e $"\e[4m\e[32m+++ Summary of Completed Files per Folder +++\e[0m\e[92m"
-	cat user/default/comfyui_stereoscopic/tmplog
-	#du --inodes -d 0 -S output/vr/*/final | { while read inodes path; do files=`ls -F $path |grep -v / | wc -l`; printf "%s\t%s\n" `[ $files -gt 0 ] && echo $files || echo "-"` "$path"; done }
+	cat "$TMPLOG"
 	echo -ne $"\e[0m"
 fi
-rm user/default/comfyui_stereoscopic/tmplog
+rm -f "$TMPLOG"
 
 # Count error/stopped folders that contain files using lib_fs helper
-rm -f .tmperrcount.list .tmperrcount 2>/dev/null
+TMPCOUNTLIST=.tmperrcount.list
+TMPCOUNTFILE=.tmperrcount
+rm -f "$TMPCOUNTLIST" "$TMPCOUNTFILE" 2>/dev/null
 find input/vr -type d \( -name error -o -name stopped \) | while IFS= read -r path; do
 	files=$(count_files_any_ext "$path")
 	if [ "$files" -gt 0 ]; then
 		printf "%s\t%s\n" "$files" "$path"
 	fi
-done >.tmperrcount.list
-wc -l < .tmperrcount.list >.tmperrcount
-ERRFOLDERCOUNT=`cat .tmperrcount`
-rm -f .tmperrcount.list .tmperrcount
-if [[ "$ERRFOLDERCOUNT" -gt 0 ]] ; then
+done >"$TMPCOUNTLIST" || true
+ERRFOLDERCOUNT=$(wc -l < "$TMPCOUNTLIST" 2>/dev/null || echo 0)
+rm -f "$TMPCOUNTLIST" "$TMPCOUNTFILE" 2>/dev/null
+if [ "$ERRFOLDERCOUNT" -gt 0 ] ; then
 	echo " "
 	echo -e $"\e[31m\e[4m+++ Summary of Folders with Errors +++\e[0m"
 	echo -ne "\e[91m"

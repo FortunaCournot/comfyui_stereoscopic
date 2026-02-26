@@ -147,7 +147,7 @@ else
 	
 	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	
-	[ $loglevel -lt 2 ] && set -x
+	[ $loglevel -ge 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX"
 	set +x && [ $loglevel -ge 2 ] && set -x
 

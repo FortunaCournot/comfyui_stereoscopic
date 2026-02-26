@@ -295,8 +295,9 @@ def _list_valid_inpaint_tasks() -> list:
                 try:
                     blueprint = _get_task_blueprint_path(name)
                     key = str(name)
-                    if key not in _logged_invalid_inpaint_tasks and TRACELEVEL >= 0:
-                        print(f"Error: No blueprint for task {name} at {blueprint}", flush=True)
+                    # Log as a warning rather than an error; show only when TRACELEVEL>=1
+                    if key not in _logged_invalid_inpaint_tasks and TRACELEVEL >= 1:
+                        print(f"Warning: No blueprint for task {name} at {blueprint}", flush=True)
                         _logged_invalid_inpaint_tasks.add(key)
                 except Exception:
                     pass

@@ -112,7 +112,7 @@ else
 		echo -e $"\e[93mWarning: \e[0mseqformat key missing in $BLUEPRINTCONFIG . Using default."
 	fi
 
-	[ $loglevel -lt 2 ] && set -x
+	[ $loglevel -ge 2 ] && set -x
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" $options "$TARGETPREFIX""$seqformat"".mp4"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	

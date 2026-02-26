@@ -67,7 +67,9 @@ if [ -e $CONFIGFILE ] ; then
 	fi
 fi
 if [ -e ./user/default/comfyui_stereoscopic/.installprofile ] ; then
-    source ./user/default/comfyui_stereoscopic/.installprofile
+	# Source installer profile silently to avoid noisy missing-file errors
+	# (installer may write lines using backticks that cat missing dot-files).
+	( . ./user/default/comfyui_stereoscopic/.installprofile ) 2>/dev/null || true
 fi
 if [ ! -e $CONFIGFILE ] ; then
 	mkdir -p ./user/default/comfyui_stereoscopic

@@ -166,7 +166,7 @@ else
 		smarttag=""
 	fi
 	
-	[ $loglevel -lt 2 ] && set -x
+	[ $loglevel -ge 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX" "$prompt"
 	set +x && [ $loglevel -ge 2 ] && set -x
 

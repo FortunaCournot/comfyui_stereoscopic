@@ -306,7 +306,9 @@ else
 					exit 1
 				fi
 			else
-				echo -e $"\e[91mError:\e[0m No blueprint for task $DISPLAYNAME at `realpath $jsonblueprint`"
+				if [ $loglevel -ge 1 ] ; then
+					echo -e $"\e[93mWarning:\e[0m No blueprint for task $DISPLAYNAME at `realpath $jsonblueprint`"
+				fi
 				mkdir -p "input/vr/tasks/$TASKNAME/error"
 				if [ -e "$newfn" ] ; then
 					mv -vf -- "$newfn" "input/vr/tasks/$TASKNAME/error"

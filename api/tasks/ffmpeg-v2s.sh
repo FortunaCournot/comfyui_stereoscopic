@@ -119,14 +119,12 @@ else
         EXTENSION=".m4a"
     fi
 
-    [ $loglevel -lt 2 ] && set -x
+    [ $loglevel -ge 2 ] && set -x
     # Extract/encode audio only (-vn) and apply provided audio options
     nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" -vn $options "$TARGETPREFIX""$EXTENSION"
     set +x && [ $loglevel -ge 2 ] && set -x
 
     if [ -e "$TARGETPREFIX""$EXTENSION" ] && [ -s "$TARGETPREFIX""$EXTENSION" ] ; then
-        # try to copy tags from source container when possible
-        [ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all= -tagsfromfile "$INPUT" -all:all -overwrite_original "$TARGETPREFIX""$EXTENSION" && echo "tags copied."
         mv -- "$TARGETPREFIX""$EXTENSION" $FINALTARGETFOLDER
         mkdir -p input/vr/tasks/$TASKNAME/done
         mv -- $INPUT input/vr/tasks/$TASKNAME/done
