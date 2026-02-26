@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2s",
+  "options": "-c:a libmp3lame -qscale:a 2",
+  "extension": ".mp3",
+  "input": "video",
+  "output": "audio"
+}
