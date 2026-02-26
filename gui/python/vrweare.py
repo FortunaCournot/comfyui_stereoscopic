@@ -1848,7 +1848,49 @@ class SpreadsheetApp(QMainWindow):
                                 pass
                     except Exception:
                         pass
-                    
+
+                # In compact (non-expanded) mode: hide stages/tasks when
+                # - Pin is false, and
+                # - Used is false, and
+                # - input count is zero (no files)
+                try:
+                    if not self.toogle_stages_expanded and r > 0:
+                        stage_name = STAGES[r-1]
+                        # pin active?
+                        try:
+                            pin_states = getattr(self, '_pin_states', _load_flag_file(PIN_STATE_FILE))
+                            if re.match(r"tasks/_.*", stage_name):
+                                pkey = 'customtask'
+                            elif re.match(r"tasks/.*", stage_name):
+                                pkey = 'task'
+                            else:
+                                pkey = 'stage'
+                            pin_active = stage_name in pin_states.get(pkey, set())
+                        except Exception:
+                            pin_active = False
+                        # used active? (not listed in unused)
+                        try:
+                            states = getattr(self, '_unused_states', _load_flag_file(getattr(self, '_unused_states_file', UNUSED_STATE_FILE)))
+                            if re.match(r"tasks/_.*", stage_name):
+                                ukey = 'customtask'
+                            elif re.match(r"tasks/.*", stage_name):
+                                ukey = 'task'
+                            else:
+                                ukey = 'stage'
+                            used_active = stage_name not in states.get(ukey, set())
+                        except Exception:
+                            used_active = True
+                        # input count for stage
+                        try:
+                            info = getattr(self, '_fs_cache', {'input': {}}).get('input', {}).get(stage_name, None)
+                            inp_count = int(info.get('count', 0)) if info else 0
+                        except Exception:
+                            inp_count = 0
+                        if (not pin_active) and (not used_active) and inp_count == 0:
+                            displayRequired = False
+                except Exception:
+                    pass
+
                 if displayRequired or self.toogle_stages_expanded:
                     for c in range(len(currentRowItems)):
                         self.table.setItem(r-skippedrows, c, currentRowItems[c])
