@@ -3514,19 +3514,51 @@ class RateAndCutDialog(QDialog):
         capfile = replace_file_suffix(file_path, ".txt")
         if USE_TRASHBIN:
             self.log("Trashing " + os.path.basename(file_path), QColor("white"))
-            send2trash.send2trash(file_path)
-            if os.path.exists(capfile):
-                send2trash.send2trash(capfile)
+            try:
+                send2trash.send2trash(file_path)
+                if os.path.exists(capfile):
+                    try:
+                        send2trash.send2trash(capfile)
+                    except Exception as e_cap:
+                        try:
+                            self.log(f"Capfile trash failed: {e_cap}", QColor("red"))
+                        except Exception:
+                            pass
+                        print(traceback.format_exc(), flush=True)
+            except Exception as e:
+                # Do not attempt permanent delete; report the error to UI and console.
+                try:
+                    self.log(f"Trash failed: {e}", QColor("red"))
+                except Exception:
+                    pass
+                try:
+                    print(traceback.format_exc(), flush=True)
+                except Exception:
+                    pass
         else:
             self.log("Deleting " + os.path.basename(file_path), QColor("white"))
-            os.remove(file_path)
-            if os.path.exists(capfile):
-                os.remove(capfile)
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                try:
+                    self.log(f"Delete failed: {e}", QColor("red"))
+                except Exception:
+                    pass
+            try:
+                if os.path.exists(capfile):
+                    os.remove(capfile)
+            except Exception:
+                pass
 
-        if os.path.exists(file_path):
-            self.logn(" failed", QColor("red"))
-        else:
-            self.logn(" done", QColor("green"))
+        # Final existence check
+        try:
+            if os.path.exists(file_path):
+                self.logn(" failed", QColor("red"))
+            else:
+                self.logn(" done", QColor("green"))
+        except Exception:
+            pass
 
     def on_delete_button_clicked(self):
         if getattr(self, '_trashbin_switch_active', False):
