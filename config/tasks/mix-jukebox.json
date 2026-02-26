@@ -6,5 +6,6 @@
   "output": "video",
   "jukeboxpath": "./custom_nodes/comfyui_stereoscopic/config/media/jukebox",
   "mixaudio": "true",
+  "volume": 100,
   "notes": "Do NOT include 'options' in this blueprint — ffmpeg-jukebox-v2v.sh uses static encoding options. Set 'jukeboxpath' to a relative folder containing audio files. Set 'mixaudio' to 'true' to mix original audio with jukebox audio.",
 }

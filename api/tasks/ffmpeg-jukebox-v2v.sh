@@ -119,6 +119,18 @@ else
     mixaudio_raw=`cat "$BLUEPRINTCONFIG" | grep -o '"mixaudio":[^,}]*' | sed -E 's/.*:[[:space:]]*"?([^"} ]*)"?.*/\1/'`
     mixaudio=`echo "$mixaudio_raw" | tr '[:upper:]' '[:lower:]' | sed -e 's/\r//g' -e 's/^ *//g' -e 's/ *$//g'`
 
+    # Optional volume parameter for jukebox audio (integer percent). Default 100.
+    volume_raw=`cat "$BLUEPRINTCONFIG" | grep -o '"volume"[[:space:]]*:[^,}]*' | sed -E 's/.*:[[:space:]]*"?([^"} ]*)"?.*/\1/'`
+    volume=`echo "$volume_raw" | sed -e 's/\r//g' -e 's/^ *//g' -e 's/ *$//g'`
+    if [ -z "$volume" ] ; then
+        volume=100
+    fi
+    # compute ffmpeg multiplier
+    VOL_MULT=""
+    if printf '%s' "$volume" | grep -qE '^[0-9]+$' && [ "$volume" -ne 100 ] ; then
+        VOL_MULT=$(awk -v v="$volume" 'BEGIN{printf "%.3f", v/100}')
+    fi
+
     EXTENSION=`cat "$BLUEPRINTCONFIG" | grep -o '"extension":[^\"]*"[^\"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
     if [ -z "$EXTENSION" ] ; then
         EXTENSION="."${INPUT##*.}
@@ -150,10 +162,19 @@ else
     # Build and run ffmpeg command depending on mixaudio
     if [ "$mixaudio" = "true" ] && [ "$has_audio" -eq 1 ] ; then
         # mix original audio and jukebox audio; cut output to shortest input (usually video)
-        nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" -i "$AUDIOFILE" -filter_complex "[0:a][1:a]amix=inputs=2:duration=longest:dropout_transition=0[aout]" -map 0:v -map "[aout]" $STATIC_OPTIONS -shortest "$TARGETPREFIX""$EXTENSION"
+        if [ -n "$VOL_MULT" ] ; then
+            # apply volume to jukebox input before mixing
+            nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" -i "$AUDIOFILE" -filter_complex "[1:a]volume=$VOL_MULT[b];[0:a][b]amix=inputs=2:duration=longest:dropout_transition=0[aout]" -map 0:v -map "[aout]" $STATIC_OPTIONS -shortest "$TARGETPREFIX""$EXTENSION"
+        else
+            nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" -i "$AUDIOFILE" -filter_complex "[0:a][1:a]amix=inputs=2:duration=longest:dropout_transition=0[aout]" -map 0:v -map "[aout]" $STATIC_OPTIONS -shortest "$TARGETPREFIX""$EXTENSION"
+        fi
     else
         # discard original audio (unless it didn't exist), use jukebox audio as sole audio track
-        nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" -i "$AUDIOFILE" -map 0:v -map 1:a $STATIC_OPTIONS -shortest "$TARGETPREFIX""$EXTENSION"
+        if [ -n "$VOL_MULT" ] ; then
+            nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" -i "$AUDIOFILE" -map 0:v -map 1:a -af "volume=$VOL_MULT" $STATIC_OPTIONS -shortest "$TARGETPREFIX""$EXTENSION"
+        else
+            nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" -i "$AUDIOFILE" -map 0:v -map 1:a $STATIC_OPTIONS -shortest "$TARGETPREFIX""$EXTENSION"
+        fi
     fi
 
     set +x && [ $loglevel -ge 2 ] && set -x
