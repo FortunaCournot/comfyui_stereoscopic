@@ -243,7 +243,7 @@ else
       if [ -z "$HTTP_CODE" ] || [ $HTTP_CODE -ge 400 ] ; then
         if [ $TVAIREPORTED -lt 1 ] ; then
           TVAIREPORTED=1
-          echo -e $"\e[93mWarning: TVAI server not present ($HTTP_CODE).\e[0m"
+          echo -e $"\e[93mWarning: TVAI server not present ( $HTTP_CODE ).\e[0m"
           sleep 4
         fi
       else
