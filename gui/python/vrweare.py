@@ -52,6 +52,9 @@ TOOLBARUPDATEFREQ = 1000
 BREAKTIME = 20000
 FILESCANTIME = 2000
 
+# Seconds of user-scroll inactivity required before auto-scrolling to processing row
+PROCESSING_SCROLL_INACTIVITY = 20
+
 status="idle"
 idletime = 0
 
@@ -637,6 +640,15 @@ class SpreadsheetApp(QMainWindow):
         self.table.resizeRowsToContents()
         self.table.resizeColumnsToContents()
 
+        # Track last time the user manually scrolled the table vertically.
+        # If None => user never scrolled. Updated by `_on_user_scrolled`.
+        self._last_user_scroll_time = None
+        try:
+            vbar = self.table.verticalScrollBar()
+            vbar.valueChanged.connect(self._on_user_scrolled)
+        except Exception:
+            pass
+
         # Logo page widget (image + text)
         self.logo_container = QWidget()
         vbox = QVBoxLayout()
@@ -1122,6 +1134,16 @@ class SpreadsheetApp(QMainWindow):
         else:
             self.toggle_pipeline_active_action.setCounterText("")
         
+    def _on_user_scrolled(self, value):
+        """Record the time of the last user-initiated vertical scroll."""
+        try:
+            self._last_user_scroll_time = time.monotonic()
+        except Exception:
+            try:
+                self._last_user_scroll_time = None
+            except Exception:
+                pass
+
     def update_table(self):
         global idletime
 
@@ -1287,6 +1309,8 @@ class SpreadsheetApp(QMainWindow):
                     self._last_daemon_status = tuple_status
                 except Exception:
                     self._last_daemon_status = None
+                # remember previous processing file to detect changes
+                prev_processing = getattr(self, 'current_processing_file', None)
                 self.current_processing_file = None
                 # Robust filename extraction: collect all tokens that look like image/video files
                 # and choose the longest match to avoid truncated pieces like "_1.png".
@@ -1398,6 +1422,19 @@ class SpreadsheetApp(QMainWindow):
 
                     if found_path:
                         self.current_processing_file = found_path
+                        # If processing file changed, consider auto-scrolling to the active stage.
+                        try:
+                            if prev_processing != self.current_processing_file:
+                                # set pending scroll to activestage so we can scroll after table rebuild
+                                try:
+                                    if activestage:
+                                        self._scroll_to_processing_stage = activestage
+                                    else:
+                                        self._scroll_to_processing_stage = None
+                                except Exception:
+                                    self._scroll_to_processing_stage = None
+                        except Exception:
+                            pass
 
             fontC0 = QFont()
             fontC0.setBold(True)
@@ -1535,7 +1572,12 @@ class SpreadsheetApp(QMainWindow):
                                         count2 = info.get('done_count', 0)
                                         if count2 > 0:
                                             value = value + " (" + str(count2) + ")"
-                                            color = "green"
+                                            # Only mark green when the main count is at least 1.
+                                            # Numbers in parentheses (done_count) do not qualify.
+                                            if count > 0:
+                                                color = "green"
+                                            else:
+                                                color = "white"
                                         elif count == 0:
                                             value = value + " (-)"
                                     else:
@@ -1990,6 +2032,53 @@ class SpreadsheetApp(QMainWindow):
                                 it.setFont(newf)
                         except Exception:
                             pass
+            except Exception:
+                pass
+            # If a processing change occurred and the user has not scrolled recently,
+            # scroll the table so the active processing row is visible (centered).
+            try:
+                pending = getattr(self, '_scroll_to_processing_stage', None)
+                if pending:
+                    try:
+                        if pending in STAGES:
+                            stage_idx = STAGES.index(pending)
+                            if stage_idx in ROW2STAGE:
+                                pos = ROW2STAGE.index(stage_idx)
+                                table_row = pos + 1
+                            else:
+                                table_row = stage_idx + 1
+                            last = getattr(self, '_last_user_scroll_time', None)
+                            now = time.monotonic()
+                            if last is None or (now - last) >= PROCESSING_SCROLL_INACTIVITY:
+                                # Clamp row to existing rows
+                                if table_row < 0:
+                                    table_row = 0
+                                if table_row >= self.table.rowCount():
+                                    table_row = max(0, self.table.rowCount() - 1)
+                                try:
+                                    col = COL_IDX_PROCESSING
+                                except Exception:
+                                    col = 0
+                                try:
+                                    item = self.table.item(table_row, col)
+                                except Exception:
+                                    item = None
+                                if item:
+                                    self.table.scrollToItem(item, QAbstractItemView.PositionAtCenter)
+                                else:
+                                    # fallback: scroll to first column item in that row
+                                    try:
+                                        fallback = self.table.item(table_row, 0) or self.table.item(0, 0)
+                                        if fallback:
+                                            self.table.scrollToItem(fallback, QAbstractItemView.PositionAtCenter)
+                                    except Exception:
+                                        pass
+                    except Exception:
+                        pass
+                try:
+                    self._scroll_to_processing_stage = None
+                except Exception:
+                    pass
             except Exception:
                 pass
         except KeyboardInterrupt:
