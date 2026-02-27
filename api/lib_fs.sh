@@ -153,9 +153,29 @@ PY
 count_files_any_ext() {
     _trace_start
     dir="$1"
-    result=$(_py_count "$dir" any)
+    # Fast path for Git Bash / bash users: avoid Python startup overhead by
+    # using a small bash snippet. 
+    if [ ! -d "$dir" ]; then
+        echo 0
+        _trace_end count_files_any_ext "$dir"
+        return
+    fi
+    # Run a bash one-liner (avoids Python process startup) to count regular files
+    result=$(bash -c '
+shopt -s nullglob dotglob 2>/dev/null || true
+n=0
+for f in "$1"/*; do
+[ -f "$f" ] && n=$((n+1))
+done
+printf "%d" "$n"
+' bash "$dir")
     echo "$result"
     _trace_end count_files_any_ext "$dir"
+    return
+
+#    result=$(_py_count "$dir" any)
+#    echo "$result"
+#    _trace_end count_files_any_ext "$dir"
 }
 
 count_files_with_exts() {
