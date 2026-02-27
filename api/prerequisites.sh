@@ -496,23 +496,23 @@ if [ ! -e "$CONFIGPATH"/uml/"autoforward.png" ] || [ ! -s "$CONFIGPATH"/uml/"aut
 fi
 
 # Cleanup
-echo -e $"\e[2mCleaning up unprotected done folders\e[0m"
-for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx dubbing/music watermark/encrypt watermark/decrypt caption interpolate ; do
-	if [ ! -f input/vr/$stagepath/done/.nocleanup ] ; then
-		#rm -f -- input/vr/$stagepath/done/* 2>/dev/null
-    	powershell -NoProfile -Command "param([string]\$childpath); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr' -ChildPath \$childpath; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$stagepath" 2>/dev/null
-	fi
-done
-TASKDIR=`find input/vr/tasks -maxdepth 1 -type d`
-for task in $TASKDIR; do
-	taskpath=${task#input/vr/tasks/}
-	if [ ! -z $taskpath ] ; then
-		if [ ! -f input/vr/tasks/$taskpath/done/.nocleanup ] ; then
-			#rm -f -- input/vr/tasks/$taskpath/done/* 2>/dev/null
-      		powershell -NoProfile -Command "param([string]\$childpath); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr/tasks' -ChildPath \$childpath; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$taskpath" 2>/dev/null
-		fi
-	fi
-done
+#echo -e $"\e[2mCleaning up unprotected done folders\e[0m"
+#for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx dubbing/music watermark/encrypt watermark/decrypt caption interpolate ; do
+#	if [ ! -f input/vr/$stagepath/done/.nocleanup ] ; then
+#		#rm -f -- input/vr/$stagepath/done/* 2>/dev/null
+#    	powershell -NoProfile -Command "param([string]\$childpath); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr' -ChildPath \$childpath; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$stagepath" 2>/dev/null
+#	fi
+#done
+#TASKDIR=`find input/vr/tasks -maxdepth 1 -type d`
+#for task in $TASKDIR; do
+#	taskpath=${task#input/vr/tasks/}
+#	if [ ! -z $taskpath ] ; then
+#		if [ ! -f input/vr/tasks/$taskpath/done/.nocleanup ] ; then
+#			#rm -f -- input/vr/tasks/$taskpath/done/* 2>/dev/null
+#      		powershell -NoProfile -Command "param([string]\$childpath); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr/tasks' -ChildPath \$childpath; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$taskpath" 2>/dev/null
+#		fi
+#	fi
+#done
 
 # check if install enforces a test run and then wait for ComfyUI to be started.
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.forced" ] ; then
