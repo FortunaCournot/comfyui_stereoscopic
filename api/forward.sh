@@ -34,6 +34,55 @@ if [ -d "../python_embeded" ]; then
   PYTHON_BIN_PATH=../python_embeded/
 fi
 
+# FS status helper functions: update individual property keys in the FS status file
+FS_STATUS_FILE=${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}
+
+fs_key_from_dir() {
+	# normalize dir to match keys written by compute_fs_status.py
+	local dir="$1"
+	dir="${dir#./}"
+	dir="$(echo "$dir" | sed 's#\\#/#g')"
+	dir="${dir%/}"
+	# if moving into input/vr/<stage>/wait or /stop, use the parent stage dir
+	case "$dir" in
+		*/wait|*/stop) dir="${dir%/*}" ;;
+	esac
+	echo "$dir"
+}
+
+fs_update_prop() {
+	# fs_update_prop "<type>|<path>" <delta>
+	local key="$1"; local delta="$2"; local file="$FS_STATUS_FILE"
+	[ -z "$key" ] && return 1
+	tmpf=$(mktemp 2>/dev/null || echo "$file.tmp")
+	if [ ! -f "$file" ]; then
+		# initialize file with zero for this key
+		echo "$key=0" > "$file"
+	fi
+	awk -F"=" -v k="$key" -v d="$delta" 'BEGIN{OFS=FS} $1==k{n=$2 + d; if(n<0) n=0; $2=n; found=1} {print} END{if(!found){n=d; if(n<0) n=0; print k"="n}}' "$file" > "$tmpf" && mv "$tmpf" "$file"
+}
+
+fs_adjust_move_counts() {
+	# fs_adjust_move_counts <src_dir> <dest_dir> <filename>
+	local src="$1"; local dest="$2"; local fname="$3"
+	[ -z "$src" ] && return
+	[ -z "$dest" ] && return
+	lc="${fname,,}"
+	typ="any"
+	case "$lc" in
+		*.png|*.jpg|*.jpeg|*.webp|*.gif) typ="images" ;;
+		*.mp4|*.webm|*.ts|*.mkv|*.avi|*.mov) typ="videos" ;;
+		*.flac|*.mp3|*.wav|*.aac|*.m4a) typ="audio" ;;
+		*) typ="any" ;;
+	esac
+	srckey_dir=$(fs_key_from_dir "$src")
+	destkey_dir=$(fs_key_from_dir "$dest")
+	fs_update_prop "any|$srckey_dir" -1
+	fs_update_prop "$typ|$srckey_dir" -1
+	fs_update_prop "any|$destkey_dir" 1
+	fs_update_prop "$typ|$destkey_dir" 1
+}
+
 
 CheckProbeValue() {
     kopv="$1"
@@ -308,8 +357,16 @@ else
 											fi
 										done
 									fi
-                  					capfile="${file%.*}.txt"
-									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" "$DEST_INPUT_DIR" && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX= && [ -s "$capfile" ] && mv -f -- "$capfile" "$DEST_INPUT_DIR" 
+								   	capfile="${file%.*}.txt"
+													if [ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
+														if mv -f -- "$file" "$DEST_INPUT_DIR" ; then
+															echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+															fs_adjust_move_counts "output/vr/$sourcestage" "$DEST_INPUT_DIR" "$(basename -- "$file")"
+														fi
+														if [ -s "$capfile" ] ; then
+															mv -f -- "$capfile" "$DEST_INPUT_DIR"
+														fi
+													fi
 								done
 							elif  [[ $i == "image" ]] ; then
 								OIFS="$IFS"
@@ -353,8 +410,13 @@ else
 												TARGET_DIR="input/vr/$destination/stop"
 											fi
 										fi
-										mv -f -- "$file" "$TARGET_DIR" && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
-										[ -s "$capfile" ] && mv -f -- "$capfile" "$TARGET_DIR"
+										if mv -f -- "$file" "$TARGET_DIR" ; then
+											echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+											fs_adjust_move_counts "output/vr/$sourcestage" "$TARGET_DIR" "$(basename -- "$file")"
+										fi
+										if [ -s "$capfile" ] ; then
+											mv -f -- "$capfile" "$TARGET_DIR"
+										fi
 									fi
 								done
 								# If images are being forwarded but there is no rule to forward videos,
@@ -375,7 +437,10 @@ else
 										for file in $VFILES ; do
 											capfile="${file%.*}.txt"
 											if [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
-												mv -f -- "$file" output/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> output/$destination" && MOVEMSGPREFIX=
+												if mv -f -- "$file" output/vr/$destination ; then
+													echo "$MOVEMSGPREFIX""Moved ""$file"" --> output/$destination" && MOVEMSGPREFIX=
+													fs_adjust_move_counts "output/vr/$sourcestage" "output/vr/$destination" "$(basename -- "$file")"
+												fi
 												[ -s "$capfile" ] && mv -f -- "$capfile" output/vr/$destination
 											fi
 										done
