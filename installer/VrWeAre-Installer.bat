@@ -1077,7 +1077,7 @@ cd ..
 
 echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build  >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 ::  echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
-echo pause >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+echo %%0 >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 
 .\python_embeded\python %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\tests\test_triton.py
 
