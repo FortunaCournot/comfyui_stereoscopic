@@ -14,9 +14,25 @@ fi
 
 do_autoforward() {
     echo -e $"\e[2mSearching for files left to forward and cleanup.\e[0m"
+    FS_STATUS_FILE="${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}"
+
+    # helper: get count from status file (key is <type>|<path>=<count>)
+    # No fallback to lib_fs: if key missing, return 0
+    get_status_count() {
+        typ="$1"; shift || true
+        dir="$1"
+        if [ -f "$FS_STATUS_FILE" ]; then
+            val=$(grep -F "${typ}|${dir}=" "$FS_STATUS_FILE" 2>/dev/null | tail -n1 | sed -E 's/^.*=([0-9]+)$/\1/')
+            if [ -n "$val" ]; then
+                echo "$val"
+                return
+            fi
+        fi
+        echo 0
+    }
     for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
         [ "${loglevel:-0}" -ge 1 ] && echo " - $stagepath"
-        FILECOUNT=$(count_files_any_ext "output/vr/$stagepath")
+        FILECOUNT=$(get_status_count any "output/vr/$stagepath")
         # forward.txt + one media
         if [ "$FILECOUNT" -gt 1 ] ; then
             ./custom_nodes/comfyui_stereoscopic/api/forward.sh $stagepath || exit 1
@@ -29,7 +45,7 @@ do_autoforward() {
         task=${task#output/vr/tasks/}
         if [ -n "$task" ] ; then
             [ "${loglevel:-0}" -ge 1 ] && echo " - tasks/$task"
-            FILECOUNT=$(count_files_any_ext "output/vr/tasks/$task")
+            FILECOUNT=$(get_status_count any "output/vr/tasks/$task")
             # forward.txt + one media
             if [ "$FILECOUNT" -gt 1 ] ; then
                 ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task || exit 1

@@ -36,6 +36,11 @@ if [ ! -x "$PYTHON" ]; then
 fi
 export PYTHON
 
+# Path to the FS status property file (written by compute_fs_status.py)
+# Can be overridden by environment variable `FS_STATUS_FILE`.
+FS_STATUS_FILE=${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}
+export FS_STATUS_FILE
+
 # --- Tracing helpers ---
 # Minimal start/end trace to measure call durations (seconds, milliseconds when available)
 _trace_start() {
@@ -149,10 +154,53 @@ except Exception:
 print(cnt)
 PY
 }
+_normalize_lookup_dir() {
+    # Normalize a directory path to a repository-relative, unix-style path
+    dir="$1"
+    # convert Windows backslashes to forward slashes
+    dir="$(echo "$dir" | sed 's#\\#/#g')"
+    # If dir is absolute and inside the cwd, convert to relative path via python relpath
+    case "$dir" in
+        /*|?:/*) 
+            if [ -d "$dir" ]; then
+                rel=$("$PYTHON" - <<PY
+import os,sys
+print(os.path.relpath(sys.argv[1], os.getcwd()))
+PY
+"$dir" 2>/dev/null)
+                [ -n "$rel" ] && dir="$rel"
+            fi
+            ;;
+    esac
+    # strip leading ./ if present
+    dir="${dir#./}"
+    # strip trailing slash so keys like "input/vr/tasks/foo" match
+    dir="${dir%/}"
+    echo "$dir"
+}
 
 count_files_any_ext() {
     _trace_start
     dir="$1"
+    # Prefer authoritative FS status file when present
+    if [ -f "$FS_STATUS_FILE" ]; then
+        lookup="$(_normalize_lookup_dir "$dir")"
+        # ensure unix-style separators
+        lookup="$(echo "$lookup" | sed 's#\\#/#g')"
+        # attempt to read any|<path>=N
+        if [ -f "$FS_STATUS_FILE" ]; then
+            val=$(awk -F"=" -v k="any|$lookup" '$1==k{print $2; exit}' "$FS_STATUS_FILE" 2>/dev/null)
+            if [ -n "$val" ]; then
+                echo "$val"
+                _trace_end count_files_any_ext "$dir"
+                return
+            fi
+        fi
+        # if not found in status file, return 0 to avoid expensive scan
+        echo 0
+        _trace_end count_files_any_ext "$dir"
+        return
+    fi
     # Fast path for Git Bash / bash users: avoid Python startup overhead by
     # using a small bash snippet. 
     if [ ! -d "$dir" ]; then
@@ -181,6 +229,31 @@ printf "%d" "$n"
 count_files_with_exts() {
     _trace_start
     dir="$1"; shift || true
+    # If status file present, map requested extensions to a category
+    if [ -f "$FS_STATUS_FILE" ]; then
+        # lowercase and normalize single ext (or first ext)
+        ext_lc="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/^\.//')"
+        # define categories consistent with compute_fs_status.py
+        case "$ext_lc" in
+            png|jpg|jpeg|webp)
+                typ=images ;;
+            mp4|webm|ts|mkv|avi|mov)
+                typ=videos ;;
+            flac|mp3|wav|aac|m4a)
+                typ=audio ;;
+            *) typ=any ;;
+        esac
+        lookup="$(_normalize_lookup_dir "$dir")"
+        val=$(awk -F"=" -v k="$typ|$lookup" '$1==k{print $2; exit}' "$FS_STATUS_FILE" 2>/dev/null)
+        if [ -n "$val" ]; then
+            echo "$val"
+            _trace_end count_files_with_exts "$dir" "$@"
+            return
+        fi
+        echo 0
+        _trace_end count_files_with_exts "$dir" "$@"
+        return
+    fi
     result=$(_py_count "$dir" exts "$@")
     echo "$result"
     _trace_end count_files_with_exts "$dir" "$@"

@@ -225,9 +225,34 @@ else
 	[ $loglevel -ge 0 ] && echo "" 
 	./custom_nodes/comfyui_stereoscopic/api/status.sh
 	[ $loglevel -ge 0 ] && echo " "
-	
+
+	# Precompute filesystem status once per iteration to avoid many lib_fs calls.
+	# The Python scanner writes key=value pairs to `user/default/comfyui_stereoscopic/.fs_status.properties`.
+	FS_STATUS_FILE="user/default/comfyui_stereoscopic/.fs_status.properties"
+	export FS_STATUS_FILE
+	# Resolve python executable (prefer embedded if PYTHON_BIN_PATH set)
+	PY_EXEC="${PYTHON_BIN_PATH:-}""python.exe"
+	if [ ! -x "$PY_EXEC" ]; then
+		PY_EXEC=python
+	fi
+
+	# Read precomputed count from FS_STATUS_FILE. Keys: <type>|<path>=<count>
+	read_fs_status() {
+		typ="$1"
+		dir="$2"
+		file="${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}"
+		if [ -f "$file" ]; then
+			val=$(grep -F "${typ}|${dir}=" "$file" 2>/dev/null | tail -n1 | sed -E 's/^.*=([0-9]+)$/\1/')
+			if [ -n "$val" ]; then
+				echo "$val"
+				return
+			fi
+		fi
+		echo 0
+	}
+
 	INITIALRUN=TRUE
-  TVAIREPORTED=-1
+	TVAIREPORTED=-1
 	while true;
 	do
 		# Check for external soft-kill signal
@@ -235,31 +260,34 @@ else
 			break
 		fi
 
-    # Check availablity of TVAI server
-		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ $TVAIREPORTED -ne 0 ] ; then
-      TMP_FILE=$(mktemp)
-      curl --ssl-no-revoke -v -s -o - -I https://topazlabs.com/ >/dev/null 2>$TMP_FILE
-      HTTP_CODE=`grep "HTTP/1.1 " $TMP_FILE | cut -d ' ' -f3`
-      if [ -z "$HTTP_CODE" ] || [ $HTTP_CODE -ge 400 ] ; then
-        if [ $TVAIREPORTED -lt 1 ] ; then
-          TVAIREPORTED=1
-          echo -e $"\e[93mWarning: TVAI server not present ( $HTTP_CODE ).\e[0m"
-          sleep 4
-        fi
-      else
-        if [ $TVAIREPORTED -gt 0 ] ; then
-          echo -e $"\e[91mInfo:\e[0m TVAI server present again."
-        fi
-        TVAIREPORTED=0
-      fi
-      rm "$TMP_FILE"    
-    fi
+		# Run scanner in background to keep iteration responsive; wait for it before using values
+		"$PY_EXEC" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
 
-    # Is there is a limit a TVAI login is valid? Enforce re-login before watermark is applied.
-    #if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [[ $(find "$TVAI_MODEL_DIR"/auth.tpz -mtime +40 -print) ]]; then
-    #  echo "TVAI authentication exists but is older than 40 days - invalidated."
-    #  mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
-    #fi
+    	# Check availablity of TVAI server
+		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ $TVAIREPORTED -ne 0 ] ; then
+			TMP_FILE=$(mktemp)
+			curl --ssl-no-revoke -v -s -o - -I https://topazlabs.com/ >/dev/null 2>$TMP_FILE
+			HTTP_CODE=`grep "HTTP/1.1 " $TMP_FILE | cut -d ' ' -f3`
+			if [ -z "$HTTP_CODE" ] || [ $HTTP_CODE -ge 400 ] ; then
+				if [ $TVAIREPORTED -lt 1 ] ; then
+				TVAIREPORTED=1
+				echo -e $"\e[93mWarning: TVAI server not present ( $HTTP_CODE ).\e[0m"
+				sleep 4
+				fi
+			else
+				if [ $TVAIREPORTED -gt 0 ] ; then
+				echo -e $"\e[91mInfo:\e[0m TVAI server present again."
+				fi
+				TVAIREPORTED=0
+			fi
+			rm "$TMP_FILE"    
+		fi
+
+		# Is there is a limit a TVAI login is valid? Enforce re-login before watermark is applied.
+		#if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [[ $(find "$TVAI_MODEL_DIR"/auth.tpz -mtime +40 -print) ]]; then
+		#  echo "TVAI authentication exists but is older than 40 days - invalidated."
+		#  mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
+		#fi
 
 		while [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ ! -e "$TVAI_MODEL_DIR"/auth.tpz ]  ; do
 			export TVAI_MODEL_DIR
@@ -306,40 +334,27 @@ else
 				SERVERERROR=
 			fi
 			
-			SLIDECOUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm webp)
-			SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" png)
+			SLIDECOUNT=$(read_fs_status images "input/vr/slides")
+			SLIDESBSCOUNT=$(read_fs_status images "input/vr/slideshow")
 			if [ -x "$(command -v nvidia-smi)" ]; then
-				DUBSFXCOUNT=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
-				DUBMUSICCOUNT=$(count_files_with_exts "input/vr/dubbing/music" mp4 webm)
+				DUBSFXCOUNT=$(read_fs_status videos "input/vr/dubbing/sfx")
+				DUBMUSICCOUNT=$(read_fs_status videos "input/vr/dubbing/music")
 			else
 				DUBSFXCOUNT=0
 				DUBMUSICCOUNT=0
 			fi
-			SCALECOUNT=$(count_files_with_exts "input/vr/scaling" mp4 webp png jpg jpeg)
-			SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 webm webp png jpg jpeg)
-			OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" mp4 webm png jpg jpeg)
-			SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" mp4 webm)
-			INTERPOLATECOUNT=$(count_files_with_exts "input/vr/interpolate" mp4 webm)
-			CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
-			WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" png jpg jpeg)
-			WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" png jpg jpeg)
-			CAPCOUNT=$(count_files_with_exts "input/vr/caption" mp4 webm png jpg jpeg webp)
+			SCALECOUNT=$(read_fs_status any "input/vr/scaling")
+			SBSCOUNT=$(read_fs_status any "input/vr/fullsbs")
+			OVERRIDECOUNT=$(read_fs_status any "input/vr/scaling/override")
+			SINGLELOOPCOUNT=$(read_fs_status videos "input/vr/singleloop")
+			INTERPOLATECOUNT=$(read_fs_status videos "input/vr/interpolate")
+			CONCATCOUNT=$(read_fs_status videos "input/vr/concat")
+			WMECOUNT=$(read_fs_status images "input/vr/watermark/encrypt")
+			WMDCOUNT=$(read_fs_status images "input/vr/watermark/decrypt")
+			CAPCOUNT=$(read_fs_status any "input/vr/caption")
 			TASKCOUNT=$(compute_task_count)
 
-			# If a stage is disabled via unused.properties, set its sub-count to 0
-			if is_disabled "slides"; then SLIDECOUNT=0; fi
-			if is_disabled "slideshow"; then SLIDESBSCOUNT=0; fi
-			if is_disabled "dubbing/sfx"; then DUBSFXCOUNT=0; fi
-			if is_disabled "dubbing/music"; then DUBMUSICCOUNT=0; fi
-			if is_disabled "scaling"; then SCALECOUNT=0; fi
-			if is_disabled "fullsbs"; then SBSCOUNT=0; fi
-			if is_disabled "scaling"; then OVERRIDECOUNT=0; fi
-			if is_disabled "singleloop"; then SINGLELOOPCOUNT=0; fi
-			if is_disabled "interpolate"; then INTERPOLATECOUNT=0; fi
-			if is_disabled "concat"; then CONCATCOUNT=0; fi
-			if is_disabled "watermark/encrypt"; then WMECOUNT=0; fi
-			if is_disabled "watermark/decrypt"; then WMDCOUNT=0; fi
-			if is_disabled "caption"; then CAPCOUNT=0; fi
+
 			
 			if [ $WMECOUNT -gt 0 ] ; then
 				WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL=/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
@@ -380,12 +395,12 @@ else
 			
 			PIPELINE_AUTOFORWARD=$(awk -F "=" '/PIPELINE_AUTOFORWARD=/ {print $2}' $CONFIGFILE) ; PIPELINE_AUTOFORWARD=${PIPELINE_AUTOFORWARD:-1}
 
-			WORKFLOW_FORWARDER_COUNT=$(count_files_with_exts "output/vr/tasks/forwarder" mp4 webm ts webp png jpg jpeg)
+			WORKFLOW_FORWARDER_COUNT=$(read_fs_status any "output/vr/tasks/forwarder")
 			if [[ $WORKFLOW_FORWARDER_COUNT -gt 0 ]] ; then
 				sleep 1
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/forwarder || exit 1 )
 			fi
-			WORKFLOW_RELEASED_COUNT=$(count_files_with_exts "output/vr/check/released" mp4 webm webp png jpg jpeg)
+			WORKFLOW_RELEASED_COUNT=$(read_fs_status any "output/vr/check/released")
 			if [[ $WORKFLOW_RELEASED_COUNT -gt 0 ]] ; then
 				sleep 1
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/released || exit 1 )
@@ -396,6 +411,17 @@ else
 			# changed from 0 to 1 since the last loop iteration.
 			. ./custom_nodes/comfyui_stereoscopic/api/lib_forward.sh
 			if [ "$PREV_PIPELINE_AUTOFORWARD" -eq 0 ] && [ "$PIPELINE_AUTOFORWARD" -ge 1 ] ; then
+				do_autoforward
+			fi
+			# update previous value for next iteration
+			PREV_PIPELINE_AUTOFORWARD=$PIPELINE_AUTOFORWARD
+			
+		fi
+		
+	done #KILL ME
+fi
+[ $loglevel -ge 0 ] && set +x
+ 1 ] ; then
 				do_autoforward
 			fi
 			# update previous value for next iteration

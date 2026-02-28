@@ -33,6 +33,25 @@ has_json_key() {
 	grep -qE "\"$json_key\"[[:space:]]*:" "$json_file"
 }
 
+# Return epoch time in milliseconds (portable): prefer GNU date, fallback to python, else seconds*1000
+now_ms() {
+	if date +%s%3N >/dev/null 2>&1 ; then
+		date +%s%3N
+	elif command -v python3 >/dev/null 2>&1 ; then
+		python3 - <<'PY'
+import time
+print(int(time.time()*1000))
+PY
+	elif command -v python >/dev/null 2>&1 ; then
+		python - <<'PY'
+import time
+print(int(time.time()*1000))
+PY
+	else
+		echo $(($(date +%s)*1000))
+	fi
+}
+
 resolve_blueprint_placeholders_to_file() {
 	source_json="$1"
 	target_json="$2"
@@ -104,6 +123,9 @@ else
     touch "$CONFIGFILE"
     echo "config_version=1">>"$CONFIGFILE"
 fi
+
+# Ensure loglevel is defined even if config file was just created
+loglevel=${loglevel:-0}
 
 # Path to unused flags (list of disabled items)
 UNUSED_PROPS=./user/default/comfyui_stereoscopic/unused.properties
@@ -214,9 +236,8 @@ else
 			newfn=${newfn//\)/_}
 			mv -- "$nextinputfile" $newfn 
 
-			start=`date +%s`
-			end=`date +%s`
-			startiteration=$start
+			start_ms=$(now_ms)
+			startiteration=$start_ms
 
 			taskpath=${INPUTDIR##*/}
 			DISPLAYNAME=$taskpath
@@ -314,6 +335,13 @@ else
 					mv -vf -- "$newfn" "input/vr/tasks/$TASKNAME/error"
 				fi
 				exit 0
+			fi
+
+			# Log iteration duration (ms) and task name when loglevel >= 1
+			end_ms=$(now_ms)
+			elapsed_ms=$((end_ms - start_ms))
+			if [ ${loglevel:-0} -ge 1 ] ; then
+				echo "Iteration $INDEX/$COUNT tasks/$TASKNAME took ${elapsed_ms} ms"
 			fi
 		done
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
