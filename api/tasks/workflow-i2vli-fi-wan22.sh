@@ -166,6 +166,10 @@ else
 		smarttag=""
 	fi
 	
+	# source shared failover helper (if available)
+	if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
+		. ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh
+	fi
 	[ $loglevel -ge 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX" "$prompt"
 	set +x && [ $loglevel -ge 2 ] && set -x
@@ -187,19 +191,11 @@ else
 		secs=$((end-start))
 		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 		echo -ne "$itertimemsg         \r"
-    
-    if [[ "$timeout" =~ ^[0-9]+$ ]]; then
-      if [[ "$secs" -gt "$timeout" ]]; then
-        echo "timeout reached. ( $timeout ). Restarting ComfyUI..."
-        cmd='Get-Process -Name python | Where-Object { ($_.PagedMemorySize64/1KB) -gt 10000000 } | ForEach-Object { Write-Output ("Killing {0} (pid {1}) PM(K)={2}" -f $_.ProcessName,$_.Id,[math]::Round($_.PagedMemorySize64/1KB)); Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }'
-        encoded=$(printf '%s' "$cmd" | iconv -f utf-8 -t utf-16le | base64 -w0)
-        powershell.exe -NoProfile -EncodedCommand "$encoded"
-        echo "Waiting for restart."
-        sleep 10
-        echo "Aborting task after restart."
-        exit 0
-      fi
-    fi
+
+		# centralized failover check
+		if ! failover_check "$timeout" "$secs"; then
+			exit 0
+		fi
     
 	done
 	runtime=$((end-start))

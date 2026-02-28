@@ -148,6 +148,8 @@ else
 	sdxl_checkpoint=`cat "$BLUEPRINTCONFIG" | grep -o '"sdxl_checkpoint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	sdxl_checkpoint="${sdxl_checkpoint////\\}"
 	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	# optional timeout (seconds) to trigger failover restart of ComfyUI
+	timeout=`cat "$BLUEPRINTCONFIG" | grep -o '"timeout":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	
 	[ $loglevel -ge 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$sdxl_checkpoint" "$INPUT" "$TARGETPREFIX"
@@ -179,6 +181,17 @@ else
 		secs=$((end-start))
 		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 		echo -ne "$itertimemsg         \r"
+		# centralized failover check (uses ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh if sourced)
+		if ! (command -v failover_check >/dev/null 2>&1) ; then
+		  if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
+		    . ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh
+		  fi
+		fi
+		if command -v failover_check >/dev/null 2>&1; then
+		  if ! failover_check "$timeout" "$secs"; then
+		    exit 0
+		  fi
+		fi
 	done
 	runtime=$((end-start))
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "

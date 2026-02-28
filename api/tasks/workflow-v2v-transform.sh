@@ -72,6 +72,8 @@ iv2v_generate() {
 
 	iv2v_api=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	# optional timeout (seconds) to trigger failover restart of ComfyUI
+	timeout=`cat "$BLUEPRINTCONFIG" | grep -o '"timeout":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	img1=`realpath "$img1"`
 	[ $loglevel -ge 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt"
@@ -96,6 +98,17 @@ iv2v_generate() {
 		secs=$((end-start))
 		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 		echo -ne "$itertimemsg         \r"
+		# centralized failover check (sourcing helper on demand)
+		if ! (command -v failover_check >/dev/null 2>&1) ; then
+		  if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
+		    . ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh
+		  fi
+		fi
+		if command -v failover_check >/dev/null 2>&1; then
+		  if ! failover_check "$timeout" "$secs"; then
+		    return 1
+		  fi
+		fi
 	done
 	runtime=$((end-start))
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "

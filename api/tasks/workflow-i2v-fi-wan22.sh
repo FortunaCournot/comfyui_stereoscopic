@@ -68,9 +68,6 @@ else
 		[ $loglevel -ge 2 ] && set -x
 		[ $loglevel -ge 2 ] && NOLINE="" ; echo $NOLINE
 		config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
-#		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
-#		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
-#		export COMFYUIHOST COMFYUIPORT
 	else
 		echo -e $"\e[91mError:\e[0m No config!?"
 		exit 1
@@ -80,12 +77,6 @@ else
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
-
-#	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-#	if [ "$status" = "closed" ]; then
-#		echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-#		exit 1
-#	fi
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
 	PYTHON_BIN_PATH=
@@ -108,7 +99,7 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS"`echo $INPUT | grep -oP "$regex"`" =========="
 	
-  rm -rf -- output/vr/tasks/intermediate
+  	rm -rf -- output/vr/tasks/intermediate
 	mkdir -p  output/vr/tasks/intermediate
 
 	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/tasks/intermediate/probe.txt`
