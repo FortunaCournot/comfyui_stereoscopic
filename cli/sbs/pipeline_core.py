@@ -3,7 +3,7 @@ from queue import Queue
 from dataclasses import dataclass, field
 import threading
 import numpy as np
-import os , time , cv2 , subprocess 
+import os, time, cv2, subprocess, av, torch
 from sbsutils import force_exit , graceful_shutdown , prepare_batch 
 from depthestimator import DepthEstimator
 from converter import ImageSBSConverter
@@ -42,6 +42,7 @@ class PipelineContext:
     model_name: str
     codec: str
     version: str
+    autocast: str | None = None
     
     # calculated fields
     H: int = 0
@@ -208,9 +209,14 @@ class PipelineContext:
                 break
 
             if input_type == "video":
-                indices, depth_maps, indexed_images = item
+                indices, depth_cpu, ev, indexed_images = item
             else:  # folder + i2i
-                names, depth_maps, indexed_images = item
+                names, depth_cpu, ev, indexed_images = item
+
+            if ev is not None:
+                ev.synchronize()
+
+            depth_maps = depth_cpu.to(torch.float32).numpy()
 
             # Cooking batches
             base_image, depth_image = prepare_batch(indexed_images, depth_maps)
@@ -245,10 +251,11 @@ class PipelineContext:
                     return
                 
     @staticmethod   
-    def gpu_worker_loop(estimator, queue: Queue, process_queue: Queue ,model_name, n_preprocess: int,H_orig, W_orig,n_processors: int,cudnn_benchmark: bool,input_type: str):
+    def gpu_worker_loop(estimator, queue: Queue, process_queue: Queue ,model_name, n_preprocess: int,H_orig, W_orig,n_processors: int,cudnn_benchmark: bool,input_type: str,autocast: str | None):
         """
         Runs depth inference on GPU for batches and sends results to processing queue.
         """
+        copy_stream = torch.cuda.Stream() if torch.cuda.is_available() else None
         
         done_count = 0
         while True:
@@ -257,32 +264,47 @@ class PipelineContext:
                 item = queue.get()
             except EOFError:
                 return
-            #end_wait = time.perf_counter()
-            #print(f"Waited {end_wait - start_wait:.3f} s on queue.get()")
+            #end_wait = time.perf_counter() - start_wait
+            #print(f"Waited {end_wait:.3f} s on queue.get()")
             if item is None:
                 done_count += 1 # tracks how many preprocess workers finished 
                 if done_count == n_preprocess:
                     break
                 continue
                 
-            #start_gpu = time.perf_counter()
-            
             indices, names, pixel_values, indexed_images = item
-            depth_maps = estimator.predict_batch_tensor(pixel_values,cudnn_benchmark, target_size=(H_orig, W_orig),model_name=model_name)
+            depth_tensor = estimator.predict_batch_tensor(pixel_values,cudnn_benchmark, target_size=(H_orig, W_orig),model_name=model_name,autocast=autocast)
+
+
+            if copy_stream is not None:
+                cpu_buf = torch.empty(
+                    depth_tensor.shape,
+                    dtype=depth_tensor.dtype,
+                    device="cpu",
+                    pin_memory=True
+                )
+
+                compute_stream = torch.cuda.current_stream()  # default (or current) 
+
+                with torch.cuda.stream(copy_stream):
+                    copy_stream.wait_stream(compute_stream)  
+                    cpu_buf.copy_(depth_tensor, non_blocking=True)
+                    ev = torch.cuda.Event(enable_timing=False)
+                    ev.record(copy_stream)
+
+                payload = (indices, cpu_buf, ev, indexed_images) if input_type == "video" \
+                          else (names, cpu_buf, ev, indexed_images)
+            else:
+                # CPU-only fallback
+                cpu_buf = depth_tensor.detach().cpu().float()
+                ev = None
+                payload = (indices, cpu_buf, ev, indexed_images) if input_type == "video" \
+                          else (names, cpu_buf, ev, indexed_images)
             
-            #end_gpu = time.perf_counter()
-            #print(f"Waited {end_gpu - start_gpu:.3f} s on predict_batch_tensor")
-            
-            if input_type== "video":  # video
-                try:
-                    process_queue.put((indices, depth_maps, indexed_images))
-                except EOFError:
-                    return
-            else:  # folder and i2i
-                try:
-                    process_queue.put((names, depth_maps, indexed_images))
-                except EOFError:
-                    return
+            try:
+                process_queue.put(payload)
+            except EOFError:
+                return
             
         for _ in range(n_processors):
             try:
@@ -352,44 +374,37 @@ class PipelineContext:
                     
                 batch_idx.clear(); batch_imgs.clear(); batch_names.clear()
 
+
     @staticmethod
     def video_feeder(video_path, raw_queue,W_orig,H_orig,result_dict,max_frames: int | None = None):
         """
-        Streams raw RGB frames from video via FFmpeg into queue.
+        Streams RGB frames from video using PyAV.
         """
-        cmd = [
-            "ffmpeg",
-            "-i", video_path,
-            #"-vsync", "0",
-            "-f", "rawvideo",
-            "-pix_fmt", "rgb24",
-            "-"
-        ]
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        frame_size = W_orig * H_orig * 3
+        container = av.open(video_path)
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+
         idx = 0
         try:
-            while True:
-                raw = p.stdout.read(frame_size)
-                if len(raw) < frame_size:
-                    break
-                img = np.frombuffer(raw, dtype=np.uint8).reshape((H_orig, W_orig, 3)).copy()
+            for frame in container.decode(stream):
+                # RGB numpy array: (H, W, 3), uint8
+                img = frame.to_ndarray(format="rgb24")
+
+                if img.shape[0] != H_orig or img.shape[1] != W_orig:
+                    img = img[:H_orig, :W_orig]
+
                 try:
                     raw_queue.put((idx, img))
                 except EOFError:
                     return
+
                 idx += 1
                 if max_frames is not None and idx >= max_frames:
                     break
         finally:
-            try:
-                p.stdout.close()
-            except:
-                pass
-            p.wait()
-            
+            container.close()
+
         result_dict["frames"] = idx
-        #print("images put in  (ffmpeg pipe):", idx)
         
     @staticmethod
     def image_folder_feeder(folder_path, raw_queue, file_list,result_dict=None):
