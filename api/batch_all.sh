@@ -33,6 +33,10 @@ if [ -e $CONFIGFILE ] ; then
 	else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
+	# Refresh FS status once for this run so property-based counts are not stale
+	if [ -n "${PYTHON:-}" ] && [ -x "${PYTHON:-}" ]; then
+		"$PYTHON" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
+	fi
 else
     touch "$CONFIGFILE"
 fi

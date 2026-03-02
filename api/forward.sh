@@ -37,6 +37,19 @@ fi
 # FS status helper functions: update individual property keys in the FS status file
 FS_STATUS_FILE=${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}
 
+# Ensure FS status file exists so forward's incremental updates don't operate on an empty file
+PY_EXEC="${PYTHON_BIN_PATH}python.exe"
+if [ ! -x "$PY_EXEC" ]; then
+	if command -v python3 >/dev/null 2>&1 ; then
+		PY_EXEC=python3
+	elif command -v python >/dev/null 2>&1 ; then
+		PY_EXEC=python
+	fi
+fi
+if [ ! -f "$FS_STATUS_FILE" ] && [ -n "$PY_EXEC" ]; then
+	"$PY_EXEC" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
+fi
+
 fs_key_from_dir() {
 	# normalize dir to match keys written by compute_fs_status.py
 	local dir="$1"

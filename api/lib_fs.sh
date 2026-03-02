@@ -159,17 +159,19 @@ _normalize_lookup_dir() {
     dir="$1"
     # convert Windows backslashes to forward slashes
     dir="$(echo "$dir" | sed 's#\\#/#g')"
-    # If dir is absolute and inside the cwd, convert to relative path via python relpath
+    # If dir is absolute, convert to relative path via python relpath.
+    # NOTE: this must pass the path as argv[1] (previously caused IndexError).
     case "$dir" in
-        /*|?:/*) 
-            if [ -d "$dir" ]; then
-                rel=$("$PYTHON" - <<PY
+        /*|?:/*)
+            rel=$("$PYTHON" - "$dir" <<'PY' 2>/dev/null
 import os,sys
-print(os.path.relpath(sys.argv[1], os.getcwd()))
+path = sys.argv[1] if len(sys.argv) > 1 else ""
+if not path:
+    sys.exit(0)
+print(os.path.relpath(path, os.getcwd()).replace('\\\\','/'))
 PY
-"$dir" 2>/dev/null)
-                [ -n "$rel" ] && dir="$rel"
-            fi
+)
+            [ -n "$rel" ] && dir="$rel"
             ;;
     esac
     # strip leading ./ if present
@@ -196,10 +198,7 @@ count_files_any_ext() {
                 return
             fi
         fi
-        # if not found in status file, return 0 to avoid expensive scan
-        echo 0
-        _trace_end count_files_any_ext "$dir"
-        return
+        # If not found in status file, fall back to live count (covers temp folders, cwd=".", etc.)
     fi
     # Fast path for Git Bash / bash users: avoid Python startup overhead by
     # using a small bash snippet. 
@@ -250,9 +249,7 @@ count_files_with_exts() {
             _trace_end count_files_with_exts "$dir" "$@"
             return
         fi
-        echo 0
-        _trace_end count_files_with_exts "$dir" "$@"
-        return
+        # If not found in status file, fall back to live count (covers temp folders, cwd=".", etc.)
     fi
     result=$(_py_count "$dir" exts "$@")
     echo "$result"
