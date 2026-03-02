@@ -172,7 +172,7 @@ def get_system_info():
 
     return info
 
-def prepare_batch(images: list[tuple[int, np.ndarray]], depth_maps: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+def prepare_batch(images: list[tuple[int, np.ndarray]], depth_maps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Prepares a batch of images and depth maps for processing.
     """
@@ -307,6 +307,8 @@ def debug_report(ctx):
         if ctx.input_type == "video":
             print(f"Quality: {ctx.video_quality}")
         print(f"Codec: {ctx.codec}")
+        if ctx.autocast:
+            print(f"AMP autocast: {ctx.autocast}")
         print(f"Queue sizes: raw={ctx.r_queue}, input={ctx.in_queue}, "
               f"process={ctx.p_queue}, save={ctx.s_queue}")
               

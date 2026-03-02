@@ -4,8 +4,8 @@ import glob
 import numpy as np
 import cv2
 import torch
+import contextlib
 from transformers import AutoImageProcessor, AutoModelForDepthEstimation
-import time
 
 
 class DepthEstimator:
@@ -73,7 +73,7 @@ class DepthEstimator:
             pass
 
 
-    def predict_batch_tensor(self, pixel_values: torch.Tensor,cudnn_benchmark: bool, target_size: tuple[int, int] = None, model_name: str = None) -> list[np.ndarray]:
+    def predict_batch_tensor(self, pixel_values: torch.Tensor,cudnn_benchmark: bool, target_size: tuple[int, int] = None, model_name: str = None,autocast: str | None = None) -> list[np.ndarray]:
         """
         Generate normalized depth maps for a batch.
         """
@@ -85,13 +85,36 @@ class DepthEstimator:
 
         B, _, H_in, W_in = pixel_values.shape
 
+        # Amp autocast check
+        if self.device.type == "cuda" and autocast is not None:
+            if autocast == "bfloat16":
+                if torch.cuda.is_bf16_supported():
+                    ac_dtype = torch.bfloat16
+                else:
+                    print("bfloat16 is not supported on this GPU. Falling back to float16.")
+                    ac_dtype = torch.float16
+
+            elif autocast == "float16":
+                ac_dtype = torch.float16
+
+            else:
+                raise ValueError(f"Unknown autocast dtype: {autocast}")
+
+            autocast_ctx = torch.amp.autocast(
+                device_type="cuda",
+                dtype=ac_dtype,
+            )
+        else:
+            autocast_ctx = contextlib.nullcontext()
+            
         # Inference
         with torch.no_grad():
-            outputs = self.model(pixel_values=pixel_values)
-            preds = outputs.predicted_depth  # [B, H_out, W_out]
+            with autocast_ctx:
+                outputs = self.model(pixel_values)
+                preds = outputs.predicted_depth  # [B, H_out, W_out]
 
 
-        preds = preds.unsqueeze(1)  # [B, 1, H_out, W_out]
+        preds = preds.unsqueeze(1).float()  # [B, 1, H_out, W_out]
 
         # Size for interpolation
         if target_size is None:
@@ -111,16 +134,14 @@ class DepthEstimator:
         maxs = preds_resized.amax(dim=(1,2), keepdim=True)  # [B, 1, 1]
         ranges = (maxs - mins).clamp(min=1e-6)
         normalized = (preds_resized - mins) / ranges  # [B, H, W]
-
-        # Convert to numpy and return
-        depth_maps = [normalized[i].cpu().numpy().astype(np.float32) for i in range(B)]
-        return depth_maps
+        
+        return normalized
     
-    def predict_batch(self, images: list[np.ndarray],model_name,cudnn_benchmark) -> list[np.ndarray]:
+    def predict_batch(self, images: list[np.ndarray],model_name,cudnn_benchmark,autocast: str | None = None) -> list[np.ndarray]:
         self.load_model(model_name,cudnn_benchmark)
         inputs = self.processor(images=images, return_tensors="pt")
         pixel_values = inputs.pixel_values.to(self.device)
-        return self.predict_batch_tensor(pixel_values,cudnn_benchmark)
+        return self.predict_batch_tensor(pixel_values,cudnn_benchmark,autocast=autocast)
 
     def predict_depth(self, image: np.ndarray) -> np.ndarray:
         """

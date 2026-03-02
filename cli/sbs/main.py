@@ -101,7 +101,8 @@ def init_pipeline(
     switch_sides: bool = False,
     symetric: bool = False,
     blur_radius: int = 19,
-    video_quality: str = "medium"
+    video_quality: str = "medium",
+    autocast: str = None
     ) -> PipelineContext:
         
     """
@@ -206,17 +207,18 @@ def init_pipeline(
         blur_radius=blur_radius,
         input_type=input_type,
         n_feeders=n_feeders,
-        video_quality=video_quality
+        video_quality=video_quality,
+        autocast=autocast
     )
     
-    if debug:
-        print("\n[Pipeline Configuration]")
-        for f in fields(ctx):
-            name = f.name
-            value = getattr(ctx, name)
-            if isinstance(value, (list, dict)) or "queue" in name or "worker" in name:
-                continue
-            print(f"{name:>15}: {value}")
+    #if debug:
+    #    print("\n[Pipeline Configuration]")
+    #    for f in fields(ctx):
+    #        name = f.name
+    #        value = getattr(ctx, name)
+    #        if isinstance(value, (list, dict)) or "queue" in name or "worker" in name:
+    #            continue
+    #        print(f"{name:>15}: {value}")
     
     max_frames = None
         
@@ -243,7 +245,7 @@ def init_pipeline(
     for _ in range(n_preprocess):
         ctx.pre_workers.append(Thread(target=PipelineContext.preprocess_worker,args=(raw_q, batch_size, estimator.processor, estimator.device, inp_q)))
         
-    ctx.gpu_worker = Thread(target=PipelineContext.gpu_worker_loop,args=(estimator, inp_q, proc_q, model_name, n_preprocess, H, W, n_processors,cudnn_benchmark,input_type))
+    ctx.gpu_worker = Thread(target=PipelineContext.gpu_worker_loop,args=(estimator, inp_q, proc_q, model_name, n_preprocess, H, W, n_processors,cudnn_benchmark,input_type,ctx.autocast))
                             
     for _ in range(n_processors):
         ctx.processors.append(Thread(target=PipelineContext.process_worker, args=(proc_q, SBSConverter, save_q,input_type,ctx.depth_scale,ctx.depth_offset,ctx.switch_sides,ctx.symetric,ctx.blur_radius)))
@@ -326,7 +328,7 @@ def run_pipeline(ctx: PipelineContext):
 # --- Command-line interface ---
 if __name__ == "__main__":
     import argparse
-    version = "1.0.2"
+    version = "1.0.5"
     parser = argparse.ArgumentParser(
         description="VR we are! CLI pipeline (video → 3D SBS video, "
                     "folder → batch of images, i2i → single/multiple images one-by-one)."
@@ -354,7 +356,10 @@ if __name__ == "__main__":
                     help="Codec for output video (CPU: libx264/libx265, GPU: h264_nvenc/hevc_nvenc)")
     parser.add_argument("--quality", type=str,
             choices=["low", "medium", "high"],default=None,
-            help="Output video quality (changes the values of -crf or -cq in ffmpeg)")   
+            help="Output video quality (changes the values of -crf or -cq in ffmpeg)") 
+    parser.add_argument(
+        "--autocast",type=str,choices=["bfloat16", "float16"],default=None,
+        help="Enable torch.amp.autocast on CUDA with selected dtype (default=None = disabled)")     
     parser.add_argument("--input-type", type=str,
                         choices=["video", "folder", "i2i"], default="video",
                         help=("Processing mode:\n"
@@ -448,6 +453,7 @@ if __name__ == "__main__":
                 n_preprocess=1, n_processors=1, n_savers=1, n_feeders=1,
                 model_name=args.model or "depth-anything/Depth-Anything-V2-Base-hf",
                 codec="png",
+                autocast=args.autocast,
                 input_type=args.input_type,
                 debug=args.debug,
                 depth_scale=args.depth_scale or 1.0,
@@ -498,6 +504,7 @@ if __name__ == "__main__":
                 n_feeders=args.feeders or 1,
                 model_name=args.model or "depth-anything/Depth-Anything-V2-Base-hf",
                 codec=args.codec or None,
+                autocast=args.autocast or None,
                 input_type=args.input_type,
                 debug=args.debug,
                 depth_scale=args.depth_scale or 1.0,
