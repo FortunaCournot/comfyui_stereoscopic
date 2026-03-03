@@ -41,6 +41,13 @@ for base in ('input/vr', 'output/vr'):
                     if child.name == 'tasks':
                         # include only tasks/<task>
                         paths_to_scan.append(str(sub.as_posix()))
+                        # also include tasks/<task>/wait as separate counter (if present)
+                        try:
+                            wait_dir = sub / 'wait'
+                            if wait_dir.is_dir():
+                                paths_to_scan.append(str(wait_dir.as_posix()))
+                        except Exception:
+                            pass
                     else:
                         paths_to_scan.append(str((child / sub.name).as_posix()))
 
@@ -109,6 +116,7 @@ for p in unique_paths:
         any_cnt = 0
         img_cnt = 0
         vid_cnt = 0
+        aud_cnt = 0
     else:
         try:
             it = list(os.scandir(p))
@@ -116,9 +124,13 @@ for p in unique_paths:
             any_cnt = 0
             img_cnt = 0
             vid_cnt = 0
+            aud_cnt = 0
         else:
-            any_cnt = sum(1 for e in it if e.is_file() and '.' in e.name)
-            lower_names = [e.name.lower() for e in it if e.is_file()]
+            # Only count files that have a suffix (dot in basename) for all counters.
+            # This prevents counting temporary/marker files without extensions.
+            file_names = [e.name for e in it if e.is_file() and '.' in e.name]
+            any_cnt = len(file_names)
+            lower_names = [n.lower() for n in file_names]
             img_cnt = sum(1 for n in lower_names if n.endswith(IMAGE_EXTS))
             vid_cnt = sum(1 for n in lower_names if n.endswith(VIDEO_EXTS))
             aud_cnt = sum(1 for n in lower_names if n.endswith(AUDIO_EXTS))
