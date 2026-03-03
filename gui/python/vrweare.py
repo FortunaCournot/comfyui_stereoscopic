@@ -1232,16 +1232,43 @@ class SpreadsheetApp(QMainWindow):
                         # Input side
                         try:
                             folder_in = os.path.join(path, "../../../../input/vr/" + stage)
-                            info_in = {'exists': False, 'count': 0, 'done_count': 0, 'done_nocleanup': False, 'error_count': 0, 'wait_count': 0}
+                            info_in = {'exists': False, 'count': 0, 'ddd_count': 0, 'sss_count': 0, 'done_count': 0, 'done_nocleanup': False, 'error_count': 0, 'wait_count': 0}
                             if os.path.exists(folder_in):
                                 info_in['exists'] = True
                                 try:
+                                    # DDD = files directly in the stage input folder (non-recursive)
                                     onlyfiles = next(os.walk(folder_in))[2]
                                     onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
-                                    # Only count files that have a suffix (dot in basename)
                                     onlyfiles = [f for f in onlyfiles if '.' in f]
                                     onlyfiles = [f for f in onlyfiles if f.lower() not in IGNORED_BASENAMES]
-                                    info_in['count'] = len(onlyfiles)
+                                    info_in['ddd_count'] = len(onlyfiles)
+                                    # keep legacy key used by rendering as DDD
+                                    info_in['count'] = info_in['ddd_count']
+
+                                    # SSS = all files in subfolders (recursive), excluding the wait and error subtrees
+                                    base_abs = os.path.abspath(folder_in)
+                                    sss_count = 0
+                                    for _root, _dirs, _files in os.walk(folder_in):
+                                        try:
+                                            _dirs[:] = [d for d in _dirs if d.lower() not in ('wait', 'error')]
+                                        except Exception:
+                                            pass
+                                        try:
+                                            if os.path.abspath(_root) == base_abs:
+                                                # skip root files -> only count files in subfolders
+                                                continue
+                                        except Exception:
+                                            pass
+                                        for f in _files:
+                                            fl = f.lower()
+                                            if fl.endswith(".txt"):
+                                                continue
+                                            if '.' not in f:
+                                                continue
+                                            if fl in IGNORED_BASENAMES:
+                                                continue
+                                            sss_count += 1
+                                    info_in['sss_count'] = sss_count
                                 except Exception:
                                     pass
                                 # done subfolder
@@ -1274,11 +1301,18 @@ class SpreadsheetApp(QMainWindow):
                                 subfolder_wait = os.path.join(path, "../../../../input/vr/" + stage + "/wait")
                                 if os.path.exists(subfolder_wait):
                                     try:
-                                        wait_files = next(os.walk(subfolder_wait))[2]
-                                        wait_files = [f for f in wait_files if not f.lower().endswith(".txt")]
-                                        wait_files = [f for f in wait_files if '.' in f]
-                                        wait_files = [f for f in wait_files if f.lower() not in IGNORED_BASENAMES]
-                                        info_in['wait_count'] = len(wait_files)
+                                        wait_count = 0
+                                        for _root, _dirs, _files in os.walk(subfolder_wait):
+                                            for f in _files:
+                                                fl = f.lower()
+                                                if fl.endswith(".txt"):
+                                                    continue
+                                                if '.' not in f:
+                                                    continue
+                                                if fl in IGNORED_BASENAMES:
+                                                    continue
+                                                wait_count += 1
+                                        info_in['wait_count'] = wait_count
                                     except Exception:
                                         info_in['wait_count'] = 0
                             self._fs_cache['input'][stage] = info_in
@@ -1631,36 +1665,43 @@ class SpreadsheetApp(QMainWindow):
                                 stage_name = STAGES[r-1]
                                 info = getattr(self, '_fs_cache', {'input':{}}).get('input', {}).get(stage_name, None)
                                 if info and info.get('exists', False):
-                                    count = info.get('count', 0)
+                                    count = info.get('ddd_count', info.get('count', 0))
                                     try:
                                         waitc = int(info.get('wait_count', 0) or 0)
                                     except Exception:
                                         waitc = 0
+                                    try:
+                                        sssc = int(info.get('sss_count', 0) or 0)
+                                    except Exception:
+                                        sssc = 0
+                                    try:
+                                        errc = int(info.get('error_count', 0) or 0)
+                                    except Exception:
+                                        errc = 0
+
+                                    # SSS is already computed excluding the error subtree.
+                                    sssc_disp = sssc
                                     if count > 0:
                                         value = str(count)
                                         displayRequired = True
                                     else:
                                         value = ""
-                                    # done subfolder interpretation
-                                    if info.get('done_nocleanup', False):
+                                    # New syntax: "DDD [WWW](SSS)"
+                                    if waitc > 0:
+                                        value = (value + " " if value.strip() else "") + f"[{waitc}]"
                                         displayRequired = True
-                                        count2 = info.get('done_count', 0)
-                                        try:
-                                            other_adj = max(int(count2 or 0) - int(count or 0) - int(waitc or 0), 0)
-                                        except Exception:
-                                            other_adj = 0
+                                    if sssc_disp > 0:
+                                        value = value + f"({sssc_disp})"
+                                        displayRequired = True
 
-                                        # New syntax: "DDD [WWW](SSS)"
-                                        if waitc > 0:
-                                            value = (value + " " if value.strip() else "") + f"[{waitc}]"
-                                        if other_adj > 0:
-                                            value = value + f"({other_adj})"
+                                    # Keep legacy marker when everything is empty (only when done_nocleanup is set)
+                                    if info.get('done_nocleanup', False) and count == 0 and waitc == 0 and sssc == 0:
+                                        value = value + " (-)"
+                                        displayRequired = True
 
-                                        # Keep legacy marker when everything is empty
-                                        if count == 0 and waitc == 0 and other_adj == 0:
-                                            value = value + " (-)"
-
-                                        # Only mark green when the main count is at least 1.
+                                    # Preserve existing color semantics
+                                    if info.get('done_nocleanup', False):
+                                        # Only mark green when the main count (DDD) is at least 1.
                                         # Bracket/parenthesis values do not qualify.
                                         if count > 0:
                                             color = "green"
@@ -1682,14 +1723,9 @@ class SpreadsheetApp(QMainWindow):
                                             color = "white"
                                     else:
                                         color = COLOR_FG_WARN_YELLOW
-                                        # Even without done-marker, still report wait separately
-                                        if waitc > 0:
-                                            value = (value + " " if value.strip() else "") + f"[{waitc}]"
-                                            displayRequired = True
-                                    # error files
-                                    errc = info.get('error_count', 0)
+                                    # error files (EEE): prefix format "{!EEE} " when EEE > 0
                                     if errc > 0:
-                                        value = value + " " + str(errc) + "!"
+                                        value = f"{{!{errc}}} " + value
                                         color = "red"
                                         displayRequired = True
                                     else:
