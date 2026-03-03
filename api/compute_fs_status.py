@@ -24,6 +24,11 @@ IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.webp', '.PNG', '.JPG', '.JPEG', '.WEBP'
 VIDEO_EXTS = ('.mp4', '.webm', '.ts', '.mkv', '.avi', '.mov', '.MP4', '.WEBM', '.TS', '.MKV', '.AVI', '.MOV')
 AUDIO_EXTS = ('.flac', '.mp3', '.wav', '.aac', '.m4a', '.FLAC', '.MP3', '.WAV', '.AAC', '.M4A')
 
+# Ignore common OS metadata files that should not be treated as user content.
+# These often appear as hidden/system files on Windows/macOS and would otherwise
+# be counted because they contain a dot.
+IGNORED_BASENAMES = {"thumbs.db", "desktop.ini", ".ds_store"}
+
 paths_to_scan = []
 
 # collect top-level children of input/vr and output/vr, and one-level nested subdirs (e.g. dubbing/sfx)
@@ -128,7 +133,13 @@ for p in unique_paths:
         else:
             # Only count files that have a suffix (dot in basename) for all counters.
             # This prevents counting temporary/marker files without extensions.
-            file_names = [e.name for e in it if e.is_file() and '.' in e.name]
+            file_names = [
+                e.name
+                for e in it
+                if e.is_file()
+                and '.' in e.name
+                and e.name.lower() not in IGNORED_BASENAMES
+            ]
             any_cnt = len(file_names)
             lower_names = [n.lower() for n in file_names]
             img_cnt = sum(1 for n in lower_names if n.endswith(IMAGE_EXTS))
