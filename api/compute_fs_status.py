@@ -46,13 +46,6 @@ for base in ('input/vr', 'output/vr'):
                     if child.name == 'tasks':
                         # include only tasks/<task>
                         paths_to_scan.append(str(sub.as_posix()))
-                        # also include tasks/<task>/wait as separate counter (if present)
-                        try:
-                            wait_dir = sub / 'wait'
-                            if wait_dir.is_dir():
-                                paths_to_scan.append(str(wait_dir.as_posix()))
-                        except Exception:
-                            pass
                     else:
                         paths_to_scan.append(str((child / sub.name).as_posix()))
 
