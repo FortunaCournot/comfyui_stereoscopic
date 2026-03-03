@@ -66,7 +66,24 @@ PIN_STATE_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/co
 UNUSED_STATE_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/unused.properties'))
 
 # Foreground color when there are only files in input/.../wait (no direct input files)
-WAIT_WARNING_COLOR = "#C07A2A"  # yellow-ish with a slight red tint
+WAIT_WARNING_COLOR = "#C0982A"  # yellow-ish with a slight red tint
+
+# Foreground override when a cell would be green, but the stage/task is disabled via unused.properties
+# Use a vivid orange-red with full saturation (HSV S=1, V=1).
+DISABLED_GREEN_OVERRIDE_COLOR = "#FF4800"
+
+# Other UI colors (centralized here; used within this file only)
+COLOR_BG_BLACK = "black"
+COLOR_FG_HEADER_GRAY = "gray"
+COLOR_FG_DEFAULT_LIGHTGRAY = "lightgray"
+COLOR_FG_OK_GREEN = "green"
+COLOR_FG_WARN_YELLOW = "yellow"
+COLOR_FG_ERROR_RED = "red"
+COLOR_FG_TEXT_WHITE = "white"
+COLOR_FG_EMPTY_LIGHTGREEN = "lightgreen"
+
+# Processing column color (was yellow; now medium blue)
+PROCESSING_COLOR = "#0078D4"
 
 # Ignore common OS metadata files that should not be treated as user content.
 IGNORED_BASENAMES = {"thumbs.db", "desktop.ini", ".ds_store"}
@@ -1622,10 +1639,24 @@ class SpreadsheetApp(QMainWindow):
                                         # Bracket/parenthesis values do not qualify.
                                         if count > 0:
                                             color = "green"
+                                            # If the stage/task is disabled, do not show green; show orange instead.
+                                            try:
+                                                states = getattr(self, '_unused_states', None)
+                                                if states is not None:
+                                                    if re.match(r"tasks/_.*", stage_name):
+                                                        key = 'customtask'
+                                                    elif re.match(r"tasks/.*", stage_name):
+                                                        key = 'task'
+                                                    else:
+                                                        key = 'stage'
+                                                    if stage_name in states.get(key, set()):
+                                                        color = DISABLED_GREEN_OVERRIDE_COLOR
+                                            except Exception:
+                                                pass
                                         else:
                                             color = "white"
                                     else:
-                                        color = "yellow"
+                                        color = COLOR_FG_WARN_YELLOW
                                         # Even without done-marker, still report wait separately
                                         if waitc > 0:
                                             value = (value + " " if value.strip() else "") + f"[{waitc}]"
@@ -1672,7 +1703,7 @@ class SpreadsheetApp(QMainWindow):
                                 if status != "idle":
                                     if activestage == STAGES[r-1]:
                                         value = status
-                                        color = "yellow"
+                                        color = PROCESSING_COLOR
                                         displayRequired = True
                                         try:
                                             if hasattr(self, 'current_processing_file') and self.current_processing_file:
@@ -2028,9 +2059,9 @@ class SpreadsheetApp(QMainWindow):
                     font.setBold(False)
                     font.setItalic(True)
                     item.setFont(font)
-                    item.setForeground(QBrush(QColor("lightgreen")))
+                    item.setForeground(QBrush(QColor(COLOR_FG_EMPTY_LIGHTGREEN)))
                     item.setTextAlignment(Qt.AlignHCenter + Qt.AlignVCenter)
-                    item.setBackground(QBrush(QColor("black")))
+                    item.setBackground(QBrush(QColor(COLOR_BG_BLACK)))
                     self.table.setItem(1, c, item)
                 self.table.setRowCount(2)
             else:
