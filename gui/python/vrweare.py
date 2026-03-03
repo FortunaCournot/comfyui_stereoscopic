@@ -1604,7 +1604,7 @@ class SpreadsheetApp(QMainWindow):
                                         displayRequired = True
                                         count2 = info.get('done_count', 0)
                                         try:
-                                            other_adj = max(int(count2 or 0) - int(waitc or 0), 0)
+                                            other_adj = max(int(count2 or 0) - int(count or 0) - int(waitc or 0), 0)
                                         except Exception:
                                             other_adj = 0
 
