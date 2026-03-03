@@ -73,16 +73,16 @@ WAIT_WARNING_COLOR = "#C0982A"  # yellow-ish with a slight red tint
 DISABLED_GREEN_OVERRIDE_COLOR = "#FF4800"
 
 # Other UI colors (centralized here; used within this file only)
-COLOR_BG_BLACK = "black"
-COLOR_FG_HEADER_GRAY = "gray"
-COLOR_FG_DEFAULT_LIGHTGRAY = "lightgray"
-COLOR_FG_OK_GREEN = "green"
-COLOR_FG_WARN_YELLOW = "yellow"
-COLOR_FG_ERROR_RED = "red"
-COLOR_FG_TEXT_WHITE = "white"
-COLOR_FG_EMPTY_LIGHTGREEN = "lightgreen"
+COLOR_BG_BLACK = "#000000"
+COLOR_FG_HEADER_GRAY = "#808080"
+COLOR_FG_DEFAULT_LIGHTGRAY = "#D3D3D3"
+COLOR_FG_OK_GREEN = "#00FF00"
+COLOR_FG_WARN_YELLOW = "#FFFF00"
+COLOR_FG_ERROR_RED = "#FF0000"
+COLOR_FG_TEXT_WHITE = "#FFFFFF"
+COLOR_FG_EMPTY_LIGHTGREEN = "#90EE90"
 
-# Processing column color (was yellow; now medium blue)
+# Processing column color (now medium blue)
 PROCESSING_COLOR = "#0078D4"
 
 # Ignore common OS metadata files that should not be treated as user content.
