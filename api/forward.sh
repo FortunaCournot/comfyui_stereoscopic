@@ -14,6 +14,9 @@ cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
+# Marker for GUI to show that forward.sh is currently active.
+FORWARD_ACTIVE_LOCK=./user/default/comfyui_stereoscopic/.forwardactive
+
 if [ -e $CONFIGFILE ] ; then
 	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 	[ $loglevel -ge 2 ] && set -x
@@ -224,6 +227,14 @@ else
 			echo -e $"\e[91mError:\e[0m Missing source definition at $sourcedef"
 			exit 0
 		fi
+
+		# Mark forward activity for the GUI and guarantee cleanup.
+		mkdir -p ./user/default/comfyui_stereoscopic 2>/dev/null || true
+		touch "$FORWARD_ACTIVE_LOCK" 2>/dev/null || true
+		cleanup_forward_active() {
+			rm -f "$FORWARD_ACTIVE_LOCK" 2>/dev/null || true
+		}
+		trap cleanup_forward_active EXIT INT TERM
 
 		temp=`grep "\"output\":" $sourcedef`
 		temp=${temp#*:}

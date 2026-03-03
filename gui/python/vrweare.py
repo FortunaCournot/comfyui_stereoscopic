@@ -129,6 +129,7 @@ def _save_flag_file(file_path: str, data: dict):
 pipelinePauseLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelinepause'))
 pipelineActiveLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelineactive'))
 pipelineFowardingLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.forwardstop'))
+forwardActiveLockPath = os.path.abspath(os.path.join(path, '../../../../user', 'default', 'comfyui_stereoscopic', '.forwardactive'))
 
 STAGES = ["caption", "scaling", "fullsbs", "interpolate", "singleloop", "dubbing/music", "dubbing/sfx", "slides", "slideshow", "watermark/encrypt", "watermark/decrypt", "concat", "check/rate", "check/released"]
 subfolder = os.path.join(path, "../../../../custom_nodes/comfyui_stereoscopic/config/tasks")
@@ -980,17 +981,54 @@ class SpreadsheetApp(QMainWindow):
         #    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_stopped)
         #el
         
-        if self.toogle_pipeline_active:
-            self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_true)
-        else:
-            if os.path.exists(pipelineActiveLockPath):
-                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_transit)
-            else:
-                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_false)
+        self._update_pipeline_active_icon()
     
     def toogle_pipeline_forwarding_enabled(self, state):
         self.toogle_pipeline_isForwarding = state
         set_property(os.path.realpath(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/config.ini")), "PIPELINE_AUTOFORWARD", "1" if self.toogle_pipeline_isForwarding else "0")
+
+    def _update_pipeline_active_icon(self):
+        try:
+            if not hasattr(self, 'toggle_pipeline_active_action') or self.toggle_pipeline_active_action is None:
+                return
+            if self.toogle_pipeline_active:
+                if os.path.exists(pipelineActiveLockPath):
+                    if hasattr(self, 'toggle_pipeline_active_icon_running'):
+                        self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_running)
+                    else:
+                        self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_true)
+                else:
+                    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_true)
+            else:
+                if os.path.exists(pipelineActiveLockPath):
+                    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_transit)
+                else:
+                    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_false)
+        except Exception:
+            pass
+
+    def _update_forwarding_icon(self):
+        try:
+            if not hasattr(self, 'toggle_pipeline_forwarding_action') or self.toggle_pipeline_forwarding_action is None:
+                return
+            is_forwarding_enabled = False
+            try:
+                is_forwarding_enabled = self.toggle_pipeline_forwarding_action.isChecked()
+            except Exception:
+                is_forwarding_enabled = bool(getattr(self, 'toogle_pipeline_isForwarding', False))
+
+            if is_forwarding_enabled:
+                if os.path.exists(forwardActiveLockPath):
+                    if hasattr(self, 'toggle_pipeline_forwarding_icon_active'):
+                        self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_active)
+                    else:
+                        self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true)
+                else:
+                    self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true)
+            else:
+                self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_false)
+        except Exception:
+            pass
 
     def init_toolbar(self):
         self.toolbar = QToolBar("Main Toolbar")
@@ -1008,6 +1046,7 @@ class SpreadsheetApp(QMainWindow):
         self.toolbar.widgetForAction(self.toggle_stages_expanded_action).setCursor(Qt.PointingHandCursor)
 
         self.toggle_pipeline_active_icon_true = QIcon(os.path.join(path, '../../gui/img/pipelineResume.png'))
+        self.toggle_pipeline_active_icon_running = QIcon(os.path.join(path, '../../gui/img/pipelineRunning.png'))
         self.toggle_pipeline_active_icon_false = QIcon(os.path.join(path, '../../gui/img/pipelinePause.png'))
         self.toggle_pipeline_active_icon_transit = QIcon(os.path.join(path, '../../gui/img/pipelineRequestedPause.png'))
         self.toggle_pipeline_active_icon_stopped = QIcon(os.path.join(path, '../../gui/img/pipelineStopped.png'))
@@ -1017,13 +1056,7 @@ class SpreadsheetApp(QMainWindow):
         #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
         #    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_stopped)
         #el
-        if self.toogle_pipeline_active:
-            self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_true)
-        else:
-            if os.path.exists(pipelineActiveLockPath):
-                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_transit)
-            else:
-                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_false)
+        self._update_pipeline_active_icon()
         
         self.toggle_pipeline_active_action.setCheckable(True)
         self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
@@ -1033,15 +1066,12 @@ class SpreadsheetApp(QMainWindow):
 
         # Toggle pipeline forwarding action with icon
         self.toggle_pipeline_forwarding_icon_true = QIcon(os.path.join(path, '../../gui/img/forwardon64.png'))
+        self.toggle_pipeline_forwarding_icon_active = QIcon(os.path.join(path, '../../gui/img/forwardactive64.png'))
         self.toggle_pipeline_forwarding_icon_false = QIcon(os.path.join(path, '../../gui/img/forwardoff64.png'))
         self.toggle_pipeline_forwarding_action = QAction(self.toggle_pipeline_forwarding_icon_false,"Forwarding Status", self)
         self.toggle_pipeline_forwarding_action.setCheckable(True)
-        if self.toogle_pipeline_isForwarding:
-            self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true)
-        else:
-            self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_false)
-            
         self.toggle_pipeline_forwarding_action.setChecked(self.toogle_pipeline_isForwarding)
+        self._update_forwarding_icon()
         self.toggle_pipeline_forwarding_action.triggered.connect(self.toogle_pipeline_forwarding_enabled)
         self.toolbar.addAction(self.toggle_pipeline_forwarding_action)    
         self.toolbar.widgetForAction(self.toggle_pipeline_forwarding_action).setCursor(Qt.PointingHandCursor)
@@ -1178,7 +1208,8 @@ class SpreadsheetApp(QMainWindow):
             self.toogle_pipeline_active = not os.path.exists(pipelinePauseLockPath)
             self.toggle_pipeline_active_action.setChecked(self.toogle_pipeline_active)
             self.toggle_pipeline_forwarding_action.setChecked(config("PIPELINE_AUTOFORWARD", "0") == "1")
-            self.toggle_pipeline_forwarding_action.setIcon(self.toggle_pipeline_forwarding_icon_true if self.toggle_pipeline_forwarding_action.isChecked() else self.toggle_pipeline_forwarding_icon_false)
+            self._update_pipeline_active_icon()
+            self._update_forwarding_icon()
 
             # Decide whether to refresh cached data this tick
             try:
@@ -1278,13 +1309,7 @@ class SpreadsheetApp(QMainWindow):
             #if not config("PIPELINE_AUTOFORWARD", "0") == "1":
             #    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_stopped)
             #el
-            if self.toogle_pipeline_active:
-                self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_true)
-            else:
-                if os.path.exists(pipelineActiveLockPath):
-                    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_transit)
-                else:
-                    self.toggle_pipeline_active_action.setBaseIcon(self.toggle_pipeline_active_icon_false)
+            self._update_pipeline_active_icon()
 
 
             if self.idle_container_active:

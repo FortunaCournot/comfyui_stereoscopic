@@ -23,6 +23,7 @@ cleanup() {
 	rm -f user/default/comfyui_stereoscopic/.daemonactive
 	rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	rm -f user/default/comfyui_stereoscopic/.pipelineactive
+	rm -f user/default/comfyui_stereoscopic/.forwardactive
 	#echo "Exit code $exit_code"
 	while [[ ${exit_code} -ne 0 ]]; do
 		read -p "Error/Interrupt detected. Please press enter to quit: " yn
@@ -69,6 +70,7 @@ if [ -d "../python_embeded" ]; then
 fi
 mkdir -p user/default/comfyui_stereoscopic
 rm -f -- user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
+rm -f -- user/default/comfyui_stereoscopic/.forwardactive 2>/dev/null
 touch user/default/comfyui_stereoscopic/.daemonactive
 OPENCV_FFMPEG_READ_ATTEMPTS=8192
 export OPENCV_FFMPEG_READ_ATTEMPTS
