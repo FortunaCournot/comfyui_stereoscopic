@@ -65,6 +65,36 @@ COLS = 4
 PIN_STATE_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/pin.properties'))
 UNUSED_STATE_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/unused.properties'))
 
+# FS status property file (written by api/compute_fs_status.py)
+FS_STATUS_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/.fs_status.properties'))
+
+# Foreground color when there are only files in input/.../wait (no direct input files)
+WAIT_WARNING_COLOR = "#C07A2A"  # yellow-ish with a slight red tint
+
+
+def _read_fs_status_properties(file_path: str) -> dict:
+    """Read .fs_status.properties (key=value per line). Returns dict of key->int where possible."""
+    props: dict = {}
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                k = k.strip()
+                v = v.strip()
+                if not k:
+                    continue
+                try:
+                    props[k] = int(v)
+                except Exception:
+                    # keep raw if non-numeric; currently we only need numeric counts
+                    pass
+    except Exception:
+        return {}
+    return props
+
 def _load_flag_file(file_path: str) -> dict:
     """Load a simple properties file with keys 'stage','task','customtask' mapping to comma-separated lists.
     Returns dict of sets.
@@ -1173,17 +1203,32 @@ class SpreadsheetApp(QMainWindow):
 
             # Refresh caches every TABLEDATAUPDATETHRESHOLD ticks (or first run)
             if do_refresh or not self._fs_cache['input'] or not self._fs_cache['output']:
+                # Refresh FS status properties (used e.g. for wait counters)
+                try:
+                    fs_mtime = os.path.getmtime(FS_STATUS_FILE) if os.path.exists(FS_STATUS_FILE) else None
+                    if do_refresh or not hasattr(self, '_fs_status_props') or getattr(self, '_fs_status_mtime', None) != fs_mtime:
+                        self._fs_status_props = _read_fs_status_properties(FS_STATUS_FILE) if fs_mtime is not None else {}
+                        self._fs_status_mtime = fs_mtime
+                except Exception:
+                    try:
+                        self._fs_status_props = {}
+                        self._fs_status_mtime = None
+                    except Exception:
+                        pass
+
                 try:
                     for stage in STAGES:
                         # Input side
                         try:
                             folder_in = os.path.join(path, "../../../../input/vr/" + stage)
-                            info_in = {'exists': False, 'count': 0, 'done_count': 0, 'done_nocleanup': False, 'error_count': 0}
+                            info_in = {'exists': False, 'count': 0, 'done_count': 0, 'done_nocleanup': False, 'error_count': 0, 'wait_count': 0}
                             if os.path.exists(folder_in):
                                 info_in['exists'] = True
                                 try:
                                     onlyfiles = next(os.walk(folder_in))[2]
                                     onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
+                                    # Only count files that have a suffix (dot in basename)
+                                    onlyfiles = [f for f in onlyfiles if '.' in f]
                                     info_in['count'] = len(onlyfiles)
                                 except Exception:
                                     pass
@@ -1195,7 +1240,9 @@ class SpreadsheetApp(QMainWindow):
                                         info_in['done_nocleanup'] = any(f.lower() == ".nocleanup" for f in done_files)
                                         # exclude marker file from counts
                                         done_files = [f for f in done_files if f.lower() != ".nocleanup"]
-                                        info_in['done_count'] = len([f for f in done_files if not f.lower().endswith(".txt")])
+                                        done_files = [f for f in done_files if not f.lower().endswith(".txt")]
+                                        done_files = [f for f in done_files if '.' in f]
+                                        info_in['done_count'] = len(done_files)
                                     except Exception:
                                         pass
                                 # error subfolder
@@ -1203,9 +1250,18 @@ class SpreadsheetApp(QMainWindow):
                                 if os.path.exists(subfolder_err):
                                     try:
                                         err_files = next(os.walk(subfolder_err))[2]
-                                        info_in['error_count'] = len([f for f in err_files if not f.lower().endswith(".txt")])
+                                        err_files = [f for f in err_files if not f.lower().endswith(".txt")]
+                                        err_files = [f for f in err_files if '.' in f]
+                                        info_in['error_count'] = len(err_files)
                                     except Exception:
                                         pass
+
+                                # wait subfolder count comes from .fs_status.properties (written by compute_fs_status.py)
+                                try:
+                                    key = f"any|input/vr/{stage}/wait"
+                                    info_in['wait_count'] = int(getattr(self, '_fs_status_props', {}).get(key, 0) or 0)
+                                except Exception:
+                                    info_in['wait_count'] = 0
                             self._fs_cache['input'][stage] = info_in
                         except Exception:
                             pass
@@ -1220,6 +1276,7 @@ class SpreadsheetApp(QMainWindow):
                                     onlyfiles = next(os.walk(folder_out))[2]
                                     info_out['forward'] = any(f.lower() == "forward.txt" for f in onlyfiles)
                                     onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
+                                    onlyfiles = [f for f in onlyfiles if '.' in f]
                                     info_out['count'] = len(onlyfiles)
                                 except Exception:
                                     pass
@@ -1561,6 +1618,10 @@ class SpreadsheetApp(QMainWindow):
                                 info = getattr(self, '_fs_cache', {'input':{}}).get('input', {}).get(stage_name, None)
                                 if info and info.get('exists', False):
                                     count = info.get('count', 0)
+                                    try:
+                                        waitc = int(info.get('wait_count', 0) or 0)
+                                    except Exception:
+                                        waitc = 0
                                     if count > 0:
                                         value = str(count)
                                         displayRequired = True
@@ -1570,24 +1631,45 @@ class SpreadsheetApp(QMainWindow):
                                     if info.get('done_nocleanup', False):
                                         displayRequired = True
                                         count2 = info.get('done_count', 0)
-                                        if count2 > 0:
-                                            value = value + " (" + str(count2) + ")"
-                                            # Only mark green when the main count is at least 1.
-                                            # Numbers in parentheses (done_count) do not qualify.
-                                            if count > 0:
-                                                color = "green"
-                                            else:
-                                                color = "white"
-                                        elif count == 0:
+                                        try:
+                                            other_adj = max(int(count2 or 0) - int(waitc or 0), 0)
+                                        except Exception:
+                                            other_adj = 0
+
+                                        # New syntax: "DDD [WWW](SSS)"
+                                        if waitc > 0:
+                                            value = (value + " " if value.strip() else "") + f"[{waitc}]"
+                                        if other_adj > 0:
+                                            value = value + f"({other_adj})"
+
+                                        # Keep legacy marker when everything is empty
+                                        if count == 0 and waitc == 0 and other_adj == 0:
                                             value = value + " (-)"
+
+                                        # Only mark green when the main count is at least 1.
+                                        # Bracket/parenthesis values do not qualify.
+                                        if count > 0:
+                                            color = "green"
+                                        else:
+                                            color = "white"
                                     else:
                                         color = "yellow"
+                                        # Even without done-marker, still report wait separately
+                                        if waitc > 0:
+                                            value = (value + " " if value.strip() else "") + f"[{waitc}]"
+                                            displayRequired = True
                                     # error files
                                     errc = info.get('error_count', 0)
                                     if errc > 0:
                                         value = value + " " + str(errc) + "!"
                                         color = "red"
                                         displayRequired = True
+                                    else:
+                                        # If there are files in input/.../wait, but none directly in input dir,
+                                        # highlight the cell with a warning color.
+                                        if count == 0 and waitc > 0 and color != "green":
+                                            color = WAIT_WARNING_COLOR
+                                            displayRequired = True
                                 else:
                                     value = "?"
                                     color = "red"
