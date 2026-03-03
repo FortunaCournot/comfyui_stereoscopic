@@ -537,7 +537,7 @@ else
 				# already extracted
 				continue
 			fi
-			echo "Preparing segment $seg_index: start=$start end=$end"
+			echo "Preparing segment $idx/$seg_count (segment $seg_index): start=$start end=$end"
 			# create segment helper dir and metadata under segdata with zero-padded index
 			sb_dir="$INTERMEDIATE_INPUT_FOLDER/segdata/segment_${idx_p}"
 			mkdir -p "$sb_dir"
@@ -562,12 +562,22 @@ else
 	fi
 
 	echo "=== STEP 3: generate transformed images accoording to workplan using the configured i2i workflow via api"
+	# Determine total segment count for progress display (prefer workplan-derived seg_count)
+	SEG_TOTAL=${seg_count:-0}
+	if [ -z "$SEG_TOTAL" ] || [ "$SEG_TOTAL" -eq 0 ] 2>/dev/null ; then
+		SEG_TOTAL=0
+		for _segdir in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
+			[ -d "$_segdir" ] && SEG_TOTAL=$((SEG_TOTAL+1))
+		done
+	fi
+	seg_iter=0
 	# Iterate segments and run ComfyUI workflow for start/end images (placeholder)
 	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
 		if [ ! -d "$d" ]; then
 			# no segments found (glob didn't match)
 			break
 		fi
+		seg_iter=$((seg_iter+1))
 		base="$(basename "$d")"
 		seg_index=${base#segment_}
 		# Determine scenestart flag for this segment (default 1). If scenestart != 1, skip i2i for this segment.
@@ -582,7 +592,7 @@ else
 			echo "Skipping i2i for segment $seg_index (scenestart=$scenestart)"
 			continue
 		fi
-		echo "--- Processing segment $seg_index"
+		echo "--- Processing segment ${seg_iter}/${SEG_TOTAL} ($seg_index)"
 		# check if i2i outputs already exist (first/last filenames); skip if present
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
@@ -611,7 +621,7 @@ else
 			fi
 
 			# call the ComfyUI i2i workflow on $img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
-			echo "--- running i2i workflow for segment $seg_index -> $img"
+			echo "--- running i2i workflow for segment ${seg_iter}/${SEG_TOTAL} ($seg_index) -> $img"
 
 			i2i_api=`cat "$BLUEPRINTCONFIG" | grep -o '"i2i_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 			
@@ -662,6 +672,17 @@ else
 	done
 
 	echo "=== STEP 4: generate video segements based transformed images according to work plan using configured IV2V workflow."
+	# Determine total segment count for progress display (reuse SEG_TOTAL if present)
+	SEG_TOTAL_IV2V=${SEG_TOTAL:-0}
+	if [ -z "$SEG_TOTAL_IV2V" ] || [ "$SEG_TOTAL_IV2V" -eq 0 ] 2>/dev/null ; then
+		SEG_TOTAL_IV2V=0
+		for _segdir in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
+			[ -d "$_segdir" ] && SEG_TOTAL_IV2V=$((SEG_TOTAL_IV2V+1))
+		done
+	fi
+	# Upper bound estimate: one main chunk + optional transition chunk per segment
+	CHUNK_TOTAL_MAX=$((SEG_TOTAL_IV2V * 2))
+	seg_iter_iv2v=0
 	
 	# chunk_index: global counter for produced video chunks (one or two per segment)
 	chunk_index=0
@@ -670,6 +691,7 @@ else
 			# no segments found (glob didn't match)
 			break
 		fi
+		seg_iter_iv2v=$((seg_iter_iv2v+1))
 		base="$(basename "$d")"
 		seg_index=${base#segment_}
 		# Get frame count for this segment from workplan.json (1-based field index)
@@ -688,7 +710,7 @@ else
 			echo "Skipping generation; workplan file not found."
 			exit 0
 		fi
-		echo "--- Processing segment $seg_index"
+		echo "--- Processing segment ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index)"
 		# first/last generated images from previous step
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
@@ -802,7 +824,8 @@ else
 			if [ -e "$chunk_file" ]; then
 				echo "Skipping generation; chunk already exists: $chunk_file"
 			else
-				echo "--- generating video chunk ${idx_p} for segment $seg_index -> frames=$num_frames"
+				chunk_no=$((chunk_index + 1))
+				echo "--- generating video chunk ${idx_p} (${chunk_no}/${CHUNK_TOTAL_MAX}) for segment ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index) -> frames=$num_frames"
 				echo "Segment $seg_index: frames=${num_frames} first=${first_img} last=${last_img} -> will write $chunk_file"
 				# call the ComfyUI FL2V workflow to create $chunk_file from $first_img .. $last_img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
 				img1="$first_img"
@@ -841,7 +864,8 @@ else
 			if [ -e "$chunk_file" ]; then
 				echo "Skipping transition generation; chunk already exists: $chunk_file"
 			else
-				echo "--- generating video chunk ${idx_p} for segment transition $seg_index/$next_index -> frames=$trans_frames"
+				chunk_no=$((chunk_index + 1))
+				echo "--- generating video chunk ${idx_p} (${chunk_no}/${CHUNK_TOTAL_MAX}) for segment transition ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index/$next_index) -> frames=$trans_frames"
 				idx_p_next=$(printf "%04d" "$next_index")
 				first_img_of_next="$INTERMEDIATE_INPUT_FOLDER/first_${idx_p_next}.png"
 				echo "Segment transition: frames=${trans_frames} first=${last_img} last=${first_img_of_next} -> will write $chunk_file"
@@ -881,6 +905,11 @@ else
 	# Build concat list from chunk_*.mp4 in numeric order (chunk_0, chunk_1, ...)
 	concat_list="$INTERMEDIATE_INPUT_FOLDER/concat_list.txt"
 	rm -f "$concat_list"
+	# Pre-count chunks for progress/info (best effort)
+	CHUNK_FILES_TOTAL=0
+	for _c in "$INTERMEDIATE_INPUT_FOLDER"/chunk_*.mp4; do
+		[ -f "$_c" ] && CHUNK_FILES_TOTAL=$((CHUNK_FILES_TOTAL+1))
+	done
 	i=0
 	found=0
 	while : ; do
@@ -906,7 +935,7 @@ else
 	concat_video="$INTERMEDIATE_INPUT_FOLDER/concat_video.mp4"
 	rm -f "$concat_video"
 
-	echo "--- concat_video segments to $concat_video"
+	echo "--- concat_video segments (${CHUNK_FILES_TOTAL} chunks) to $concat_video"
 
 	# Try concat with stream copy; fall back to re-encode if that fails
 	set -x
