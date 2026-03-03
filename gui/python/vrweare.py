@@ -71,6 +71,9 @@ FS_STATUS_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/co
 # Foreground color when there are only files in input/.../wait (no direct input files)
 WAIT_WARNING_COLOR = "#C07A2A"  # yellow-ish with a slight red tint
 
+# Ignore common OS metadata files that should not be treated as user content.
+IGNORED_BASENAMES = {"thumbs.db", "desktop.ini", ".ds_store"}
+
 
 def _read_fs_status_properties(file_path: str) -> dict:
     """Read .fs_status.properties (key=value per line). Returns dict of key->int where possible."""
@@ -1229,6 +1232,7 @@ class SpreadsheetApp(QMainWindow):
                                     onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
                                     # Only count files that have a suffix (dot in basename)
                                     onlyfiles = [f for f in onlyfiles if '.' in f]
+                                    onlyfiles = [f for f in onlyfiles if f.lower() not in IGNORED_BASENAMES]
                                     info_in['count'] = len(onlyfiles)
                                 except Exception:
                                     pass
@@ -1242,6 +1246,7 @@ class SpreadsheetApp(QMainWindow):
                                         done_files = [f for f in done_files if f.lower() != ".nocleanup"]
                                         done_files = [f for f in done_files if not f.lower().endswith(".txt")]
                                         done_files = [f for f in done_files if '.' in f]
+                                        done_files = [f for f in done_files if f.lower() not in IGNORED_BASENAMES]
                                         info_in['done_count'] = len(done_files)
                                     except Exception:
                                         pass
@@ -1252,6 +1257,7 @@ class SpreadsheetApp(QMainWindow):
                                         err_files = next(os.walk(subfolder_err))[2]
                                         err_files = [f for f in err_files if not f.lower().endswith(".txt")]
                                         err_files = [f for f in err_files if '.' in f]
+                                        err_files = [f for f in err_files if f.lower() not in IGNORED_BASENAMES]
                                         info_in['error_count'] = len(err_files)
                                     except Exception:
                                         pass
@@ -1277,6 +1283,7 @@ class SpreadsheetApp(QMainWindow):
                                     info_out['forward'] = any(f.lower() == "forward.txt" for f in onlyfiles)
                                     onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
                                     onlyfiles = [f for f in onlyfiles if '.' in f]
+                                    onlyfiles = [f for f in onlyfiles if f.lower() not in IGNORED_BASENAMES]
                                     info_out['count'] = len(onlyfiles)
                                 except Exception:
                                     pass
