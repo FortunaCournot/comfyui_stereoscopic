@@ -65,38 +65,11 @@ COLS = 4
 PIN_STATE_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/pin.properties'))
 UNUSED_STATE_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/unused.properties'))
 
-# FS status property file (written by api/compute_fs_status.py)
-FS_STATUS_FILE = os.path.abspath(os.path.join(path, '../../../../user/default/comfyui_stereoscopic/.fs_status.properties'))
-
 # Foreground color when there are only files in input/.../wait (no direct input files)
 WAIT_WARNING_COLOR = "#C07A2A"  # yellow-ish with a slight red tint
 
 # Ignore common OS metadata files that should not be treated as user content.
 IGNORED_BASENAMES = {"thumbs.db", "desktop.ini", ".ds_store"}
-
-
-def _read_fs_status_properties(file_path: str) -> dict:
-    """Read .fs_status.properties (key=value per line). Returns dict of key->int where possible."""
-    props: dict = {}
-    try:
-        with open(file_path, 'r', encoding='utf-8', errors='replace') as fh:
-            for raw in fh:
-                line = raw.strip()
-                if not line or line.startswith('#') or '=' not in line:
-                    continue
-                k, v = line.split('=', 1)
-                k = k.strip()
-                v = v.strip()
-                if not k:
-                    continue
-                try:
-                    props[k] = int(v)
-                except Exception:
-                    # keep raw if non-numeric; currently we only need numeric counts
-                    pass
-    except Exception:
-        return {}
-    return props
 
 def _load_flag_file(file_path: str) -> dict:
     """Load a simple properties file with keys 'stage','task','customtask' mapping to comma-separated lists.
@@ -1206,19 +1179,6 @@ class SpreadsheetApp(QMainWindow):
 
             # Refresh caches every TABLEDATAUPDATETHRESHOLD ticks (or first run)
             if do_refresh or not self._fs_cache['input'] or not self._fs_cache['output']:
-                # Refresh FS status properties (used e.g. for wait counters)
-                try:
-                    fs_mtime = os.path.getmtime(FS_STATUS_FILE) if os.path.exists(FS_STATUS_FILE) else None
-                    if do_refresh or not hasattr(self, '_fs_status_props') or getattr(self, '_fs_status_mtime', None) != fs_mtime:
-                        self._fs_status_props = _read_fs_status_properties(FS_STATUS_FILE) if fs_mtime is not None else {}
-                        self._fs_status_mtime = fs_mtime
-                except Exception:
-                    try:
-                        self._fs_status_props = {}
-                        self._fs_status_mtime = None
-                    except Exception:
-                        pass
-
                 try:
                     for stage in STAGES:
                         # Input side
@@ -1262,12 +1222,17 @@ class SpreadsheetApp(QMainWindow):
                                     except Exception:
                                         pass
 
-                                # wait subfolder count comes from .fs_status.properties (written by compute_fs_status.py)
-                                try:
-                                    key = f"any|input/vr/{stage}/wait"
-                                    info_in['wait_count'] = int(getattr(self, '_fs_status_props', {}).get(key, 0) or 0)
-                                except Exception:
-                                    info_in['wait_count'] = 0
+                                # wait subfolder count (UI-style scanning, like other counters)
+                                subfolder_wait = os.path.join(path, "../../../../input/vr/" + stage + "/wait")
+                                if os.path.exists(subfolder_wait):
+                                    try:
+                                        wait_files = next(os.walk(subfolder_wait))[2]
+                                        wait_files = [f for f in wait_files if not f.lower().endswith(".txt")]
+                                        wait_files = [f for f in wait_files if '.' in f]
+                                        wait_files = [f for f in wait_files if f.lower() not in IGNORED_BASENAMES]
+                                        info_in['wait_count'] = len(wait_files)
+                                    except Exception:
+                                        info_in['wait_count'] = 0
                             self._fs_cache['input'][stage] = info_in
                         except Exception:
                             pass
