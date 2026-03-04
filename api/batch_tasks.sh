@@ -230,19 +230,24 @@ else
 			continue
 		fi
 
+		# Count files directly in this task folder (used for progress like "X of COUNT")
+		COUNT=$(find "$d" -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l | awk '{print $1}')
+		FOLDER_INDEX=0
+
 		# Inner loop: files directly in this task folder that have a suffix (contain a dot)
 		while IFS= read -r -d '' nextinputfile; do
 			[ -e "$nextinputfile" ] || continue
 			# pipelinepause must be checked at the start of the inner loop
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			processed_any=1
+			FOLDER_INDEX=$((FOLDER_INDEX + 1))
 
 			INPUTDIR=`dirname -- "$nextinputfile"`
 			# TASKNAME already known from outer loop (folder name)
 
 			INDEX+=1
 			echo "tasks/$TASKNAME" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "$INDEX: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "$FOLDER_INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=$INPUTDIR/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
