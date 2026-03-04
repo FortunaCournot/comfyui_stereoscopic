@@ -21,17 +21,39 @@ def queue_prompt(prompt):
         print(response.status_code, response.text)
 
 
+def load_json_file(path: str):
+    """Load JSON with sane encodings (ComfyUI API exports are typically UTF-8).
+
+    Windows' default cp1252 can throw on bytes like 0x90, so we try UTF-8 first.
+    """
+    last_error = None
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            with open(path, "r", encoding=enc) as f:
+                return json.load(f)
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            last_error = e
+    raise last_error
+
+
 if len(sys.argv) != 6 + 1:
    print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " apifile StartImagePath ControlVideoPath OutputPathPrefix Length Prompt")
 else:
-    with open(sys.argv[1]) as f:
-        prompt = json.load(f)
+    try:
+        prompt = load_json_file(sys.argv[1])
+    except Exception as e:
+        print(f"Error: failed to load api JSON '{sys.argv[1]}': {e}")
+        sys.exit(1)
 
-    prompt["178"]["inputs"]["image"] = sys.argv[2]
-    prompt["174"]["inputs"]["file"] = sys.argv[3]
-    prompt["195"]["inputs"]["value"] = sys.argv[4] 
-    prompt["193"]["inputs"]["value"] = sys.argv[5]
-    prompt["194"]["inputs"]["value"] = sys.argv[6]
-    
+    try:
+        prompt["178"]["inputs"]["image"] = sys.argv[2]
+        prompt["174"]["inputs"]["file"] = sys.argv[3]
+        prompt["195"]["inputs"]["value"] = sys.argv[4]
+        prompt["193"]["inputs"]["value"] = sys.argv[5]
+        prompt["194"]["inputs"]["value"] = sys.argv[6]
+    except Exception as e:
+        print(f"Error: unexpected API graph structure (node missing?): {e}")
+        sys.exit(1)
+
     queue_prompt(prompt)
 
