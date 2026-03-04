@@ -21,10 +21,10 @@ def queue_prompt(prompt):
         print(response.status_code, response.text)
 
 
-if len(sys.argv) not in (3 + 1, 4 + 1):
+if len(sys.argv) not in (4 + 1, 5 + 1):
    print(
        "Invalid arguments were given (" + str(len(sys.argv) - 1) + "). "
-       "Usage: python " + sys.argv[0] + " apifile InputImagePath OutputPathPrefix [prompt]"
+       "Usage: python " + sys.argv[0] + " apifile InputImagePath OutputPathPrefix lorastrength [prompt]"
    )
 else:
     with open(sys.argv[1]) as f:
@@ -32,7 +32,13 @@ else:
 
     prompt["59"]["inputs"]["image"] = sys.argv[2]
     prompt["69"]["inputs"]["filename_prefix"] = sys.argv[3]
-    prompt_text = sys.argv[4] if len(sys.argv) == 5 else ""
+    try:
+        lora_strength = float(sys.argv[4])
+    except Exception:
+        # Keep backward compatibility if a non-numeric value is passed.
+        lora_strength = sys.argv[4]
+    prompt["82"]["inputs"]["value"] = lora_strength
+    prompt_text = sys.argv[5] if len(sys.argv) == 6 else ""
     # Some workflows include an explicit prompt text node.
     if "20" in prompt and "inputs" in prompt["20"] and "value" in prompt["20"]["inputs"]:
         prompt["20"]["inputs"]["value"] = prompt_text

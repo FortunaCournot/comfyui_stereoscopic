@@ -241,7 +241,7 @@ else
 		temp="${temp%\"*}"
 		temp="${temp#*\"}"
 		outputrule="${temp%,*}"
-		[ $loglevel -ge 1 ] && echo "forward output rule = $outputrule"
+		[ $loglevel -ge 2 ] && echo "forward output rule = $outputrule"
 
 		DELAY=0
 		temp=`grep forward_delay $sourcedef`
@@ -483,7 +483,7 @@ else
 			fi
 		done < $forwarddef
 	else
-		[ $loglevel -ge 1 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"
+		[ $loglevel -ge 2 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"
 	fi
 fi
 

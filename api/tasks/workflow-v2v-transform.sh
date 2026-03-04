@@ -107,6 +107,271 @@ extract_timeout() {
 	printf '%s' "$val"
 }
 
+# Extract lorastrength from blueprint JSON; supports float and quoted float.
+extract_lorastrength() {
+	json_file="$1"
+	default_val="1.0"
+	[ -f "$json_file" ] || { printf '%s' "$default_val"; return 0; }
+	# Match: lorastrength: 1 | 1.0 | "0.75"
+	line=$(grep -oE '"lorastrength"[[:space:]]*:[[:space:]]*"?[0-9]+(\.[0-9]+)?"?' "$json_file" | head -n1 || true)
+	[ -n "$line" ] || { printf '%s' "$default_val"; return 0; }
+	val=$(printf '%s' "$line" | sed -E 's/.*:[[:space:]]*"?([0-9]+(\.[0-9]+)?)"?/\1/')
+	# Final sanity: ensure it still looks like a float
+	if printf '%s' "$val" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
+		printf '%s' "$val"
+	else
+		printf '%s' "$default_val"
+	fi
+}
+
+format_hms() {
+	_total="$1"
+	if ! is_int "${_total:-}"; then
+		printf '%s' '??:??:??'
+		return 0
+	fi
+	if [ "$_total" -lt 0 ] 2>/dev/null ; then
+		_total=0
+	fi
+	printf '%02d:%02d:%02d' $((_total/3600)) $((_total%3600/60)) $((_total%60))
+}
+
+# -----------------------------------------------------------------------------
+# Runtime estimator constants (no file IO)
+#
+# NOTE:
+# The user requested that runtime_estimator.* is temporary and must not be
+# loaded/saved. Keep these values as constants in code.
+# -----------------------------------------------------------------------------
+EST_I2I_REF_FRAMES=48
+# AVG_I2I_MS_PER_SEG is interpreted as runtime for EST_I2I_REF_FRAMES frames.
+EST_AVG_I2I_MS_PER_SEG=123169
+EST_AVG_IV2V_MS_PER_FRAME=4723
+# Ratio of non-Comfy time relative to ComfyUI time, per-mille.
+EST_AVG_NONCOMFY_PERMIL=7
+
+estimator_load_stats() {
+	I2I_REF_FRAMES=${EST_I2I_REF_FRAMES:-48}
+	AVG_I2I_MS_PER_SEG=${EST_AVG_I2I_MS_PER_SEG:-0}
+	AVG_IV2V_MS_PER_FRAME=${EST_AVG_IV2V_MS_PER_FRAME:-0}
+	AVG_NONCOMFY_PERMIL=${EST_AVG_NONCOMFY_PERMIL:-0}
+}
+
+estimator_save_stats() {
+	# Disabled by design (no persistence).
+	return 0
+}
+
+# Exponential moving average with alpha=1/5 (integer ms).
+ema_update_ms() {
+	_old="$1"
+	_new="$2"
+	if ! is_int "${_old:-}"; then _old=0; fi
+	if ! is_int "${_new:-}"; then _new=0; fi
+	# new_avg = (4*old + 1*new) / 5
+	echo $(( (4*_old + _new) / 5 ))
+}
+
+task_record_i2i_runtime() {
+	_runtime_s="$1"
+	_seg_frames="$2"
+	if ! is_int "${_runtime_s:-}"; then return 0; fi
+	TASK_I2I_DONE=$((TASK_I2I_DONE + 1))
+	TASK_I2I_TIME_S=$((TASK_I2I_TIME_S + _runtime_s))
+	if is_int "${_seg_frames:-}" && [ "${_seg_frames:-0}" -gt 0 ] 2>/dev/null; then
+		TASK_I2I_DONE_FRAMES=$((TASK_I2I_DONE_FRAMES + _seg_frames))
+	else
+		# Fallback: treat it as one reference-segment worth of work.
+		TASK_I2I_DONE_FRAMES=$((TASK_I2I_DONE_FRAMES + ${I2I_REF_FRAMES:-48}))
+		_seg_frames=${I2I_REF_FRAMES:-48}
+	fi
+	# Do not update/persist estimator averages (constants only).
+}
+
+task_mark_i2i_done_no_runtime() {
+	_seg_frames="$1"
+	TASK_I2I_DONE=$((TASK_I2I_DONE + 1))
+	if is_int "${_seg_frames:-}" && [ "${_seg_frames:-0}" -gt 0 ] 2>/dev/null; then
+		TASK_I2I_DONE_FRAMES=$((TASK_I2I_DONE_FRAMES + _seg_frames))
+	else
+		TASK_I2I_DONE_FRAMES=$((TASK_I2I_DONE_FRAMES + ${I2I_REF_FRAMES:-48}))
+	fi
+}
+
+task_record_iv2v_runtime() {
+	_runtime_s="$1"
+	_frames="$2"
+	if ! is_int "${_runtime_s:-}"; then return 0; fi
+	if ! is_int "${_frames:-}" || [ "${_frames:-0}" -le 0 ] 2>/dev/null; then
+		TASK_IV2V_TIME_S=$((TASK_IV2V_TIME_S + _runtime_s))
+		return 0
+	fi
+	TASK_IV2V_DONE_FRAMES=$((TASK_IV2V_DONE_FRAMES + _frames))
+	TASK_IV2V_TIME_S=$((TASK_IV2V_TIME_S + _runtime_s))
+	# Do not update/persist estimator averages (constants only).
+}
+
+task_record_noncomfy_runtime() {
+	_runtime_s="$1"
+	if ! is_int "${_runtime_s:-}"; then return 0; fi
+	if [ "${_runtime_s:-0}" -le 0 ] 2>/dev/null; then return 0; fi
+	TASK_NONCOMFY_TIME_S=$((TASK_NONCOMFY_TIME_S + _runtime_s))
+	# Do not update/persist estimator averages (constants only).
+}
+
+task_log_estimator_recommendations() {
+	# Print copy/paste-friendly recommendations for the estimator constants.
+	# Only on successful runs and only when loglevel > 0.
+	if [ "${loglevel:-0}" -le 0 ] 2>/dev/null; then
+		return 0
+	fi
+
+	ref=${EST_I2I_REF_FRAMES:-48}
+	if ! is_int "${ref:-}" || [ "${ref:-0}" -le 0 ] 2>/dev/null; then ref=48; fi
+
+	echo "=== Estimator calibration (suggested constants) ==="
+	echo "# Copy into workflow-v2v-transform.sh (Runtime estimator constants section)"
+	echo "# Measured this run:"
+	echo "#   i2i:    ${TASK_I2I_TIME_S:-0}s over ${TASK_I2I_DONE_FRAMES:-0} frames"
+	echo "#   iv2v:   ${TASK_IV2V_TIME_S:-0}s over ${TASK_IV2V_DONE_FRAMES:-0} frames"
+	echo "#   noncomfy:${TASK_NONCOMFY_TIME_S:-0}s"
+	echo
+
+	# i2i reference segment time
+	rec_i2i_ms_ref="${EST_AVG_I2I_MS_PER_SEG:-0}"
+	if is_int "${TASK_I2I_TIME_S:-}" && is_int "${TASK_I2I_DONE_FRAMES:-}" \
+		&& [ "${TASK_I2I_TIME_S:-0}" -gt 0 ] 2>/dev/null \
+		&& [ "${TASK_I2I_DONE_FRAMES:-0}" -gt 0 ] 2>/dev/null; then
+		rec_i2i_ms_ref=$(( (TASK_I2I_TIME_S * 1000 * ref) / TASK_I2I_DONE_FRAMES ))
+	fi
+
+	# iv2v ms per frame
+	rec_iv2v_ms_pf="${EST_AVG_IV2V_MS_PER_FRAME:-0}"
+	if is_int "${TASK_IV2V_TIME_S:-}" && is_int "${TASK_IV2V_DONE_FRAMES:-}" \
+		&& [ "${TASK_IV2V_TIME_S:-0}" -gt 0 ] 2>/dev/null \
+		&& [ "${TASK_IV2V_DONE_FRAMES:-0}" -gt 0 ] 2>/dev/null; then
+		rec_iv2v_ms_pf=$(( (TASK_IV2V_TIME_S * 1000) / TASK_IV2V_DONE_FRAMES ))
+	fi
+
+	# noncomfy ratio (per-mille)
+	rec_noncomfy_permil="${EST_AVG_NONCOMFY_PERMIL:-0}"
+	comfy_s=$(( ${TASK_I2I_TIME_S:-0} + ${TASK_IV2V_TIME_S:-0} ))
+	if [ "${comfy_s:-0}" -gt 0 ] 2>/dev/null && is_int "${TASK_NONCOMFY_TIME_S:-}"; then
+		rec_noncomfy_permil=$(( (TASK_NONCOMFY_TIME_S * 1000) / comfy_s ))
+	fi
+
+	echo "EST_I2I_REF_FRAMES=$ref"
+	echo "EST_AVG_I2I_MS_PER_SEG=$rec_i2i_ms_ref"
+	echo "EST_AVG_IV2V_MS_PER_FRAME=$rec_iv2v_ms_pf"
+	echo "EST_AVG_NONCOMFY_PERMIL=$rec_noncomfy_permil"
+	echo "=== /Estimator calibration ==="
+}
+
+# Estimate remaining seconds for the *whole* task based on ComfyUI-only measurements
+# (i2i scaled by workplan framecount using reference-segment timing + iv2v per frame)
+# and workplan counts. Non-Comfy work is included only via a learned ratio (noncomfy/comfy).
+estimate_task_remaining_s() {
+	remaining_ms=0
+	# i2i remaining (scaled by frames / I2I_REF_FRAMES)
+	if is_int "${WP_I2I_PLANNED_FRAMES:-}" && is_int "${TASK_I2I_DONE_FRAMES:-}"; then
+		rem_i2i_frames=$((WP_I2I_PLANNED_FRAMES - TASK_I2I_DONE_FRAMES))
+		if [ "$rem_i2i_frames" -lt 0 ] 2>/dev/null ; then rem_i2i_frames=0; fi
+		ref=${I2I_REF_FRAMES:-48}
+		if ! is_int "${ref:-}" || [ "${ref:-0}" -le 0 ] 2>/dev/null; then ref=48; fi
+		i2i_ms_ref=${AVG_I2I_MS_PER_SEG:-0}
+		if ! is_int "${i2i_ms_ref:-}" || [ "${i2i_ms_ref:-0}" -le 0 ] 2>/dev/null; then
+			# Always provide an estimate (fallback to code constants).
+			i2i_ms_ref=${EST_AVG_I2I_MS_PER_SEG:-37720}
+		fi
+		remaining_ms=$((remaining_ms + (rem_i2i_frames * i2i_ms_ref) / ref ))
+	fi
+	# iv2v remaining frames
+	if is_int "${WP_TOTAL_FRAMES:-}" && is_int "${TASK_IV2V_DONE_FRAMES:-}"; then
+		rem_frames=$((WP_TOTAL_FRAMES - TASK_IV2V_DONE_FRAMES))
+		if [ "$rem_frames" -lt 0 ] 2>/dev/null ; then rem_frames=0; fi
+		iv2v_ms_pf=${AVG_IV2V_MS_PER_FRAME:-0}
+		if ! is_int "${iv2v_ms_pf:-}" || [ "${iv2v_ms_pf:-0}" -le 0 ] 2>/dev/null; then
+			# Always provide an estimate (fallback to code constants).
+			iv2v_ms_pf=${EST_AVG_IV2V_MS_PER_FRAME:-15064}
+		fi
+		remaining_ms=$((remaining_ms + rem_frames * iv2v_ms_pf))
+	fi
+
+	# While a ComfyUI job is in-flight, treat elapsed time within that job as
+	# partial completion so ETA decreases continuously during the wait loops.
+	if [ -n "${TASK_ACTIVE_KIND:-}" ] && is_int "${TASK_ACTIVE_T0:-}" && is_int "${TASK_ACTIVE_FRAMES:-}"; then
+		now=$(date +%s)
+		active_elapsed_s=$((now - TASK_ACTIVE_T0))
+		if [ "$active_elapsed_s" -lt 0 ] 2>/dev/null ; then active_elapsed_s=0; fi
+		active_elapsed_ms=$((active_elapsed_s * 1000))
+		active_expected_ms=0
+		if [ "${TASK_ACTIVE_KIND:-}" = "i2i" ]; then
+			_ref=${I2I_REF_FRAMES:-48}
+			if ! is_int "${_ref:-}" || [ "${_ref:-0}" -le 0 ] 2>/dev/null; then _ref=48; fi
+			_i2i_ms_ref=${AVG_I2I_MS_PER_SEG:-0}
+			if ! is_int "${_i2i_ms_ref:-}" || [ "${_i2i_ms_ref:-0}" -le 0 ] 2>/dev/null; then
+				_i2i_ms_ref=${EST_AVG_I2I_MS_PER_SEG:-37720}
+			fi
+			active_expected_ms=$(( (TASK_ACTIVE_FRAMES * _i2i_ms_ref) / _ref ))
+		elif [ "${TASK_ACTIVE_KIND:-}" = "iv2v" ]; then
+			_iv2v_ms_pf=${AVG_IV2V_MS_PER_FRAME:-0}
+			if ! is_int "${_iv2v_ms_pf:-}" || [ "${_iv2v_ms_pf:-0}" -le 0 ] 2>/dev/null; then
+				_iv2v_ms_pf=${EST_AVG_IV2V_MS_PER_FRAME:-15064}
+			fi
+			active_expected_ms=$(( TASK_ACTIVE_FRAMES * _iv2v_ms_pf ))
+		fi
+		if [ "$active_expected_ms" -gt 0 ] 2>/dev/null && [ "$active_elapsed_ms" -gt 0 ] 2>/dev/null; then
+			deduct_ms=$active_elapsed_ms
+			if [ "$deduct_ms" -gt "$active_expected_ms" ] 2>/dev/null; then deduct_ms=$active_expected_ms; fi
+			if [ "$remaining_ms" -gt 0 ] 2>/dev/null; then
+				remaining_ms=$((remaining_ms - deduct_ms))
+				if [ "$remaining_ms" -lt 0 ] 2>/dev/null; then remaining_ms=0; fi
+			fi
+		fi
+	fi
+	remaining_s=$(( (remaining_ms + 500) / 1000 ))
+	# Apply noncomfy ratio multiplier.
+	ratio_permil="${AVG_NONCOMFY_PERMIL:-0}"
+	if ! is_int "${ratio_permil:-}"; then ratio_permil=0; fi
+	if [ "$ratio_permil" -lt 0 ] 2>/dev/null; then ratio_permil=0; fi
+	# If the ratio isn't set for some reason, fall back to code constant.
+	if [ "$ratio_permil" -eq 0 ] 2>/dev/null && is_int "${EST_AVG_NONCOMFY_PERMIL:-}"; then
+		ratio_permil="${EST_AVG_NONCOMFY_PERMIL:-0}"
+	fi
+	if [ "$ratio_permil" -le 0 ] 2>/dev/null ; then
+		comfy_s=$((TASK_I2I_TIME_S + TASK_IV2V_TIME_S))
+		if [ "$comfy_s" -gt 0 ] 2>/dev/null; then
+			ratio_permil=$(( TASK_NONCOMFY_TIME_S * 1000 / comfy_s ))
+		fi
+	fi
+	echo $(( remaining_s * (1000 + ratio_permil) / 1000 ))
+}
+
+task_progress_suffix() {
+	# Only percent and ETA (whole task) as requested.
+	now=$(date +%s)
+	if ! is_int "${TASK_T0:-}"; then
+		printf '%s' ' progress ?% ETA ??:??:??'
+		return 0
+	fi
+	elapsed=$((now - TASK_T0))
+	if [ "$elapsed" -lt 0 ] 2>/dev/null ; then elapsed=0; fi
+	eta=$(estimate_task_remaining_s)
+	if ! is_int "${eta:-}"; then
+		printf '%s' ' progress ?% ETA ??:??:??'
+		return 0
+	fi
+	total=$((elapsed + eta))
+	if [ "$total" -le 0 ] 2>/dev/null ; then
+		printf '%s' ' progress 0% ETA ??:??:??'
+		return 0
+	fi
+	# progress% = 100 * elapsed / (elapsed + eta)
+	pct=$(( elapsed * 100 / total ))
+	if [ "$pct" -gt 99 ] 2>/dev/null ; then pct=99; fi
+	printf ' progress %s%% ETA %s' "$pct" "$(format_hms "$eta")"
+}
+
 iv2v_generate() {
 	img1="$1"
 	img2="$2"
@@ -122,7 +387,10 @@ iv2v_generate() {
 	control_chunk=`realpath "$control_chunk"`
 	[ $loglevel -lt 2 ] &&
 	set -x
+	nc_t0=$(date +%s)
 	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -vf "select='between(n\,$start\,$end)'" -vsync 0 -c:v libx264 -preset veryfast -crf 18 -an "$control_chunk"
+	nc_t1=$(date +%s)
+	task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 	set +x
 	if [ $? -ne 0 ] || [ ! -s "$control_chunk" ]; then
 		echo -e $"\e[91mError:\e[0m Failed creating control chunk $control_chunk"
@@ -152,12 +420,18 @@ iv2v_generate() {
 	end=`date +%s`
 	secs=0
 	queuecount=""
+	TASK_ACTIVE_KIND=iv2v
+	TASK_ACTIVE_T0=$start
+	TASK_ACTIVE_FRAMES=$frames_to_generate
 	until [ "$queuecount" = "0" ]
 	do
 		sleep 1
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ] ; then
 			echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+			TASK_ACTIVE_KIND=
+			TASK_ACTIVE_T0=
+			TASK_ACTIVE_FRAMES=
 			return 1
 		fi
 		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
@@ -165,8 +439,8 @@ iv2v_generate() {
 
 		end=`date +%s`
 		secs=$((end-start))
-		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-		echo -ne "$itertimemsg         \r"
+		itertimemsg=`printf '%02d:%02d:%02d' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+		echo -ne "$itertimemsg$(task_progress_suffix)         \r"
 		# centralized failover check (sourcing helper on demand)
 		if ! (command -v failover_check >/dev/null 2>&1) ; then
 		  if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
@@ -175,12 +449,20 @@ iv2v_generate() {
 		fi
 		if command -v failover_check >/dev/null 2>&1; then
 		  if ! failover_check "$timeout" "$secs"; then
+		    TASK_ACTIVE_KIND=
+		    TASK_ACTIVE_T0=
+		    TASK_ACTIVE_FRAMES=
 		    return 1
 		  fi
 		fi
 	done
 	runtime=$((end-start))
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
+	# Update estimator with this IV2V runtime and produced frames
+	task_record_iv2v_runtime "$runtime" "$frames_to_generate"
+	TASK_ACTIVE_KIND=
+	TASK_ACTIVE_T0=
+	TASK_ACTIVE_FRAMES=
 
 	EXTENSION=".mp4"
 		# find the most recent converted_*_${EXTENSION} file (ComfyUI may write numbered suffixes)
@@ -283,6 +565,21 @@ else
 	regex="[^/]*$"
 	echo "========== $PROGRESS"`echo $INPUT | grep -oP "$regex"`" =========="
 	
+	# --- Global progress/ETA estimator (whole task) ---
+	TASK_T0=$(date +%s)
+	TASK_I2I_DONE=0
+	TASK_I2I_TIME_S=0
+	TASK_I2I_DONE_FRAMES=0
+	TASK_IV2V_DONE_FRAMES=0
+	TASK_IV2V_TIME_S=0
+	TASK_NONCOMFY_TIME_S=0
+	# workplan-derived planned units (filled after workplan is ready)
+	WP_I2I_PLANNED=0
+	WP_I2I_PLANNED_FRAMES=0
+	WP_TOTAL_FRAMES=0
+	WP_CHUNKS_PLANNED=0
+	estimator_load_stats
+	
 	mkdir -p output/vr/tasks/intermediate
 
 	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/tasks/intermediate/probe.txt`
@@ -380,8 +677,12 @@ else
 	if [ -z "$REUSE_WORKPLAN" ] ; then
 		# Re-encode input to a workflow-specific FPS intermediate file to avoid frame-rate issues
 		echo "Converting input to $SCENE_WORKFLOW_FPS FPS -> $VIDEOINTERMEDIATE"
+		echo "$(task_progress_suffix)"
+		nc_t0=$(date +%s)
 		# Video-only intermediate: audio is muxed from ORIGINALINPUT at the end of the pipeline.
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$INPUT" -filter:v "fps=$SCENE_WORKFLOW_FPS" -c:v libx264 -preset veryfast -crf 18 -an "$VIDEOINTERMEDIATE"
+		nc_t1=$(date +%s)
+		task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 		if [ $? -ne 0 ]; then
 			echo -e $"\e[91mError:\e[0m ffmpeg failed converting to $SCENE_WORKFLOW_FPS FPS"
 			mkdir -p input/vr/tasks/$TASKNAME/error
@@ -413,7 +714,11 @@ else
 		SCENE_THRESHOLD=0.2
 		SCENES_FILE="$INTERMEDIATE_INPUT_FOLDER/scenes.txt"
 		echo "Detecting scenes (threshold=$SCENE_THRESHOLD) -> $SCENES_FILE"
+		echo "$(task_progress_suffix)"
+		nc_t0=$(date +%s)
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -filter:v "select='gt(scene,$SCENE_THRESHOLD)',showinfo" -f null - 2>&1 | grep showinfo | grep pts_time:[0-9.]\* -o | grep [0-9.]\* -o > "$SCENES_FILE"
+		nc_t1=$(date +%s)
+		task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 		echo "Wrote s -> $SCENES_FILE"
 		echo "---"
 		cat $SCENES_FILE
@@ -658,6 +963,36 @@ else
 			seg_count=$(echo "$segments_start_vals" | awk -F, '{print NF}')
 		fi
 		echo "$seg_count segments found in $WORKPLAN_FILE"
+		# Workplan totals used for global ETA/progress estimation
+		WP_CHUNKS_PLANNED=$seg_count
+		WP_TOTAL_FRAMES=0
+		WP_I2I_PLANNED=0
+		WP_I2I_PLANNED_FRAMES=0
+		for _i in $(seq 1 $seg_count); do
+			_fc=$(echo "$segments_framecount_vals" | cut -d',' -f$_i | tr -d '[:space:]')
+			if is_int "$_fc" && [ "$_fc" -ge 0 ] 2>/dev/null ; then
+				WP_TOTAL_FRAMES=$((WP_TOTAL_FRAMES + _fc))
+			fi
+			# i2i planned segments: all when FORCE_START=1, else only scenestart==1
+			if [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null ; then
+				WP_I2I_PLANNED=$((WP_I2I_PLANNED + 1))
+				if is_int "$_fc" && [ "$_fc" -gt 0 ] 2>/dev/null; then
+					WP_I2I_PLANNED_FRAMES=$((WP_I2I_PLANNED_FRAMES + _fc))
+				fi
+			else
+				_sc=1
+				if [ -n "$segments_scenestart_vals" ]; then
+					_sc=$(echo "$segments_scenestart_vals" | cut -d',' -f$_i | tr -d '[:space:]')
+					_sc=${_sc:-1}
+				fi
+				if [ "${_sc:-1}" -eq 1 ] 2>/dev/null ; then
+					WP_I2I_PLANNED=$((WP_I2I_PLANNED + 1))
+					if is_int "$_fc" && [ "$_fc" -gt 0 ] 2>/dev/null; then
+						WP_I2I_PLANNED_FRAMES=$((WP_I2I_PLANNED_FRAMES + _fc))
+					fi
+				fi
+			fi
+		done
 		# iterate by index (1-based fields for cut)
 		for idx in $(seq 1 $seg_count); do
 			# determine scenestart flag (default 1)
@@ -712,7 +1047,10 @@ else
 			# extract start frame only if scenestart == 1, unless FORCE_START is enabled (ffmpeg expects 0-based index)
 			if [ "$scenestart" -eq 1 ] || [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null; then
 				if [ ! -f "$tgt_start_img" ]; then
+					nc_t0=$(date +%s)
 					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$start0)" -vframes 1 -q:v 2 "$tgt_start_img"
+					nc_t1=$(date +%s)
+					task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 					if [ $? -ne 0 ]; then
 						echo "Warning: failed extracting start frame $start0 for segment $seg_index"
 					fi
@@ -771,7 +1109,8 @@ else
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
 		if [ -f "$first_img" ] ; then   # deactivated: && [ -f "$last_img" ]
-			# i2i outputs already present for this segment, skip
+			# i2i outputs already present for this segment, skip but count towards progress/ETA
+			task_mark_i2i_done_no_runtime "${seg_cnt:-}"
 			continue
 		fi
 		# iterate the two representative images for the segment (input images)
@@ -802,16 +1141,20 @@ else
 			prompt=${prompt:-""}
 			# optional timeout (seconds) to trigger failover restart of ComfyUI
 			timeout=$(extract_timeout "$BLUEPRINTCONFIG")
+			lorastrength=$(extract_lorastrength "$BLUEPRINTCONFIG")
 			
 			INPUT=`realpath "$img"`
 			[ $loglevel -lt 2 ] && set -x
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$prompt"
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$lorastrength" "$prompt"
 			set +x && [ $loglevel -ge 2 ] && set -x
 
 			start=`date +%s`
 			end=`date +%s`
 			secs=0
 			queuecount=""
+			TASK_ACTIVE_KIND=i2i
+			TASK_ACTIVE_T0=$start
+			TASK_ACTIVE_FRAMES=${seg_cnt:-${I2I_REF_FRAMES:-48}}
 			until [ "$queuecount" = "0" ]
 			do
 				sleep 1
@@ -820,6 +1163,9 @@ else
 				if test $# -ne 0
 				then	
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+					TASK_ACTIVE_KIND=
+					TASK_ACTIVE_T0=
+					TASK_ACTIVE_FRAMES=
 					exit 0
 				fi
 				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
@@ -827,8 +1173,8 @@ else
 			
 				end=`date +%s`
 				secs=$((end-start))
-				itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
-				echo -ne "$itertimemsg         \r"
+				itertimemsg=`printf '%02d:%02d:%02d' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+				echo -ne "$itertimemsg$(task_progress_suffix)         \r"
 				# centralized failover check (sourcing helper on demand)
 				if ! (command -v failover_check >/dev/null 2>&1) ; then
 				  if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
@@ -837,12 +1183,20 @@ else
 				fi
 				if command -v failover_check >/dev/null 2>&1; then
 				  if ! failover_check "$timeout" "$secs"; then
+				    TASK_ACTIVE_KIND=
+				    TASK_ACTIVE_T0=
+				    TASK_ACTIVE_FRAMES=
 				    retry_once_or_error "Timeout/failover triggered while waiting for i2i to finish"
 				  fi
 				fi
 			done
 			runtime=$((end-start))
 			[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
+			# Update estimator with this i2i runtime
+			task_record_i2i_runtime "$runtime" "${seg_cnt:-}"
+			TASK_ACTIVE_KIND=
+			TASK_ACTIVE_T0=
+			TASK_ACTIVE_FRAMES=
 
 			EXTENSION=".png"
 			# find most recent converted_*_${EXTENSION} (ComfyUI writes converted_00002_.png etc.)
@@ -957,10 +1311,18 @@ else
 		# If first_img is missing, try to extract the last frame from the previously generated chunk
 		if [ ! -f "$first_img" ]; then
 			if [ "${scenestart_iv2v:-1}" -eq 1 ] 2>/dev/null ; then
-				echo -e $"\e[91mError:\e[0m Missing first image for scene-start segment $seg_index ($base). Expected a freshly generated first image; refusing fallback to previous chunk."
-				mkdir -p input/vr/tasks/$TASKNAME/error
-				mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
-				exit 0
+				# Scene-start: do not use previous-chunk fallback. If i2i didn't generate first_img
+				# (resume edge case), fall back to the segment's own extracted start image.
+				seg_start_img="$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png"
+				if [ -s "$seg_start_img" ]; then
+					echo "Scene-start fallback: using extracted start image for $seg_index -> $seg_start_img"
+					cp -f -- "$seg_start_img" "$first_img"
+				else
+					echo -e $"\e[91mError:\e[0m Missing first image for scene-start segment $seg_index ($base), and start image is also missing: $seg_start_img"
+					mkdir -p input/vr/tasks/$TASKNAME/error
+					mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
+					exit 0
+				fi
 			fi
 			prev_chunk_index=$((chunk_index - 1))
 			if [ "$prev_chunk_index" -ge 0 ] 2>/dev/null ; then
@@ -969,7 +1331,10 @@ else
 				if [ -f "$prev_chunk" ]; then
 					echo "Fallback: extracting first image from last frame of $prev_chunk"
 					# use -sseof to seek from end and grab one frame (works for most ffmpeg builds)
+					nc_t0=$(date +%s)
 					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -sseof -0.1 -i "$prev_chunk" -vframes 1 -q:v 2 "$first_img"
+					nc_t1=$(date +%s)
+					task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 					if [ $? -ne 0 ] || [ ! -s "$first_img" ]; then
 						echo "Error: failed extracting fallback first image from $prev_chunk"
 						rm -f -- "$first_img" 2>/dev/null || true
@@ -1155,6 +1520,7 @@ else
 	
 
 	echo "=== STEP 5: concat video segements to final video, and apply audio from source video."
+	echo "$(task_progress_suffix)"
 
 	# Build concat list from chunk_*.mp4 in numeric order (chunk_0, chunk_1, ...)
 	concat_list="$INTERMEDIATE_INPUT_FOLDER/concat_list.txt"
@@ -1193,11 +1559,17 @@ else
 
 	# Try concat with stream copy; fall back to re-encode if that fails
 	set -x
+	nc_t0=$(date +%s)
 	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -f concat -safe 0 -i "$concat_list" -c copy "$concat_video"
+	nc_t1=$(date +%s)
+	task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 	set +x
 	if [ $? -ne 0 ]; then
 		echo "Warning: concat (stream copy) failed, retrying with re-encode"
+		nc_t0=$(date +%s)
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -f concat -safe 0 -i "$concat_list" -c:v libx264 -preset veryfast -crf 18 -c:a copy "$concat_video"
+		nc_t1=$(date +%s)
+		task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 		if [ $? -ne 0 ]; then
 			echo -e $"\e[91mError:\e[0m Failed creating concatenated video"
 			mkdir -p input/vr/tasks/$TASKNAME/error
@@ -1218,7 +1590,10 @@ else
 	if [ -n "$audio_stream_index" ]; then
 		# Map video from concat and the first audio stream of the original; re-encode audio to AAC
 		set -x
+		nc_t0=$(date +%s)
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
+		nc_t1=$(date +%s)
+		task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 		set +x
 		if [ $? -ne 0 ]; then
 			echo -e $"\e[91mError:\e[0m Failed muxing audio into final video"
@@ -1237,6 +1612,7 @@ else
 	mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
 	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 	rm -rf -- $INTERMEDIATE_OUTPUT_FOLDER
+	task_log_estimator_recommendations
 	echo -e $"\e[92mSuccess:\e[0m Final video written -> $FINALVIDEO"
 fi
 exit 0

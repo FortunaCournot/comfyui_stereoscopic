@@ -31,4 +31,24 @@ Run these before attempting pytest:
   - to run in the **same Python environment** as ComfyUI (where `folder_paths` is importable), and
   - `torch` installed in that same environment.
 
+## Bash on Windows (avoid WSL trap)
+On this machine, `bash` resolves to `C:\Windows\System32\bash.exe` first, which is the WSL launcher.
+If WSL has no distro installed, any attempt like `bash -n ...` fails with the “no installed distributions” message.
+
+Use Git for Windows’ bash instead:
+- `C:\Program Files\Git\bin\bash.exe`
+
+Example syntax-check for scripts:
+- `& "C:\Program Files\Git\bin\bash.exe" -n "api/tasks/workflow-v2v-transform.sh"`
+
+## batch_tasks.sh: is_disabled() perceived slowness (parked)
+User observation: batch startup feels slow with dozens of task folders.
+
+Current assessment (no code changes requested):
+- `is_disabled()` itself is lightweight logically, but it spawns external processes per call (`awk`, `tr`, plus `sed` per value) and is called twice per task folder; on Git Bash/Windows process startup overhead can be noticeable.
+- Likely larger contributors are filesystem scans like `find ... | wc -l` per folder and the `find ... -print0` loops.
+
+Suggested next-day verification (no code changes):
+- Temporarily rename `user/default/comfyui_stereoscopic/unused.properties` and compare startup speed; if faster, `is_disabled()` cost is material.
+
 (These notes exist so the agent/user avoids repeating the same environment setup mistakes.)
