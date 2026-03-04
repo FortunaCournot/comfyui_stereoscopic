@@ -424,11 +424,17 @@ else
 		cat $INTERMEDIATE_INPUT_FOLDER/probe.txt
 		echo "---"
 		frame_count=$(grep -oP '(?<="nb_frames": ")[^\"]*' $INTERMEDIATE_INPUT_FOLDER/probe.txt | head -n1)
-		if [ -z "$FPSlast_frame" ]; then
+		if [ -z "$frame_count" ]; then
 			# fallback: try without lookbehind (older grep)
 			frame_count=$(grep -o '"nb_frames"[[:space:]]*:[[:space:]]*"[^"]*"' $INTERMEDIATE_INPUT_FOLDER/probe.txt | sed -E 's/.*"([0-9\/\.]+)".*/\1/' | head -n1)
 		fi
 		echo "Total frames in video: $frame_count"
+		if ! expr "$frame_count" : '[0-9][0-9]*$' >/dev/null 2>&1 ; then
+			echo -e $"\e[91mError:\e[0m Could not determine frame count from ffprobe (nb_frames='$frame_count')."
+			mkdir -p input/vr/tasks/$TASKNAME/error
+			mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+			exit 0
+		fi
 		last_frame=$((frame_count - 1))
 		# iterate scenes and print each scene time (will be used later to build segments_json)
 		# initialize segments arrays: frame counts, start indices, end indices
@@ -440,22 +446,27 @@ else
 		if [ -e "$SCENES_FILE" ]; then
 			idx=0
 			prev_frame=0
-			remaining_frame_count=$frame_count
 			while IFS= read -r scene_time || [ -n "$scene_time" ]; do
 				# compute frame index for the scene time (intermediate video uses $SCENE_WORKFLOW_FPS FPS)
 				frame_index=$(awk -v t="$scene_time" -v fps="$SCENE_WORKFLOW_FPS" 'BEGIN{printf "%d", int(t*fps+0.5)}')
 				# calculate number of target frames
 				scene_frames=$((frame_index - prev_frame))
 				echo "Scene frames in video: $scene_frames (time: $scene_time, frame index: $frame_index)"
+				# Apply offsets and clamp to valid range.
 				idx_a=$((prev_frame + SCENE_OFFSET_START))
-				idx_b=$((frame_index - 1 - SCENE_OFFSET_END))
-				idx_seg_end=$idx_b
-				# output: index previous_frame_index current_frame_index
-				seg_effectiveframes=$((frame_index - prev_frame))
-				seg_frames=$scene_frames
-				if [ $seg_frames -lt 1 ] ; then
+				idx_seg_end=$((frame_index - 1 - SCENE_OFFSET_END))
+				# clamp to [0..last_frame]
+				[ $idx_a -lt 0 ] && idx_a=0
+				[ $idx_seg_end -lt 0 ] && idx_seg_end=0
+				[ $idx_a -gt $last_frame ] && idx_a=$last_frame
+				[ $idx_seg_end -gt $last_frame ] && idx_seg_end=$last_frame
+				# compute effective frames after offsets; if empty, skip but still advance prev_frame
+				seg_effectiveframes=$((idx_seg_end - idx_a + 1))
+				if [ $seg_effectiveframes -lt 1 ] ; then
+					prev_frame=$frame_index
 					continue
 				fi
+				seg_frames=$seg_effectiveframes
 				# split for SCENE_SEG_MAX_FRAMES
 				# track whether this is the first chunk of the current scene
 				scene_first_chunk=1
@@ -484,7 +495,6 @@ else
 					idx=$((idx+1))
 					seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
 					seg_frames=$((seg_frames - SCENE_SEG_MAX_FRAMES))
-					remaining_frame_count=$((remaining_frame_count - SCENE_SEG_MAX_FRAMES))	
 					echo "  Split segment chunk: start=$idx_a frames=$SCENE_SEG_MAX_FRAMES"
 					idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
 				done
@@ -509,16 +519,20 @@ else
 						segments_scenestart_json="${segments_scenestart_json},${scenestart_val}"
 					fi
 				prev_frame=$frame_index
-				remaining_frame_count=$((remaining_frame_count - seg_frames))	
 				echo "  Split segment chunk: start=$idx_a frames=$seg_frames"
 				idx=$((idx+1))
 			done < "$SCENES_FILE"
 			# compute final segment start/end with offsets
 			final_start=$((prev_frame + SCENE_OFFSET_START))
 			final_end=$((last_frame - SCENE_OFFSET_END))
-			seg_effectiveframes=$((final_end - final_start + 1))
-			idx_a=$final_start
-			echo "Final frames in video: $remaining_frame_count (frame index: $final_start)"
+				# clamp and compute effective final frames
+				[ $final_start -lt 0 ] && final_start=0
+				[ $final_end -lt 0 ] && final_end=0
+				[ $final_start -gt $last_frame ] && final_start=$last_frame
+				[ $final_end -gt $last_frame ] && final_end=$last_frame
+				seg_effectiveframes=$((final_end - final_start + 1))
+				idx_a=$final_start
+				echo "Final frames in video: $seg_effectiveframes (frame index: $final_start)"
 			# split final segment into chunks of at most SCENE_SEG_MAX_FRAMES
 				# treat the final scene similarly: track first-chunk-in-scene
 				scene_first_chunk=1
@@ -543,12 +557,12 @@ else
 						segments_scenestart_json="${segments_scenestart_json},${scenestart_val}"
 					fi
 					seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
-					remaining_frame_count=$((remaining_frame_count - SCENE_SEG_MAX_FRAMES))	
 					echo "  Split segment chunk: start=$idx_a frames=$SCENE_SEG_MAX_FRAMES"
 					idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
 				done
 				# append remaining frames (if any) — this chunk is the first of the final scene iff scene_first_chunk==1
-				if [ $remaining_frame_count -gt 0 ] ; then
+				if [ $seg_effectiveframes -gt 0 ] ; then
+					idx_seg_end=$((idx_a + seg_effectiveframes - 1))
 					if [ $scene_first_chunk -eq 1 ] ; then
 						scenestart_val=1
 						scene_first_chunk=0
@@ -557,17 +571,17 @@ else
 					fi
 					if [ $is_first_segment -eq 1 ] ; then
 						is_first_segment=0
-						segments_framecount_json="[${remaining_frame_count}"
+						segments_framecount_json="[${seg_effectiveframes}"
 						segments_start_json="[${idx_a}"
-						segments_end_json="[${idx_b}"
+						segments_end_json="[${idx_seg_end}"
 						segments_scenestart_json="[${scenestart_val}"
 					else
-						segments_framecount_json="${segments_framecount_json},${remaining_frame_count}"
+						segments_framecount_json="${segments_framecount_json},${seg_effectiveframes}"
 						segments_start_json="${segments_start_json},${idx_a}"
-						segments_end_json="${segments_end_json},${idx_b}"
+						segments_end_json="${segments_end_json},${idx_seg_end}"
 						segments_scenestart_json="${segments_scenestart_json},${scenestart_val}"
 					fi
-					echo "  Split segment chunk: start=$idx_a frames=$remaining_frame_count"
+					echo "  Split segment chunk: start=$idx_a frames=$seg_effectiveframes"
 				fi
 		else
 			echo "(no scenes)"
@@ -579,6 +593,12 @@ else
 		segments_scenestart_json="${segments_scenestart_json}]"
 		echo "{\"source\": \"${ORIG_BASENAME}\", \"scenes\": $scenes_json, \"segments_framecount\": $segments_framecount_json, \"segments_start\": $segments_start_json, \"segments_end\": $segments_end_json, \"scenestart\": $segments_scenestart_json}" > "$WORKPLAN_FILE"
 		echo "Wrote workplan -> $WORKPLAN_FILE"
+
+		# Workplan was regenerated: remove stale extracted images/segment metadata so STEP 3
+		# cannot pick up old segment folders that don't match the new plan.
+		rm -rf -- "$INTERMEDIATE_INPUT_FOLDER/segdata" 2>/dev/null || true
+		rm -f -- "$INTERMEDIATE_INPUT_FOLDER"/start_*.png "$INTERMEDIATE_INPUT_FOLDER"/end_*.png 2>/dev/null || true
+		rm -f -- "$INTERMEDIATE_INPUT_FOLDER"/first_*.png "$INTERMEDIATE_INPUT_FOLDER"/last_*.png 2>/dev/null || true
 	fi
 
 	if [ -e "$WORKPLAN_FILE" ]; then
