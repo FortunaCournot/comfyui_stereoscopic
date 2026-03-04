@@ -202,47 +202,47 @@ else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
 
-		# Count files located directly inside each immediate task subfolder only
-		# (ignore deeper nested subdirectories which are irrelevant)
-		COUNT=0
-		# shell glob for immediate subdirs (trailing slash ensures directories)
-		shopt_glob=0
-		# bash-only: use globbing; fallback to find-based count if glob fails
-		if ls -d input/vr/tasks/*/ >/dev/null 2>&1; then
-			# Use a single find invocation with multiple starting points to avoid per-dir forks
-			COUNT=$(find input/vr/tasks/*/ -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l)
-		else
-			# no task subdirs
-			COUNT=0
-		fi
+	# Enumerate task folders, then enumerate files directly inside each folder.
+	# This avoids counting/caching mistakes (e.g. intermediate outputs) and is robust.
 	declare -i INDEX=0
-	if [[ $COUNT -gt 0 ]] ; then
-		TASKFILES=`find input/vr/tasks/*/ -maxdepth 1 -type f`
-		echo "Potential files found: $COUNT. Starting batch processing of tasks in input/vr/tasks ..."
-		for nextinputfile in $TASKFILES ; do
+	processed_any=0
+	echo "Starting batch processing of tasks in input/vr/tasks ..."
+	shopt -s nullglob
+	for d in input/vr/tasks/*/; do
+		[ -d "$d" ] || continue
+		TASKNAME=${d%/}
+		TASKNAME=${TASKNAME##*/}
+		# Skip internal folders
+		if [ "$TASKNAME" = "intermediate" ] || [ "$TASKNAME" = "trashbin" ]; then
+			continue
+		fi
+
+		# Skip tasks marked as unused/disabled in unused.properties (do this once per folder)
+		if [[ "$TASKNAME" == _* ]] ; then
+			cand1="tasks/$TASKNAME"
+			cand2="tasks/${TASKNAME#_}"
+		else
+			cand1="tasks/$TASKNAME"
+			cand2="tasks/_$TASKNAME"
+		fi
+		if is_disabled "$cand1" || is_disabled "$cand2" ; then
+			[ $loglevel -ge 1 ] && echo "Skipping disabled task folder $cand1 / $cand2"
+			continue
+		fi
+
+		# Inner loop: files directly in this task folder that have a suffix (contain a dot)
+		while IFS= read -r -d '' nextinputfile; do
 			[ -e "$nextinputfile" ] || continue
+			# pipelinepause must be checked at the start of the inner loop
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+			processed_any=1
 
-			INPUTDIR=`dirname -- $nextinputfile`
-			TASKNAME=${INPUTDIR##*/}
-
-			# Skip tasks marked as unused/disabled in unused.properties
-			if [[ "$TASKNAME" == _* ]] ; then
-				cand1="tasks/$TASKNAME"
-				cand2="tasks/${TASKNAME#_}"
-			else
-				cand1="tasks/$TASKNAME"
-				cand2="tasks/_$TASKNAME"
-			fi
-			if is_disabled "$cand1" || is_disabled "$cand2" ; then
-				[ $loglevel -ge 1 ] && echo "Skipping job disabled task $cand1 / $cand2"
-				continue
-			fi
-
+			INPUTDIR=`dirname -- "$nextinputfile"`
+			# TASKNAME already known from outer loop (folder name)
 
 			INDEX+=1
 			echo "tasks/$TASKNAME" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "$INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "$INDEX: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			newfn=${nextinputfile##*/}
 			newfn=$INPUTDIR/${newfn//[^[:alnum:].-]/_}
 			newfn=${newfn// /_}
@@ -255,7 +255,7 @@ else
 
 			taskpath=${INPUTDIR##*/}
 			DISPLAYNAME=$taskpath
-			echo "$INDEX/$COUNT $DISPLAYNAME" >input/vr/tasks/BATCHPROGRESS.TXT
+			echo "$INDEX $DISPLAYNAME" >input/vr/tasks/BATCHPROGRESS.TXT
 			
 			if [[ $taskpath == "_"* ]] ; then
 				jsonblueprint="user/default/comfyui_stereoscopic/tasks/"${taskpath:1}".json"
@@ -356,9 +356,11 @@ else
 			end_ms=$(now_ms)
 			elapsed_ms=$((end_ms - start_ms))
 			if [ ${loglevel:-0} -ge 1 ] ; then
-				echo "Iteration $INDEX/$COUNT tasks/$TASKNAME took ${elapsed_ms} ms"
+				echo "Iteration $INDEX tasks/$TASKNAME took ${elapsed_ms} ms"
 			fi
-		done
+		done < <(find "$d" -maxdepth 1 -type f -name '*.*' -print0 2>/dev/null)
+	done
+	if [ "$processed_any" = "1" ]; then
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	fi
 	rm -f input/vr/tasks/BATCHPROGRESS.TXT

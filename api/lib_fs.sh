@@ -306,4 +306,57 @@ if [ -z "$PYTHON" ]; then
     }
 fi
 
+# Compute number of task files under a tasks base folder, excluding disabled tasks
+# listed in unused.properties and excluding special folders (intermediate/, trashbin/).
+#
+# Usage:
+#   compute_task_count [base] [unused_props]
+# Defaults:
+#   base=input/vr/tasks
+#   unused_props=$UNUSED_PROPS or ./user/default/comfyui_stereoscopic/unused.properties
+compute_task_count() {
+    local base unused_props disabled_raw
+    base="${1:-input/vr/tasks}"
+    unused_props="${2:-${UNUSED_PROPS:-./user/default/comfyui_stereoscopic/unused.properties}}"
+    base="${base%/}"
+
+    if [ ! -d "$base" ]; then
+        echo 0
+        return
+    fi
+
+    disabled_raw=""
+    if [ -f "$unused_props" ]; then
+        disabled_raw=$(awk -F"=" '$1=="task" || $1=="customtask" {print $2}' "$unused_props" | tr -d '\r' | paste -sd "," -)
+    fi
+
+    # Count files located directly inside each immediate task subfolder only (-mindepth 2 -maxdepth 2).
+    # Exclude base/intermediate and base/trashbin.
+    find "$base" -mindepth 2 -maxdepth 2 -type f \
+        ! -path "$base/intermediate/*" \
+        ! -path "$base/trashbin/*" \
+        -printf '%h\n' 2>/dev/null | awk -v disabled="${disabled_raw}" -F'/' '
+    BEGIN{
+        n=split(disabled, arr, ",")
+        for(i=1;i<=n;i++){
+            v=arr[i]
+            gsub(/^[ \t]+|[ \t]+$/,"",v)
+            if(v!="") dis[v]=1
+        }
+    }
+    {
+        parent=$NF
+        cand1="tasks/"parent
+        cand2="tasks/_"parent
+        if(substr(parent,1,1)=="_"){
+            cand3="tasks/"substr(parent,2)
+        } else {
+            cand3=""
+        }
+        if(dis[cand1] || dis[cand2] || (cand3!="" && dis[cand3])) next
+        count++
+    }
+    END{print count+0}'
+}
+
 return 0
