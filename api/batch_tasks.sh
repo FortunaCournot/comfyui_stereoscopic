@@ -364,11 +364,11 @@ else
 				echo "Iteration $INDEX tasks/$TASKNAME took ${elapsed_ms} ms"
 			fi
 		done < <(find "$d" -maxdepth 1 -type f -name '*.*' -print0 2>/dev/null)
+		rm -f user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
+		rm -f input/vr/tasks/BATCHPROGRESS.TXT 2>/dev/null
 	done
-	if [ "$processed_any" = "1" ]; then
-		rm -f user/default/comfyui_stereoscopic/.daemonstatus
-	fi
-	rm -f input/vr/tasks/BATCHPROGRESS.TXT
+	rm -f user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
+	rm -f input/vr/tasks/BATCHPROGRESS.TXT 2>/dev/null
 	echo "Batch done."
 
 fi
