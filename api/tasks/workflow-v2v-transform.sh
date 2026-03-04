@@ -44,6 +44,69 @@ assertlimit() {
 	fi
 } 
 
+# Find the most recent ComfyUI output file for a given extension.
+# ComfyUI may treat filename_prefix as a subfolder (e.g. "converted/").
+find_latest_converted() {
+	out_folder="$1"
+	ext="$2"
+	# shellcheck disable=SC2012
+	ls -1t "$out_folder"/converted/converted_*"${ext}" "$out_folder"/converted_*"${ext}" 2>/dev/null | head -n1 || true
+}
+
+# Wait (best-effort) for a ComfyUI output file to appear and be non-empty.
+wait_for_converted() {
+	out_folder="$1"
+	ext="$2"
+	timeout_s=${3:-15}
+	step_s=${4:-1}
+	elapsed=0
+	while [ "$elapsed" -lt "$timeout_s" ]; do
+		f=$(find_latest_converted "$out_folder" "$ext")
+		if [ -n "$f" ] && [ -s "$f" ]; then
+			printf '%s' "$f"
+			return 0
+		fi
+		sleep "$step_s"
+		elapsed=$((elapsed + step_s))
+	done
+	return 1
+}
+
+is_int() {
+	# returns 0 if $1 is an integer (possibly negative), else 1
+	expr "${1:-}" : '[-0-9][0-9]*$' >/dev/null 2>&1
+}
+
+format_frames_progress() {
+	start_idx="$1"
+	count="$2"
+	total="$3"
+	if is_int "$start_idx" && is_int "$count" && [ "$count" -ge 1 ] 2>/dev/null; then
+		end_idx=$((start_idx + count - 1))
+		if is_int "$total" && [ "$total" -ge 1 ] 2>/dev/null; then
+			echo "frames ${start_idx} to ${end_idx} of ${total} (count: ${count})"
+		else
+			echo "frames ${start_idx} to ${end_idx} (count: ${count})"
+		fi
+		return 0
+	fi
+	if is_int "$count" && [ "$count" -ge 1 ] 2>/dev/null; then
+		echo "frames (count: ${count})"
+		return 0
+	fi
+	return 1
+}
+
+# Extract timeout (seconds) from blueprint JSON; supports numeric and quoted numeric.
+extract_timeout() {
+	json_file="$1"
+	[ -f "$json_file" ] || return 0
+	line=$(grep -oE '"timeout"[[:space:]]*:[[:space:]]*"?[0-9]+"?' "$json_file" | head -n1 || true)
+	[ -n "$line" ] || return 0
+	val=$(printf '%s' "$line" | sed -E 's/.*:[[:space:]]*"?([0-9]+)"?/\1/')
+	printf '%s' "$val"
+}
+
 iv2v_generate() {
 	img1="$1"
 	img2="$2"
@@ -73,7 +136,7 @@ iv2v_generate() {
 	iv2v_api=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	# optional timeout (seconds) to trigger failover restart of ComfyUI
-	timeout=`cat "$BLUEPRINTCONFIG" | grep -o '"timeout":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	timeout=$(extract_timeout "$BLUEPRINTCONFIG")
 	img1=`realpath "$img1"`
 	[ $loglevel -ge 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt"
@@ -115,7 +178,8 @@ iv2v_generate() {
 
 	EXTENSION=".mp4"
 		# find the most recent converted_*_${EXTENSION} file (ComfyUI may write numbered suffixes)
-		INTERMEDIATE=`ls -1t "$INTERMEDIATE_OUTPUT_FOLDER"/converted_*"${EXTENSION}" 2>/dev/null | head -n1 || true`
+		# Wait a bit because ComfyUI may finalize writes slightly after queue becomes empty.
+		INTERMEDIATE=$(wait_for_converted "$INTERMEDIATE_OUTPUT_FOLDER" "$EXTENSION" 20 1) || true
 
 	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
 		mv -vf -- "$INTERMEDIATE" "$chunk_file"
@@ -140,7 +204,7 @@ else
 	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 	# API relative to COMFYUIPATH, or absolute path:
-	SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/workflow/i2i_transition.py
+	SCRIPTPATH1=./custom_nodes/comfyui_stereoscopic/api/python/workflow/i2i_transition.py
 	SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/python/workflow/iv2v_transition.py
 
 	NOLINE=-ne
@@ -223,6 +287,23 @@ else
 	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
 	mkdir -p $FINALTARGETFOLDER
 
+	# One-time auto-retry for transient failures:
+	# Sometimes ComfyUI finishes the queue but the output file appears a moment later.
+	# A full re-run usually succeeds because intermediate files are reused.
+	retry_once_or_error() {
+		msg="$1"
+		if [ "${V2V_AUTORETRY_DONE:-0}" != "1" ]; then
+			echo "Warning: $msg"
+			echo "Retrying this task once (reusing intermediate files)..."
+			export V2V_AUTORETRY_DONE=1
+			exec /bin/bash "$0" "$BLUEPRINTCONFIG" "$TASKNAME" "$ORIGINALINPUT"
+		fi
+		echo -e $"\e[91mError:\e[0m $msg (after one retry)"
+		mkdir -p "input/vr/tasks/$TASKNAME/error"
+		mv -- "$ORIGINALINPUT" "input/vr/tasks/$TASKNAME/error"
+		exit 0
+	}
+
 	# Check for existing workplan for this source video (allows resuming)
 	ORIGINALINPUT="$INPUT"
 	ORIG_BASENAME=$(basename "$ORIGINALINPUT")
@@ -251,6 +332,8 @@ else
 	INTERMEDIATE_OUTPUT_FOLDER=$(echo "$INTERMEDIATE_INPUT_FOLDER" | sed 's#^input/#output/#')
 	mkdir -p "$INTERMEDIATE_OUTPUT_FOLDER"
 	INTERMEDIATE_OUTPUT_FOLDER=`realpath "$INTERMEDIATE_OUTPUT_FOLDER"`
+	# Some ComfyUI workflows treat filename_prefix as a subfolder; create it proactively.
+	mkdir -p "$INTERMEDIATE_OUTPUT_FOLDER/converted"
 
 	# create segment helper dir and metadata under segdata with zero-padded index
 	sb_dir="$INTERMEDIATE_INPUT_FOLDER/segdata/segment_$(printf "%04d" "$seg_index")"
@@ -260,11 +343,27 @@ else
 	TARGETPREFIX=${INPUT##*/}
 	TARGETPREFIX=$INTERMEDIATE_OUTPUT_FOLDER/${TARGETPREFIX%.*}
 	EXTENSION="${INPUT##*.}"
-	VIDEOINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmp-input.$EXTENSION
+	# Use an MP4 intermediate for processing, independent of the input container.
+	# Reason: WebM does not support H.264 video; we standardize the pipeline to H.264/MP4.
+	# For resume runs, prefer an existing intermediate (mp4 first, then legacy tmp-input.<inputext>).
+	VIDEOINTERMEDIATE_MP4=$INTERMEDIATE_INPUT_FOLDER/tmp-input.mp4
+	VIDEOINTERMEDIATE_LEGACY=$INTERMEDIATE_INPUT_FOLDER/tmp-input.$EXTENSION
+	if [ -n "$REUSE_WORKPLAN" ]; then
+		if [ -s "$VIDEOINTERMEDIATE_MP4" ]; then
+			VIDEOINTERMEDIATE="$VIDEOINTERMEDIATE_MP4"
+		elif [ -s "$VIDEOINTERMEDIATE_LEGACY" ]; then
+			VIDEOINTERMEDIATE="$VIDEOINTERMEDIATE_LEGACY"
+		else
+			VIDEOINTERMEDIATE="$VIDEOINTERMEDIATE_MP4"
+		fi
+	else
+		VIDEOINTERMEDIATE="$VIDEOINTERMEDIATE_MP4"
+	fi
 	if [ -z "$REUSE_WORKPLAN" ] ; then
 		# Re-encode input to a workflow-specific FPS intermediate file to avoid frame-rate issues
 		echo "Converting input to $SCENE_WORKFLOW_FPS FPS -> $VIDEOINTERMEDIATE"
-		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$INPUT" -filter:v "fps=$SCENE_WORKFLOW_FPS" -c:v libx264 -preset veryfast -crf 18 -c:a copy "$VIDEOINTERMEDIATE"
+		# Video-only intermediate: audio is muxed from ORIGINALINPUT at the end of the pipeline.
+		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$INPUT" -filter:v "fps=$SCENE_WORKFLOW_FPS" -c:v libx264 -preset veryfast -crf 18 -an "$VIDEOINTERMEDIATE"
 		if [ $? -ne 0 ]; then
 			echo -e $"\e[91mError:\e[0m ffmpeg failed converting to $SCENE_WORKFLOW_FPS FPS"
 			mkdir -p input/vr/tasks/$TASKNAME/error
@@ -272,6 +371,13 @@ else
 			rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 			exit 0
 		fi
+	fi
+
+	# GC (Gesamtframecount) of the normalized intermediate video.
+	GC_FRAMECOUNT=`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams v:0 -show_entries stream=nb_frames -of csv=p=0 "$VIDEOINTERMEDIATE" 2>/dev/null | head -n1`
+	GC_FRAMECOUNT=$(printf '%s' "$GC_FRAMECOUNT" | tr -d '\r' | tr -d '"')
+	if ! is_int "$GC_FRAMECOUNT" ; then
+		GC_FRAMECOUNT=""
 	fi
 
 	echo "=== STEP 1: detect scene changes in the input video and generate a work plan ==="
@@ -537,6 +643,13 @@ else
 				# already extracted
 				continue
 			fi
+			# Guard against invalid segments (can happen with offsets): end must be >= start.
+			if expr "$start" : '[-0-9]*$' >/dev/null 2>&1 && expr "$end" : '[-0-9]*$' >/dev/null 2>&1 ; then
+				if [ "$end" -lt "$start" ] 2>/dev/null ; then
+					echo "Warning: skipping invalid segment $idx/$seg_count (segment $seg_index): start=$start end=$end"
+					continue
+				fi
+			fi
 			echo "Preparing segment $idx/$seg_count (segment $seg_index): start=$start end=$end"
 			# create segment helper dir and metadata under segdata with zero-padded index
 			sb_dir="$INTERMEDIATE_INPUT_FOLDER/segdata/segment_${idx_p}"
@@ -592,7 +705,18 @@ else
 			echo "Skipping i2i for segment $seg_index (scenestart=$scenestart)"
 			continue
 		fi
-		echo "--- Processing segment ${seg_iter}/${SEG_TOTAL} ($seg_index)"
+		seg_start0=$(cat "$d/start.txt" 2>/dev/null | tr -d '\r')
+		seg_end0=$(cat "$d/end.txt" 2>/dev/null | tr -d '\r')
+		seg_cnt=""
+		if is_int "$seg_start0" && is_int "$seg_end0" && [ "$seg_end0" -ge "$seg_start0" ] 2>/dev/null; then
+			seg_cnt=$((seg_end0 - seg_start0 + 1))
+		fi
+		seg_frames_msg=$(format_frames_progress "$seg_start0" "${seg_cnt:-}" "$GC_FRAMECOUNT" 2>/dev/null || true)
+		if [ -n "$seg_frames_msg" ]; then
+			echo "--- Processing segment ${seg_iter}/${SEG_TOTAL} ($seg_index): $seg_frames_msg"
+		else
+			echo "--- Processing segment ${seg_iter}/${SEG_TOTAL} ($seg_index)"
+		fi
 		# check if i2i outputs already exist (first/last filenames); skip if present
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
@@ -624,10 +748,14 @@ else
 			echo "--- running i2i workflow for segment ${seg_iter}/${SEG_TOTAL} ($seg_index) -> $img"
 
 			i2i_api=`cat "$BLUEPRINTCONFIG" | grep -o '"i2i_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+			prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"i2i_prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+			prompt=${prompt:-""}
+			# optional timeout (seconds) to trigger failover restart of ComfyUI
+			timeout=$(extract_timeout "$BLUEPRINTCONFIG")
 			
 			INPUT=`realpath "$img"`
 			[ $loglevel -lt 2 ] && set -x
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted"
+			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$prompt"
 			set +x && [ $loglevel -ge 2 ] && set -x
 
 			start=`date +%s`
@@ -651,22 +779,30 @@ else
 				secs=$((end-start))
 				itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 				echo -ne "$itertimemsg         \r"
+				# centralized failover check (sourcing helper on demand)
+				if ! (command -v failover_check >/dev/null 2>&1) ; then
+				  if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
+				    . ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh
+				  fi
+				fi
+				if command -v failover_check >/dev/null 2>&1; then
+				  if ! failover_check "$timeout" "$secs"; then
+				    retry_once_or_error "Timeout/failover triggered while waiting for i2i to finish"
+				  fi
+				fi
 			done
 			runtime=$((end-start))
 			[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 
 			EXTENSION=".png"
 			# find most recent converted_*_${EXTENSION} (ComfyUI writes converted_00002_.png etc.)
-			INTERMEDIATE=`ls -1t "$INTERMEDIATE_OUTPUT_FOLDER"/converted_*"${EXTENSION}" 2>/dev/null | head -n1 || true`
+			INTERMEDIATE=$(wait_for_converted "$INTERMEDIATE_OUTPUT_FOLDER" "$EXTENSION" 20 1) || true
 
 			if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
 				mv -vf -- "$INTERMEDIATE" "$target_img"
 				echo -e $"\e[92mstep done.\e[0m"
 			else
-				echo -e $"\e[91mError:\e[0m Step failed. $INTERMEDIATE missing or zero-length."
-				mkdir -p input/vr/tasks/$TASKNAME/error
-				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
-				exit 0
+				retry_once_or_error "Step failed (i2i). Output missing or zero-length: $INTERMEDIATE"
 			fi
 		done
 	done
@@ -710,7 +846,18 @@ else
 			echo "Skipping generation; workplan file not found."
 			exit 0
 		fi
-		echo "--- Processing segment ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index)"
+		seg_start0=$(cat "$d/start.txt" 2>/dev/null | tr -d '\r')
+		seg_end0=$(cat "$d/end.txt" 2>/dev/null | tr -d '\r')
+		seg_cnt=""
+		if is_int "$seg_start0" && is_int "$seg_end0" && [ "$seg_end0" -ge "$seg_start0" ] 2>/dev/null; then
+			seg_cnt=$((seg_end0 - seg_start0 + 1))
+		fi
+		seg_frames_msg=$(format_frames_progress "$seg_start0" "${seg_cnt:-}" "$GC_FRAMECOUNT" 2>/dev/null || true)
+		if [ -n "$seg_frames_msg" ]; then
+			echo "--- Processing segment ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index): $seg_frames_msg"
+		else
+			echo "--- Processing segment ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index)"
+		fi
 		# first/last generated images from previous step
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
@@ -808,7 +955,7 @@ else
 						echo "Error: could not extract cur_end or next_start for contiguity check."
 					fi
 				else
-					echo "Error: No next segment to check for contiguity."	
+					[ ${loglevel:-0} -ge 1 ] && echo "Info: No next segment to check for contiguity (last segment)."
 				fi
 			else
 				echo "Error: Skipping contiguity check; segments_start or segments_end missing in workplan."
@@ -825,7 +972,12 @@ else
 				echo "Skipping generation; chunk already exists: $chunk_file"
 			else
 				chunk_no=$((chunk_index + 1))
-				echo "--- generating video chunk ${idx_p} (${chunk_no}/${CHUNK_TOTAL_MAX}) for segment ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index) -> frames=$num_frames"
+				chunk_frames_msg=$(format_frames_progress "$start_frame" "$num_frames" "$GC_FRAMECOUNT" 2>/dev/null || true)
+				if [ -n "$chunk_frames_msg" ]; then
+					echo "--- generating video chunk ${idx_p} (${chunk_no}/${CHUNK_TOTAL_MAX}) for segment ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index) -> $chunk_frames_msg"
+				else
+					echo "--- generating video chunk ${idx_p} (${chunk_no}/${CHUNK_TOTAL_MAX}) for segment ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index) -> frames=$num_frames"
+				fi
 				echo "Segment $seg_index: frames=${num_frames} first=${first_img} last=${last_img} -> will write $chunk_file"
 				# call the ComfyUI FL2V workflow to create $chunk_file from $first_img .. $last_img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
 				img1="$first_img"
@@ -846,7 +998,12 @@ else
 						fi
 					fi
 				fi
-				if ! iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame" ""; then
+				iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame" ""
+				rc=$?
+				if [ $rc -ne 0 ]; then
+					if [ $rc -eq 2 ]; then
+						retry_once_or_error "Step failed (iv2v). Output missing or zero-length."
+					fi
 					mkdir -p input/vr/tasks/$TASKNAME/error
 					mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 					exit 0
@@ -865,7 +1022,12 @@ else
 				echo "Skipping transition generation; chunk already exists: $chunk_file"
 			else
 				chunk_no=$((chunk_index + 1))
-				echo "--- generating video chunk ${idx_p} (${chunk_no}/${CHUNK_TOTAL_MAX}) for segment transition ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index/$next_index) -> frames=$trans_frames"
+				chunk_frames_msg=$(format_frames_progress "$start_frame" "$trans_frames" "$GC_FRAMECOUNT" 2>/dev/null || true)
+				if [ -n "$chunk_frames_msg" ]; then
+					echo "--- generating video chunk ${idx_p} (${chunk_no}/${CHUNK_TOTAL_MAX}) for segment transition ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index/$next_index) -> $chunk_frames_msg"
+				else
+					echo "--- generating video chunk ${idx_p} (${chunk_no}/${CHUNK_TOTAL_MAX}) for segment transition ${seg_iter_iv2v}/${SEG_TOTAL_IV2V} ($seg_index/$next_index) -> frames=$trans_frames"
+				fi
 				idx_p_next=$(printf "%04d" "$next_index")
 				first_img_of_next="$INTERMEDIATE_INPUT_FOLDER/first_${idx_p_next}.png"
 				echo "Segment transition: frames=${trans_frames} first=${last_img} last=${first_img_of_next} -> will write $chunk_file"
@@ -888,7 +1050,12 @@ else
 						fi
 					fi
 				fi
-				if ! iv2v_generate "$img1" "$control_chunk" "$chunk_file" "$trans_frames" "$start_frame" ""; then
+				iv2v_generate "$img1" "$control_chunk" "$chunk_file" "$trans_frames" "$start_frame" ""
+				rc=$?
+				if [ $rc -ne 0 ]; then
+					if [ $rc -eq 2 ]; then
+						retry_once_or_error "Step failed (iv2v transition). Output missing or zero-length."
+					fi
 					mkdir -p input/vr/tasks/$TASKNAME/error
 					mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 					exit 0

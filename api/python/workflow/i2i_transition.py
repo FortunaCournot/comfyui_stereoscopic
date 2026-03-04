@@ -21,14 +21,21 @@ def queue_prompt(prompt):
         print(response.status_code, response.text)
 
 
-if len(sys.argv) != 3 + 1:
-   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " apifile InputImagePath OutputPathPrefix")
+if len(sys.argv) not in (3 + 1, 4 + 1):
+   print(
+       "Invalid arguments were given (" + str(len(sys.argv) - 1) + "). "
+       "Usage: python " + sys.argv[0] + " apifile InputImagePath OutputPathPrefix [prompt]"
+   )
 else:
     with open(sys.argv[1]) as f:
         prompt = json.load(f)
 
     prompt["59"]["inputs"]["image"] = sys.argv[2]
-    prompt["69"]["inputs"]["filename_prefix"] = sys.argv[3] 
-    
+    prompt["69"]["inputs"]["filename_prefix"] = sys.argv[3]
+    prompt_text = sys.argv[4] if len(sys.argv) == 5 else ""
+    # Some workflows include an explicit prompt text node.
+    if "20" in prompt and "inputs" in prompt["20"] and "value" in prompt["20"]["inputs"]:
+        prompt["20"]["inputs"]["value"] = prompt_text
+
     queue_prompt(prompt)
 

@@ -222,9 +222,10 @@ else
 				cand2="tasks/_$TASKNAME"
 			fi
 			if is_disabled "$cand1" || is_disabled "$cand2" ; then
-				[ $loglevel -ge 1 ] && echo "Skipping disabled task $cand1"
+				[ $loglevel -ge 1 ] && echo "Skipping job disabled task $cand1 / $cand2"
 				continue
 			fi
+
 
 			INDEX+=1
 			echo "tasks/$TASKNAME" >user/default/comfyui_stereoscopic/.daemonstatus
@@ -312,6 +313,7 @@ else
 					blueprint=${blueprint//\(/_}
 					blueprint=${blueprint//\)/_}
 					scriptpath=$SCRIPTFOLDERPATH/$blueprint".sh"
+
 					if [ -z "$blueprint" ] || [ "$blueprint" = "none" ] ; then
 						OUTPUTDIR="output/vr/tasks/""$taskpath"
 						mkdir -p "$OUTPUTDIR"
