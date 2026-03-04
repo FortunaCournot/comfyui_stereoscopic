@@ -177,8 +177,20 @@ elif test $# -ne 0 ; then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
-	for d in input/vr/tasks/*; do for f in $d/*\ *; do mv -- "$f" "${f// /_}"; done; done 2>/dev/null
-
+	echo "Renaming files with spaces in input/vr/tasks to avoid issues..."
+	{
+		shopt -s nullglob
+		for d in input/vr/tasks/*; do
+			[ -d "$d" ] || continue
+			# Rename only immediate children; use NUL delimiters for safety
+			while IFS= read -r -d '' f; do
+				new="${f// /_}"
+				[ "$new" = "$f" ] && continue
+				mv -- "$f" "$new"
+			done < <(find "$d" -maxdepth 1 -mindepth 1 -name '* *' -print0 2>/dev/null)
+		done
+	} 2>/dev/null
+	echo "Checking files in input/vr/tasks ..."
 
 	if [ -z "$COMFYUIPATH" ]; then
 		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
@@ -206,6 +218,7 @@ else
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		TASKFILES=`find input/vr/tasks/*/ -maxdepth 1 -type f`
+		echo "Potential files found: $COUNT. Starting batch processing of tasks in input/vr/tasks ..."
 		for nextinputfile in $TASKFILES ; do
 			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
