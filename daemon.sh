@@ -379,7 +379,6 @@ else
 				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop >> $INTERPOLATECOUNT to interpolate, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat" && echo "$DUBSFXCOUNT to dub, $WMECOUNT to encrypt, $WMDCOUNT to decrypt, $CAPCOUNT for caption, $TASKCOUNT in tasks"
 
 				touch user/default/comfyui_stereoscopic/.pipelineactive
-				sleep 1
 
         		TVAIREPORTED=-1
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh || exit 1
