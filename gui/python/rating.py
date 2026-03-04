@@ -4498,13 +4498,58 @@ class RateAndCutDialog(QDialog):
                     tmp1 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                     tmp1.close()
                     out_tmp = tmp1.name
-                    # produce intermediate file
-                    cmd1 = "ffmpeg.exe -hide_banner -y -i \"" + input + "\" -vf \""
-                    if self.isVideo:
-                        cmd1 = cmd1 + "trim=start_frame=" + str(trimA) + ":end_frame=" + str(trimB) + ","
-                    cmd1 = cmd1 + "crop="+str(out_w)+":"+str(out_h)+":"+str(x)+":"+str(y)+"\" -shortest \"" + out_tmp + "\""
-                    # create final pingpong by concat reverse (video-only)
-                    cmd2 = 'ffmpeg.exe -hide_banner -y -i "' + out_tmp + '" -filter_complex "[0:v]reverse[r];[0:v][r]concat=n=2:v=1:a=0[out]" -map "[out]" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "' + output + '"'
+                    # produce intermediate file (video-only). Clamp trim range and reset timestamps.
+                    start_frame = 0
+                    end_frame = -1
+                    try:
+                        start_frame = max(0, int(trimA) if trimA is not None else 0)
+                    except Exception:
+                        start_frame = 0
+                    try:
+                        end_frame = int(trimB) if trimB is not None else -1
+                    except Exception:
+                        end_frame = -1
+                    try:
+                        frame_count = int(getattr(self.display, 'frame_count', 0) or 0)
+                        if frame_count > 0:
+                            max_end = frame_count - 1
+                            if end_frame < 0:
+                                end_frame = max_end
+                            else:
+                                end_frame = min(end_frame, max_end)
+                    except Exception:
+                        pass
+                    if end_frame < start_frame:
+                        end_frame = start_frame
+
+                    time_opts_pp = ""
+                    if fps is not None:
+                        try:
+                            start_sec_pp = float(start_frame) / float(fps)
+                            duration_sec_pp = float(end_frame - start_frame + 1) / float(fps)
+                            time_opts_pp = f"-ss {start_sec_pp:.6f} -t {duration_sec_pp:.6f} "
+                        except Exception:
+                            time_opts_pp = ""
+
+                    if time_opts_pp:
+                        vf_pp = f"crop={out_w}:{out_h}:{x}:{y},setpts=PTS-STARTPTS"
+                    else:
+                        # Fallback to frame-based trim if fps is unknown
+                        vf_pp = f"trim=start_frame={start_frame}:end_frame={end_frame},crop={out_w}:{out_h}:{x}:{y},setpts=PTS-STARTPTS"
+
+                    cmd1 = f'ffmpeg.exe -hide_banner -y {time_opts_pp}-i "{input}" -map 0:v:0 -an -vf "{vf_pp}" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "{out_tmp}"'
+
+                    # create final pingpong by concat reverse (video-only).
+                    # Use setpts=N/FRAME_RATE/TB to ensure monotonically increasing PTS, especially after reverse.
+                    cmd2 = (
+                        f'ffmpeg.exe -hide_banner -y -fflags +genpts -i "{out_tmp}" '
+                        f'-filter_complex "'
+                        f'[0:v]setpts=N/FRAME_RATE/TB,split[v1][v2];'
+                        f'[v2]reverse,setpts=N/FRAME_RATE/TB[r];'
+                        f'[v1][r]concat=n=2:v=1:a=0[out]" '
+                        f'-map "[out]" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p '
+                        f'-avoid_negative_ts make_zero "{output}"'
+                    )
                     thread = threading.Thread(
                         target=self.trimAndCrop_pingpong_worker, args=(cmd1, cmd2, recreated, input, output, out_tmp), daemon=True)
                     thread.start()
@@ -4815,33 +4860,76 @@ class RateAndCutDialog(QDialog):
                 if TRACELEVEL >= 2:
                     print(f"_create_temp_and_open: will create video temp {out_tmp}", flush=True)
 
-                # build ffmpeg command similar to createTrimmedAndCroppedCopy
-                cmd = 'ffmpeg.exe -hide_banner -y -i "' + fullpath + '" -vf "'
-                filters = []
+                # Build ffmpeg command similar to createTrimmedAndCroppedCopy.
+                # Always reset timestamps (setpts/asetpts) so ffprobe shows start=0.
+                trimA = 0
+                trimB = -1
+                frame_count = 0
                 try:
-                    if getattr(self.display, 'frame_count', 0) > 0:
-                        trimA = getattr(self.display, 'trimAFrame', 0)
-                        trimB = getattr(self.display, 'trimBFrame', -1)
-                        if trimA > 0 or (trimB >= 0 and trimB < getattr(self.display, 'frame_count', -1)):
-                            filters.append(f'trim=start_frame={trimA}:end_frame={trimB}')
+                    frame_count = int(getattr(self.display, 'frame_count', 0) or 0)
+                    trimA = int(getattr(self.display, 'trimAFrame', 0) or 0)
+                    trimB = int(getattr(self.display, 'trimBFrame', -1) or -1)
                 except Exception:
                     pass
 
+                start_frame = max(0, int(trimA) if trimA is not None else 0)
+                end_frame = int(trimB) if trimB is not None else -1
+                if frame_count > 0:
+                    max_end = frame_count - 1
+                    if end_frame < 0:
+                        end_frame = max_end
+                    else:
+                        end_frame = min(end_frame, max_end)
+                if end_frame < start_frame:
+                    end_frame = start_frame
+
+                # Determine crop rectangle (if any)
+                out_w = None
+                out_h = None
+                x = 0
+                y = 0
                 try:
-                    if getattr(self, 'hasCropOrTrim', False) and getattr(self, 'cropWidget', None):
-                        out_w = self.cropWidget.sourceWidth - self.cropWidget.crop_left - self.cropWidget.crop_right
-                        out_h = self.cropWidget.sourceHeight - self.cropWidget.crop_top - self.cropWidget.crop_bottom
+                    cw = getattr(self, 'cropWidget', None)
+                    if cw is not None and has_crop:
+                        out_w = cw.sourceWidth - cw.crop_left - cw.crop_right
+                        out_h = cw.sourceHeight - cw.crop_top - cw.crop_bottom
                         if out_h % 2 == 1:
                             out_h -= 1
-                        x = self.cropWidget.crop_left
-                        y = self.cropWidget.crop_top
-                        filters.append(f'crop={out_w}:{out_h}:{x}:{y}')
+                        x = cw.crop_left
+                        y = cw.crop_top
                 except Exception:
-                    pass
+                    out_w = None
+                    out_h = None
 
-                if len(filters) > 0:
-                    cmd += ','.join(filters)
-                cmd += '" -shortest "' + out_tmp + '"'
+                # Determine fps if available (for accurate -ss/-t trimming)
+                fps = None
+                try:
+                    if getattr(self, 'display', None) and getattr(self.display, 'thread', None):
+                        fps = float(self.display.thread.getFPS())
+                        if fps <= 0:
+                            fps = None
+                except Exception:
+                    fps = None
+
+                has_trim = bool(start_frame > 0 or (frame_count > 0 and end_frame < (frame_count - 1)))
+                time_opts = ""
+                if has_trim and fps is not None:
+                    try:
+                        start_sec = float(start_frame) / float(fps)
+                        duration_sec = float(end_frame - start_frame + 1) / float(fps)
+                        time_opts = f"-ss {start_sec:.6f} -t {duration_sec:.6f} "
+                    except Exception:
+                        time_opts = ""
+
+                vf_parts = []
+                if not time_opts and has_trim:
+                    vf_parts.append(f"trim=start_frame={start_frame}:end_frame={end_frame}")
+                if out_w is not None and out_h is not None:
+                    vf_parts.append(f"crop={out_w}:{out_h}:{x}:{y}")
+                vf_parts.append("setpts=PTS-STARTPTS")
+
+                vf = ",".join(vf_parts)
+                cmd = f'ffmpeg.exe -hide_banner -y {time_opts}-i "{fullpath}" -vf "{vf}" -af "asetpts=PTS-STARTPTS" -shortest "{out_tmp}"'
 
                 # run ffmpeg
                 try:
@@ -4861,7 +4949,7 @@ class RateAndCutDialog(QDialog):
                     try:
                         tmp2 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                         tmp2.close()
-                        cmd2 = 'ffmpeg.exe -hide_banner -y -i "' + out_tmp + '" -filter_complex "[0:v]reverse[r];[0:v][r]concat=n=2:v=1:a=0[out]" -map "[out]" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "' + tmp2.name + '"'
+                        cmd2 = 'ffmpeg.exe -hide_banner -y -fflags +genpts -i "' + out_tmp + '" -filter_complex "[0:v]setpts=N/FRAME_RATE/TB,split[v1][v2];[v2]reverse,setpts=N/FRAME_RATE/TB[r];[v1][r]concat=n=2:v=1:a=0[out]" -map "[out]" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -avoid_negative_ts make_zero "' + tmp2.name + '"'
                         if TRACELEVEL >= 2:
                             print('Executing', cmd2, flush=True)
                         subprocess.run(cmd2, shell=True, check=True, close_fds=True)
