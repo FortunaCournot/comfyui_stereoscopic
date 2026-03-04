@@ -257,6 +257,18 @@ else
 	INPUT="$1"
 	shift
 
+	# Optional flag: force start images for every segment (and thus i2i for every segment).
+	# Enable by adding e.g. "force_start": true to the task JSON.
+	FORCE_START=0
+	force_start_raw=$(grep -oE '"force_start"[[:space:]]*:[[:space:]]*(true|false|1|0|"true"|"false"|"1"|"0")' "$BLUEPRINTCONFIG" 2>/dev/null | head -n1 || true)
+	if [ -n "$force_start_raw" ]; then
+		force_start_val=$(printf '%s' "$force_start_raw" | sed -E 's/^.*:[[:space:]]*//; s/[",[:space:]]//g')
+		case "${force_start_val,,}" in
+			true|1) FORCE_START=1 ;;
+			*) FORCE_START=0 ;;
+		esac
+	fi
+
 	PROGRESS=" "
 	if [ -e input/vr/tasks/BATCHPROGRESS.TXT ]
 	then
@@ -680,8 +692,8 @@ else
 			echo "$start0" > "$sb_dir/start.txt"
 			echo "$end0" > "$sb_dir/end.txt"
 
-			# extract start frame only if scenestart == 1 (ffmpeg expects 0-based index)
-			if [ "$scenestart" -eq 1 ]; then
+			# extract start frame only if scenestart == 1, unless FORCE_START is enabled (ffmpeg expects 0-based index)
+			if [ "$scenestart" -eq 1 ] || [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null; then
 				if [ ! -f "$tgt_start_img" ]; then
 					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$start0)" -vframes 1 -q:v 2 "$tgt_start_img"
 					if [ $? -ne 0 ]; then
@@ -713,7 +725,8 @@ else
 		seg_iter=$((seg_iter+1))
 		base="$(basename "$d")"
 		seg_index=${base#segment_}
-		# Determine scenestart flag for this segment (default 1). If scenestart != 1, skip i2i for this segment.
+		# Determine scenestart flag for this segment (default 1).
+		# If scenestart != 1, skip i2i unless FORCE_START is enabled.
 		scenestart=1
 		if [ -n "$segments_scenestart_vals" ]; then
 			# seg_index may be zero-padded; compute 1-based field index safely (base-10)
@@ -721,7 +734,7 @@ else
 			scenestart=$(echo "$segments_scenestart_vals" | cut -d',' -f$next_index | tr -d '[:space:]')
 			scenestart=${scenestart:-1}
 		fi
-		if [ "${scenestart:-0}" -ne 1 ] 2>/dev/null ; then
+		if [ "${scenestart:-0}" -ne 1 ] 2>/dev/null && [ "${FORCE_START:-0}" -ne 1 ] 2>/dev/null ; then
 			echo "Skipping i2i for segment $seg_index (scenestart=$scenestart)"
 			continue
 		fi
