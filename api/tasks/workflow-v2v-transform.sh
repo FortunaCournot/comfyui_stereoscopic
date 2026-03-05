@@ -2308,6 +2308,18 @@ else
 			break
 		fi
 	done
+	# If we know the planned chunk count, enforce it. Otherwise missing chunks can
+	# silently truncate the final concat result.
+	expected_chunks=${WP_CHUNKS_PLANNED:-0}
+	if is_int "${expected_chunks:-}" && [ "${expected_chunks:-0}" -gt 0 ] 2>/dev/null; then
+		if [ "${i:-0}" -ne "${expected_chunks:-0}" ] 2>/dev/null; then
+			echo -e $"\e[91mError:\e[0m Chunk count mismatch. Found ${i} contiguous chunks (0..$((i-1))) but workplan planned ${expected_chunks}." >&2
+			echo "Info: This would truncate the concat result. Check STEP 4 generation/resume state." >&2
+			mkdir -p input/vr/tasks/$TASKNAME/error
+			mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
+			exit 0
+		fi
+	fi
 
 	if [ $found -eq 0 ]; then
 		echo -e $"\e[91mError:\e[0m No chunk_*.mp4 files found in $INTERMEDIATE_INPUT_FOLDER."
@@ -2346,13 +2358,30 @@ else
 	# If source has audio, mux it; otherwise just move concat_video
 	# Detect audio stream index in original input (if any)
 	audio_stream_index=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$ORIGINALINPUT" 2>/dev/null | head -n1`
+	# Duration sanity (best-effort). Important: without padding, -shortest can cut
+	# the final output to the (potentially shorter) audio length.
+	if [ "${loglevel:-0}" -ge 1 ] 2>/dev/null; then
+		concat_dur=$("$FFMPEGPATHPREFIX"ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$concat_video" 2>/dev/null | head -n1)
+		src_v_dur=$("$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 "$ORIGINALINPUT" 2>/dev/null | head -n1)
+		src_a_dur=$("$FFMPEGPATHPREFIX"ffprobe -v error -select_streams a:0 -show_entries stream=duration -of default=nw=1:nk=1 "$ORIGINALINPUT" 2>/dev/null | head -n1)
+		echo "Info: durations (s): concat_video=${concat_dur:-?} source_video=${src_v_dur:-?} source_audio=${src_a_dur:-?}"
+		if [ -n "${concat_dur:-}" ] && [ -n "${src_a_dur:-}" ]; then
+			# warn if audio is shorter than video by more than ~0.2s
+			is_short=$(awk -v v="$concat_dur" -v a="$src_a_dur" 'BEGIN{re="^[0-9]+(\\.[0-9]+)?$"; if(v!~re||a!~re){print 0; exit} if((v-a)>0.2) print 1; else print 0}')
+			if [ "${is_short:-0}" -eq 1 ] 2>/dev/null; then
+				echo "Warning: source audio is shorter than concat video; mux must pad audio to avoid truncation."
+			fi
+		fi
+	fi
 
 	echo "--- adding audio to $concat_video"
 
 	if [ -n "$audio_stream_index" ]; then
 		# Map video from concat and the first audio stream of the original; re-encode audio to AAC
 		nc_t0=$(date +%s)
-		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
+		# IMPORTANT: pad audio with silence so -shortest stops at the video end, not
+		# at the (potentially shorter) audio end.
+		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -af apad -shortest "$FINALVIDEO"
 		nc_t1=$(date +%s)
 		task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 		if [ $? -ne 0 ]; then
@@ -2361,11 +2390,50 @@ else
 			mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
 			exit 0
 		fi
+		if [ "${loglevel:-0}" -ge 1 ] 2>/dev/null; then
+			final_dur=$("$FFMPEGPATHPREFIX"ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$FINALVIDEO" 2>/dev/null | head -n1)
+			echo "Info: final duration (s): ${final_dur:-?}"
+			if [ -n "${final_dur:-}" ] && [ -n "${concat_dur:-}" ]; then
+				# warn if final is still shorter than concat by >0.2s
+				still_short=$(awk -v v="$concat_dur" -v f="$final_dur" 'BEGIN{if(v==""||f==""){print 0; exit} if((v-f)>0.2) print 1; else print 0}')
+				if [ "${still_short:-0}" -eq 1 ] 2>/dev/null; then
+					echo "Warning: final video is still shorter than concat_video (unexpected)."
+				fi
+			fi
+		fi
 	else
 		# No audio: move or copy concat_video to final location
 		echo "No audio stream found in source video."
 		mkdir -p "$FINALTARGETFOLDER"
 		mv -vf -- "$concat_video" "$FINALVIDEO"
+	fi
+
+	# Hard validation before finalization/cleanup: if FINALVIDEO is shorter than
+	# concat_video by more than a small tolerance, abort with exit!=0 so the
+	# intermediate folder is kept for debugging/resume.
+	# (This catches regressions like mux truncation and prevents silent 13s->10s.)
+	STEP5_DUR_TOL_S=${STEP5_DUR_TOL_S:-0.2}
+	if [ ! -s "$FINALVIDEO" ]; then
+		echo -e $"\e[91mError:\e[0m Step 5 produced no final video (missing or zero-length): $FINALVIDEO" >&2
+		echo "Info: keeping intermediate folder for inspection: $INTERMEDIATE_INPUT_FOLDER" >&2
+		exit 1
+	fi
+	# Use container duration (format.duration) because stream durations may be N/A.
+	concat_dur_chk=$("$FFMPEGPATHPREFIX"ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$concat_video" 2>/dev/null | head -n1)
+	final_dur_chk=$("$FFMPEGPATHPREFIX"ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$FINALVIDEO" 2>/dev/null | head -n1)
+	if [ -n "${concat_dur_chk:-}" ] && [ -n "${final_dur_chk:-}" ]; then
+		final_short=$(awk -v v="$concat_dur_chk" -v f="$final_dur_chk" -v t="$STEP5_DUR_TOL_S" 'BEGIN{re="^[0-9]+(\\.[0-9]+)?$"; if(v!~re||f!~re||t!~re){print -1; exit} if((v-f)>t) print 1; else print 0}')
+		if [ "${final_short:-0}" -eq -1 ] 2>/dev/null; then
+			[ "${loglevel:-0}" -ge 1 ] 2>/dev/null && echo "Warning: Step 5 duration probe not numeric (concat='${concat_dur_chk}' final='${final_dur_chk}' tol='${STEP5_DUR_TOL_S}'); skipping strict validation."
+		elif [ "${final_short:-0}" -eq 1 ] 2>/dev/null; then
+			echo -e $"\e[91mError:\e[0m Final video shorter than concat_video by more than ${STEP5_DUR_TOL_S}s." >&2
+			echo "Info: durations (s): concat_video=${concat_dur_chk} final=${final_dur_chk}" >&2
+			echo "Info: keeping intermediate folder for inspection: $INTERMEDIATE_INPUT_FOLDER" >&2
+			exit 1
+		fi
+		[ "${loglevel:-0}" -ge 1 ] 2>/dev/null && echo "Info: final duration OK (s): concat_video=${concat_dur_chk} final=${final_dur_chk} tol=${STEP5_DUR_TOL_S}"
+	else
+		[ "${loglevel:-0}" -ge 1 ] 2>/dev/null && echo "Warning: could not probe durations for Step 5 validation (concat='${concat_dur_chk:-}' final='${final_dur_chk:-}')."
 	fi
 
 	mkdir -p input/vr/tasks/$TASKNAME/done
