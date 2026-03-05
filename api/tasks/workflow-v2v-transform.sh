@@ -104,7 +104,7 @@ reencode_chunk_from_frames() {
 		rm -f -- "$tmp_mp4" 2>/dev/null || true
 		return 1
 	fi
-	move_with_retry "$tmp_mp4" "$out_mp4" 120 1
+	move_replace_with_retry "$tmp_mp4" "$out_mp4" 120 1
 }
 
 blend_inner_chunk_boundary_if_needed() {
@@ -148,13 +148,19 @@ blend_inner_chunk_boundary_if_needed() {
 	blend_prev_last="$work_root/blend_prev_last_${prev_id}_${next_id}.png"
 	blend_next_first="$work_root/blend_next_first_${prev_id}_${next_id}.png"
 	rm -f -- "$blend_prev_last" "$blend_next_first" 2>/dev/null || true
+	prev_last_orig="$work_root/orig_prev_last_${prev_id}_${next_id}.png"
+	next_first_orig="$work_root/orig_next_first_${prev_id}_${next_id}.png"
+	rm -f -- "$prev_last_orig" "$next_first_orig" 2>/dev/null || true
+	# Keep originals so both blends use the same source frames (symmetric blending)
+	cp -f -- "$prev_last_png" "$prev_last_orig" || return 1
+	cp -f -- "$next_first_png" "$next_first_orig" || return 1
 
 	# prev last: blend_a * prev_last + blend_b * next_first
-	blend_images "$prev_last_png" "$next_first_png" "$blend_prev_last" "$blend_a" "$blend_b" || return 1
+	blend_images "$prev_last_orig" "$next_first_orig" "$blend_prev_last" "$blend_a" "$blend_b" || return 1
 	cp -f -- "$blend_prev_last" "$prev_last_png" || return 1
 
 	# next first: blend_a * next_first + blend_b * prev_last
-	blend_images "$next_first_png" "$prev_last_png" "$blend_next_first" "$blend_a" "$blend_b" || return 1
+	blend_images "$next_first_orig" "$prev_last_orig" "$blend_next_first" "$blend_a" "$blend_b" || return 1
 	cp -f -- "$blend_next_first" "$next_first_png" || return 1
 
 	# Re-encode both chunks from modified frames
@@ -221,6 +227,48 @@ move_with_retry() {
 	done
 
 	echo "Error: failed to move '$src' -> '$dst' after ${timeout_s}s. ${last_err}" >&2
+	return 1
+}
+
+# Replace dst with src, retrying while locked. Unlike move_with_retry, this must
+# overwrite the destination (used for re-encoding chunks in-place).
+move_replace_with_retry() {
+	src="$1"
+	dst="$2"
+	timeout_s=${3:-120}
+	step_s=${4:-1}
+
+	if [ ! -e "$src" ]; then
+		[ ${loglevel:-0} -ge 1 ] && echo "Error: replace move source missing: $src"
+		return 1
+	fi
+
+	t0=$(date +%s)
+	first=1
+	last_err=""
+	while true; do
+		if mv -vf -- "$src" "$dst" 2>/dev/null; then
+			return 0
+		fi
+
+		if [ "$first" -eq 1 ] 2>/dev/null; then
+			first=0
+			[ ${loglevel:-0} -ge 2 ] && echo "Waiting for file unlock to replace output..."
+		fi
+		now=$(date +%s)
+		elapsed=$((now - t0))
+		if [ "$elapsed" -ge "$timeout_s" ] 2>/dev/null; then
+			break
+		fi
+		sleep "$step_s"
+		# src might have been moved by a concurrent attempt; if dst exists and src is gone, accept success.
+		if [ ! -e "$src" ] && [ -e "$dst" ] && [ -s "$dst" ]; then
+			return 0
+		fi
+		last_err="mv failed"
+	done
+
+	[ ${loglevel:-0} -ge 1 ] && echo "Error: timed out replacing file after ${timeout_s}s. src=$src dst=$dst last_err=${last_err}"
 	return 1
 }
 
@@ -363,6 +411,13 @@ task_record_iv2v_runtime() {
 	# Do not update/persist estimator averages (constants only).
 }
 
+task_mark_iv2v_done_no_runtime() {
+	_frames="$1"
+	if is_int "${_frames:-}" && [ "${_frames:-0}" -gt 0 ] 2>/dev/null; then
+		TASK_IV2V_DONE_FRAMES=$((TASK_IV2V_DONE_FRAMES + _frames))
+	fi
+}
+
 task_record_noncomfy_runtime() {
 	_runtime_s="$1"
 	if ! is_int "${_runtime_s:-}"; then return 0; fi
@@ -419,38 +474,80 @@ task_log_estimator_recommendations() {
 	echo "=== /Estimator calibration ==="
 }
 
-# Estimate remaining seconds for the *whole* task based on ComfyUI-only measurements
-# (i2i scaled by workplan framecount using reference-segment timing + iv2v per frame)
-# and workplan counts. Non-Comfy work is included only via a learned ratio (noncomfy/comfy).
-estimate_task_remaining_s() {
-	remaining_ms=0
-	# i2i remaining (scaled by frames / I2I_REF_FRAMES)
-	if is_int "${WP_I2I_PLANNED_FRAMES:-}" && is_int "${TASK_I2I_DONE_FRAMES:-}"; then
-		rem_i2i_frames=$((WP_I2I_PLANNED_FRAMES - TASK_I2I_DONE_FRAMES))
-		if [ "$rem_i2i_frames" -lt 0 ] 2>/dev/null ; then rem_i2i_frames=0; fi
-		ref=${I2I_REF_FRAMES:-48}
-		if ! is_int "${ref:-}" || [ "${ref:-0}" -le 0 ] 2>/dev/null; then ref=48; fi
-		i2i_ms_ref=${AVG_I2I_MS_PER_SEG:-0}
-		if ! is_int "${i2i_ms_ref:-}" || [ "${i2i_ms_ref:-0}" -le 0 ] 2>/dev/null; then
-			# Always provide an estimate (fallback to code constants).
-			i2i_ms_ref=${EST_AVG_I2I_MS_PER_SEG:-37720}
-		fi
-		remaining_ms=$((remaining_ms + (rem_i2i_frames * i2i_ms_ref) / ref ))
+get_ratio_permil() {
+	ratio_permil="${AVG_NONCOMFY_PERMIL:-0}"
+	if ! is_int "${ratio_permil:-}"; then ratio_permil=0; fi
+	if [ "$ratio_permil" -lt 0 ] 2>/dev/null; then ratio_permil=0; fi
+	if [ "$ratio_permil" -eq 0 ] 2>/dev/null && is_int "${EST_AVG_NONCOMFY_PERMIL:-}"; then
+		ratio_permil="${EST_AVG_NONCOMFY_PERMIL:-0}"
 	fi
-	# iv2v remaining frames
-	if is_int "${WP_TOTAL_FRAMES:-}" && is_int "${TASK_IV2V_DONE_FRAMES:-}"; then
-		rem_frames=$((WP_TOTAL_FRAMES - TASK_IV2V_DONE_FRAMES))
-		if [ "$rem_frames" -lt 0 ] 2>/dev/null ; then rem_frames=0; fi
-		iv2v_ms_pf=${AVG_IV2V_MS_PER_FRAME:-0}
-		if ! is_int "${iv2v_ms_pf:-}" || [ "${iv2v_ms_pf:-0}" -le 0 ] 2>/dev/null; then
-			# Always provide an estimate (fallback to code constants).
-			iv2v_ms_pf=${EST_AVG_IV2V_MS_PER_FRAME:-15064}
-		fi
-		remaining_ms=$((remaining_ms + rem_frames * iv2v_ms_pf))
-	fi
+	if [ "$ratio_permil" -lt 0 ] 2>/dev/null; then ratio_permil=0; fi
+	echo "$ratio_permil"
+}
 
-	# While a ComfyUI job is in-flight, treat elapsed time within that job as
-	# partial completion so ETA decreases continuously during the wait loops.
+get_i2i_ref_frames() {
+	ref=${I2I_REF_FRAMES:-48}
+	if ! is_int "${ref:-}" || [ "${ref:-0}" -le 0 ] 2>/dev/null; then ref=48; fi
+	echo "$ref"
+}
+
+get_i2i_ms_ref() {
+	i2i_ms_ref=${AVG_I2I_MS_PER_SEG:-0}
+	if ! is_int "${i2i_ms_ref:-}" || [ "${i2i_ms_ref:-0}" -le 0 ] 2>/dev/null; then
+		i2i_ms_ref=${EST_AVG_I2I_MS_PER_SEG:-0}
+	fi
+	if ! is_int "${i2i_ms_ref:-}" || [ "${i2i_ms_ref:-0}" -le 0 ] 2>/dev/null; then
+		i2i_ms_ref=1
+	fi
+	echo "$i2i_ms_ref"
+}
+
+get_iv2v_ms_pf() {
+	iv2v_ms_pf=${AVG_IV2V_MS_PER_FRAME:-0}
+	if ! is_int "${iv2v_ms_pf:-}" || [ "${iv2v_ms_pf:-0}" -le 0 ] 2>/dev/null; then
+		iv2v_ms_pf=${EST_AVG_IV2V_MS_PER_FRAME:-0}
+	fi
+	if ! is_int "${iv2v_ms_pf:-}" || [ "${iv2v_ms_pf:-0}" -le 0 ] 2>/dev/null; then
+		iv2v_ms_pf=1
+	fi
+	echo "$iv2v_ms_pf"
+}
+
+estimate_task_planned_ms() {
+	# Weighted plan units in milliseconds: i2i + iv2v + noncomfy share.
+	planned_i2i_ms=0
+	planned_iv2v_ms=0
+	if is_int "${WP_I2I_PLANNED_FRAMES:-}"; then
+		ref=$(get_i2i_ref_frames)
+		i2i_ms_ref=$(get_i2i_ms_ref)
+		planned_i2i_ms=$(( (WP_I2I_PLANNED_FRAMES * i2i_ms_ref) / ref ))
+	fi
+	if is_int "${WP_TOTAL_FRAMES:-}"; then
+		iv2v_ms_pf=$(get_iv2v_ms_pf)
+		planned_iv2v_ms=$(( WP_TOTAL_FRAMES * iv2v_ms_pf ))
+	fi
+	planned_comfy_ms=$((planned_i2i_ms + planned_iv2v_ms))
+	ratio_permil=$(get_ratio_permil)
+	planned_noncomfy_ms=$(( planned_comfy_ms * ratio_permil / 1000 ))
+	echo $(( planned_comfy_ms + planned_noncomfy_ms ))
+}
+
+estimate_task_done_ms() {
+	# Plan-done units in milliseconds: only i2i/iv2v workplan-based done + in-flight partial.
+	done_i2i_ms=0
+	done_iv2v_ms=0
+	if is_int "${TASK_I2I_DONE_FRAMES:-}"; then
+		ref=$(get_i2i_ref_frames)
+		i2i_ms_ref=$(get_i2i_ms_ref)
+		done_i2i_ms=$(( (TASK_I2I_DONE_FRAMES * i2i_ms_ref) / ref ))
+	fi
+	if is_int "${TASK_IV2V_DONE_FRAMES:-}"; then
+		iv2v_ms_pf=$(get_iv2v_ms_pf)
+		done_iv2v_ms=$(( TASK_IV2V_DONE_FRAMES * iv2v_ms_pf ))
+	fi
+	done_ms=$((done_i2i_ms + done_iv2v_ms))
+
+	# In-flight partial (scaled so it remains consistent with final done counters).
 	if [ -n "${TASK_ACTIVE_KIND:-}" ] && is_int "${TASK_ACTIVE_T0:-}" && is_int "${TASK_ACTIVE_FRAMES:-}"; then
 		now=$(date +%s)
 		active_elapsed_s=$((now - TASK_ACTIVE_T0))
@@ -458,69 +555,78 @@ estimate_task_remaining_s() {
 		active_elapsed_ms=$((active_elapsed_s * 1000))
 		active_expected_ms=0
 		if [ "${TASK_ACTIVE_KIND:-}" = "i2i" ]; then
-			_ref=${I2I_REF_FRAMES:-48}
-			if ! is_int "${_ref:-}" || [ "${_ref:-0}" -le 0 ] 2>/dev/null; then _ref=48; fi
-			_i2i_ms_ref=${AVG_I2I_MS_PER_SEG:-0}
-			if ! is_int "${_i2i_ms_ref:-}" || [ "${_i2i_ms_ref:-0}" -le 0 ] 2>/dev/null; then
-				_i2i_ms_ref=${EST_AVG_I2I_MS_PER_SEG:-37720}
-			fi
-			active_expected_ms=$(( (TASK_ACTIVE_FRAMES * _i2i_ms_ref) / _ref ))
+			ref=$(get_i2i_ref_frames)
+			i2i_ms_ref=$(get_i2i_ms_ref)
+			active_expected_ms=$(( (TASK_ACTIVE_FRAMES * i2i_ms_ref) / ref ))
 		elif [ "${TASK_ACTIVE_KIND:-}" = "iv2v" ]; then
-			_iv2v_ms_pf=${AVG_IV2V_MS_PER_FRAME:-0}
-			if ! is_int "${_iv2v_ms_pf:-}" || [ "${_iv2v_ms_pf:-0}" -le 0 ] 2>/dev/null; then
-				_iv2v_ms_pf=${EST_AVG_IV2V_MS_PER_FRAME:-15064}
-			fi
-			active_expected_ms=$(( TASK_ACTIVE_FRAMES * _iv2v_ms_pf ))
+			iv2v_ms_pf=$(get_iv2v_ms_pf)
+			active_expected_ms=$(( TASK_ACTIVE_FRAMES * iv2v_ms_pf ))
 		fi
 		if [ "$active_expected_ms" -gt 0 ] 2>/dev/null && [ "$active_elapsed_ms" -gt 0 ] 2>/dev/null; then
-			deduct_ms=$active_elapsed_ms
-			if [ "$deduct_ms" -gt "$active_expected_ms" ] 2>/dev/null; then deduct_ms=$active_expected_ms; fi
-			if [ "$remaining_ms" -gt 0 ] 2>/dev/null; then
-				remaining_ms=$((remaining_ms - deduct_ms))
-				if [ "$remaining_ms" -lt 0 ] 2>/dev/null; then remaining_ms=0; fi
+			add_ms=$active_elapsed_ms
+			if [ "$add_ms" -gt "$active_expected_ms" ] 2>/dev/null; then add_ms=$active_expected_ms; fi
+			done_ms=$((done_ms + add_ms))
+		fi
+	fi
+
+	# Non-comfy done work: count only completed ffmpeg/etc steps (recorded as whole-step runtime).
+	# This avoids partial progress *during* ffmpeg, but still lets percent reflect completed non-comfy work.
+	planned_total_ms=$(estimate_task_planned_ms)
+	if is_int "${planned_total_ms:-}" && [ "${planned_total_ms:-0}" -gt 0 ] 2>/dev/null; then
+		ratio_permil=$(get_ratio_permil)
+		if is_int "${ratio_permil:-}" && [ "${ratio_permil:-0}" -ge 0 ] 2>/dev/null; then
+			denom=$((1000 + ratio_permil))
+			if [ "${denom:-0}" -gt 0 ] 2>/dev/null; then
+				planned_comfy_ms=$(( planned_total_ms * 1000 / denom ))
+				planned_noncomfy_ms=$(( planned_total_ms - planned_comfy_ms ))
+				done_noncomfy_ms=$(( ${TASK_NONCOMFY_TIME_S:-0} * 1000 ))
+				if [ "${done_noncomfy_ms:-0}" -lt 0 ] 2>/dev/null; then done_noncomfy_ms=0; fi
+				if [ "${done_noncomfy_ms:-0}" -gt "${planned_noncomfy_ms:-0}" ] 2>/dev/null; then done_noncomfy_ms=$planned_noncomfy_ms; fi
+				done_ms=$((done_ms + done_noncomfy_ms))
 			fi
 		fi
+		# Clamp done to planned_total
+		if [ "$done_ms" -gt "$planned_total_ms" ] 2>/dev/null; then done_ms=$planned_total_ms; fi
 	fi
-	remaining_s=$(( (remaining_ms + 500) / 1000 ))
-	# Apply noncomfy ratio multiplier.
-	ratio_permil="${AVG_NONCOMFY_PERMIL:-0}"
-	if ! is_int "${ratio_permil:-}"; then ratio_permil=0; fi
-	if [ "$ratio_permil" -lt 0 ] 2>/dev/null; then ratio_permil=0; fi
-	# If the ratio isn't set for some reason, fall back to code constant.
-	if [ "$ratio_permil" -eq 0 ] 2>/dev/null && is_int "${EST_AVG_NONCOMFY_PERMIL:-}"; then
-		ratio_permil="${EST_AVG_NONCOMFY_PERMIL:-0}"
+	echo "$done_ms"
+}
+
+estimate_task_remaining_s() {
+	planned_ms=$(estimate_task_planned_ms)
+	done_ms=$(estimate_task_done_ms)
+	if ! is_int "${planned_ms:-}" || [ "${planned_ms:-0}" -le 0 ] 2>/dev/null; then
+		echo 0
+		return 0
 	fi
-	if [ "$ratio_permil" -le 0 ] 2>/dev/null ; then
-		comfy_s=$((TASK_I2I_TIME_S + TASK_IV2V_TIME_S))
-		if [ "$comfy_s" -gt 0 ] 2>/dev/null; then
-			ratio_permil=$(( TASK_NONCOMFY_TIME_S * 1000 / comfy_s ))
-		fi
-	fi
-	echo $(( remaining_s * (1000 + ratio_permil) / 1000 ))
+	if ! is_int "${done_ms:-}"; then done_ms=0; fi
+	rem_ms=$((planned_ms - done_ms))
+	if [ "$rem_ms" -lt 0 ] 2>/dev/null; then rem_ms=0; fi
+	echo $(( (rem_ms + 500) / 1000 ))
 }
 
 task_progress_suffix() {
+	# Before workplan totals exist, do not print progress/ETA (avoids misleading 100%).
+	if ! is_int "${WP_TOTAL_FRAMES:-}" || [ "${WP_TOTAL_FRAMES:-0}" -le 0 ] 2>/dev/null; then
+		printf '%s' ''
+		return 0
+	fi
 	# Only percent and ETA (whole task) as requested.
-	now=$(date +%s)
-	if ! is_int "${TASK_T0:-}"; then
-		printf '%s' ' progress ?% ETA ??:??:??'
-		return 0
-	fi
-	elapsed=$((now - TASK_T0))
-	if [ "$elapsed" -lt 0 ] 2>/dev/null ; then elapsed=0; fi
+	planned_ms=$(estimate_task_planned_ms)
+	done_ms=$(estimate_task_done_ms)
 	eta=$(estimate_task_remaining_s)
-	if ! is_int "${eta:-}"; then
+	if ! is_int "${planned_ms:-}" || [ "${planned_ms:-0}" -le 0 ] 2>/dev/null || ! is_int "${eta:-}"; then
 		printf '%s' ' progress ?% ETA ??:??:??'
 		return 0
 	fi
-	total=$((elapsed + eta))
-	if [ "$total" -le 0 ] 2>/dev/null ; then
-		printf '%s' ' progress 0% ETA ??:??:??'
-		return 0
+	if ! is_int "${done_ms:-}"; then done_ms=0; fi
+	# progress% = 100 * done / planned
+	if [ "$done_ms" -ge "$planned_ms" ] 2>/dev/null && [ -z "${TASK_ACTIVE_KIND:-}" ]; then
+		pct=100
+	else
+		pct=$(( done_ms * 100 / planned_ms ))
+		if [ "$pct" -gt 99 ] 2>/dev/null ; then pct=99; fi
 	fi
-	# progress% = 100 * elapsed / (elapsed + eta)
-	pct=$(( elapsed * 100 / total ))
-	if [ "$pct" -gt 99 ] 2>/dev/null ; then pct=99; fi
+	if [ "$pct" -lt 0 ] 2>/dev/null ; then pct=0; fi
 	printf ' progress %s%% ETA %s' "$pct" "$(format_hms "$eta")"
 }
 
@@ -530,6 +636,7 @@ iv2v_generate() {
 	chunk_file="$3"
 	frames_to_generate="$4"
 	start="$5"
+	record_frames="${6:-1}"
 	# frames_to_generate is a count; compute inclusive end index (0-based)
 	end=$((start + frames_to_generate - 1))
 
@@ -574,7 +681,12 @@ iv2v_generate() {
 	queuecount=""
 	TASK_ACTIVE_KIND=iv2v
 	TASK_ACTIVE_T0=$start
-	TASK_ACTIVE_FRAMES=$frames_to_generate
+	if [ "${record_frames:-1}" -eq 1 ] 2>/dev/null; then
+		TASK_ACTIVE_FRAMES=$frames_to_generate
+	else
+		# Transition chunk: do not affect plan-based progress/ETA.
+		TASK_ACTIVE_FRAMES=0
+	fi
 	until [ "$queuecount" = "0" ]
 	do
 		sleep 1
@@ -610,8 +722,12 @@ iv2v_generate() {
 	done
 	runtime=$((end-start))
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
-	# Update estimator with this IV2V runtime and produced frames
-	task_record_iv2v_runtime "$runtime" "$frames_to_generate"
+	# Update estimator with this IV2V runtime; optionally count frames for plan-based progress.
+	if [ "${record_frames:-1}" -eq 1 ] 2>/dev/null; then
+		task_record_iv2v_runtime "$runtime" "$frames_to_generate"
+	else
+		task_record_iv2v_runtime "$runtime" 0
+	fi
 	TASK_ACTIVE_KIND=
 	TASK_ACTIVE_T0=
 	TASK_ACTIVE_FRAMES=
@@ -839,7 +955,8 @@ else
 	if [ -z "$REUSE_WORKPLAN" ] ; then
 		# Re-encode input to a workflow-specific FPS intermediate file to avoid frame-rate issues
 		echo "Converting input to $SCENE_WORKFLOW_FPS FPS -> $VIDEOINTERMEDIATE"
-		echo "$(task_progress_suffix)"
+		suffix="$(task_progress_suffix)"
+		[ -n "$suffix" ] && echo "$suffix"
 		nc_t0=$(date +%s)
 		# Video-only intermediate: audio is muxed from ORIGINALINPUT at the end of the pipeline.
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$INPUT" -filter:v "fps=$SCENE_WORKFLOW_FPS" -c:v libx264 -preset veryfast -crf 18 -an "$VIDEOINTERMEDIATE"
@@ -876,7 +993,8 @@ else
 		SCENE_THRESHOLD=0.2
 		SCENES_FILE="$INTERMEDIATE_INPUT_FOLDER/scenes.txt"
 		echo "Detecting scenes (threshold=$SCENE_THRESHOLD) -> $SCENES_FILE"
-		echo "$(task_progress_suffix)"
+		suffix="$(task_progress_suffix)"
+		[ -n "$suffix" ] && echo "$suffix"
 		nc_t0=$(date +%s)
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -filter:v "select='gt(scene,$SCENE_THRESHOLD)',showinfo" -f null - 2>&1 | grep showinfo | grep pts_time:[0-9.]\* -o | grep [0-9.]\* -o > "$SCENES_FILE"
 		nc_t1=$(date +%s)
@@ -1595,6 +1713,8 @@ else
 			echo "chunk_${idx_p}.mp4,${seg_index},${scenestart_iv2v},main" >> "$chunk_meta"
 			if [ -e "$chunk_file" ]; then
 				echo "Skipping generation; chunk already exists: $chunk_file"
+				# Resume/skip should still count as done for plan-based progress/ETA
+				task_mark_iv2v_done_no_runtime "$num_frames"
 			else
 				chunk_no=$((chunk_index + 1))
 				chunk_frames_msg=$(format_frames_progress "$start_frame" "$num_frames" "$GC_FRAMECOUNT" 2>/dev/null || true)
@@ -1621,7 +1741,7 @@ else
 				img2="$color_image"
 
 				# generate chunk via iv2v helper using start_frame/num_frames computed from workplan
-				iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame"
+				iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame" 1
 				rc=$?
 				if [ $rc -ne 0 ]; then
 					if [ $rc -eq 2 ]; then
@@ -1675,7 +1795,8 @@ else
 						fi
 					fi
 				fi
-				iv2v_generate "$img1" "$control_chunk" "$chunk_file" "$trans_frames" "$start_frame" ""
+				# Transition chunk: do not count into plan-based iv2v done frames
+				iv2v_generate "$img1" "$control_chunk" "$chunk_file" "$trans_frames" "$start_frame" 0
 				rc=$?
 				if [ $rc -ne 0 ]; then
 					if [ $rc -eq 2 ]; then
@@ -1693,7 +1814,8 @@ else
 	
 
 	echo "=== STEP 5: concat video segements to final video, and apply audio from source video."
-	echo "$(task_progress_suffix)"
+	suffix="$(task_progress_suffix)"
+	[ -n "$suffix" ] && echo "$suffix"
 
 	# If FORCE_START=1, blend boundary frames between contiguous main chunks within the same scene
 	# (next chunk has scenestart==0) to reduce hard cuts without changing total frames.
@@ -1710,7 +1832,9 @@ else
 				if [ -s "$prev_chunk" ] && [ -s "$next_chunk" ]; then
 					[ ${loglevel:-0} -ge 1 ] && echo "Info: blending inner boundary $prev_file -> $meta_file (FORCED_INNER_SEG_BLEND=${FORCED_INNER_SEG_BLEND})"
 					nc_t0=$(date +%s)
-					blend_inner_chunk_boundary_if_needed "$prev_chunk" "$next_chunk" "$FORCED_INNER_SEG_BLEND" "${SCENE_WORKFLOW_FPS:-16}" || true
+					if ! blend_inner_chunk_boundary_if_needed "$prev_chunk" "$next_chunk" "$FORCED_INNER_SEG_BLEND" "${SCENE_WORKFLOW_FPS:-16}"; then
+						[ ${loglevel:-0} -ge 1 ] && echo "Warning: inner boundary blending failed for $prev_file -> $meta_file"
+					fi
 					nc_t1=$(date +%s)
 					task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 				fi
