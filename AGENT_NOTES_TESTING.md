@@ -50,6 +50,24 @@ Use Git for Windows’ bash instead:
 Example syntax-check for scripts:
 - `& "C:\Program Files\Git\bin\bash.exe" -n "api/tasks/workflow-v2v-transform.sh"`
 
+## PowerShell quoting pitfalls (python -c / redirection)
+When running one-off Python snippets via PowerShell, quoting can silently break the code you *think* you passed to `python -c`.
+
+Observed failure modes (real examples from this workspace):
+- **`<` inside the `-c` string**: PowerShell may interpret `<` as an operator/redirection-like token and throw a parser error (e.g. when printing text like `"<0.5"`).
+  - Workaround: avoid `<`/`>` in the Python code string; print `lt0.5` instead.
+- **F-strings / quotes getting mangled**: passing a multiline `-c` value that contains `"` and `{}` can end up with quotes stripped by Windows argument parsing, leading to syntax errors like `print(f{fn}: ...)`.
+  - Workaround: prefer Python code that uses **only single quotes** when passed via `-c`.
+  - Alternative: put the Python snippet into a **PowerShell here-string** (`$code=@' ... '@`) *and* ensure it contains no unescaped `"` sequences.
+- **Control flow in a one-liner**: `python -c "...; while True: ..."` is fragile and often invalid unless you fully restructure it.
+  - Workaround: use `for` loops (single-line friendly) or write a short temp `.py` script.
+
+Reliable patterns:
+- Prefer `get_pose.py --out-file ...` over shell redirection (`>`), especially in PowerShell.
+- For stats/analysis snippets:
+  - Use `$code=@' ... '@; & $py -c $code ...` and keep Python strings single-quoted.
+- If the snippet grows beyond ~10 lines: write `tmp_stats.py` to `%TEMP%` and run it.
+
 ## batch_tasks.sh: is_disabled() perceived slowness (parked)
 User observation: batch startup feels slow with dozens of task folders.
 

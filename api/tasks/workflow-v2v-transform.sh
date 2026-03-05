@@ -1472,7 +1472,20 @@ else
 			suffix="$(task_progress_suffix)"
 			[ -n "$suffix" ] && echo "$suffix"
 			nc_t0=$(date +%s)
-			if "$PYTHON_BIN_PATH"python.exe "$GET_POSE_SCRIPT" --format lines --resolution 512 --bbox-detector yolox_l.onnx --pose-estimator dw-ll_ucoco_384_bs5.torchscript.pt "$VIDEOINTERMEDIATE" > "$FACE_VIS_TMP" ; then
+			# Use --out-file (no shell redirection). Metric is explicit for reproducibility.
+			if "$PYTHON_BIN_PATH"python.exe "$GET_POSE_SCRIPT" \
+				--format lines \
+				--primary-person body \
+				--visibility-metric combined_min \
+				--conf-threshold 0.1 \
+				--score-threshold 0.6 \
+				--eye-ratio-min 0.12 \
+				--no-progress \
+				--resolution 512 \
+				--bbox-detector yolox_l.onnx \
+				--pose-estimator dw-ll_ucoco_384_bs5.torchscript.pt \
+				--out-file "$FACE_VIS_TMP" \
+				"$VIDEOINTERMEDIATE" ; then
 				if [ -s "$FACE_VIS_TMP" ]; then
 					mv -vf -- "$FACE_VIS_TMP" "$FACE_VIS_FILE"
 					FACE_VIS_AVAILABLE=1
