@@ -1220,6 +1220,34 @@ else
 			*) FORCE_START=0 ;;
 		esac
 	fi
+
+	# Optional flag: detect face appearance per frame and refine segment boundaries
+	# within the same scene (workplan generation only).
+	# Enable by adding e.g. "detect_face_appearance": true to the task JSON.
+	DETECT_FACE_APPEARANCE=0
+	detect_face_raw=$(grep -oE '"detect_face_appearance"[[:space:]]*:[[:space:]]*(true|false|1|0|"true"|"false"|"1"|"0")' "$BLUEPRINTCONFIG" 2>/dev/null | head -n1 || true)
+	if [ -n "$detect_face_raw" ]; then
+		detect_face_val=$(printf '%s' "$detect_face_raw" | sed -E 's/^.*:[[:space:]]*//; s/[",[:space:]]//g')
+		case "${detect_face_val,,}" in
+			true|1) DETECT_FACE_APPEARANCE=1 ;;
+			*) DETECT_FACE_APPEARANCE=0 ;;
+		esac
+	fi
+	# Face visibility threshold (float) and stability window (frames)
+	FACE_VIS_THRESHOLD=""
+	FACE_VIS_STABLE_FRAMES=""
+	if [ -n "${CONFIGFILE:-}" ] && [ -f "$CONFIGFILE" ]; then
+		FACE_VIS_THRESHOLD=$(awk -F "=" '/^FACE_VIS_THRESHOLD=/ {print $2}' "$CONFIGFILE" 2>/dev/null | head -n1 | tr -d '\r' | tr -d '[:space:]')
+		FACE_VIS_STABLE_FRAMES=$(awk -F "=" '/^FACE_VIS_STABLE_FRAMES=/ {print $2}' "$CONFIGFILE" 2>/dev/null | head -n1 | tr -d '\r' | tr -d '[:space:]')
+	fi
+	FACE_VIS_THRESHOLD=${FACE_VIS_THRESHOLD:-0.5}
+	FACE_VIS_STABLE_FRAMES=${FACE_VIS_STABLE_FRAMES:-8}
+	if ! is_float_01 "${FACE_VIS_THRESHOLD:-}"; then
+		FACE_VIS_THRESHOLD=0.5
+	fi
+	if ! is_int "${FACE_VIS_STABLE_FRAMES:-}" || [ "${FACE_VIS_STABLE_FRAMES:-0}" -lt 1 ] 2>/dev/null; then
+		FACE_VIS_STABLE_FRAMES=8
+	fi
 	# When FORCE_START=1, optionally blend boundary frames between contiguous main chunks
 	# within the same scene to avoid hard cuts without changing frame count.
 	FORCED_INNER_SEG_BLEND=${FORCED_INNER_SEG_BLEND:-0.80}
@@ -1431,6 +1459,80 @@ else
 			mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 			exit 0
 		fi
+
+		# Optional: compute per-frame face visibility scores once, outside the scene loop.
+		# Output is a text file with one float per line (frame index 0 corresponds to line 1).
+		FACE_VIS_FILE=""
+		FACE_VIS_AVAILABLE=0
+		if [ "${DETECT_FACE_APPEARANCE:-0}" -eq 1 ] 2>/dev/null; then
+			GET_POSE_SCRIPT=./custom_nodes/comfyui_stereoscopic/api/python/workflow/get_pose.py
+			FACE_VIS_FILE="$INTERMEDIATE_INPUT_FOLDER/face_visibility.txt"
+			FACE_VIS_TMP="$FACE_VIS_FILE.tmp"
+			echo "Info: detect_face_appearance=1 -> analyzing face visibility per frame (threshold=${FACE_VIS_THRESHOLD}, stable=${FACE_VIS_STABLE_FRAMES})"
+			suffix="$(task_progress_suffix)"
+			[ -n "$suffix" ] && echo "$suffix"
+			nc_t0=$(date +%s)
+			if "$PYTHON_BIN_PATH"python.exe "$GET_POSE_SCRIPT" --format lines --resolution 512 --bbox-detector yolox_l.onnx --pose-estimator dw-ll_ucoco_384_bs5.torchscript.pt "$VIDEOINTERMEDIATE" > "$FACE_VIS_TMP" ; then
+				if [ -s "$FACE_VIS_TMP" ]; then
+					mv -vf -- "$FACE_VIS_TMP" "$FACE_VIS_FILE"
+					FACE_VIS_AVAILABLE=1
+				else
+					echo "Warning: face visibility output is empty; disabling detect_face_appearance." >&2
+					rm -f -- "$FACE_VIS_TMP" 2>/dev/null || true
+					FACE_VIS_AVAILABLE=0
+				fi
+			else
+				echo "Warning: get_pose.py failed; disabling detect_face_appearance." >&2
+				rm -f -- "$FACE_VIS_TMP" 2>/dev/null || true
+				FACE_VIS_AVAILABLE=0
+			fi
+			nc_t1=$(date +%s)
+			task_record_noncomfy_runtime $((nc_t1 - nc_t0))
+		fi
+
+		# Helper: decide an earlier split length within a chunk window based on
+		# face visibility (8 bad frames at start, then 8 good frames above threshold).
+		face_chunk_split_len() {
+			_start_idx="$1"   # 0-based
+			_win_len="$2"     # max frames to consider
+			_thr="$3"         # float
+			_stable="$4"      # int frames
+			_file="$5"        # one float per line
+			if ! is_int "${_start_idx:-}" || ! is_int "${_win_len:-}" || ! is_int "${_stable:-}" || ! is_float_01 "${_thr:-}"; then
+				echo 0
+				return 0
+			fi
+			if [ "${_win_len:-0}" -lt $(( _stable * 2 )) ] 2>/dev/null; then
+				echo 0
+				return 0
+			fi
+			start_line=$((_start_idx + 1))
+			# Read only the needed window (avoids scanning the full file for every chunk).
+			tail -n +"${start_line}" "${_file}" 2>/dev/null | head -n "${_win_len}" |
+			awk -v n="${_win_len}" -v thr="${_thr}" -v st="${_stable}" '
+			BEGIN { re="^[0-9]+(\\.[0-9]+)?$" }
+			{
+				v=$0
+				sub(/\r$/, "", v)
+				if(v!~re){a[NR-1]=0.0} else {a[NR-1]=v+0.0}
+				cnt++
+			}
+			END {
+				if(cnt<n){print 0; exit}
+				for(i=0;i<st;i++){
+					if(!(a[i] < thr)){print 0; exit}
+				}
+				for(p=st; p<=n-st; p++){
+					good=1
+					for(j=0;j<st;j++){
+						if(!(a[p+j] >= thr)){good=0; break}
+					}
+					if(good==1){print p; exit}
+				}
+				print 0
+			}
+			' 2>/dev/null
+		}
 		last_frame=$((frame_count - 1))
 		# iterate scenes and print each scene time (will be used later to build segments_json)
 		# initialize segments arrays: frame counts, start indices, end indices
@@ -1468,6 +1570,14 @@ else
 				scene_first_chunk=1
 				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
 					chunk_len=$SCENE_SEG_MAX_FRAMES
+					# Optional: refine boundary based on face appearance (within-scene).
+					if [ "${FACE_VIS_AVAILABLE:-0}" -eq 1 ] 2>/dev/null && [ -n "${FACE_VIS_FILE:-}" ] && [ -s "${FACE_VIS_FILE:-}" ]; then
+						cut_len=$(face_chunk_split_len "$idx_a" "$chunk_len" "$FACE_VIS_THRESHOLD" "$FACE_VIS_STABLE_FRAMES" "$FACE_VIS_FILE")
+						if is_int "${cut_len:-}" && [ "${cut_len:-0}" -ge "${FACE_VIS_STABLE_FRAMES:-8}" ] 2>/dev/null && [ "${cut_len:-0}" -lt "${chunk_len:-0}" ] 2>/dev/null; then
+							chunk_len=$cut_len
+							[ ${loglevel:-0} -ge 1 ] && echo "Info: face-appearance split: start=$idx_a chunk_len=$chunk_len (thr=$FACE_VIS_THRESHOLD stable=$FACE_VIS_STABLE_FRAMES)"
+						fi
+					fi
 					# Special case: when FORCE_START is enabled and the first planned segment
 					# would be exactly 48 frames, shorten it to 40 so the last 8 frames shift
 					# into the next segment. This preserves total frames and only moves the
@@ -1543,6 +1653,14 @@ else
 				scene_first_chunk=1
 				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
 					chunk_len=$SCENE_SEG_MAX_FRAMES
+					# Optional: refine boundary based on face appearance (within-scene).
+					if [ "${FACE_VIS_AVAILABLE:-0}" -eq 1 ] 2>/dev/null && [ -n "${FACE_VIS_FILE:-}" ] && [ -s "${FACE_VIS_FILE:-}" ]; then
+						cut_len=$(face_chunk_split_len "$idx_a" "$chunk_len" "$FACE_VIS_THRESHOLD" "$FACE_VIS_STABLE_FRAMES" "$FACE_VIS_FILE")
+						if is_int "${cut_len:-}" && [ "${cut_len:-0}" -ge "${FACE_VIS_STABLE_FRAMES:-8}" ] 2>/dev/null && [ "${cut_len:-0}" -lt "${chunk_len:-0}" ] 2>/dev/null; then
+							chunk_len=$cut_len
+							[ ${loglevel:-0} -ge 1 ] && echo "Info: face-appearance split: start=$idx_a chunk_len=$chunk_len (thr=$FACE_VIS_THRESHOLD stable=$FACE_VIS_STABLE_FRAMES)"
+						fi
+					fi
 					# Same special case for the very first segment overall.
 					if [ $is_first_segment -eq 1 ] && [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null && [ "${chunk_len:-0}" -eq 48 ] 2>/dev/null; then
 						chunk_len=40
