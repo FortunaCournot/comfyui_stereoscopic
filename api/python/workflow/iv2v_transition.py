@@ -36,8 +36,8 @@ def load_json_file(path: str):
     raise last_error
 
 
-if len(sys.argv) != 6 + 1 and len(sys.argv) != 7 + 1:
-   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " apifile StartImagePath ControlVideoPath OutputPathPrefix Length Prompt [ColorImagePath]")
+if len(sys.argv) != 7 + 1 and len(sys.argv) != 8 + 1:
+   print("Invalid arguments were given ("+ str(len(sys.argv)-1) +"). Usage: python " + sys.argv[0] + " apifile StartImagePath ControlVideoPath OutputPathPrefix Length Prompt blend_factor [ColorImagePath]")
 else:
     try:
         prompt = load_json_file(sys.argv[1])
@@ -51,9 +51,9 @@ else:
         prompt["195"]["inputs"]["value"] = sys.argv[4]
         prompt["193"]["inputs"]["value"] = sys.argv[5]
         prompt["194"]["inputs"]["value"] = sys.argv[6]
-        prompt["217"]["inputs"]["blend_factor"] = "0.10"
-        if len(sys.argv) == 8:
-            prompt["220"]["inputs"]["image"] = sys.argv[7]
+        prompt["217"]["inputs"]["blend_factor"] = sys.argv[7]
+        if len(sys.argv) == 9:
+            prompt["220"]["inputs"]["image"] = sys.argv[8]
         else:
             prompt["178"]["inputs"]["image"] = sys.argv[2]
     except Exception as e:
