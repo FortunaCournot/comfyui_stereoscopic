@@ -293,6 +293,8 @@ is_int() {
 
 # Internal caches for fast progress suffix rendering (no file IO).
 TASK_PLANNED_MS_CACHE=""
+TASK_PLANNED_COMFY_MS_CACHE=""
+TASK_PLANNED_NONCOMFY_MS_CACHE=""
 TASK_PLANNED_MS_CACHE_READY=0
 PROGRESS_SUFFIX_CACHE=""
 PROGRESS_SUFFIX_CACHE_T=-1
@@ -380,16 +382,29 @@ format_hms() {
 # -----------------------------------------------------------------------------
 EST_I2I_REF_FRAMES=48
 # AVG_I2I_MS_PER_SEG is interpreted as runtime for EST_I2I_REF_FRAMES frames.
+# Keep these conservative defaults unless you calibrate from a run where
+# iv2v/i2i were actually executed for the counted frames (i.e. excluding
+# transition chunks and resume/skips).
 EST_AVG_I2I_MS_PER_SEG=123169
 EST_AVG_IV2V_MS_PER_FRAME=4723
+# Fixed per-ComfyUI-request overhead (queue submission + warmup) in ms.
+# This is used for smoother in-flight ETA/progress (avoids sudden ETA jumps at the
+# beginning of a ComfyUI call), while keeping STEP 3/4 planned totals close to the
+# classic per-frame/per-segment model.
+EST_AVG_COMFY_CALL_BASE_MS=4000
 # Ratio of non-Comfy time relative to ComfyUI time, per-mille.
 EST_AVG_NONCOMFY_PERMIL=7
+# Minimum planned non-comfy time in ms (covers STEP 5 concat/mux/blend even when
+# NONCOMFY_PERMIL is small). Does not affect STEP 3/4 internal split.
+EST_AVG_NONCOMFY_MIN_MS=60000
 
 estimator_load_stats() {
 	I2I_REF_FRAMES=${EST_I2I_REF_FRAMES:-48}
 	AVG_I2I_MS_PER_SEG=${EST_AVG_I2I_MS_PER_SEG:-0}
 	AVG_IV2V_MS_PER_FRAME=${EST_AVG_IV2V_MS_PER_FRAME:-0}
 	AVG_NONCOMFY_PERMIL=${EST_AVG_NONCOMFY_PERMIL:-0}
+	COMFY_CALL_BASE_MS=${EST_AVG_COMFY_CALL_BASE_MS:-0}
+	NONCOMFY_MIN_MS=${EST_AVG_NONCOMFY_MIN_MS:-0}
 }
 
 estimator_save_stats() {
@@ -411,6 +426,13 @@ task_record_i2i_runtime() {
 	_runtime_s="$1"
 	_seg_frames="$2"
 	if ! is_int "${_runtime_s:-}"; then return 0; fi
+	# Track min observed comfy call runtime (heuristic for base overhead recommendation).
+	if is_int "${TASK_COMFY_MIN_RUNTIME_S:-}" && [ "${TASK_COMFY_MIN_RUNTIME_S:-0}" -gt 0 ] 2>/dev/null; then
+		if [ "$_runtime_s" -lt "$TASK_COMFY_MIN_RUNTIME_S" ] 2>/dev/null; then TASK_COMFY_MIN_RUNTIME_S="$_runtime_s"; fi
+	else
+		TASK_COMFY_MIN_RUNTIME_S="$_runtime_s"
+	fi
+	TASK_COMFY_CALLS_DONE=$(( ${TASK_COMFY_CALLS_DONE:-0} + 1 ))
 	TASK_I2I_DONE=$((TASK_I2I_DONE + 1))
 	TASK_I2I_TIME_S=$((TASK_I2I_TIME_S + _runtime_s))
 	if is_int "${_seg_frames:-}" && [ "${_seg_frames:-0}" -gt 0 ] 2>/dev/null; then
@@ -437,10 +459,20 @@ task_record_iv2v_runtime() {
 	_runtime_s="$1"
 	_frames="$2"
 	if ! is_int "${_runtime_s:-}"; then return 0; fi
+	# If frame count is unknown/zero (e.g. transition chunk), treat this as
+	# progress-neutral overhead (noncomfy) rather than skewing iv2v ms/frame.
 	if ! is_int "${_frames:-}" || [ "${_frames:-0}" -le 0 ] 2>/dev/null; then
-		TASK_IV2V_TIME_S=$((TASK_IV2V_TIME_S + _runtime_s))
+		task_record_noncomfy_runtime "$_runtime_s"
 		return 0
 	fi
+	# Track min observed comfy call runtime (heuristic for base overhead recommendation).
+	if is_int "${TASK_COMFY_MIN_RUNTIME_S:-}" && [ "${TASK_COMFY_MIN_RUNTIME_S:-0}" -gt 0 ] 2>/dev/null; then
+		if [ "$_runtime_s" -lt "$TASK_COMFY_MIN_RUNTIME_S" ] 2>/dev/null; then TASK_COMFY_MIN_RUNTIME_S="$_runtime_s"; fi
+	else
+		TASK_COMFY_MIN_RUNTIME_S="$_runtime_s"
+	fi
+	TASK_COMFY_CALLS_DONE=$(( ${TASK_COMFY_CALLS_DONE:-0} + 1 ))
+	TASK_IV2V_DONE_CALLS=$(( ${TASK_IV2V_DONE_CALLS:-0} + 1 ))
 	TASK_IV2V_DONE_FRAMES=$((TASK_IV2V_DONE_FRAMES + _frames))
 	TASK_IV2V_TIME_S=$((TASK_IV2V_TIME_S + _runtime_s))
 	# Do not update/persist estimator averages (constants only).
@@ -449,6 +481,7 @@ task_record_iv2v_runtime() {
 task_mark_iv2v_done_no_runtime() {
 	_frames="$1"
 	if is_int "${_frames:-}" && [ "${_frames:-0}" -gt 0 ] 2>/dev/null; then
+		TASK_IV2V_DONE_CALLS=$(( ${TASK_IV2V_DONE_CALLS:-0} + 1 ))
 		TASK_IV2V_DONE_FRAMES=$((TASK_IV2V_DONE_FRAMES + _frames))
 	fi
 }
@@ -473,9 +506,18 @@ task_log_estimator_recommendations() {
 
 	echo "=== Estimator calibration (suggested constants) ==="
 	echo "# Copy into workflow-v2v-transform.sh (Runtime estimator constants section)"
-	echo "# Measured this run:"
+	echo "# Plan (this run):"
+	echo "#   planned total frames: ${WP_TOTAL_FRAMES:-0}"
+	echo "#   planned i2i frames:   ${WP_I2I_PLANNED_FRAMES:-0}"
+	echo "#   planned i2i calls:    ${WP_I2I_PLANNED:-0}"
+	echo "#   planned iv2v calls:   ${WP_CHUNKS_PLANNED:-0}"
+	echo "#"
+	echo "# Measured this run (counters):"
 	echo "#   i2i:    ${TASK_I2I_TIME_S:-0}s over ${TASK_I2I_DONE_FRAMES:-0} frames"
 	echo "#   iv2v:   ${TASK_IV2V_TIME_S:-0}s over ${TASK_IV2V_DONE_FRAMES:-0} frames"
+	echo "#   i2i calls done:  ${TASK_I2I_DONE:-0}"
+	echo "#   iv2v calls done: ${TASK_IV2V_DONE_CALLS:-0}"
+	echo "#   comfy min runtime (heuristic): ${TASK_COMFY_MIN_RUNTIME_S:-0}s"
 	echo "#   noncomfy:${TASK_NONCOMFY_TIME_S:-0}s"
 	echo
 
@@ -502,11 +544,126 @@ task_log_estimator_recommendations() {
 		rec_noncomfy_permil=$(( (TASK_NONCOMFY_TIME_S * 1000) / comfy_s ))
 	fi
 
+	# comfy base ms (heuristic recommendation based on minimum observed comfy call runtime)
+	rec_base_ms="${EST_AVG_COMFY_CALL_BASE_MS:-0}"
+	if ! is_int "${rec_base_ms:-}" || [ "${rec_base_ms:-0}" -lt 0 ] 2>/dev/null; then rec_base_ms=0; fi
+	# IMPORTANT: min runtime includes actual generation time, so it's only a good proxy
+	# for base overhead when the smallest call is *already* short.
+	if is_int "${TASK_COMFY_MIN_RUNTIME_S:-}" && [ "${TASK_COMFY_MIN_RUNTIME_S:-0}" -gt 0 ] 2>/dev/null; then
+		min_ms=$((TASK_COMFY_MIN_RUNTIME_S * 1000))
+		# Only trust it if it looks like overhead-sized (<= 20s). Otherwise keep the default.
+		if [ "$min_ms" -le 20000 ] 2>/dev/null; then
+			rec_base_ms=$min_ms
+		fi
+	fi
+	if [ "$rec_base_ms" -gt 20000 ] 2>/dev/null; then rec_base_ms=20000; fi
+
+	# noncomfy minimum planned ms
+	rec_noncomfy_min_ms="${EST_AVG_NONCOMFY_MIN_MS:-0}"
+	if ! is_int "${rec_noncomfy_min_ms:-}" || [ "${rec_noncomfy_min_ms:-0}" -lt 0 ] 2>/dev/null; then rec_noncomfy_min_ms=0; fi
+
 	echo "EST_I2I_REF_FRAMES=$ref"
 	echo "EST_AVG_I2I_MS_PER_SEG=$rec_i2i_ms_ref"
 	echo "EST_AVG_IV2V_MS_PER_FRAME=$rec_iv2v_ms_pf"
+	echo "EST_AVG_COMFY_CALL_BASE_MS=$rec_base_ms"
 	echo "EST_AVG_NONCOMFY_PERMIL=$rec_noncomfy_permil"
+	echo "EST_AVG_NONCOMFY_MIN_MS=$rec_noncomfy_min_ms"
 	echo "=== /Estimator calibration ==="
+}
+
+comfyui_is_present() {
+	true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT
+}
+
+wait_for_comfyui_present() {
+	_timeout_s="$1"
+	_poll_s="${2:-2}"
+	if ! is_int "${_timeout_s:-}" || [ "${_timeout_s:-0}" -le 0 ] 2>/dev/null; then
+		_timeout_s=300
+	fi
+	if ! is_int "${_poll_s:-}" || [ "${_poll_s:-0}" -le 0 ] 2>/dev/null; then
+		_poll_s=2
+	fi
+	_waited=0
+	_warned=0
+	until comfyui_is_present; do
+		if [ "$_warned" -eq 0 ] 2>/dev/null; then
+			echo -e $"\e[93mWarning:\e[0m ComfyUI not present. Waiting for $COMFYUIHOST:$COMFYUIPORT to come back..."
+			_warned=1
+		fi
+		sleep "$_poll_s"
+		_waited=$((_waited + _poll_s))
+		if [ "$_waited" -ge "$_timeout_s" ] 2>/dev/null; then
+			return 1
+		fi
+	done
+	[ "$_warned" -eq 1 ] 2>/dev/null && echo "Info: ComfyUI is present again."
+	return 0
+}
+
+get_comfy_call_base_ms() {
+	base_ms="${COMFY_CALL_BASE_MS:-0}"
+	if ! is_int "${base_ms:-}" || [ "${base_ms:-0}" -lt 0 ] 2>/dev/null; then
+		base_ms="${EST_AVG_COMFY_CALL_BASE_MS:-0}"
+	fi
+	if ! is_int "${base_ms:-}" || [ "${base_ms:-0}" -lt 0 ] 2>/dev/null; then
+		base_ms=0
+	fi
+	echo "$base_ms"
+}
+
+get_noncomfy_min_ms() {
+	min_ms="${NONCOMFY_MIN_MS:-0}"
+	if ! is_int "${min_ms:-}" || [ "${min_ms:-0}" -lt 0 ] 2>/dev/null; then
+		min_ms="${EST_AVG_NONCOMFY_MIN_MS:-0}"
+	fi
+	if ! is_int "${min_ms:-}" || [ "${min_ms:-0}" -lt 0 ] 2>/dev/null; then
+		min_ms=0
+	fi
+	echo "$min_ms"
+}
+
+get_i2i_ms_ref_effective() {
+	# Split planned i2i time into base-per-call + variable-per-frame while keeping the
+	# total close to the classic model (per-segment reference time).
+	ref=$(get_i2i_ref_frames)
+	i2i_ms_ref=$(get_i2i_ms_ref)
+	base_ms=$(get_comfy_call_base_ms)
+	wp_frames=${WP_I2I_PLANNED_FRAMES:-0}
+	wp_calls=${WP_I2I_PLANNED:-0}
+	if ! is_int "${wp_frames:-}" || [ "${wp_frames:-0}" -le 0 ] 2>/dev/null; then
+		echo "$i2i_ms_ref"
+		return 0
+	fi
+	if ! is_int "${wp_calls:-}" || [ "${wp_calls:-0}" -lt 0 ] 2>/dev/null; then wp_calls=0; fi
+	if ! is_int "${base_ms:-}" || [ "${base_ms:-0}" -lt 0 ] 2>/dev/null; then base_ms=0; fi
+	raw_ms=$(( (wp_frames * i2i_ms_ref) / ref ))
+	base_total=$(( wp_calls * base_ms ))
+	var_total=$(( raw_ms - base_total ))
+	if [ "$var_total" -lt 0 ] 2>/dev/null; then var_total=0; fi
+	eff_ref=$(( (var_total * ref) / wp_frames ))
+	if [ "$eff_ref" -le 0 ] 2>/dev/null; then eff_ref=1; fi
+	echo "$eff_ref"
+}
+
+get_iv2v_ms_pf_effective() {
+	iv2v_ms_pf=$(get_iv2v_ms_pf)
+	base_ms=$(get_comfy_call_base_ms)
+	wp_frames=${WP_TOTAL_FRAMES:-0}
+	wp_calls=${WP_CHUNKS_PLANNED:-0}
+	if ! is_int "${wp_frames:-}" || [ "${wp_frames:-0}" -le 0 ] 2>/dev/null; then
+		echo "$iv2v_ms_pf"
+		return 0
+	fi
+	if ! is_int "${wp_calls:-}" || [ "${wp_calls:-0}" -lt 0 ] 2>/dev/null; then wp_calls=0; fi
+	if ! is_int "${base_ms:-}" || [ "${base_ms:-0}" -lt 0 ] 2>/dev/null; then base_ms=0; fi
+	raw_ms=$(( wp_frames * iv2v_ms_pf ))
+	base_total=$(( wp_calls * base_ms ))
+	var_total=$(( raw_ms - base_total ))
+	if [ "$var_total" -lt 0 ] 2>/dev/null; then var_total=0; fi
+	eff_pf=$(( var_total / wp_frames ))
+	if [ "$eff_pf" -le 0 ] 2>/dev/null; then eff_pf=1; fi
+	echo "$eff_pf"
 }
 
 get_ratio_permil() {
@@ -557,19 +714,38 @@ estimate_task_planned_ms() {
 	# Weighted plan units in milliseconds: i2i + iv2v + noncomfy share.
 	planned_i2i_ms=0
 	planned_iv2v_ms=0
+	planned_comfy_base_ms=0
 	if is_int "${WP_I2I_PLANNED_FRAMES:-}"; then
 		ref=$(get_i2i_ref_frames)
-		i2i_ms_ref=$(get_i2i_ms_ref)
-		planned_i2i_ms=$(( (WP_I2I_PLANNED_FRAMES * i2i_ms_ref) / ref ))
+		i2i_ms_ref_eff=$(get_i2i_ms_ref_effective)
+		base_ms=$(get_comfy_call_base_ms)
+		wp_calls=${WP_I2I_PLANNED:-0}
+		if ! is_int "${wp_calls:-}" || [ "${wp_calls:-0}" -lt 0 ] 2>/dev/null; then wp_calls=0; fi
+		planned_i2i_base=$(( wp_calls * base_ms ))
+		planned_i2i_var=$(( (WP_I2I_PLANNED_FRAMES * i2i_ms_ref_eff) / ref ))
+		planned_i2i_ms=$(( planned_i2i_base + planned_i2i_var ))
 	fi
 	if is_int "${WP_TOTAL_FRAMES:-}"; then
-		iv2v_ms_pf=$(get_iv2v_ms_pf)
-		planned_iv2v_ms=$(( WP_TOTAL_FRAMES * iv2v_ms_pf ))
+		iv2v_ms_pf_eff=$(get_iv2v_ms_pf_effective)
+		base_ms=$(get_comfy_call_base_ms)
+		wp_calls=${WP_CHUNKS_PLANNED:-0}
+		if ! is_int "${wp_calls:-}" || [ "${wp_calls:-0}" -lt 0 ] 2>/dev/null; then wp_calls=0; fi
+		planned_iv2v_base=$(( wp_calls * base_ms ))
+		planned_iv2v_var=$(( WP_TOTAL_FRAMES * iv2v_ms_pf_eff ))
+		planned_iv2v_ms=$(( planned_iv2v_base + planned_iv2v_var ))
 	fi
 	planned_comfy_ms=$((planned_i2i_ms + planned_iv2v_ms))
 	ratio_permil=$(get_ratio_permil)
 	planned_noncomfy_ms=$(( planned_comfy_ms * ratio_permil / 1000 ))
+	min_noncomfy_ms=$(get_noncomfy_min_ms)
+	if [ "${planned_comfy_ms:-0}" -gt 0 ] 2>/dev/null && is_int "${min_noncomfy_ms:-}" && [ "${min_noncomfy_ms:-0}" -gt 0 ] 2>/dev/null; then
+		if [ "${planned_noncomfy_ms:-0}" -lt "$min_noncomfy_ms" ] 2>/dev/null; then
+			planned_noncomfy_ms="$min_noncomfy_ms"
+		fi
+	fi
 	TASK_PLANNED_MS_CACHE=$(( planned_comfy_ms + planned_noncomfy_ms ))
+	TASK_PLANNED_COMFY_MS_CACHE=$planned_comfy_ms
+	TASK_PLANNED_NONCOMFY_MS_CACHE=$planned_noncomfy_ms
 	TASK_PLANNED_MS_CACHE_READY=1
 	echo "$TASK_PLANNED_MS_CACHE"
 }
@@ -580,12 +756,18 @@ estimate_task_done_ms() {
 	done_iv2v_ms=0
 	if is_int "${TASK_I2I_DONE_FRAMES:-}"; then
 		ref=$(get_i2i_ref_frames)
-		i2i_ms_ref=$(get_i2i_ms_ref)
-		done_i2i_ms=$(( (TASK_I2I_DONE_FRAMES * i2i_ms_ref) / ref ))
+		i2i_ms_ref_eff=$(get_i2i_ms_ref_effective)
+		base_ms=$(get_comfy_call_base_ms)
+		done_i2i_base=$(( ${TASK_I2I_DONE:-0} * base_ms ))
+		done_i2i_var=$(( (TASK_I2I_DONE_FRAMES * i2i_ms_ref_eff) / ref ))
+		done_i2i_ms=$(( done_i2i_base + done_i2i_var ))
 	fi
 	if is_int "${TASK_IV2V_DONE_FRAMES:-}"; then
-		iv2v_ms_pf=$(get_iv2v_ms_pf)
-		done_iv2v_ms=$(( TASK_IV2V_DONE_FRAMES * iv2v_ms_pf ))
+		iv2v_ms_pf_eff=$(get_iv2v_ms_pf_effective)
+		base_ms=$(get_comfy_call_base_ms)
+		done_iv2v_base=$(( ${TASK_IV2V_DONE_CALLS:-0} * base_ms ))
+		done_iv2v_var=$(( TASK_IV2V_DONE_FRAMES * iv2v_ms_pf_eff ))
+		done_iv2v_ms=$(( done_iv2v_base + done_iv2v_var ))
 	fi
 	done_ms=$((done_i2i_ms + done_iv2v_ms))
 
@@ -605,11 +787,13 @@ estimate_task_done_ms() {
 		active_expected_ms=0
 		if [ "${TASK_ACTIVE_KIND:-}" = "i2i" ]; then
 			ref=$(get_i2i_ref_frames)
-			i2i_ms_ref=$(get_i2i_ms_ref)
-			active_expected_ms=$(( (TASK_ACTIVE_FRAMES * i2i_ms_ref) / ref ))
+			i2i_ms_ref_eff=$(get_i2i_ms_ref_effective)
+			base_ms=$(get_comfy_call_base_ms)
+			active_expected_ms=$(( base_ms + (TASK_ACTIVE_FRAMES * i2i_ms_ref_eff) / ref ))
 		elif [ "${TASK_ACTIVE_KIND:-}" = "iv2v" ]; then
-			iv2v_ms_pf=$(get_iv2v_ms_pf)
-			active_expected_ms=$(( TASK_ACTIVE_FRAMES * iv2v_ms_pf ))
+			iv2v_ms_pf_eff=$(get_iv2v_ms_pf_effective)
+			base_ms=$(get_comfy_call_base_ms)
+			active_expected_ms=$(( base_ms + (TASK_ACTIVE_FRAMES * iv2v_ms_pf_eff) ))
 		fi
 		if [ "$active_expected_ms" -gt 0 ] 2>/dev/null && [ "$active_elapsed_ms" -gt 0 ] 2>/dev/null; then
 			add_ms=$active_elapsed_ms
@@ -621,19 +805,12 @@ estimate_task_done_ms() {
 	# Non-comfy done work: count only completed ffmpeg/etc steps (recorded as whole-step runtime).
 	# This avoids partial progress *during* ffmpeg, but still lets percent reflect completed non-comfy work.
 	planned_total_ms=$(estimate_task_planned_ms)
-	if is_int "${planned_total_ms:-}" && [ "${planned_total_ms:-0}" -gt 0 ] 2>/dev/null; then
-		ratio_permil=$(get_ratio_permil)
-		if is_int "${ratio_permil:-}" && [ "${ratio_permil:-0}" -ge 0 ] 2>/dev/null; then
-			denom=$((1000 + ratio_permil))
-			if [ "${denom:-0}" -gt 0 ] 2>/dev/null; then
-				planned_comfy_ms=$(( planned_total_ms * 1000 / denom ))
-				planned_noncomfy_ms=$(( planned_total_ms - planned_comfy_ms ))
-				done_noncomfy_ms=$(( ${TASK_NONCOMFY_TIME_S:-0} * 1000 ))
-				if [ "${done_noncomfy_ms:-0}" -lt 0 ] 2>/dev/null; then done_noncomfy_ms=0; fi
-				if [ "${done_noncomfy_ms:-0}" -gt "${planned_noncomfy_ms:-0}" ] 2>/dev/null; then done_noncomfy_ms=$planned_noncomfy_ms; fi
-				done_ms=$((done_ms + done_noncomfy_ms))
-			fi
-		fi
+	planned_noncomfy_ms="${TASK_PLANNED_NONCOMFY_MS_CACHE:-0}"
+	if is_int "${planned_total_ms:-}" && [ "${planned_total_ms:-0}" -gt 0 ] 2>/dev/null && is_int "${planned_noncomfy_ms:-}"; then
+		done_noncomfy_ms=$(( ${TASK_NONCOMFY_TIME_S:-0} * 1000 ))
+		if [ "${done_noncomfy_ms:-0}" -lt 0 ] 2>/dev/null; then done_noncomfy_ms=0; fi
+		if [ "${done_noncomfy_ms:-0}" -gt "${planned_noncomfy_ms:-0}" ] 2>/dev/null; then done_noncomfy_ms=$planned_noncomfy_ms; fi
+		done_ms=$((done_ms + done_noncomfy_ms))
 		# Clamp done to planned_total
 		if [ "$done_ms" -gt "$planned_total_ms" ] 2>/dev/null; then done_ms=$planned_total_ms; fi
 	fi
@@ -728,8 +905,17 @@ iv2v_generate() {
 	else
 		img2="$img1"
 	fi
+	# If ComfyUI is down, wait for it before submitting.
+	if ! comfyui_is_present; then
+		if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+			return 1
+		fi
+	fi
 	[ $loglevel -ge 2 ] && set -x
-	"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt" "$img2"
+	submit_iv2v() {
+		"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt" "$img2"
+	}
+	submit_iv2v
 	set +x && [ $loglevel -ge 2 ] && set -x
 
 	start=`date +%s`
@@ -750,14 +936,43 @@ iv2v_generate() {
 		sleep 1
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ] ; then
-			echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-			TASK_ACTIVE_KIND=
-			TASK_ACTIVE_T0=
-			TASK_ACTIVE_T0_SECS=
-			TASK_ACTIVE_FRAMES=
-			return 1
+			echo -e $"\e[93mWarning:\e[0m ComfyUI not present. Waiting and retrying current iv2v request..."
+			if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+				TASK_ACTIVE_KIND=
+				TASK_ACTIVE_T0=
+				TASK_ACTIVE_T0_SECS=
+				TASK_ACTIVE_FRAMES=
+				return 1
+			fi
+			[ ${loglevel:-0} -ge 1 ] && echo "Info: re-submitting iv2v workflow after ComfyUI restart"
+			submit_iv2v
+			start=`date +%s`
+			end=`date +%s`
+			secs=0
+			queuecount=""
+			TASK_ACTIVE_T0=$start
+			TASK_ACTIVE_T0_SECS=${SECONDS:-}
+			continue
 		fi
-		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+		if ! curl -sf "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json; then
+			echo -e $"\e[93mWarning:\e[0m Failed to query ComfyUI queue. Waiting and retrying current iv2v request..."
+			if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+				TASK_ACTIVE_KIND=
+				TASK_ACTIVE_T0=
+				TASK_ACTIVE_T0_SECS=
+				TASK_ACTIVE_FRAMES=
+				return 1
+			fi
+			[ ${loglevel:-0} -ge 1 ] && echo "Info: re-submitting iv2v workflow after ComfyUI queue query failure"
+			submit_iv2v
+			start=`date +%s`
+			end=`date +%s`
+			secs=0
+			queuecount=""
+			TASK_ACTIVE_T0=$start
+			TASK_ACTIVE_T0_SECS=${SECONDS:-}
+			continue
+		fi
 		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 
 		end=`date +%s`
@@ -786,7 +1001,8 @@ iv2v_generate() {
 	if [ "${record_frames:-1}" -eq 1 ] 2>/dev/null; then
 		task_record_iv2v_runtime "$runtime" "$frames_to_generate"
 	else
-		task_record_iv2v_runtime "$runtime" 0
+		# Transition chunk: progress-neutral overhead.
+		task_record_noncomfy_runtime "$runtime"
 	fi
 	TASK_ACTIVE_KIND=
 	TASK_ACTIVE_T0=
@@ -861,8 +1077,12 @@ else
 
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 	if [ "$status" = "closed" ]; then
-		echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-		exit 0
+		# Do not hard-exit: ComfyUI may be starting up or may have crashed and will be restarted.
+		# Wait a bit for it to come back so the pipeline can continue.
+		if ! wait_for_comfyui_present 300 2; then
+			echo -e $"\e[91mError:\e[0m ComfyUI not present after waiting. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+			exit 0
+		fi
 	fi
 
 	# Use Systempath for python by default, but set it explictly for comfyui portable.
@@ -891,9 +1111,9 @@ else
 	fi
 	# When FORCE_START=1, optionally blend boundary frames between contiguous main chunks
 	# within the same scene to avoid hard cuts without changing frame count.
-	FORCED_INNER_SEG_BLEND=${FORCED_INNER_SEG_BLEND:-0.66}
+	FORCED_INNER_SEG_BLEND=${FORCED_INNER_SEG_BLEND:-0.80}
 	if ! is_float_01 "${FORCED_INNER_SEG_BLEND:-}"; then
-		FORCED_INNER_SEG_BLEND=0.66
+		FORCED_INNER_SEG_BLEND=0.80
 	fi
 
 	PROGRESS=" "
@@ -911,7 +1131,10 @@ else
 	TASK_I2I_DONE_FRAMES=0
 	TASK_IV2V_DONE_FRAMES=0
 	TASK_IV2V_TIME_S=0
+	TASK_IV2V_DONE_CALLS=0
 	TASK_NONCOMFY_TIME_S=0
+	TASK_COMFY_MIN_RUNTIME_S=0
+	TASK_COMFY_CALLS_DONE=0
 	# workplan-derived planned units (filled after workplan is ready)
 	WP_I2I_PLANNED=0
 	WP_I2I_PLANNED_FRAMES=0
@@ -1485,8 +1708,17 @@ else
 			lorastrength=$(extract_lorastrength "$BLUEPRINTCONFIG")
 			
 			INPUT=`realpath "$img"`
+			# If ComfyUI is down, wait for it before submitting.
+			if ! comfyui_is_present; then
+				if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+					retry_once_or_error "ComfyUI not present; unable to submit i2i request"
+				fi
+			fi
 			[ $loglevel -lt 2 ] && set -x
-			"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$lorastrength" "$prompt"
+			submit_i2i() {
+				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$lorastrength" "$prompt"
+			}
+			submit_i2i
 			set +x && [ $loglevel -ge 2 ] && set -x
 
 			start=`date +%s`
@@ -1502,16 +1734,44 @@ else
 				sleep 1
 				
 				status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-				if test $# -ne 0
-				then	
-					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-					TASK_ACTIVE_KIND=
-					TASK_ACTIVE_T0=
-					TASK_ACTIVE_T0_SECS=
-					TASK_ACTIVE_FRAMES=
-					exit 0
+				if [ "$status" = "closed" ]; then
+					echo -e $"\e[93mWarning:\e[0m ComfyUI not present. Waiting and retrying current i2i request..."
+					if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+						TASK_ACTIVE_KIND=
+						TASK_ACTIVE_T0=
+						TASK_ACTIVE_T0_SECS=
+						TASK_ACTIVE_FRAMES=
+						retry_once_or_error "ComfyUI did not come back in time (i2i)"
+					fi
+					[ ${loglevel:-0} -ge 1 ] && echo "Info: re-submitting i2i workflow after ComfyUI restart"
+					submit_i2i
+					start=`date +%s`
+					end=`date +%s`
+					secs=0
+					queuecount=""
+					TASK_ACTIVE_T0=$start
+					TASK_ACTIVE_T0_SECS=${SECONDS:-}
+					continue
 				fi
-				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+				if ! curl -sf "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json; then
+					echo -e $"\e[93mWarning:\e[0m Failed to query ComfyUI queue. Waiting and retrying current i2i request..."
+					if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+						TASK_ACTIVE_KIND=
+						TASK_ACTIVE_T0=
+						TASK_ACTIVE_T0_SECS=
+						TASK_ACTIVE_FRAMES=
+						retry_once_or_error "ComfyUI did not come back in time (i2i queue query)"
+					fi
+					[ ${loglevel:-0} -ge 1 ] && echo "Info: re-submitting i2i workflow after ComfyUI queue query failure"
+					submit_i2i
+					start=`date +%s`
+					end=`date +%s`
+					secs=0
+					queuecount=""
+					TASK_ACTIVE_T0=$start
+					TASK_ACTIVE_T0_SECS=${SECONDS:-}
+					continue
+				fi
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 			
 				end=`date +%s`
@@ -1559,7 +1819,7 @@ else
 		done
 	done
 
-	echo "=== STEP 4: generate video segements based transformed images according to work plan using configured IV2V workflow."
+	echo "=== STEP 4: generate video segments based transformed images according to work plan using configured IV2V workflow."
 	# Re-detect index base (see STEP 2 comment). Keep local to STEP 4 to be robust.
 	segments_index_base_iv2v=1
 	if [ -e "$WORKPLAN_FILE" ]; then
@@ -1581,15 +1841,20 @@ else
 			[ -d "$_segdir" ] && SEG_TOTAL_IV2V=$((SEG_TOTAL_IV2V+1))
 		done
 	fi
-	# Upper bound estimate: one main chunk + optional transition chunk per segment
+	# Upper bound estimate: one main chunk per segment.
+	# Note: transition chunks are currently disabled (trans_frames is always 0 in this script),
+	# but the structure is kept so it can be re-enabled later without refactoring.
 	CHUNK_TOTAL_MAX=$((SEG_TOTAL_IV2V * 2))
 	seg_iter_iv2v=0
 
 	# Track which chunk belongs to which segment/scenestart/kind for STEP 5 boundary blending.
+	# In the current implementation, there is exactly one "main" chunk per workplan segment.
 	chunk_meta="$INTERMEDIATE_INPUT_FOLDER/chunk_meta.csv"
 	rm -f -- "$chunk_meta" 2>/dev/null || true
 	
-	# chunk_index: global counter for produced video chunks (one or two per segment)
+	# chunk_index: global counter for produced video chunks.
+	# Today: 1 chunk per segment (transition chunks disabled). If transitions are re-enabled,
+	# there may be additional chunks between segments.
 	chunk_index=0
 	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
 		if [ ! -d "$d" ]; then
@@ -1729,6 +1994,8 @@ else
 
 		# Check contiguity early: while processing the current segment, test whether a *following*
 		# segment exists and if that next segment's start == this segment's end + 1.
+		# Currently this check is informational only because transition chunks are disabled
+		# (trans_frames remains 0). Scene boundaries are defined by the workplan's scenestart[] flags.
 		if [ -e "$WORKPLAN_FILE" ]; then
 			starts=$(grep -o '"segments_start"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
 			ends=$(grep -o '"segments_end"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$WORKPLAN_FILE" | sed -E 's/.*\[([^]]*)\].*/\1/')
@@ -1770,7 +2037,7 @@ else
 			echo "Error: Skipping generation; workplan file not found."
 		fi
 
-		# lfi2v call to generate video segment from first_img to last_img
+		# Generate the main chunk for this workplan segment (one main chunk per segment).
 		if [ "$num_frames" -ge 1 ] 2>/dev/null ; then
 			idx_p=$(printf "%04d" "$chunk_index")
 			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${idx_p}.mp4"
@@ -1793,16 +2060,16 @@ else
 				img1="$first_img"
 				# default to first_img for color matching if last_img from previous chunk is missing or a new segment started.
 				color_image="$first_img"
-				if [ "${scenestart_iv2v:-1}" -ne 1 ] 2>/dev/null ; then
-					prev_seg_index=$((10#$seg_index - 1))
-					if [ "$prev_seg_index" -ge 0 ] 2>/dev/null ; then
-						prev_seg_p=$(printf "%04d" "$prev_seg_index")
-						prev_last_img="$INTERMEDIATE_INPUT_FOLDER/last_${prev_seg_p}.png"
-						if [ -s "$prev_last_img" ]; then
-							color_image="$prev_last_img"
-						fi
-					fi
-				fi
+				# if [ "${scenestart_iv2v:-1}" -ne 1 ] 2>/dev/null ; then
+				# 	prev_seg_index=$((10#$seg_index - 1))
+				# 	if [ "$prev_seg_index" -ge 0 ] 2>/dev/null ; then
+				# 		prev_seg_p=$(printf "%04d" "$prev_seg_index")
+				# 		prev_last_img="$INTERMEDIATE_INPUT_FOLDER/last_${prev_seg_p}.png"
+				# 		if [ -s "$prev_last_img" ]; then
+				# 			color_image="$prev_last_img"
+				# 		fi
+				# 	fi
+				# fi
 				img2="$color_image"
 
 				# generate chunk via iv2v helper using start_frame/num_frames computed from workplan
@@ -1822,7 +2089,8 @@ else
 			echo "Skipping generation; num_frames=$num_frames invalid for segment $seg_index"
 		fi
 
-		# lfi2v call to generate video segment from last_img to first_img_of_next (transition chunk)
+		# (Disabled) Optional transition chunk between segments (scene boundary helper).
+		# Transition chunks are currently not generated because trans_frames is always 0.
 		if [ "$trans_frames" -ge 1 ] 2>/dev/null ; then
 			idx_p=$(printf "%04d" "$chunk_index")
 			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${idx_p}.mp4"
@@ -1882,14 +2150,16 @@ else
 	suffix="$(task_progress_suffix)"
 	[ -n "$suffix" ] && echo "$suffix"
 
-	# If FORCE_START=1, blend boundary frames between contiguous main chunks within the same scene
-	# (next chunk has scenestart==0) to reduce hard cuts without changing total frames.
+	# If FORCE_START=1, blend boundary frames between adjacent main chunks within the same scene
+	# (as defined by the workplan: next chunk has scenestart==0) to reduce hard cuts
+	# without changing total frames.
 	if [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null && [ -f "$chunk_meta" ]; then
 		prev_file=""
 		prev_kind=""
 		while IFS=',' read -r meta_file meta_seg meta_scene meta_kind; do
 			[ -n "${meta_file:-}" ] || continue
 			# Only consider boundaries main->main where the *next* chunk is not a scene start
+			# (workplan scenestart flag).
 			if [ -n "$prev_file" ] && [ "$prev_kind" = "main" ] && [ "${meta_kind:-}" = "main" ] \
 				&& is_int "${meta_scene:-}" && [ "${meta_scene:-0}" -eq 0 ] 2>/dev/null; then
 				prev_chunk="$INTERMEDIATE_INPUT_FOLDER/$prev_file"
@@ -1909,7 +2179,7 @@ else
 		done < "$chunk_meta"
 	fi
 
-	# Build concat list from chunk_*.mp4 in numeric order (chunk_0, chunk_1, ...)
+	# Build concat list from chunk_*.mp4 in numeric order (chunk_0000, chunk_0001, ...)
 	concat_list="$INTERMEDIATE_INPUT_FOLDER/concat_list.txt"
 	rm -f "$concat_list"
 	# Pre-count chunks for progress/info (best effort)
