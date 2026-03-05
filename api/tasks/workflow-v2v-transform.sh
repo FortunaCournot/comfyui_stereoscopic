@@ -361,6 +361,22 @@ extract_lorastrength() {
 	fi
 }
 
+extract_blend_factor() {
+	json_file="$1"
+	default_val="0.0"
+	[ -f "$json_file" ] || { printf '%s' "$default_val"; return 0; }
+	# Match: blend_factor: 0.5 | "0.75"
+	line=$(grep -oE '"blend_factor"[[:space:]]*:[[:space:]]*"?[0-9]+(\.[0-9]+)?"?' "$json_file" | head -n1 || true)
+	[ -n "$line" ] || { printf '%s' "$default_val"; return 0; }
+	val=$(printf '%s' "$line" | sed -E 's/.*:[[:space:]]*"?([0-9]+(\.[0-9]+)?)"?/\1/')
+	# Final sanity: ensure it looks like a float in [0,1]
+	if is_float_01 "$val"; then
+		printf '%s' "$val"
+	else
+		printf '%s' "$default_val"
+	fi
+}
+
 format_hms() {
 	_total="$1"
 	if ! is_int "${_total:-}"; then
@@ -422,6 +438,70 @@ ema_update_ms() {
 	echo $(( (4*_old + _new) / 5 ))
 }
 
+get_comfy_corr_permil() {
+	# Per-run correction factor for ComfyUI runtime estimates.
+	# 1000 = 1.0x. Activates only after at least 1 *measured* ComfyUI call.
+	calls=${TASK_COMFY_CALLS_MEASURED:-0}
+	if ! is_int "${calls:-}" || [ "${calls:-0}" -le 0 ] 2>/dev/null; then
+		echo 1000
+		return 0
+	fi
+	corr=${TASK_COMFY_CORR_PERMIL:-1000}
+	if ! is_int "${corr:-}" || [ "${corr:-0}" -le 0 ] 2>/dev/null; then corr=1000; fi
+	# Clamp to keep behavior sane.
+	if [ "$corr" -lt 200 ] 2>/dev/null; then corr=200; fi
+	if [ "$corr" -gt 10000 ] 2>/dev/null; then corr=10000; fi
+	echo "$corr"
+}
+
+task_update_comfy_corr_from_call() {
+	_kind="$1"
+	_runtime_s="$2"
+	_frames="$3"
+	if ! is_int "${_runtime_s:-}" || [ "${_runtime_s:-0}" -le 0 ] 2>/dev/null; then return 0; fi
+	if ! is_int "${_frames:-}" || [ "${_frames:-0}" -le 0 ] 2>/dev/null; then return 0; fi
+
+	runtime_ms=$((_runtime_s * 1000))
+	base_ms=$(get_comfy_call_base_ms)
+	expected_ms=0
+	if [ "${_kind:-}" = "i2i" ]; then
+		ref=$(get_i2i_ref_frames)
+		i2i_ms_ref_eff=$(get_i2i_ms_ref_effective)
+		expected_ms=$(( base_ms + (_frames * i2i_ms_ref_eff) / ref ))
+	elif [ "${_kind:-}" = "iv2v" ]; then
+		iv2v_ms_pf_eff=$(get_iv2v_ms_pf_effective)
+		expected_ms=$(( base_ms + (_frames * iv2v_ms_pf_eff) ))
+	fi
+	if ! is_int "${expected_ms:-}" || [ "${expected_ms:-0}" -le 0 ] 2>/dev/null; then expected_ms=1; fi
+
+	TASK_COMFY_CALLS_MEASURED=$(( ${TASK_COMFY_CALLS_MEASURED:-0} + 1 ))
+	TASK_COMFY_CORR_OBS_MS_SUM=$(( ${TASK_COMFY_CORR_OBS_MS_SUM:-0} + runtime_ms ))
+	TASK_COMFY_CORR_EST_MS_SUM=$(( ${TASK_COMFY_CORR_EST_MS_SUM:-0} + expected_ms ))
+	if [ "${TASK_COMFY_CORR_EST_MS_SUM:-0}" -le 0 ] 2>/dev/null; then
+		TASK_COMFY_CORR_PERMIL=1000
+	else
+		TASK_COMFY_CORR_PERMIL=$(( (TASK_COMFY_CORR_OBS_MS_SUM * 1000) / TASK_COMFY_CORR_EST_MS_SUM ))
+	fi
+
+	# Log correction factor (k) once after the first measured call, and again if it
+	# changes noticeably. Keep this out of tight loops.
+	if [ "${loglevel:-0}" -ge 1 ] 2>/dev/null; then
+		corr=$(get_comfy_corr_permil)
+		calls=${TASK_COMFY_CALLS_MEASURED:-0}
+		last=${TASK_COMFY_CORR_LAST_PRINT_PERMIL:-0}
+		if ! is_int "${last:-}"; then last=0; fi
+		delta=$((corr - last))
+		if [ "$delta" -lt 0 ] 2>/dev/null; then delta=$((0 - delta)); fi
+		if [ "${calls:-0}" -eq 1 ] 2>/dev/null || [ "${last:-0}" -eq 0 ] 2>/dev/null || [ "$delta" -ge 100 ] 2>/dev/null; then
+			k=$(awk -v p="$corr" 'BEGIN{printf "%.2f", p/1000.0}')
+			echo "Info: ETA correction factor k=${k}x (after ${calls} measured ComfyUI calls)"
+			TASK_COMFY_CORR_LAST_PRINT_PERMIL=$corr
+		fi
+	fi
+	# Invalidate cached planned ms so ETA reacts immediately after the first call.
+	TASK_PLANNED_MS_CACHE_READY=0
+}
+
 task_record_i2i_runtime() {
 	_runtime_s="$1"
 	_seg_frames="$2"
@@ -442,6 +522,8 @@ task_record_i2i_runtime() {
 		TASK_I2I_DONE_FRAMES=$((TASK_I2I_DONE_FRAMES + ${I2I_REF_FRAMES:-48}))
 		_seg_frames=${I2I_REF_FRAMES:-48}
 	fi
+	# Update per-run correction multiplier based on measured runtime (excludes skips/resumes).
+	task_update_comfy_corr_from_call i2i "$_runtime_s" "${_seg_frames:-${I2I_REF_FRAMES:-48}}"
 	# Do not update/persist estimator averages (constants only).
 }
 
@@ -475,6 +557,8 @@ task_record_iv2v_runtime() {
 	TASK_IV2V_DONE_CALLS=$(( ${TASK_IV2V_DONE_CALLS:-0} + 1 ))
 	TASK_IV2V_DONE_FRAMES=$((TASK_IV2V_DONE_FRAMES + _frames))
 	TASK_IV2V_TIME_S=$((TASK_IV2V_TIME_S + _runtime_s))
+	# Update per-run correction multiplier based on measured runtime (excludes skips/resumes).
+	task_update_comfy_corr_from_call iv2v "$_runtime_s" "$_frames"
 	# Do not update/persist estimator averages (constants only).
 }
 
@@ -706,8 +790,13 @@ get_iv2v_ms_pf() {
 }
 
 estimate_task_planned_ms() {
-	# Planned ms is constant once WP_* is filled; cache it.
-	if [ "${TASK_PLANNED_MS_CACHE_READY:-0}" -eq 1 ] 2>/dev/null && is_int "${TASK_PLANNED_MS_CACHE:-}"; then
+	# Planned ms is constant once WP_* is filled, but we also apply a per-run
+	# correction factor after the first measured ComfyUI call.
+	corr=$(get_comfy_corr_permil)
+	if [ "${TASK_PLANNED_MS_CACHE_READY:-0}" -eq 1 ] 2>/dev/null \
+		&& is_int "${TASK_PLANNED_MS_CACHE:-}" \
+		&& is_int "${TASK_PLANNED_MS_CACHE_CORR_PERMIL:-}" \
+		&& [ "${TASK_PLANNED_MS_CACHE_CORR_PERMIL:-0}" -eq "${corr:-1000}" ] 2>/dev/null; then
 		echo "$TASK_PLANNED_MS_CACHE"
 		return 0
 	fi
@@ -735,6 +824,11 @@ estimate_task_planned_ms() {
 		planned_iv2v_ms=$(( planned_iv2v_base + planned_iv2v_var ))
 	fi
 	planned_comfy_ms=$((planned_i2i_ms + planned_iv2v_ms))
+	# Apply per-run correction factor to comfy time so ETA adapts quickly on
+	# different machines/resolutions.
+	if is_int "${corr:-}" && [ "${corr:-1000}" -ne 1000 ] 2>/dev/null; then
+		planned_comfy_ms=$(( planned_comfy_ms * corr / 1000 ))
+	fi
 	ratio_permil=$(get_ratio_permil)
 	planned_noncomfy_ms=$(( planned_comfy_ms * ratio_permil / 1000 ))
 	min_noncomfy_ms=$(get_noncomfy_min_ms)
@@ -746,12 +840,14 @@ estimate_task_planned_ms() {
 	TASK_PLANNED_MS_CACHE=$(( planned_comfy_ms + planned_noncomfy_ms ))
 	TASK_PLANNED_COMFY_MS_CACHE=$planned_comfy_ms
 	TASK_PLANNED_NONCOMFY_MS_CACHE=$planned_noncomfy_ms
+	TASK_PLANNED_MS_CACHE_CORR_PERMIL=${corr:-1000}
 	TASK_PLANNED_MS_CACHE_READY=1
 	echo "$TASK_PLANNED_MS_CACHE"
 }
 
 estimate_task_done_ms() {
 	# Plan-done units in milliseconds: only i2i/iv2v workplan-based done + in-flight partial.
+	corr=$(get_comfy_corr_permil)
 	done_i2i_ms=0
 	done_iv2v_ms=0
 	if is_int "${TASK_I2I_DONE_FRAMES:-}"; then
@@ -761,6 +857,9 @@ estimate_task_done_ms() {
 		done_i2i_base=$(( ${TASK_I2I_DONE:-0} * base_ms ))
 		done_i2i_var=$(( (TASK_I2I_DONE_FRAMES * i2i_ms_ref_eff) / ref ))
 		done_i2i_ms=$(( done_i2i_base + done_i2i_var ))
+		if is_int "${corr:-}" && [ "${corr:-1000}" -ne 1000 ] 2>/dev/null; then
+			done_i2i_ms=$(( done_i2i_ms * corr / 1000 ))
+		fi
 	fi
 	if is_int "${TASK_IV2V_DONE_FRAMES:-}"; then
 		iv2v_ms_pf_eff=$(get_iv2v_ms_pf_effective)
@@ -768,6 +867,9 @@ estimate_task_done_ms() {
 		done_iv2v_base=$(( ${TASK_IV2V_DONE_CALLS:-0} * base_ms ))
 		done_iv2v_var=$(( TASK_IV2V_DONE_FRAMES * iv2v_ms_pf_eff ))
 		done_iv2v_ms=$(( done_iv2v_base + done_iv2v_var ))
+		if is_int "${corr:-}" && [ "${corr:-1000}" -ne 1000 ] 2>/dev/null; then
+			done_iv2v_ms=$(( done_iv2v_ms * corr / 1000 ))
+		fi
 	fi
 	done_ms=$((done_i2i_ms + done_iv2v_ms))
 
@@ -794,6 +896,9 @@ estimate_task_done_ms() {
 			iv2v_ms_pf_eff=$(get_iv2v_ms_pf_effective)
 			base_ms=$(get_comfy_call_base_ms)
 			active_expected_ms=$(( base_ms + (TASK_ACTIVE_FRAMES * iv2v_ms_pf_eff) ))
+		fi
+		if is_int "${corr:-}" && [ "${corr:-1000}" -ne 1000 ] 2>/dev/null && [ "${active_expected_ms:-0}" -gt 0 ] 2>/dev/null; then
+			active_expected_ms=$(( active_expected_ms * corr / 1000 ))
 		fi
 		if [ "$active_expected_ms" -gt 0 ] 2>/dev/null && [ "$active_elapsed_ms" -gt 0 ] 2>/dev/null; then
 			add_ms=$active_elapsed_ms
@@ -835,6 +940,16 @@ task_progress_suffix() {
 	if ! is_int "${WP_TOTAL_FRAMES:-}" || [ "${WP_TOTAL_FRAMES:-0}" -le 0 ] 2>/dev/null; then
 		printf '%s' ''
 		return 0
+	fi
+	# During the very first in-flight ComfyUI call, we do not have any runtime
+	# calibration yet. Hide ETA/% to avoid misleading optimism.
+	if [ -n "${TASK_ACTIVE_KIND:-}" ]; then
+		calls=${TASK_COMFY_CALLS_MEASURED:-0}
+		if ! is_int "${calls:-}"; then calls=0; fi
+		if [ "${calls:-0}" -le 0 ] 2>/dev/null; then
+			printf '%s' ''
+			return 0
+		fi
 	fi
 	# Cache suffix for up to 1 second to keep tight loops fast (no repeated recompute).
 	now_s=$(progress_now_s)
@@ -878,13 +993,10 @@ iv2v_generate() {
 	echo "Extracting control chunk $control_chunk from $VIDEOINTERMEDIATE frames $start-$end"
 	control_chunk="$INTERMEDIATE_INPUT_FOLDER/control_chunk.mp4"
 	control_chunk=`realpath "$control_chunk"`
-	[ $loglevel -lt 2 ] &&
-	set -x
 	nc_t0=$(date +%s)
 	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -vf "select='between(n\,$start\,$end)'" -vsync 0 -c:v libx264 -preset veryfast -crf 18 -an "$control_chunk"
 	nc_t1=$(date +%s)
 	task_record_noncomfy_runtime $((nc_t1 - nc_t0))
-	set +x
 	if [ $? -ne 0 ] || [ ! -s "$control_chunk" ]; then
 		echo -e $"\e[91mError:\e[0m Failed creating control chunk $control_chunk"
 		mkdir -p input/vr/tasks/$TASKNAME/error
@@ -897,6 +1009,7 @@ iv2v_generate() {
 	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"iv2v_prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	# optional timeout (seconds) to trigger failover restart of ComfyUI
 	timeout=$(extract_timeout "$BLUEPRINTCONFIG")
+	blend_factor=$(extract_blend_factor "$BLUEPRINTCONFIG")
 	img1=`realpath "$img1"`
 	# Optional color reference image. Always pass a valid path so the workflow can't
 	# accidentally keep a stale/default color image.
@@ -911,12 +1024,10 @@ iv2v_generate() {
 			return 1
 		fi
 	fi
-	[ $loglevel -ge 2 ] && set -x
 	submit_iv2v() {
-		"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt" "$img2"
+		"$PYTHON_BIN_PATH"python.exe "$SCRIPTPATH2" "$iv2v_api" "$img1" "$control_chunk" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$frames_to_generate" "$prompt" "$blend_factor" "$img2"
 	}
 	submit_iv2v
-	set +x && [ $loglevel -ge 2 ] && set -x
 
 	start=`date +%s`
 	end=`date +%s`
@@ -1304,9 +1415,7 @@ else
 		fi
 		# --- Build `segments` based on `scenes` and optional offsets
 		# last frame index (for final segment)., subtract 1 from count so last_frame is zero-based (index of last frame)
-		set -x
-		`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=nb_frames -of json -i "$VIDEOINTERMEDIATE" >$INTERMEDIATE_INPUT_FOLDER/probe.txt`
-		set +x
+		"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=nb_frames -of json -i "$VIDEOINTERMEDIATE" >"$INTERMEDIATE_INPUT_FOLDER/probe.txt"
 		echo "---"
 		cat $INTERMEDIATE_INPUT_FOLDER/probe.txt
 		echo "---"
@@ -1714,12 +1823,10 @@ else
 					retry_once_or_error "ComfyUI not present; unable to submit i2i request"
 				fi
 			fi
-			[ $loglevel -lt 2 ] && set -x
 			submit_i2i() {
 				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$lorastrength" "$prompt"
 			}
 			submit_i2i
-			set +x && [ $loglevel -ge 2 ] && set -x
 
 			start=`date +%s`
 			end=`date +%s`
@@ -2215,12 +2322,10 @@ else
 	echo "--- concat_video segments (${CHUNK_FILES_TOTAL} chunks) to $concat_video"
 
 	# Try concat with stream copy; fall back to re-encode if that fails
-	set -x
 	nc_t0=$(date +%s)
 	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -f concat -safe 0 -i "$concat_list" -c copy "$concat_video"
 	nc_t1=$(date +%s)
 	task_record_noncomfy_runtime $((nc_t1 - nc_t0))
-	set +x
 	if [ $? -ne 0 ]; then
 		echo "Warning: concat (stream copy) failed, retrying with re-encode"
 		nc_t0=$(date +%s)
@@ -2246,12 +2351,10 @@ else
 
 	if [ -n "$audio_stream_index" ]; then
 		# Map video from concat and the first audio stream of the original; re-encode audio to AAC
-		set -x
 		nc_t0=$(date +%s)
 		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$concat_video" -i "$ORIGINALINPUT" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest "$FINALVIDEO"
 		nc_t1=$(date +%s)
 		task_record_noncomfy_runtime $((nc_t1 - nc_t0))
-		set +x
 		if [ $? -ne 0 ]; then
 			echo -e $"\e[91mError:\e[0m Failed muxing audio into final video"
 			mkdir -p input/vr/tasks/$TASKNAME/error
