@@ -1699,30 +1699,28 @@ class SpreadsheetApp(QMainWindow):
                                         value = value + " (-)"
                                         displayRequired = True
 
-                                    # Preserve existing color semantics
-                                    if info.get('done_nocleanup', False):
-                                        # Only mark green when the main count (DDD) is at least 1.
-                                        # Bracket/parenthesis values do not qualify.
-                                        if count > 0:
-                                            color = "green"
-                                            # If the stage/task is disabled, do not show green; show orange instead.
-                                            try:
-                                                states = getattr(self, '_unused_states', None)
-                                                if states is not None:
-                                                    if re.match(r"tasks/_.*", stage_name):
-                                                        key = 'customtask'
-                                                    elif re.match(r"tasks/.*", stage_name):
-                                                        key = 'task'
-                                                    else:
-                                                        key = 'stage'
-                                                    if stage_name in states.get(key, set()):
-                                                        color = DISABLED_GREEN_OVERRIDE_COLOR
-                                            except Exception:
-                                                pass
-                                        else:
-                                            color = "white"
+                                    # Color semantics for INPUT column:
+                                    # - green when there are direct input files (DDD)
+                                    # - white otherwise
+                                    # done_nocleanup must not affect the color.
+                                    if count > 0:
+                                        color = "green"
+                                        # If the stage/task is disabled, do not show green; show orange instead.
+                                        try:
+                                            states = getattr(self, '_unused_states', None)
+                                            if states is not None:
+                                                if re.match(r"tasks/_.*", stage_name):
+                                                    key = 'customtask'
+                                                elif re.match(r"tasks/.*", stage_name):
+                                                    key = 'task'
+                                                else:
+                                                    key = 'stage'
+                                                if stage_name in states.get(key, set()):
+                                                    color = DISABLED_GREEN_OVERRIDE_COLOR
+                                        except Exception:
+                                            pass
                                     else:
-                                        color = COLOR_FG_WARN_YELLOW
+                                        color = "white"
                                     # error files (EEE): prefix format "{!EEE} " when EEE > 0
                                     if errc > 0:
                                         value = f"{{!{errc}}} " + value
