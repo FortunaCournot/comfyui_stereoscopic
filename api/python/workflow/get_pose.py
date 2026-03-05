@@ -18,9 +18,13 @@ The score represents the visibility of the most significant face in the frame.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
+import tempfile
+import time
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
@@ -153,8 +157,30 @@ def analyze_video(
     include_body: bool = False,
     include_hand: bool = False,
     include_face: bool = True,
+    progress: bool = False,
+    aux_logs: str = "ignore",
 ) -> List[float]:
     _add_controlnet_aux_to_syspath()
+
+    # Silence known noisy warnings that are not actionable for normal runs.
+    # This must happen before importing controlnet_aux (which imports torch).
+    warnings.filterwarnings(
+        "ignore",
+        message=r"The pynvml package is deprecated\..*",
+        category=FutureWarning,
+        module=r"torch\.cuda.*",
+    )
+
+    # custom_controlnet_aux/util.py warns when these env vars are unset.
+    # Set defaults here so the console stays clean.
+    here = os.path.abspath(os.path.dirname(__file__))
+    comfyui_path = os.path.abspath(os.path.join(here, "..", "..", "..", "..", ".."))
+    aux_ckpts_default = os.path.join(
+        comfyui_path, "custom_nodes", "comfyui_controlnet_aux", "ckpts"
+    )
+    os.environ.setdefault("AUX_ANNOTATOR_CKPTS_PATH", aux_ckpts_default)
+    os.environ.setdefault("AUX_USE_SYMLINKS", "False")
+    os.environ.setdefault("AUX_TEMP_DIR", tempfile.gettempdir())
 
     try:
         from custom_controlnet_aux.dwpose import DwposeDetector  # type: ignore
@@ -174,36 +200,95 @@ def analyze_video(
 
     det_filename = None if bbox_detector == "None" else bbox_detector
 
-    model = DwposeDetector.from_pretrained(
-        pose_repo,
-        yolo_repo,
-        det_filename=det_filename,
-        pose_filename=pose_estimator,
-        torchscript_device=device,
-    )
+    # custom_controlnet_aux and its dependencies may print performance logs via
+    # `print(...)` to stdout. We keep stdout clean (scores). By default we also
+    # suppress these prints so a progress bar (stderr) stays readable.
+    aux_sink = None
+    if aux_logs == "stderr":
+        aux_sink = sys.stderr
+    else:
+        aux_sink = open(os.devnull, "w")
+
+    try:
+        with contextlib.redirect_stdout(aux_sink):
+            model = DwposeDetector.from_pretrained(
+                pose_repo,
+                yolo_repo,
+                det_filename=det_filename,
+                pose_filename=pose_estimator,
+                torchscript_device=device,
+            )
+    except Exception:
+        if aux_sink is not sys.stderr:
+            try:
+                aux_sink.close()
+            except Exception:
+                pass
+        raise
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
+        if aux_sink is not sys.stderr:
+            try:
+                aux_sink.close()
+            except Exception:
+                pass
         raise RuntimeError(f"Could not open video: {video_path}")
+
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    if total_frames <= 0:
+        total_frames = 0
+
+    start_t = time.time()
+
+    def progress_update(done: int) -> None:
+        if not progress:
+            return
+        now = time.time()
+        elapsed = now - start_t
+        if total_frames > 0:
+            pct = min(1.0, max(0.0, done / float(total_frames)))
+            bar_w = 30
+            filled = int(pct * bar_w)
+            bar = "#" * filled + "-" * (bar_w - filled)
+            spf = elapsed / float(done) if done > 0 else 0.0
+            eta_s = int(spf * (total_frames - done)) if spf > 0 else 0
+            msg = f"[{bar}] {pct*100:6.2f}%  {done}/{total_frames}  elapsed {int(elapsed)}s  ETA {eta_s}s"
+        else:
+            # Unknown total: show a simple spinner-ish bar based on done.
+            msg = f"[{'#' * (done % 30):<30}]  {done} frames  elapsed {int(elapsed)}s"
+
+        if sys.stderr.isatty():
+            sys.stderr.write("\r" + msg)
+            sys.stderr.flush()
+        else:
+            # Avoid carriage-return spam in non-interactive logs.
+            if done == 1 or (done % 10) == 0:
+                sys.stderr.write(msg + "\n")
+                sys.stderr.flush()
 
     scores: List[float] = []
     try:
+        frame_idx = 0
         while True:
             ok, frame_bgr = cap.read()
             if not ok:
                 break
+            frame_idx += 1
+            progress_update(frame_idx)
             frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
 
             # We only need the JSON; ignore the rendered pose image.
-            _pose_img, pose_json = model(
-                frame_rgb,
-                detect_resolution=resolution,
-                include_body=include_body,
-                include_hand=include_hand,
-                include_face=include_face,
-                output_type="np",
-                image_and_json=True,
-            )
+            with contextlib.redirect_stdout(aux_sink):
+                _pose_img, pose_json = model(
+                    frame_rgb,
+                    detect_resolution=resolution,
+                    include_body=include_body,
+                    include_hand=include_hand,
+                    include_face=include_face,
+                    output_type="np",
+                    image_and_json=True,
+                )
             if isinstance(pose_json, str):
                 try:
                     pose_dict = json.loads(pose_json)
@@ -214,7 +299,15 @@ def analyze_video(
 
             scores.append(_face_visibility_from_openpose_dict(pose_dict))
     finally:
+        if progress and sys.stderr.isatty():
+            sys.stderr.write("\n")
+            sys.stderr.flush()
         cap.release()
+        if aux_sink is not sys.stderr:
+            try:
+                aux_sink.close()
+            except Exception:
+                pass
 
     return scores
 
@@ -224,10 +317,39 @@ def main(argv: Optional[List[str]] = None) -> int:
         description="Analyze a video and output per-frame face visibility scores as JSON array."
     )
     p.add_argument("video", help="Path to input video")
+    p.add_argument(
+        "--format",
+        choices=("json", "lines"),
+        default="json",
+        help="Output format: json (array) or lines (one float per line)",
+    )
+    p.add_argument(
+        "--progress",
+        action="store_true",
+        help="Show a text progress bar on stderr while processing frames",
+    )
+    p.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable progress output (useful for clean logs)",
+    )
+    p.add_argument(
+        "--aux-logs",
+        choices=("ignore", "stderr"),
+        default="ignore",
+        help="Where to send noisy auxiliary prints from pose detector (default: ignore)",
+    )
     p.add_argument("--resolution", type=int, default=512)
     p.add_argument("--bbox-detector", default="yolox_l.onnx")
     p.add_argument("--pose-estimator", default="dw-ll_ucoco_384_bs5.torchscript.pt")
     args = p.parse_args(argv)
+
+    if args.no_progress:
+        progress = False
+    elif args.progress:
+        progress = True
+    else:
+        progress = bool(getattr(sys.stderr, "isatty", lambda: False)())
 
     try:
         scores = analyze_video(
@@ -235,12 +357,18 @@ def main(argv: Optional[List[str]] = None) -> int:
             resolution=args.resolution,
             bbox_detector=args.bbox_detector,
             pose_estimator=args.pose_estimator,
+            progress=progress,
+            aux_logs=args.aux_logs,
         )
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
 
-    sys.stdout.write(json.dumps(scores))
+    if args.format == "lines":
+        sys.stdout.write("\n".join(f"{v:.6f}" for v in scores))
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write(json.dumps(scores))
     return 0
 
 
