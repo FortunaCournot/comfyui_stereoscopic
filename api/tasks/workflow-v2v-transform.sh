@@ -274,7 +274,42 @@ move_replace_with_retry() {
 
 is_int() {
 	# returns 0 if $1 is an integer (possibly negative), else 1
-	expr "${1:-}" : '[-0-9][0-9]*$' >/dev/null 2>&1
+	# IMPORTANT: keep this fast (called in tight progress/ETA loops). No external commands.
+	v="${1:-}"
+	case "$v" in
+		""|"-") return 1 ;;
+		-*)
+			v2="${v#-}"
+			;;
+		*)
+			v2="$v"
+			;;
+	esac
+	case "$v2" in
+		""|*[!0-9]*) return 1 ;;
+		*) return 0 ;;
+	esac
+}
+
+# Internal caches for fast progress suffix rendering (no file IO).
+TASK_PLANNED_MS_CACHE=""
+TASK_PLANNED_MS_CACHE_READY=0
+PROGRESS_SUFFIX_CACHE=""
+PROGRESS_SUFFIX_CACHE_T=-1
+
+progress_now_s() {
+	# Prefer bash built-in SECONDS (no process spawn). Fallback to epoch seconds.
+	if is_int "${SECONDS:-}"; then
+		echo "${SECONDS}"
+		return 0
+	fi
+	# bash printf supports %(...)T without spawning a process (if available)
+	now=$(printf '%(%s)T' -1 2>/dev/null || true)
+	if is_int "${now:-}"; then
+		echo "$now"
+		return 0
+	fi
+	date +%s
 }
 
 format_frames_progress() {
@@ -514,6 +549,11 @@ get_iv2v_ms_pf() {
 }
 
 estimate_task_planned_ms() {
+	# Planned ms is constant once WP_* is filled; cache it.
+	if [ "${TASK_PLANNED_MS_CACHE_READY:-0}" -eq 1 ] 2>/dev/null && is_int "${TASK_PLANNED_MS_CACHE:-}"; then
+		echo "$TASK_PLANNED_MS_CACHE"
+		return 0
+	fi
 	# Weighted plan units in milliseconds: i2i + iv2v + noncomfy share.
 	planned_i2i_ms=0
 	planned_iv2v_ms=0
@@ -529,7 +569,9 @@ estimate_task_planned_ms() {
 	planned_comfy_ms=$((planned_i2i_ms + planned_iv2v_ms))
 	ratio_permil=$(get_ratio_permil)
 	planned_noncomfy_ms=$(( planned_comfy_ms * ratio_permil / 1000 ))
-	echo $(( planned_comfy_ms + planned_noncomfy_ms ))
+	TASK_PLANNED_MS_CACHE=$(( planned_comfy_ms + planned_noncomfy_ms ))
+	TASK_PLANNED_MS_CACHE_READY=1
+	echo "$TASK_PLANNED_MS_CACHE"
 }
 
 estimate_task_done_ms() {
@@ -548,9 +590,16 @@ estimate_task_done_ms() {
 	done_ms=$((done_i2i_ms + done_iv2v_ms))
 
 	# In-flight partial (scaled so it remains consistent with final done counters).
-	if [ -n "${TASK_ACTIVE_KIND:-}" ] && is_int "${TASK_ACTIVE_T0:-}" && is_int "${TASK_ACTIVE_FRAMES:-}"; then
-		now=$(date +%s)
-		active_elapsed_s=$((now - TASK_ACTIVE_T0))
+	if [ -n "${TASK_ACTIVE_KIND:-}" ] && is_int "${TASK_ACTIVE_FRAMES:-}"; then
+		# Prefer SECONDS-based timing (no process spawn). Fallback to epoch seconds.
+		active_elapsed_s=""
+		if is_int "${TASK_ACTIVE_T0_SECS:-}" && is_int "${SECONDS:-}"; then
+			active_elapsed_s=$((SECONDS - TASK_ACTIVE_T0_SECS))
+		elif is_int "${TASK_ACTIVE_T0:-}"; then
+			now=$(progress_now_s)
+			active_elapsed_s=$((now - TASK_ACTIVE_T0))
+		fi
+		if ! is_int "${active_elapsed_s:-}"; then active_elapsed_s=0; fi
 		if [ "$active_elapsed_s" -lt 0 ] 2>/dev/null ; then active_elapsed_s=0; fi
 		active_elapsed_ms=$((active_elapsed_s * 1000))
 		active_expected_ms=0
@@ -610,6 +659,12 @@ task_progress_suffix() {
 		printf '%s' ''
 		return 0
 	fi
+	# Cache suffix for up to 1 second to keep tight loops fast (no repeated recompute).
+	now_s=$(progress_now_s)
+	if is_int "${now_s:-}" && [ "${now_s:-0}" -eq "${PROGRESS_SUFFIX_CACHE_T:-999999999}" ] 2>/dev/null && [ -n "${PROGRESS_SUFFIX_CACHE:-}" ]; then
+		printf '%s' "$PROGRESS_SUFFIX_CACHE"
+		return 0
+	fi
 	# Only percent and ETA (whole task) as requested.
 	planned_ms=$(estimate_task_planned_ms)
 	done_ms=$(estimate_task_done_ms)
@@ -627,7 +682,9 @@ task_progress_suffix() {
 		if [ "$pct" -gt 99 ] 2>/dev/null ; then pct=99; fi
 	fi
 	if [ "$pct" -lt 0 ] 2>/dev/null ; then pct=0; fi
-	printf ' progress %s%% ETA %s' "$pct" "$(format_hms "$eta")"
+	PROGRESS_SUFFIX_CACHE=$(printf ' progress %s%% ETA %s' "$pct" "$(format_hms "$eta")")
+	PROGRESS_SUFFIX_CACHE_T=${now_s:-0}
+	printf '%s' "$PROGRESS_SUFFIX_CACHE"
 }
 
 iv2v_generate() {
@@ -681,6 +738,7 @@ iv2v_generate() {
 	queuecount=""
 	TASK_ACTIVE_KIND=iv2v
 	TASK_ACTIVE_T0=$start
+	TASK_ACTIVE_T0_SECS=${SECONDS:-}
 	if [ "${record_frames:-1}" -eq 1 ] 2>/dev/null; then
 		TASK_ACTIVE_FRAMES=$frames_to_generate
 	else
@@ -695,6 +753,7 @@ iv2v_generate() {
 			echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 			TASK_ACTIVE_KIND=
 			TASK_ACTIVE_T0=
+			TASK_ACTIVE_T0_SECS=
 			TASK_ACTIVE_FRAMES=
 			return 1
 		fi
@@ -715,6 +774,7 @@ iv2v_generate() {
 		  if ! failover_check "$timeout" "$secs"; then
 		    TASK_ACTIVE_KIND=
 		    TASK_ACTIVE_T0=
+			    TASK_ACTIVE_T0_SECS=
 		    TASK_ACTIVE_FRAMES=
 		    return 1
 		  fi
@@ -730,6 +790,7 @@ iv2v_generate() {
 	fi
 	TASK_ACTIVE_KIND=
 	TASK_ACTIVE_T0=
+	TASK_ACTIVE_T0_SECS=
 	TASK_ACTIVE_FRAMES=
 
 	EXTENSION=".mp4"
@@ -1434,6 +1495,7 @@ else
 			queuecount=""
 			TASK_ACTIVE_KIND=i2i
 			TASK_ACTIVE_T0=$start
+			TASK_ACTIVE_T0_SECS=${SECONDS:-}
 			TASK_ACTIVE_FRAMES=${seg_cnt:-${I2I_REF_FRAMES:-48}}
 			until [ "$queuecount" = "0" ]
 			do
@@ -1445,6 +1507,7 @@ else
 					echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
 					TASK_ACTIVE_KIND=
 					TASK_ACTIVE_T0=
+					TASK_ACTIVE_T0_SECS=
 					TASK_ACTIVE_FRAMES=
 					exit 0
 				fi
@@ -1465,6 +1528,7 @@ else
 				  if ! failover_check "$timeout" "$secs"; then
 				    TASK_ACTIVE_KIND=
 				    TASK_ACTIVE_T0=
+					    TASK_ACTIVE_T0_SECS=
 				    TASK_ACTIVE_FRAMES=
 				    retry_once_or_error "Timeout/failover triggered while waiting for i2i to finish"
 				  fi
@@ -1476,6 +1540,7 @@ else
 			task_record_i2i_runtime "$runtime" "${seg_cnt:-}"
 			TASK_ACTIVE_KIND=
 			TASK_ACTIVE_T0=
+			TASK_ACTIVE_T0_SECS=
 			TASK_ACTIVE_FRAMES=
 
 			EXTENSION=".png"
