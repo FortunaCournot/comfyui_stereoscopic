@@ -1,5 +1,14 @@
 # Agent notes: Testing pitfalls (Windows / portable)
 
+## Embedded Python location (portable ComfyUI)
+ComfyUI portable ships its own Python interpreter (useful when `python` is not on PATH, or when you need the exact environment ComfyUI uses).
+
+- Workspace-relative: `../../python_embeded/python.exe` (from `ComfyUI/custom_nodes/comfyui_stereoscopic`)
+- Example absolute path (your machine): `e:\SD\vrweare\ComfyUI_windows_portable\python_embeded\python.exe`
+
+Example compile check:
+- `& "e:\SD\vrweare\ComfyUI_windows_portable\python_embeded\python.exe" -m py_compile "api/python/workflow/get_pose.py"`
+
 ## What happened (repro)
 When running tests from `custom_nodes/comfyui_stereoscopic` on Windows, two recurring issues show up:
 
