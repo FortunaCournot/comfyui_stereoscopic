@@ -51,6 +51,7 @@ else:
         prompt["195"]["inputs"]["value"] = sys.argv[4]
         prompt["193"]["inputs"]["value"] = sys.argv[5]
         prompt["194"]["inputs"]["value"] = sys.argv[6]
+        prompt["217"]["inputs"]["blend_factor"] = "0.10"
         if len(sys.argv) == 8:
             prompt["220"]["inputs"]["image"] = sys.argv[7]
         else:
