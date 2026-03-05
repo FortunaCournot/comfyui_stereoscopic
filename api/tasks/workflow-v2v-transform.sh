@@ -1467,7 +1467,16 @@ else
 				# track whether this is the first chunk of the current scene
 				scene_first_chunk=1
 				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
-					idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
+					chunk_len=$SCENE_SEG_MAX_FRAMES
+					# Special case: when FORCE_START is enabled and the first planned segment
+					# would be exactly 48 frames, shorten it to 40 so the last 8 frames shift
+					# into the next segment. This preserves total frames and only moves the
+					# boundary between segment 0 and 1.
+					if [ $is_first_segment -eq 1 ] && [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null && [ "${chunk_len:-0}" -eq 48 ] 2>/dev/null; then
+						chunk_len=40
+						[ ${loglevel:-0} -ge 1 ] && echo "Info: FORCE_START first segment boundary tweak: 48->40 frames (shift 8 frames into next segment)"
+					fi
+					idx_b=$((idx_a + chunk_len - 1))
 					# append values to arrays: framecount, start, end
 						# determine scenestart flag: 1 for the first chunk of this scene, else 0
 						if [ $scene_first_chunk -eq 1 ] ; then
@@ -1478,21 +1487,21 @@ else
 						fi
 						if [ $is_first_segment -eq 1 ] ; then
 							is_first_segment=0
-							segments_framecount_json="[${SCENE_SEG_MAX_FRAMES}"
+							segments_framecount_json="[${chunk_len}"
 							segments_start_json="[${idx_a}"
 							segments_end_json="[${idx_b}"
 							segments_scenestart_json="[${scenestart_val}"
 						else
-							segments_framecount_json="${segments_framecount_json},${SCENE_SEG_MAX_FRAMES}"
+							segments_framecount_json="${segments_framecount_json},${chunk_len}"
 							segments_start_json="${segments_start_json},${idx_a}"
 							segments_end_json="${segments_end_json},${idx_b}"
 							segments_scenestart_json="${segments_scenestart_json},${scenestart_val}"
 						fi
 					idx=$((idx+1))
-					seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
-					seg_frames=$((seg_frames - SCENE_SEG_MAX_FRAMES))
-					echo "  Split segment chunk: start=$idx_a frames=$SCENE_SEG_MAX_FRAMES"
-					idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
+					seg_effectiveframes=$((seg_effectiveframes - chunk_len))
+					seg_frames=$((seg_frames - chunk_len))
+					echo "  Split segment chunk: start=$idx_a frames=$chunk_len"
+					idx_a=$((idx_a + chunk_len))
 				done
 				# append remaining chunk values to arrays (this chunk starts the scene)
 					# remaining chunk: it's the first chunk of the scene iff scene_first_chunk==1
@@ -1533,7 +1542,13 @@ else
 				# treat the final scene similarly: track first-chunk-in-scene
 				scene_first_chunk=1
 				while [ $seg_effectiveframes -gt $SCENE_SEG_MAX_FRAMES ] ; do
-					idx_b=$((idx_a + SCENE_SEG_MAX_FRAMES - 1))
+					chunk_len=$SCENE_SEG_MAX_FRAMES
+					# Same special case for the very first segment overall.
+					if [ $is_first_segment -eq 1 ] && [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null && [ "${chunk_len:-0}" -eq 48 ] 2>/dev/null; then
+						chunk_len=40
+						[ ${loglevel:-0} -ge 1 ] && echo "Info: FORCE_START first segment boundary tweak: 48->40 frames (shift 8 frames into next segment)"
+					fi
+					idx_b=$((idx_a + chunk_len - 1))
 					if [ $scene_first_chunk -eq 1 ] ; then
 						scenestart_val=1
 						scene_first_chunk=0
@@ -1542,19 +1557,19 @@ else
 					fi
 					if [ $is_first_segment -eq 1 ] ; then
 						is_first_segment=0
-						segments_framecount_json="[${SCENE_SEG_MAX_FRAMES}"
+						segments_framecount_json="[${chunk_len}"
 						segments_start_json="[${idx_a}"
 						segments_end_json="[${idx_b}"
 						segments_scenestart_json="[${scenestart_val}"
 					else
-						segments_framecount_json="${segments_framecount_json},${SCENE_SEG_MAX_FRAMES}"
+						segments_framecount_json="${segments_framecount_json},${chunk_len}"
 						segments_start_json="${segments_start_json},${idx_a}"
 						segments_end_json="${segments_end_json},${idx_b}"
 						segments_scenestart_json="${segments_scenestart_json},${scenestart_val}"
 					fi
-					seg_effectiveframes=$((seg_effectiveframes - SCENE_SEG_MAX_FRAMES))
-					echo "  Split segment chunk: start=$idx_a frames=$SCENE_SEG_MAX_FRAMES"
-					idx_a=$((idx_a + SCENE_SEG_MAX_FRAMES))
+					seg_effectiveframes=$((seg_effectiveframes - chunk_len))
+					echo "  Split segment chunk: start=$idx_a frames=$chunk_len"
+					idx_a=$((idx_a + chunk_len))
 				done
 				# append remaining frames (if any) — this chunk is the first of the final scene iff scene_first_chunk==1
 				if [ $seg_effectiveframes -gt 0 ] ; then
