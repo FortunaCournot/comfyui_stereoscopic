@@ -72,6 +72,158 @@ wait_for_converted() {
 	return 1
 }
 
+is_float_01() {
+	# returns 0 if $1 is a float in [0,1], else 1
+	val="${1:-}"
+	printf '%s' "$val" | grep -qE '^(0(\.[0-9]+)?|1(\.0+)?)$'
+}
+
+blend_images() {
+	# blend imgA and imgB into out with weights wa and wb (floats)
+	img_a="$1"
+	img_b="$2"
+	out_img="$3"
+	wa="$4"
+	wb="$5"
+	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y \
+		-i "$img_a" -i "$img_b" \
+		-filter_complex "[0:v]format=rgba[a];[1:v]format=rgba[b];[a][b]blend=all_expr='A*${wa}+B*${wb}',format=rgba" \
+		-frames:v 1 "$out_img"
+}
+
+reencode_chunk_from_frames() {
+	frames_dir="$1"
+	fps="$2"
+	out_mp4="$3"
+	tmp_mp4="${out_mp4}.tmp.mp4"
+	rm -f -- "$tmp_mp4" 2>/dev/null || true
+	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y \
+		-framerate "$fps" -start_number 0 -i "$frames_dir/frame_%06d.png" \
+		-r "$fps" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -an "$tmp_mp4"
+	if [ $? -ne 0 ] || [ ! -s "$tmp_mp4" ]; then
+		rm -f -- "$tmp_mp4" 2>/dev/null || true
+		return 1
+	fi
+	move_with_retry "$tmp_mp4" "$out_mp4" 120 1
+}
+
+blend_inner_chunk_boundary_if_needed() {
+	prev_chunk="$1"
+	next_chunk="$2"
+	blend_a="$3"
+	fps="$4"
+
+	# Compute other weight (1 - blend_a)
+	blend_b=$(awk -v a="$blend_a" 'BEGIN{b=1.0-a; if(b<0)b=0; if(b>1)b=1; printf "%.6f", b}')
+
+	# temp dirs
+	work_root="$INTERMEDIATE_INPUT_FOLDER/forced_inner_blend"
+	mkdir -p "$work_root" || true
+	prev_id=$(basename "$prev_chunk" | sed -E 's/[^0-9]//g')
+	next_id=$(basename "$next_chunk" | sed -E 's/[^0-9]//g')
+	prev_dir="$work_root/prev_${prev_id}"
+	next_dir="$work_root/next_${next_id}"
+	rm -rf -- "$prev_dir" "$next_dir" 2>/dev/null || true
+	mkdir -p "$prev_dir" "$next_dir"
+
+	# Extract frames (small chunks; simplest robust approach)
+	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$prev_chunk" -vsync 0 -start_number 0 "$prev_dir/frame_%06d.png"
+	if [ $? -ne 0 ]; then return 1; fi
+	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$next_chunk" -vsync 0 -start_number 0 "$next_dir/frame_%06d.png"
+	if [ $? -ne 0 ]; then return 1; fi
+
+	prev_count=$(ls -1 "$prev_dir"/frame_*.png 2>/dev/null | wc -l | tr -d '[:space:]')
+	next_count=$(ls -1 "$next_dir"/frame_*.png 2>/dev/null | wc -l | tr -d '[:space:]')
+	if ! is_int "$prev_count" || ! is_int "$next_count" || [ "$prev_count" -lt 1 ] 2>/dev/null || [ "$next_count" -lt 1 ] 2>/dev/null; then
+		return 1
+	fi
+	prev_last=$((prev_count - 1))
+	prev_last_png=$(printf "%s/frame_%06d.png" "$prev_dir" "$prev_last")
+	next_first_png="$next_dir/frame_000000.png"
+	if [ ! -s "$prev_last_png" ] || [ ! -s "$next_first_png" ]; then
+		return 1
+	fi
+
+	# Create and replace boundary frames
+	blend_prev_last="$work_root/blend_prev_last_${prev_id}_${next_id}.png"
+	blend_next_first="$work_root/blend_next_first_${prev_id}_${next_id}.png"
+	rm -f -- "$blend_prev_last" "$blend_next_first" 2>/dev/null || true
+
+	# prev last: blend_a * prev_last + blend_b * next_first
+	blend_images "$prev_last_png" "$next_first_png" "$blend_prev_last" "$blend_a" "$blend_b" || return 1
+	cp -f -- "$blend_prev_last" "$prev_last_png" || return 1
+
+	# next first: blend_a * next_first + blend_b * prev_last
+	blend_images "$next_first_png" "$prev_last_png" "$blend_next_first" "$blend_a" "$blend_b" || return 1
+	cp -f -- "$blend_next_first" "$next_first_png" || return 1
+
+	# Re-encode both chunks from modified frames
+	reencode_chunk_from_frames "$prev_dir" "$fps" "$prev_chunk" || return 1
+	reencode_chunk_from_frames "$next_dir" "$fps" "$next_chunk" || return 1
+
+	return 0
+}
+
+# Move a file, retrying while the source is locked (common on Windows when
+# ComfyUI finalizes writes slightly after the queue becomes empty).
+move_with_retry() {
+	src="$1"
+	dst="$2"
+	timeout_s=${3:-120}
+	step_s=${4:-1}
+
+	if [ -e "$dst" ] && [ -s "$dst" ]; then
+		return 0
+	fi
+
+	t0=$(date +%s)
+	first=1
+	last_err=""
+	while true; do
+		if [ -e "$dst" ] && [ -s "$dst" ]; then
+			return 0
+		fi
+		if [ ! -e "$src" ]; then
+			# If the source disappears but destination is present, treat as success.
+			if [ -e "$dst" ] && [ -s "$dst" ]; then
+				return 0
+			fi
+			last_err="source missing: $src"
+			break
+		fi
+
+		tmp_err=$(mktemp -t mv_err.XXXXXX 2>/dev/null || echo "")
+		if [ -n "$tmp_err" ]; then
+			if mv -vf -- "$src" "$dst" 2>"$tmp_err"; then
+				rm -f -- "$tmp_err"
+				return 0
+			fi
+			last_err=$(cat "$tmp_err" 2>/dev/null || true)
+			rm -f -- "$tmp_err"
+		else
+			# Fallback if mktemp is unavailable.
+			if mv -vf -- "$src" "$dst"; then
+				return 0
+			fi
+			last_err="mv failed"
+		fi
+
+		if [ "$first" -eq 1 ] 2>/dev/null; then
+			first=0
+			[ ${loglevel:-0} -ge 2 ] && echo "Waiting for file unlock to move output..."
+		fi
+		now=$(date +%s)
+		elapsed=$((now - t0))
+		if [ "$elapsed" -ge "$timeout_s" ] 2>/dev/null; then
+			break
+		fi
+		sleep "$step_s"
+	done
+
+	echo "Error: failed to move '$src' -> '$dst' after ${timeout_s}s. ${last_err}" >&2
+	return 1
+}
+
 is_int() {
 	# returns 0 if $1 is an integer (possibly negative), else 1
 	expr "${1:-}" : '[-0-9][0-9]*$' >/dev/null 2>&1
@@ -470,9 +622,13 @@ iv2v_generate() {
 		INTERMEDIATE=$(wait_for_converted "$INTERMEDIATE_OUTPUT_FOLDER" "$EXTENSION" 20 1) || true
 
 	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
-		mv -vf -- "$INTERMEDIATE" "$chunk_file"
-		echo -e $"\e[92mstep done.\e[0m"
-		return 0
+		if move_with_retry "$INTERMEDIATE" "$chunk_file" 120 1; then
+			echo -e $"\e[92mstep done.\e[0m"
+			return 0
+		else
+			echo -e $"\e[91mError:\e[0m Step failed. Unable to move output (file locked?): $INTERMEDIATE"
+			return 2
+		fi
 	else
 		echo -e $"\e[91mError:\e[0m Step failed. $INTERMEDIATE missing or zero-length."
 		return 2
@@ -555,6 +711,12 @@ else
 			true|1) FORCE_START=1 ;;
 			*) FORCE_START=0 ;;
 		esac
+	fi
+	# When FORCE_START=1, optionally blend boundary frames between contiguous main chunks
+	# within the same scene to avoid hard cuts without changing frame count.
+	FORCED_INNER_SEG_BLEND=${FORCED_INNER_SEG_BLEND:-0.66}
+	if ! is_float_01 "${FORCED_INNER_SEG_BLEND:-}"; then
+		FORCED_INNER_SEG_BLEND=0.66
 	fi
 
 	PROGRESS=" "
@@ -1203,8 +1365,11 @@ else
 			INTERMEDIATE=$(wait_for_converted "$INTERMEDIATE_OUTPUT_FOLDER" "$EXTENSION" 20 1) || true
 
 			if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
-				mv -vf -- "$INTERMEDIATE" "$target_img"
-				echo -e $"\e[92mstep done.\e[0m"
+				if move_with_retry "$INTERMEDIATE" "$target_img" 120 1; then
+					echo -e $"\e[92mstep done.\e[0m"
+				else
+					retry_once_or_error "Step failed (i2i). Unable to move output (file locked?): $INTERMEDIATE"
+				fi
 			else
 				retry_once_or_error "Step failed (i2i). Output missing or zero-length: $INTERMEDIATE"
 			fi
@@ -1236,6 +1401,10 @@ else
 	# Upper bound estimate: one main chunk + optional transition chunk per segment
 	CHUNK_TOTAL_MAX=$((SEG_TOTAL_IV2V * 2))
 	seg_iter_iv2v=0
+
+	# Track which chunk belongs to which segment/scenestart/kind for STEP 5 boundary blending.
+	chunk_meta="$INTERMEDIATE_INPUT_FOLDER/chunk_meta.csv"
+	rm -f -- "$chunk_meta" 2>/dev/null || true
 	
 	# chunk_index: global counter for produced video chunks (one or two per segment)
 	chunk_index=0
@@ -1422,6 +1591,8 @@ else
 		if [ "$num_frames" -ge 1 ] 2>/dev/null ; then
 			idx_p=$(printf "%04d" "$chunk_index")
 			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${idx_p}.mp4"
+			# Record metadata even when resuming (chunk already exists)
+			echo "chunk_${idx_p}.mp4,${seg_index},${scenestart_iv2v},main" >> "$chunk_meta"
 			if [ -e "$chunk_file" ]; then
 				echo "Skipping generation; chunk already exists: $chunk_file"
 			else
@@ -1470,6 +1641,8 @@ else
 		if [ "$trans_frames" -ge 1 ] 2>/dev/null ; then
 			idx_p=$(printf "%04d" "$chunk_index")
 			chunk_file="$INTERMEDIATE_INPUT_FOLDER/chunk_${idx_p}.mp4"
+			# Transition chunks are scene boundaries by definition (do not blend)
+			echo "chunk_${idx_p}.mp4,${seg_index},1,transition" >> "$chunk_meta"
 			if [ -e "$chunk_file" ]; then
 				echo "Skipping transition generation; chunk already exists: $chunk_file"
 			else
@@ -1521,6 +1694,31 @@ else
 
 	echo "=== STEP 5: concat video segements to final video, and apply audio from source video."
 	echo "$(task_progress_suffix)"
+
+	# If FORCE_START=1, blend boundary frames between contiguous main chunks within the same scene
+	# (next chunk has scenestart==0) to reduce hard cuts without changing total frames.
+	if [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null && [ -f "$chunk_meta" ]; then
+		prev_file=""
+		prev_kind=""
+		while IFS=',' read -r meta_file meta_seg meta_scene meta_kind; do
+			[ -n "${meta_file:-}" ] || continue
+			# Only consider boundaries main->main where the *next* chunk is not a scene start
+			if [ -n "$prev_file" ] && [ "$prev_kind" = "main" ] && [ "${meta_kind:-}" = "main" ] \
+				&& is_int "${meta_scene:-}" && [ "${meta_scene:-0}" -eq 0 ] 2>/dev/null; then
+				prev_chunk="$INTERMEDIATE_INPUT_FOLDER/$prev_file"
+				next_chunk="$INTERMEDIATE_INPUT_FOLDER/$meta_file"
+				if [ -s "$prev_chunk" ] && [ -s "$next_chunk" ]; then
+					[ ${loglevel:-0} -ge 1 ] && echo "Info: blending inner boundary $prev_file -> $meta_file (FORCED_INNER_SEG_BLEND=${FORCED_INNER_SEG_BLEND})"
+					nc_t0=$(date +%s)
+					blend_inner_chunk_boundary_if_needed "$prev_chunk" "$next_chunk" "$FORCED_INNER_SEG_BLEND" "${SCENE_WORKFLOW_FPS:-16}" || true
+					nc_t1=$(date +%s)
+					task_record_noncomfy_runtime $((nc_t1 - nc_t0))
+				fi
+			fi
+			prev_file="$meta_file"
+			prev_kind="${meta_kind:-}"
+		done < "$chunk_meta"
+	fi
 
 	# Build concat list from chunk_*.mp4 in numeric order (chunk_0, chunk_1, ...)
 	concat_list="$INTERMEDIATE_INPUT_FOLDER/concat_list.txt"
