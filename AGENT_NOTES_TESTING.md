@@ -50,6 +50,15 @@ Use Git for Windows’ bash instead:
 Example syntax-check for scripts:
 - `& "C:\Program Files\Git\bin\bash.exe" -n "api/tasks/workflow-v2v-transform.sh"`
 
+## Task JSON parsing (trailing commas)
+Some task definition files under `user/default/comfyui_stereoscopic/tasks/*.json` may contain **trailing commas**.
+
+In this repo, many settings (including `override_reference_path`) are extracted via `grep`/`sed` patterns in the shell scripts rather than strict JSON parsing, so trailing commas are typically tolerated.
+
+Guideline for debugging:
+- Don’t assume “invalid JSON” is the root cause unless a *real* JSON parser is involved in that path.
+- Verify effective values by checking whether the corresponding `grep -oE '"key"\s*:\s*"..."'` match triggers in the script logs.
+
 ## PowerShell quoting pitfalls (python -c / redirection)
 When running one-off Python snippets via PowerShell, quoting can silently break the code you *think* you passed to `python -c`.
 
