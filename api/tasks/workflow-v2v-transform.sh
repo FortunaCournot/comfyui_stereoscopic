@@ -2154,20 +2154,26 @@ else
 
 			# Extract start frame according to FORCE_START cadence (ffmpeg expects 0-based index).
 			do_start_img=0
-			if [ "${FORCE_START:-0}" -le 0 ] 2>/dev/null ; then
-				if [ "${scenestart:-0}" -eq 1 ] 2>/dev/null ; then
-					do_start_img=1
-				fi
-			elif [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null ; then
+			# When override_reference_path is set, always create a start image for every segment
+			# (independent of scenestart/FORCE_START cadence).
+			if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ]; then
 				do_start_img=1
 			else
-				_mod=$(((scene_seg_pos - 1) % FORCE_START))
-				if [ "${_mod:-1}" -eq 0 ] 2>/dev/null ; then
+				if [ "${FORCE_START:-0}" -le 0 ] 2>/dev/null ; then
+					if [ "${scenestart:-0}" -eq 1 ] 2>/dev/null ; then
+						do_start_img=1
+					fi
+				elif [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null ; then
 					do_start_img=1
+				else
+					_mod=$(((scene_seg_pos - 1) % FORCE_START))
+					if [ "${_mod:-1}" -eq 0 ] 2>/dev/null ; then
+						do_start_img=1
+					fi
 				fi
 			fi
 			if [ "${do_start_img:-0}" -eq 1 ] 2>/dev/null; then
-				if [ ! -f "$tgt_start_img" ]; then
+				if [ ! -s "$tgt_start_img" ]; then
 					nc_t0=$(date +%s)
 					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$start0)" -vframes 1 -q:v 2 "$tgt_start_img"
 					nc_t1=$(date +%s)
@@ -2183,12 +2189,6 @@ else
 	fi
 
 	echo "=== STEP 3: generate transformed images accoording to workplan using the configured i2i workflow via api"
-	# If override_reference_path is set, we execute i2i once and reuse its output.
-	override_i2i_cache="$INTERMEDIATE_INPUT_FOLDER/override_reference_i2i.png"
-	# Ensure cache is normalized (crop to video aspect, then CalculateDimensions+resize).
-	if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ] && [ -s "$override_i2i_cache" ]; then
-		normalize_image_to_aspect_and_calc_dims_720_factor14_round16 "$VIDEOINTERMEDIATE" "$override_i2i_cache"
-	fi
 	# Determine total segment count for progress display (prefer workplan-derived seg_count)
 	SEG_TOTAL=${seg_count:-0}
 	if [ -z "$SEG_TOTAL" ] || [ "$SEG_TOTAL" -eq 0 ] 2>/dev/null ; then
@@ -2254,22 +2254,35 @@ else
 		# check if i2i outputs already exist (first/last filenames); skip if present
 		first_img="$INTERMEDIATE_INPUT_FOLDER/first_${seg_index}.png"
 		last_img="$INTERMEDIATE_INPUT_FOLDER/last_${seg_index}.png"
-		if [ -f "$first_img" ] ; then   # deactivated: && [ -f "$last_img" ]
-			# i2i outputs already present for this segment, skip but count towards progress/ETA
-			task_mark_i2i_done_no_runtime "${seg_cnt:-}"
-			continue
-		fi
-		# If override is enabled and we already have the cached i2i result, reuse it.
-		if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ] && [ -s "$override_i2i_cache" ]; then
-			echo "Info: override_reference_path active -> reusing cached i2i result for segment $seg_index"
-			cp -f -- "$override_i2i_cache" "$first_img" 2>/dev/null || true
+		# override_reference_path mode: do NOT run ComfyUI i2i in STEP 3.
+		# Instead, just copy start_####.png -> first_####.png.
+		if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ]; then
+			src_start_img="$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png"
+			if [ ! -s "$src_start_img" ]; then
+				echo -e $"\e[91mError:\e[0m Task failed. override_reference_path set, but start image missing: $src_start_img" >&2
+				mkdir -p input/vr/tasks/$TASKNAME/error
+				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+				exit 0
+			fi
+			echo "Info: override_reference_path active -> STEP3 copy $src_start_img -> $first_img (no i2i)"
+			nc_t0=$(date +%s)
+			cp -f -- "$src_start_img" "$first_img" 2>/dev/null || true
+			nc_t1=$(date +%s)
+			task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 			if [ -s "$first_img" ]; then
 				task_mark_i2i_done_no_runtime "${seg_cnt:-}"
 				continue
 			else
-				echo "Warning: failed to copy cached override i2i result to $first_img; will attempt running i2i." >&2
-				rm -f -- "$first_img" 2>/dev/null || true
+				echo -e $"\e[91mError:\e[0m Task failed. override_reference_path set, but STEP3 copy failed: $first_img" >&2
+				mkdir -p input/vr/tasks/$TASKNAME/error
+				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+				exit 0
 			fi
+		fi
+		if [ -f "$first_img" ] ; then   # deactivated: && [ -f "$last_img" ]
+			# i2i outputs already present for this segment, skip but count towards progress/ETA
+			task_mark_i2i_done_no_runtime "${seg_cnt:-}"
+			continue
 		fi
 		# iterate the two representative images for the segment (input images)
 		for img in "$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png" ; do   # deactivated "$INTERMEDIATE_INPUT_FOLDER/end_${seg_index}.png"
@@ -2284,8 +2297,7 @@ else
 				continue
 			fi
 
-			# Only require the segment's extracted start image when not using override_reference_path.
-			if [ -z "${OVERRIDE_REFERENCE_ABS:-}" ] && [ ! -f "$img" ]; then
+			if [ ! -f "$img" ]; then
 				echo -e $"\e[91mError:\e[0m Task failed. input image $img missing."
 				mkdir -p input/vr/tasks/$TASKNAME/error
 				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
@@ -2301,13 +2313,7 @@ else
 			# optional timeout (seconds) to trigger failover restart of ComfyUI
 			timeout=$(extract_timeout "$BLUEPRINTCONFIG")
 			lorastrength=$(extract_lorastrength "$BLUEPRINTCONFIG")
-			
-			# If override_reference_path is enabled, always use it as input for i2i.
-			if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ]; then
-				INPUT="$OVERRIDE_REFERENCE_ABS"
-			else
-				INPUT=`realpath "$img"`
-			fi
+			INPUT=`realpath "$img"`
 			# If ComfyUI is down, wait for it before submitting.
 			if ! comfyui_is_present; then
 				if ! wait_for_comfyui_present "${timeout:-300}" 2; then
@@ -2414,27 +2420,10 @@ else
 			INTERMEDIATE=$(wait_for_converted "$INTERMEDIATE_OUTPUT_FOLDER" "$EXTENSION" 20 1) || true
 
 			if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
-				# When override_reference_path is enabled, store the first i2i result into the cache
-				# and copy it into the per-segment target image.
-				if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ] && [ ! -s "$override_i2i_cache" ]; then
-					if move_with_retry "$INTERMEDIATE" "$override_i2i_cache" 120 1; then
-						# Normalize cached override image (crop to video aspect, then CalculateDimensions+resize).
-						normalize_image_to_aspect_and_calc_dims_720_factor14_round16 "$VIDEOINTERMEDIATE" "$override_i2i_cache"
-						cp -f -- "$override_i2i_cache" "$target_img" 2>/dev/null || true
-						if [ -s "$target_img" ]; then
-							echo -e $"\e[92mstep done.\e[0m"
-						else
-							retry_once_or_error "Step failed (i2i override copy). Target missing or zero-length: $target_img"
-						fi
-					else
-						retry_once_or_error "Step failed (i2i override). Unable to move output to cache (file locked?): $INTERMEDIATE"
-					fi
+				if move_with_retry "$INTERMEDIATE" "$target_img" 120 1; then
+					echo -e $"\e[92mstep done.\e[0m"
 				else
-					if move_with_retry "$INTERMEDIATE" "$target_img" 120 1; then
-						echo -e $"\e[92mstep done.\e[0m"
-					else
-						retry_once_or_error "Step failed (i2i). Unable to move output (file locked?): $INTERMEDIATE"
-					fi
+					retry_once_or_error "Step failed (i2i). Unable to move output (file locked?): $INTERMEDIATE"
 				fi
 			else
 				echo "Debug: expected a converted_*${EXTENSION} under $INTERMEDIATE_OUTPUT_FOLDER (or converted/ subfolder)" >&2
@@ -2450,6 +2439,131 @@ else
 	done
 
 	echo "=== STEP 4: generate video segments based transformed images according to work plan using configured IV2V workflow."
+	# override_reference_path (STEP 4 only): create a single i2i-derived override image
+	# and feed it into IV2V as the StartImagePath (img1). Color image defaults to start image.
+	override_step4_cache="$INTERMEDIATE_INPUT_FOLDER/override_reference_step4_i2i.png"
+	override_step4_input="$INTERMEDIATE_INPUT_FOLDER/override_reference_step4_input.png"
+	if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ]; then
+		echo "Info: override_reference_path active -> STEP4 cache=$override_step4_cache"
+		# Ensure cache exists; if not, run one i2i job now.
+		if [ ! -s "$override_step4_cache" ]; then
+			echo "Info: generating STEP4 override start image via i2i (one-time)"
+			# Avoid accidentally picking up an older converted_*.png from previous steps.
+			rm -f -- "$INTERMEDIATE_OUTPUT_FOLDER"/converted/converted_*.png "$INTERMEDIATE_OUTPUT_FOLDER"/converted_*.png 2>/dev/null || true
+			cp -f -- "$OVERRIDE_REFERENCE_ABS" "$override_step4_input" 2>/dev/null || true
+			if [ ! -s "$override_step4_input" ]; then
+				echo "Warning: failed copying override_reference_path to $override_step4_input; disabling override for STEP4" >&2
+			else
+				# Preprocess: crop to VIDEOINTERMEDIATE aspect, then CalculateDimensions+resize.
+				normalize_image_to_aspect_and_calc_dims_720_factor14_round16 "$VIDEOINTERMEDIATE" "$override_step4_input"
+
+				i2i_api=`cat "$BLUEPRINTCONFIG" | grep -o '"i2i_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+				prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"i2i_prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+				prompt=${prompt:-""}
+				# optional timeout (seconds) to trigger failover restart of ComfyUI
+				timeout=$(extract_timeout "$BLUEPRINTCONFIG")
+				lorastrength=$(extract_lorastrength "$BLUEPRINTCONFIG")
+				INPUT=`realpath "$override_step4_input"`
+
+				# If ComfyUI is down, wait for it before submitting.
+				if ! comfyui_is_present; then
+					if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+						retry_once_or_error "ComfyUI not present; unable to submit STEP4 override i2i request"
+					fi
+				fi
+				submit_log="$INTERMEDIATE_OUTPUT_FOLDER/i2i_override_step4_submit.log"
+				submit_i2i_override_step4() {
+					"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$I2I_FILENAME_PREFIX" "$lorastrength" "$prompt" >"$submit_log" 2>&1
+				}
+				submit_i2i_override_step4
+				submit_rc=$?
+				if [ "${submit_rc:-0}" -ne 0 ] 2>/dev/null ; then
+					echo "Error: STEP4 override i2i submit failed (rc=$submit_rc). Log: $submit_log" >&2
+					tail -n 50 "$submit_log" 2>/dev/null >&2 || true
+					retry_once_or_error "Step failed (STEP4 override i2i submit). See log: $submit_log"
+				fi
+
+				# Wait for queue to drain (best-effort, with failover timeout logic)
+				start=`date +%s`
+				end=`date +%s`
+				secs=0
+				queuecount=""
+				until [ "$queuecount" = "0" ]
+				do
+					sleep 1
+					status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+					if [ "$status" = "closed" ]; then
+						echo -e $"\e[93mWarning:\e[0m ComfyUI not present. Waiting and retrying STEP4 override i2i request..."
+						if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+							retry_once_or_error "ComfyUI not present; unable to complete STEP4 override i2i request"
+						fi
+						echo "Info: re-submitting STEP4 override i2i workflow after ComfyUI restart" 2>/dev/null || true
+						submit_i2i_override_step4
+						start=`date +%s`
+						end=`date +%s`
+						secs=0
+						queuecount=""
+						continue
+					fi
+					if ! curl -sf "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json; then
+						echo -e $"\e[93mWarning:\e[0m Failed to query ComfyUI queue. Waiting and retrying STEP4 override i2i request..."
+						if ! wait_for_comfyui_present "${timeout:-300}" 2; then
+							retry_once_or_error "ComfyUI not present; unable to complete STEP4 override i2i request"
+						fi
+						echo "Info: re-submitting STEP4 override i2i workflow after queue query failure" 2>/dev/null || true
+						submit_i2i_override_step4
+						start=`date +%s`
+						end=`date +%s`
+						secs=0
+						queuecount=""
+						continue
+					fi
+					queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+					end=`date +%s`
+					secs=$((end-start))
+					# centralized failover check (sourcing helper on demand)
+					if ! (command -v failover_check >/dev/null 2>&1) ; then
+					  if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
+					    . ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh
+					  fi
+					fi
+					if command -v failover_check >/dev/null 2>&1; then
+					  if ! failover_check "$timeout" "$secs"; then
+					    retry_once_or_error "Timeout/failover triggered while waiting for STEP4 override i2i to finish"
+					  fi
+					fi
+				done
+				runtime=$((end-start))
+				task_record_noncomfy_runtime "$runtime"
+
+				EXTENSION=".png"
+				INTERMEDIATE=$(wait_for_converted "$INTERMEDIATE_OUTPUT_FOLDER" "$EXTENSION" 60 1) || true
+				if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
+					if move_with_retry "$INTERMEDIATE" "$override_step4_cache" 120 1; then
+						# Normalize cached override image again to guarantee crop->resize invariants.
+						normalize_image_to_aspect_and_calc_dims_720_factor14_round16 "$VIDEOINTERMEDIATE" "$override_step4_cache"
+					else
+						retry_once_or_error "Step failed (STEP4 override i2i). Unable to move output (file locked?): $INTERMEDIATE"
+					fi
+				else
+					echo "Debug: expected a converted_*.png under $INTERMEDIATE_OUTPUT_FOLDER (or converted/ subfolder)" >&2
+					echo "Debug: listing $INTERMEDIATE_OUTPUT_FOLDER:" >&2
+					ls -la "$INTERMEDIATE_OUTPUT_FOLDER" 2>/dev/null >&2 || true
+					echo "Debug: listing $INTERMEDIATE_OUTPUT_FOLDER/converted:" >&2
+					ls -la "$INTERMEDIATE_OUTPUT_FOLDER/converted" 2>/dev/null >&2 || true
+					echo "Debug: submit log tail ($submit_log):" >&2
+					tail -n 50 "$submit_log" 2>/dev/null >&2 || true
+					retry_once_or_error "Step failed (STEP4 override i2i). Output missing or zero-length: $INTERMEDIATE"
+				fi
+			fi
+		fi
+		# Best-effort: keep cache normalized even across resume runs.
+		if [ -s "$override_step4_cache" ]; then
+			normalize_image_to_aspect_and_calc_dims_720_factor14_round16 "$VIDEOINTERMEDIATE" "$override_step4_cache"
+		else
+			echo "Warning: override_reference_path active, but STEP4 cache is still missing: $override_step4_cache" >&2
+		fi
+	fi
 	# Re-detect index base (see STEP 2 comment). Keep local to STEP 4 to be robust.
 	segments_index_base_iv2v=1
 	if [ -e "$WORKPLAN_FILE" ]; then
@@ -2688,8 +2802,13 @@ else
 				echo "Segment $seg_index: frames=${num_frames} first=${first_img} last=${last_img} -> will write $chunk_file"
 				# call the ComfyUI FL2V workflow to create $chunk_file from $first_img .. $last_img and write outputs into INTERMEDIATE_OUTPUT_FOLDER
 				img1="$first_img"
-				# default to first_img for color matching if last_img from previous chunk is missing or a new segment started.
-				color_image="$first_img"
+				# default to first_img as start image.
+				# override_reference_path: use the STEP4 override i2i image as the start image for all segments.
+				if [ -s "$override_step4_cache" ]; then
+					img1="$override_step4_cache"
+				fi
+				# color reference defaults to start image (existing behavior).
+				color_image="$img1"
 				# if [ "${scenestart_iv2v:-1}" -ne 1 ] 2>/dev/null ; then
 				# 	prev_seg_index=$((10#$seg_index - 1))
 				# 	if [ "$prev_seg_index" -ge 0 ] 2>/dev/null ; then
