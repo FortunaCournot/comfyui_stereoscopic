@@ -1,43 +1,188 @@
 #!/usr/bin/env python
-"""Compute per-frame face visibility scores for a video.
+"""Compute per-frame head/face visibility scores for a video.
 
 Copyright (c) 2026 Fortuna Cournot. MIT License. www.3d-gallery.org
 
-This script is intended to run inside a ComfyUI installation that also has
-`custom_nodes/comfyui_controlnet_aux` available. It uses the DWPose implementation
-from that node pack to estimate pose/face keypoints.
+This script is designed for the VrWeAre/ComfyUI pipeline and is typically called
+from the bash workflow (e.g. detect_face_appearance). It runs inside a ComfyUI
+installation that also contains:
 
-Output: a JSON array of floats in [0.0, 1.0], one value per processed frame.
+    - custom_nodes/comfyui_controlnet_aux
 
-Default model parameters match the user's requested setup:
-- resolution=512
-- bbox_detector=yolox_l.onnx
-- pose_estimator=dw-ll_ucoco_384_bs5.torchscript.pt
+It uses that node pack's DWPose implementation to estimate pose + face keypoints
+and outputs *one numeric score per frame*.
 
-The score represents the visibility of the most significant face in the frame.
+The central design constraints are:
+    - stdout must stay machine-readable (scores only)
+    - progress/log output must go to stderr (or be suppressed)
+    - Windows/PowerShell should work reliably (prefer --out-file over shell redirection)
 
-To Test it use:
+---------------------------------
+Output formats
+---------------------------------
+By default the script prints a JSON array of floats to stdout.
 
-    VID="/c/Users/User/Downloads/fullface.mp4"
-    PY="/e/SD/vrweare/ComfyUI_windows_portable/python_embeded/python.exe"
-    SCRIPT="/e/SD/vrweare/ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/api/python/workflow/get_pose.py"
+    --format json
+            Example stdout: [0.0, 0.25, 1.0, ...]
 
-    OUT="$(cygpath -m "${TEMP:-/tmp}")/face_visibility_combined_min.txt"
+    --format lines
+            Example stdout:
+                    0.000000
+                    0.250000
+                    1.000000
 
-    "$PY" "$SCRIPT" \
-    --format lines \
-    --primary-person body \
-    --visibility-metric combined_min \
-    --conf-threshold 0.1 \
-        --score-threshold 0.6 \
-    --count-threshold 0.1 \
-        --eye-ratio-min 0.12 \
-    --progress \
-    --out-file "$OUT" \
-    "$VID"
+If you specify --out-file, nothing is written to stdout; the file is written
+atomically via a temporary file + rename.
 
-    echo "Wrote: $OUT"
-    head -n 20 "$OUT"
+---------------------------------
+What the score means
+---------------------------------
+All metrics ultimately produce a value in [0.0, 1.0] where:
+
+    - 1.0  means "face/head is clearly visible / frontal-ish"
+    - 0.0  means "no face" or "fully turned away" depending on metric
+
+The default workflow metric is:
+
+    --visibility-metric combined_min
+
+which is:
+    min(pose_yaw_visibility, pose_head_geom_visibility)
+
+This makes the score conservative: it only becomes high when both the yaw-based
+head visibility AND the pose-geometry sanity checks look plausible.
+
+---------------------------------
+Metrics ("--visibility-metric")
+---------------------------------
+Available values:
+
+    combined_min (default)
+            Conservative metric intended for chunk-boundary decisions.
+            Computes:
+                min( pose_yaw , pose_head_geom )
+
+    pose_yaw
+            Head visibility derived from a head-yaw estimate, then mapped to a score:
+                visibility = max(0, 1 - |yaw_deg|/90)
+
+            How yaw is estimated (2D heuristic, not true 3D):
+                - Uses the DWPose "head vectors" (eye -> ear) from body keypoints.
+                - Computes confidence-weighted left/right vector lengths and an
+                    asymmetry measure.
+                - Applies a small deadzone to treat minor asymmetry as "frontal".
+                - Computes yaw sign relative to the person's body left-right axis
+                    (shoulders, fallback hips). This avoids relying on image axes and is
+                    robust for rotated / lying / upside-down subjects.
+
+            Important: pose_yaw is *camera-view* yaw (relative to the camera), not a
+            head-vs-torso relative yaw angle.
+
+    pose_head
+            Simple presence-based head visibility from body pose keypoints.
+            Counts nose + both eyes confidence above --conf-threshold.
+
+    pose_head_geom
+            Like pose_head, but adds geometry sanity checks:
+                - requires plausible eye-distance / shoulder-distance ratio
+                - treats near-origin (0,0) points as missing
+
+    face_landmarks
+            Face visibility based on face landmark keypoint *scores*.
+
+            Notes:
+                - This code intentionally avoids the controlnet_aux JSON encoder for
+                    scoring, because that encoder collapses scores into 0/1.
+                - Uses a two-threshold scheme:
+                        * presence gate via --score-threshold
+                        * gradation via --count-threshold
+
+---------------------------------
+Primary-person selection
+---------------------------------
+Frames can contain multiple people. We pick one "primary" person first, then
+compute the visibility score for that person.
+
+    --primary-person body (default)
+            Selects the person with the largest body bbox (pose_keypoints_2d).
+
+    --primary-person face
+            Selects the person with the largest face bbox (face_keypoints_2d).
+
+---------------------------------
+Thresholds and tuning
+---------------------------------
+    --conf-threshold FLOAT
+            Used by pose_head / pose_head_geom and by yaw helpers to decide if a body
+            keypoint is present. Default: 0.1
+
+    --eye-ratio-min FLOAT
+            Used by pose_head_geom: minimum (eye distance)/(shoulder distance).
+            Default: 0.12
+
+    --score-threshold FLOAT
+            Used by metrics that gate on face presence (pose_yaw, face_landmarks,
+            combined_min). If the strongest valid face keypoint score is <= this value,
+            the frame is treated as "no face" => score 0.0. Default: 0.6
+
+    --count-threshold FLOAT
+            Used only by face_landmarks/combined_min's face-landmark portion when that
+            path is active: counts face keypoints with score > count_threshold.
+            Default: 0.1
+
+---------------------------------
+Progress / logs
+---------------------------------
+    --progress
+            Prints a progress bar to stderr.
+
+    --no-progress
+            Disables progress output.
+
+    --aux-logs ignore|stderr
+            Where to send noisy prints from the pose detector.
+            Default: ignore (suppressed).
+
+---------------------------------
+Model parameters
+---------------------------------
+These options select which DWPose detector/estimator weights to load:
+
+    --resolution INT
+    --bbox-detector NAME    (e.g. yolox_l.onnx or None)
+    --pose-estimator NAME   (e.g. dw-ll_ucoco_384_bs5.torchscript.pt)
+
+The defaults match the workflow's expected setup.
+
+---------------------------------
+Usage examples
+---------------------------------
+Git-Bash (recommended, writes file atomically):
+
+        VID="/c/Users/User/Downloads/fullface.mp4"
+        PY="/e/SD/vrweare/ComfyUI_windows_portable/python_embeded/python.exe"
+        SCRIPT="/e/SD/vrweare/ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic/api/python/workflow/get_pose.py"
+        OUT="$(cygpath -m "${TEMP:-/tmp}")/face_visibility.txt"
+
+        "$PY" "$SCRIPT" \
+            --format lines \
+            --primary-person body \
+            --visibility-metric combined_min \
+            --conf-threshold 0.1 \
+            --score-threshold 0.6 \
+            --eye-ratio-min 0.12 \
+            --no-progress \
+            --out-file "$OUT" \
+            "$VID"
+
+PowerShell (also prefer --out-file):
+
+        $py = 'e:\\SD\\vrweare\\ComfyUI_windows_portable\\python_embeded\\python.exe'
+        $script = 'e:\\SD\\vrweare\\ComfyUI_windows_portable\\ComfyUI\\custom_nodes\\comfyui_stereoscopic\\api\\python\\workflow\\get_pose.py'
+        $vid = 'C:\\Users\\User\\Downloads\\fullface.mp4'
+        $out = Join-Path $env:TEMP 'face_visibility.txt'
+
+        & $py $script --format lines --visibility-metric combined_min --out-file $out $vid
 """
 
 from __future__ import annotations
@@ -279,6 +424,46 @@ def _kp_present(x: float, y: float, c: float, conf_threshold: float, xy_epsilon:
     return (c > conf_threshold) and ((abs(x) + abs(y)) > xy_epsilon)
 
 
+def _unit_vec(dx: float, dy: float) -> Optional[Tuple[float, float]]:
+    n = (dx * dx + dy * dy) ** 0.5
+    if n <= 1e-6:
+        return None
+    return dx / n, dy / n
+
+
+def _body_lr_axis_unit(person: Dict[str, Any], conf_threshold: float = 0.1) -> Optional[Tuple[float, float]]:
+    """Return unit left->right body axis in image coordinates.
+
+    Uses shoulders when available, else hips, else None.
+    This gives a rotation-invariant reference even if the person is lying or upside-down.
+    """
+
+    pose = person.get("pose_keypoints_2d")
+    n_points = (len(pose) // 3) if isinstance(pose, list) else 0
+
+    # Shared indices for COCO-18 and BODY-25 for shoulders.
+    sh_r_idx, sh_l_idx = 2, 5
+
+    # Hips differ between COCO-18 and BODY-25.
+    if n_points >= 25:
+        hip_r_idx, hip_l_idx = 9, 12
+    else:
+        hip_r_idx, hip_l_idx = 8, 11
+
+    rs_x, rs_y, rs_c = _openpose_kp_xyc(pose, sh_r_idx)
+    ls_x, ls_y, ls_c = _openpose_kp_xyc(pose, sh_l_idx)
+    if _kp_present(rs_x, rs_y, rs_c, conf_threshold) and _kp_present(ls_x, ls_y, ls_c, conf_threshold):
+        # Left->Right axis.
+        return _unit_vec(rs_x - ls_x, rs_y - ls_y)
+
+    rh_x, rh_y, rh_c = _openpose_kp_xyc(pose, hip_r_idx)
+    lh_x, lh_y, lh_c = _openpose_kp_xyc(pose, hip_l_idx)
+    if _kp_present(rh_x, rh_y, rh_c, conf_threshold) and _kp_present(lh_x, lh_y, lh_c, conf_threshold):
+        return _unit_vec(rh_x - lh_x, rh_y - lh_y)
+
+    return None
+
+
 def _pose_head_visibility(person: Dict[str, Any], conf_threshold: float = 0.1) -> float:
     """Estimate face/head visibility from body pose keypoints.
 
@@ -503,18 +688,29 @@ def _pose_head_yaw_degrees_from_vectors(
     elif yaw_mag > 90.0:
         yaw_mag = 90.0
 
-    # Sign: prefer which side has the larger eye->ear vector.
-    # Fallback to nose vs eye midpoint if ears are symmetric.
+    # Sign: project head center offset onto the body left->right axis.
+    # This avoids using image X/Y directly, so it's stable even when the person is
+    # rotated in the frame (lying / upside-down).
     sign = 1.0
-    if lr > ll:
-        sign = 1.0
-    elif ll > lr:
-        sign = -1.0
+    axis = _body_lr_axis_unit(person, conf_threshold=conf_threshold)
+    nose_ok = _kp_present(nose_x, nose_y, nose_c, conf_threshold)
+    if axis is not None and nose_ok and re_ok and le_ok:
+        ux, uy = axis
+        mid_x = 0.5 * (re_x + le_x)
+        mid_y = 0.5 * (re_y + le_y)
+        off_x = nose_x - mid_x
+        off_y = nose_y - mid_y
+        proj = off_x * ux + off_y * uy
+        if proj < 0.0:
+            sign = -1.0
+        else:
+            sign = 1.0
     else:
-        nose_ok = _kp_present(nose_x, nose_y, nose_c, conf_threshold)
-        if nose_ok and re_ok and le_ok:
-            mid_x = 0.5 * (re_x + le_x)
-            sign = -1.0 if nose_x < mid_x else 1.0
+        # Fallback: use which side has the larger eye->ear vector (still rotation invariant).
+        if lr > ll:
+            sign = 1.0
+        elif ll > lr:
+            sign = -1.0
 
     yaw = sign * yaw_mag
     if yaw < -90.0:
