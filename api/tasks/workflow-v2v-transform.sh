@@ -986,12 +986,13 @@ iv2v_generate() {
 	frames_to_generate="$4"
 	start="$5"
 	record_frames="${6:-1}"
+	skip_comfy="${7:-0}"
 	# frames_to_generate is a count; compute inclusive end index (0-based)
 	end=$((start + frames_to_generate - 1))
 
 	# extract range of frames from VIDEOINTERMEDIATE into control_chunk
-	echo "Extracting control chunk $control_chunk from $VIDEOINTERMEDIATE frames $start-$end"
 	control_chunk="$INTERMEDIATE_INPUT_FOLDER/control_chunk.mp4"
+	echo "Extracting control chunk $control_chunk from $VIDEOINTERMEDIATE frames $start-$end"
 	control_chunk=`realpath "$control_chunk"`
 	nc_t0=$(date +%s)
 	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$VIDEOINTERMEDIATE" -vf "select='between(n\,$start\,$end)'" -vsync 0 -c:v libx264 -preset veryfast -crf 18 -an "$control_chunk"
@@ -1002,6 +1003,58 @@ iv2v_generate() {
 		mkdir -p input/vr/tasks/$TASKNAME/error
 		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
 		exit 0
+	fi
+
+	# Optional passthrough mode for "no pose" segments: skip ComfyUI and just scale control chunk.
+	if [ "${skip_comfy:-0}" -eq 1 ] 2>/dev/null; then
+		# CalculateDimensions logic (Calc Dim by Factor and Aspect):
+		# rnd = 2**roundexponent (round down to multiple of rnd)
+		# m = (baseresolution*factor) / sqrt(max(1, w*h))
+		# new = floor((w*m)/rnd)*rnd , floor((h*m)/rnd)*rnd
+		# Here: baseresolution=720, roundexponent=4 -> rnd=16, factor=1.0
+		img1=`realpath "$img1"`
+		dims=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$img1" 2>/dev/null`
+		in_w=`echo "$dims" | cut -d',' -f1 | tr -d '\r' | tr -d '[:space:]'`
+		in_h=`echo "$dims" | cut -d',' -f2 | tr -d '\r' | tr -d '[:space:]'`
+		new_dims=""
+		if is_int "${in_w:-}" && is_int "${in_h:-}" && [ "${in_w:-0}" -gt 0 ] 2>/dev/null && [ "${in_h:-0}" -gt 0 ] 2>/dev/null; then
+			new_dims=$(awk -v w="$in_w" -v h="$in_h" 'BEGIN{
+				base=720.0; factor=1.0; rnd=16.0;
+				area=w*h; if (area<1.0) area=1.0;
+				m=(base*factor)/sqrt(area);
+				nw=int((w*m)/rnd)*rnd;
+				nh=int((h*m)/rnd)*rnd;
+				if (nw<rnd) nw=rnd;
+				if (nh<rnd) nh=rnd;
+				printf "%d,%d", nw, nh;
+			}')
+		fi
+		out_w=`echo "$new_dims" | cut -d',' -f1 | tr -d '\r' | tr -d '[:space:]'`
+		out_h=`echo "$new_dims" | cut -d',' -f2 | tr -d '\r' | tr -d '[:space:]'`
+		if ! is_int "${out_w:-}" || ! is_int "${out_h:-}" || [ "${out_w:-0}" -le 0 ] 2>/dev/null || [ "${out_h:-0}" -le 0 ] 2>/dev/null; then
+			echo "Warning: skip_no_pose passthrough: failed to compute target dims from $img1 (dims='$dims'); using input chunk resolution" >&2
+			nc_t0=$(date +%s)
+			"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$control_chunk" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -an "$chunk_file"
+			nc_rc=$?
+			nc_t1=$(date +%s)
+		else
+			echo "Info: skip_no_pose passthrough: scaling control_chunk to ${out_w}x${out_h} (from $img1=${in_w}x${in_h})"
+			nc_t0=$(date +%s)
+			"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$control_chunk" -vf "scale=${out_w}:${out_h}:flags=lanczos" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -an "$chunk_file"
+			nc_rc=$?
+			nc_t1=$(date +%s)
+		fi
+		task_record_noncomfy_runtime $((nc_t1 - nc_t0))
+		if [ "${record_frames:-1}" -eq 1 ] 2>/dev/null; then
+			# Count as done for plan-based progress/ETA, but do not skew iv2v runtime stats.
+			task_mark_iv2v_done_no_runtime "$frames_to_generate"
+		fi
+		if [ "${nc_rc:-0}" -ne 0 ] || [ ! -s "$chunk_file" ]; then
+			echo -e $"\e[91mError:\e[0m skip_no_pose passthrough failed. Output missing or zero-length: $chunk_file" >&2
+			return 2
+		fi
+		echo -e $"\e[92mstep done.\e[0m"
+		return 0
 	fi
 
 
@@ -1243,6 +1296,24 @@ else
 			true|1) DETECT_FACE_APPEARANCE=1 ;;
 			*) DETECT_FACE_APPEARANCE=0 ;;
 		esac
+	fi
+
+	# Optional flag: skip IV2V ComfyUI call for segments that start on "no pose" (-1.0)
+	# and instead passthrough/scale the extracted control_chunk.mp4 via ffmpeg.
+	# Enable by adding e.g. "skip_no_pose": true to the task JSON.
+	SKIP_NO_POSE=0
+	skip_no_pose_raw=$(grep -oE '"skip_no_pose"[[:space:]]*:[[:space:]]*(true|false|1|0|"true"|"false"|"1"|"0")' "$BLUEPRINTCONFIG" 2>/dev/null | head -n1 || true)
+	if [ -n "$skip_no_pose_raw" ]; then
+		skip_no_pose_val=$(printf '%s' "$skip_no_pose_raw" | sed -E 's/^.*:[[:space:]]*//; s/[",[:space:]]//g')
+		case "${skip_no_pose_val,,}" in
+			true|1) SKIP_NO_POSE=1 ;;
+			*) SKIP_NO_POSE=0 ;;
+		esac
+	fi
+	# skip_no_pose requires face visibility data (detect_face_appearance).
+	if [ "${SKIP_NO_POSE:-0}" -eq 1 ] 2>/dev/null && [ "${DETECT_FACE_APPEARANCE:-0}" -ne 1 ] 2>/dev/null; then
+		echo "Warning: skip_no_pose=1 requires detect_face_appearance=1 (face_visibility.txt). Disabling skip_no_pose." >&2
+		SKIP_NO_POSE=0
 	fi
 	# Face visibility threshold (float) and stability window (frames)
 	FACE_VIS_THRESHOLD=""
@@ -2471,7 +2542,18 @@ else
 				img2="$color_image"
 
 				# generate chunk via iv2v helper using start_frame/num_frames computed from workplan
-				iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame" 1
+				skip_iv2v=0
+				if [ "${SKIP_NO_POSE:-0}" -eq 1 ] 2>/dev/null && [ "${FACE_VIS_AVAILABLE:-0}" -eq 1 ] 2>/dev/null \
+					&& [ -n "${FACE_VIS_FILE:-}" ] && [ -s "${FACE_VIS_FILE:-}" ] && is_int "${start_frame:-}" \
+					&& [ "${start_frame:-0}" -ge 0 ] 2>/dev/null; then
+					line_no=$((start_frame + 1))
+					seg_start_vis=$(awk -v n="$line_no" 'NR==n {print; exit}' "$FACE_VIS_FILE" 2>/dev/null | tr -d '\r' | tr -d '[:space:]')
+					if [ -n "${seg_start_vis:-}" ] && awk -v v="$seg_start_vis" 'BEGIN{exit !(v < 0.0)}'; then
+						skip_iv2v=1
+						echo "Info: skip_no_pose=1 and face_visibility[start_frame=${start_frame}]=$seg_start_vis -> skipping ComfyUI iv2v; generating chunk via ffmpeg passthrough"
+					fi
+				fi
+				iv2v_generate "$img1" "$img2" "$chunk_file" "$num_frames" "$start_frame" 1 "$skip_iv2v"
 				rc=$?
 				if [ $rc -ne 0 ]; then
 					if [ $rc -eq 2 ]; then
