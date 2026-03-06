@@ -979,6 +979,121 @@ task_progress_suffix() {
 	printf '%s' "$PROGRESS_SUFFIX_CACHE"
 }
 
+# CalculateDimensions logic ("Calc Dim by Factor and Aspect") as used in the workflow.
+# base=720, factor=1.4, roundexponent=4 -> rnd=16; rounds DOWN to multiple of 16.
+# Prints "<w>,<h>" or empty string on failure.
+calc_dims_720_factor14_round16_from_img() {
+	_img="$1"
+	if [ -z "${_img:-}" ] || [ ! -e "${_img:-}" ]; then
+		printf '%s' ''
+		return 0
+	fi
+	_img=`realpath "$_img" 2>/dev/null`
+	dims=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$_img" 2>/dev/null`
+	in_w=`echo "$dims" | cut -d',' -f1 | tr -d '\r' | tr -d '[:space:]'`
+	in_h=`echo "$dims" | cut -d',' -f2 | tr -d '\r' | tr -d '[:space:]'`
+	if ! is_int "${in_w:-}" || ! is_int "${in_h:-}" || [ "${in_w:-0}" -le 0 ] 2>/dev/null || [ "${in_h:-0}" -le 0 ] 2>/dev/null; then
+		printf '%s' ''
+		return 0
+	fi
+	awk -v w="$in_w" -v h="$in_h" 'BEGIN{
+		base=720.0; factor=1.4; rnd=16.0;
+		area=w*h; if (area<1.0) area=1.0;
+		m=(base*factor)/sqrt(area);
+		nw=int((w*m)/rnd)*rnd;
+		nh=int((h*m)/rnd)*rnd;
+		if (nw<rnd) nw=rnd;
+		if (nh<rnd) nh=rnd;
+		printf "%d,%d", nw, nh;
+	}'
+}
+
+# Prints aspect ratio (w/h) as float with enough precision, or empty string on failure.
+calc_aspect_from_media() {
+	_media="$1"
+	if [ -z "${_media:-}" ] || [ ! -e "${_media:-}" ]; then
+		printf '%s' ''
+		return 0
+	fi
+	_media=`realpath "$_media" 2>/dev/null`
+	dims=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$_media" 2>/dev/null`
+	w=`echo "$dims" | cut -d',' -f1 | tr -d '\r' | tr -d '[:space:]'`
+	h=`echo "$dims" | cut -d',' -f2 | tr -d '\r' | tr -d '[:space:]'`
+	if ! is_int "${w:-}" || ! is_int "${h:-}" || [ "${w:-0}" -le 0 ] 2>/dev/null || [ "${h:-0}" -le 0 ] 2>/dev/null; then
+		printf '%s' ''
+		return 0
+	fi
+	awk -v w="$w" -v h="$h" 'BEGIN{ printf "%.12f", (w/h) }'
+}
+
+# Normalize a PNG/JPG/etc image in-place to the CalculateDimensions output
+# computed from ref_img. If already matching, no-op.
+normalize_image_to_aspect_and_calc_dims_720_factor14_round16() {
+	# Crop target image to the aspect ratio of aspect_ref_media (center-crop),
+	# then CalculateDimensions (base=720,factor=1.4,rnd=16) based on the CROPPED image,
+	# then resize. All in-place on target_img.
+	_aspect_ref_media="$1"
+	_target_img="$2"
+	if [ -z "${_aspect_ref_media:-}" ] || [ -z "${_target_img:-}" ]; then
+		return 0
+	fi
+	if [ ! -s "$_target_img" ]; then
+		return 0
+	fi
+	ar=$(calc_aspect_from_media "$_aspect_ref_media")
+	# Accept typical float formats; if empty, skip cropping and just resize.
+	if [ -z "${ar:-}" ]; then
+		[ ${loglevel:-0} -ge 1 ] && echo "Warning: normalize_image: failed computing aspect from ref=$_aspect_ref_media; falling back to resize-only" >&2
+		cropped_src="$_target_img"
+	else
+		crop_tmp="${_target_img}.crop.tmp.png"
+		# Use ffmpeg expression with target aspect AR.
+		# If input a=iw/ih is wider than AR -> crop width to ih*AR; else crop height to iw/AR.
+		crop_expr="crop=w='if(gt(a,${ar}),ih*${ar},iw)':h='if(gt(a,${ar}),ih,iw/${ar})':x='(iw-ow)/2':y='(ih-oh)/2'"
+		nc_t0=$(date +%s)
+		"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$_target_img" -vf "$crop_expr" "$crop_tmp"
+		nc_rc=$?
+		nc_t1=$(date +%s)
+		task_record_noncomfy_runtime $((nc_t1 - nc_t0))
+		if [ "${nc_rc:-0}" -eq 0 ] 2>/dev/null && [ -s "$crop_tmp" ]; then
+			cropped_src="$crop_tmp"
+		else
+			rm -f -- "$crop_tmp" 2>/dev/null || true
+			[ ${loglevel:-0} -ge 1 ] && echo "Warning: normalize_image: crop failed; falling back to resize-only" >&2
+			cropped_src="$_target_img"
+		fi
+	fi
+
+	dims=$(calc_dims_720_factor14_round16_from_img "$cropped_src")
+	out_w=`echo "$dims" | cut -d',' -f1 | tr -d '\r' | tr -d '[:space:]'`
+	out_h=`echo "$dims" | cut -d',' -f2 | tr -d '\r' | tr -d '[:space:]'`
+	if ! is_int "${out_w:-}" || ! is_int "${out_h:-}" || [ "${out_w:-0}" -le 0 ] 2>/dev/null || [ "${out_h:-0}" -le 0 ] 2>/dev/null; then
+		[ ${loglevel:-0} -ge 1 ] && echo "Warning: normalize_image: failed computing target dims" >&2
+		[ "$cropped_src" != "$_target_img" ] && rm -f -- "$cropped_src" 2>/dev/null || true
+		return 0
+	fi
+
+	curdims=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$_target_img" 2>/dev/null`
+	cur_w=`echo "$curdims" | cut -d',' -f1 | tr -d '\r' | tr -d '[:space:]'`
+	cur_h=`echo "$curdims" | cut -d',' -f2 | tr -d '\r' | tr -d '[:space:]'`
+	# Note: even if dims already match, we might still need to apply crop (aspect),
+	# so we do not early-return on size match.
+	[ ${loglevel:-0} -ge 1 ] && echo "Info: normalizing image $_target_img -> ${out_w}x${out_h} (was ${cur_w:-?}x${cur_h:-?})"
+	tmpf="${_target_img}.tmp.png"
+	nc_t0=$(date +%s)
+	"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$cropped_src" -vf "scale=${out_w}:${out_h}:flags=lanczos" "$tmpf"
+	nc_rc=$?
+	nc_t1=$(date +%s)
+	task_record_noncomfy_runtime $((nc_t1 - nc_t0))
+	if [ "${nc_rc:-0}" -eq 0 ] 2>/dev/null && [ -s "$tmpf" ]; then
+		mv -vf -- "$tmpf" "$_target_img"
+	else
+		rm -f -- "$tmpf" 2>/dev/null || true
+		echo "Warning: normalize_image: ffmpeg scale failed for $_target_img" >&2
+	fi
+	[ "$cropped_src" != "$_target_img" ] && rm -f -- "$cropped_src" 2>/dev/null || true
+}
+
 iv2v_generate() {
 	img1="$1"
 	img2="$2"
@@ -1007,38 +1122,19 @@ iv2v_generate() {
 
 	# Optional passthrough mode for "no pose" segments: skip ComfyUI and just scale control chunk.
 	if [ "${skip_comfy:-0}" -eq 1 ] 2>/dev/null; then
-		# CalculateDimensions logic (Calc Dim by Factor and Aspect):
-		# rnd = 2**roundexponent (round down to multiple of rnd)
-		# m = (baseresolution*factor) / sqrt(max(1, w*h))
-		# new = floor((w*m)/rnd)*rnd , floor((h*m)/rnd)*rnd
-		# Here: baseresolution=720, roundexponent=4 -> rnd=16, factor=1.0
+		# CalculateDimensions logic (base=720,factor=1.4,round=16) based on img1 dims.
 		img1=`realpath "$img1"`
-		dims=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$img1" 2>/dev/null`
-		in_w=`echo "$dims" | cut -d',' -f1 | tr -d '\r' | tr -d '[:space:]'`
-		in_h=`echo "$dims" | cut -d',' -f2 | tr -d '\r' | tr -d '[:space:]'`
-		new_dims=""
-		if is_int "${in_w:-}" && is_int "${in_h:-}" && [ "${in_w:-0}" -gt 0 ] 2>/dev/null && [ "${in_h:-0}" -gt 0 ] 2>/dev/null; then
-			new_dims=$(awk -v w="$in_w" -v h="$in_h" 'BEGIN{
-				base=720.0; factor=1.0; rnd=16.0;
-				area=w*h; if (area<1.0) area=1.0;
-				m=(base*factor)/sqrt(area);
-				nw=int((w*m)/rnd)*rnd;
-				nh=int((h*m)/rnd)*rnd;
-				if (nw<rnd) nw=rnd;
-				if (nh<rnd) nh=rnd;
-				printf "%d,%d", nw, nh;
-			}')
-		fi
+		new_dims=$(calc_dims_720_factor14_round16_from_img "$img1")
 		out_w=`echo "$new_dims" | cut -d',' -f1 | tr -d '\r' | tr -d '[:space:]'`
 		out_h=`echo "$new_dims" | cut -d',' -f2 | tr -d '\r' | tr -d '[:space:]'`
 		if ! is_int "${out_w:-}" || ! is_int "${out_h:-}" || [ "${out_w:-0}" -le 0 ] 2>/dev/null || [ "${out_h:-0}" -le 0 ] 2>/dev/null; then
-			echo "Warning: skip_no_pose passthrough: failed to compute target dims from $img1 (dims='$dims'); using input chunk resolution" >&2
+			echo "Warning: skip_no_pose passthrough: failed to compute target dims from $img1; using input chunk resolution" >&2
 			nc_t0=$(date +%s)
 			"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$control_chunk" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -an "$chunk_file"
 			nc_rc=$?
 			nc_t1=$(date +%s)
 		else
-			echo "Info: skip_no_pose passthrough: scaling control_chunk to ${out_w}x${out_h} (from $img1=${in_w}x${in_h})"
+			echo "Info: skip_no_pose passthrough: scaling control_chunk to ${out_w}x${out_h} (ref=$img1)"
 			nc_t0=$(date +%s)
 			"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -y -i "$control_chunk" -vf "scale=${out_w}:${out_h}:flags=lanczos" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -an "$chunk_file"
 			nc_rc=$?
@@ -1309,6 +1405,30 @@ else
 			true|1) SKIP_NO_POSE=1 ;;
 			*) SKIP_NO_POSE=0 ;;
 		esac
+	fi
+
+	# Optional: override reference image for ALL ComfyUI I2I calls.
+	# If set, the I2I workflow is executed only once, and its output is reused (copied)
+	# for all other segments that would run I2I.
+	# Value is a relative path from COMFYUIPATH to an image file.
+	# Enable by adding e.g. "override_reference_path": "input/vr/reference.png" to the task JSON.
+	OVERRIDE_REFERENCE_REL=""
+	OVERRIDE_REFERENCE_ABS=""
+	override_ref_raw=$(grep -oE '"override_reference_path"[[:space:]]*:[[:space:]]*"[^"]+"' "$BLUEPRINTCONFIG" 2>/dev/null | head -n1 || true)
+	if [ -n "$override_ref_raw" ]; then
+		OVERRIDE_REFERENCE_REL=$(printf '%s' "$override_ref_raw" | sed -E 's/^.*:[[:space:]]*"//; s/"[[:space:]]*$//')
+		OVERRIDE_REFERENCE_REL=$(printf '%s' "$OVERRIDE_REFERENCE_REL" | tr -d '\r')
+		if [ -n "${OVERRIDE_REFERENCE_REL:-}" ]; then
+			# Normalize path relative to COMFYUIPATH
+			OVERRIDE_REFERENCE_ABS=`realpath "$COMFYUIPATH/$OVERRIDE_REFERENCE_REL" 2>/dev/null`
+			if [ -z "${OVERRIDE_REFERENCE_ABS:-}" ] || [ ! -f "$OVERRIDE_REFERENCE_ABS" ]; then
+				echo "Warning: override_reference_path set but file not found: ${COMFYUIPATH}/${OVERRIDE_REFERENCE_REL}. Disabling override_reference_path." >&2
+				OVERRIDE_REFERENCE_REL=""
+				OVERRIDE_REFERENCE_ABS=""
+			else
+				[ ${loglevel:-0} -ge 1 ] && echo "Info: override_reference_path enabled -> using reference image: $OVERRIDE_REFERENCE_ABS"
+			fi
+		fi
 	fi
 	# skip_no_pose requires face visibility data (detect_face_appearance).
 	if [ "${SKIP_NO_POSE:-0}" -eq 1 ] 2>/dev/null && [ "${DETECT_FACE_APPEARANCE:-0}" -ne 1 ] 2>/dev/null; then
@@ -2063,6 +2183,12 @@ else
 	fi
 
 	echo "=== STEP 3: generate transformed images accoording to workplan using the configured i2i workflow via api"
+	# If override_reference_path is set, we execute i2i once and reuse its output.
+	override_i2i_cache="$INTERMEDIATE_INPUT_FOLDER/override_reference_i2i.png"
+	# Ensure cache is normalized (crop to video aspect, then CalculateDimensions+resize).
+	if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ] && [ -s "$override_i2i_cache" ]; then
+		normalize_image_to_aspect_and_calc_dims_720_factor14_round16 "$VIDEOINTERMEDIATE" "$override_i2i_cache"
+	fi
 	# Determine total segment count for progress display (prefer workplan-derived seg_count)
 	SEG_TOTAL=${seg_count:-0}
 	if [ -z "$SEG_TOTAL" ] || [ "$SEG_TOTAL" -eq 0 ] 2>/dev/null ; then
@@ -2133,6 +2259,18 @@ else
 			task_mark_i2i_done_no_runtime "${seg_cnt:-}"
 			continue
 		fi
+		# If override is enabled and we already have the cached i2i result, reuse it.
+		if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ] && [ -s "$override_i2i_cache" ]; then
+			echo "Info: override_reference_path active -> reusing cached i2i result for segment $seg_index"
+			cp -f -- "$override_i2i_cache" "$first_img" 2>/dev/null || true
+			if [ -s "$first_img" ]; then
+				task_mark_i2i_done_no_runtime "${seg_cnt:-}"
+				continue
+			else
+				echo "Warning: failed to copy cached override i2i result to $first_img; will attempt running i2i." >&2
+				rm -f -- "$first_img" 2>/dev/null || true
+			fi
+		fi
 		# iterate the two representative images for the segment (input images)
 		for img in "$INTERMEDIATE_INPUT_FOLDER/start_${seg_index}.png" ; do   # deactivated "$INTERMEDIATE_INPUT_FOLDER/end_${seg_index}.png"
 			if echo "$(basename "$img")" | grep -q '^start_' ; then
@@ -2146,7 +2284,8 @@ else
 				continue
 			fi
 
-			if [ ! -f "$img" ]; then
+			# Only require the segment's extracted start image when not using override_reference_path.
+			if [ -z "${OVERRIDE_REFERENCE_ABS:-}" ] && [ ! -f "$img" ]; then
 				echo -e $"\e[91mError:\e[0m Task failed. input image $img missing."
 				mkdir -p input/vr/tasks/$TASKNAME/error
 				mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
@@ -2163,7 +2302,12 @@ else
 			timeout=$(extract_timeout "$BLUEPRINTCONFIG")
 			lorastrength=$(extract_lorastrength "$BLUEPRINTCONFIG")
 			
-			INPUT=`realpath "$img"`
+			# If override_reference_path is enabled, always use it as input for i2i.
+			if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ]; then
+				INPUT="$OVERRIDE_REFERENCE_ABS"
+			else
+				INPUT=`realpath "$img"`
+			fi
 			# If ComfyUI is down, wait for it before submitting.
 			if ! comfyui_is_present; then
 				if ! wait_for_comfyui_present "${timeout:-300}" 2; then
@@ -2270,10 +2414,27 @@ else
 			INTERMEDIATE=$(wait_for_converted "$INTERMEDIATE_OUTPUT_FOLDER" "$EXTENSION" 20 1) || true
 
 			if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
-				if move_with_retry "$INTERMEDIATE" "$target_img" 120 1; then
-					echo -e $"\e[92mstep done.\e[0m"
+				# When override_reference_path is enabled, store the first i2i result into the cache
+				# and copy it into the per-segment target image.
+				if [ -n "${OVERRIDE_REFERENCE_ABS:-}" ] && [ ! -s "$override_i2i_cache" ]; then
+					if move_with_retry "$INTERMEDIATE" "$override_i2i_cache" 120 1; then
+						# Normalize cached override image (crop to video aspect, then CalculateDimensions+resize).
+						normalize_image_to_aspect_and_calc_dims_720_factor14_round16 "$VIDEOINTERMEDIATE" "$override_i2i_cache"
+						cp -f -- "$override_i2i_cache" "$target_img" 2>/dev/null || true
+						if [ -s "$target_img" ]; then
+							echo -e $"\e[92mstep done.\e[0m"
+						else
+							retry_once_or_error "Step failed (i2i override copy). Target missing or zero-length: $target_img"
+						fi
+					else
+						retry_once_or_error "Step failed (i2i override). Unable to move output to cache (file locked?): $INTERMEDIATE"
+					fi
 				else
-					retry_once_or_error "Step failed (i2i). Unable to move output (file locked?): $INTERMEDIATE"
+					if move_with_retry "$INTERMEDIATE" "$target_img" 120 1; then
+						echo -e $"\e[92mstep done.\e[0m"
+					else
+						retry_once_or_error "Step failed (i2i). Unable to move output (file locked?): $INTERMEDIATE"
+					fi
 				fi
 			else
 				echo "Debug: expected a converted_*${EXTENSION} under $INTERMEDIATE_OUTPUT_FOLDER (or converted/ subfolder)" >&2
