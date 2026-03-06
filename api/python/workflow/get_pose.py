@@ -42,6 +42,10 @@ All metrics ultimately produce a value in [0.0, 1.0] where:
     - 1.0  means "face/head is clearly visible / frontal-ish"
     - 0.0  means "no face" or "fully turned away" depending on metric
 
+Additionally, the script uses a sentinel value:
+
+    - -1.0 means "no person detected in this frame" (no pose returned)
+
 The default workflow metric is:
 
     --visibility-metric combined_min
@@ -1041,6 +1045,13 @@ def analyze_video(
             # Prefer score-preserving poses instead of binary JSON.
             with contextlib.redirect_stdout(aux_sink):
                 poses = model.detect_poses(frame_rgb)
+
+            # Sentinel: if no person is detected at all, return -1.0.
+            # This is intentionally distinct from "person detected but no face visible",
+            # which yields 0.0 depending on the selected metric.
+            if not poses:
+                scores.append(-1.0)
+                continue
 
             pose_dict = _pose_results_to_openpose_dict(poses)
 
