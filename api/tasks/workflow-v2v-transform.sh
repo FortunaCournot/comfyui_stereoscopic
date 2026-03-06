@@ -1361,6 +1361,10 @@ else
 	INTERMEDIATE_OUTPUT_FOLDER=`realpath "$INTERMEDIATE_OUTPUT_FOLDER"`
 	# Some ComfyUI workflows treat filename_prefix as a subfolder; create it proactively.
 	mkdir -p "$INTERMEDIATE_OUTPUT_FOLDER/converted"
+	# ComfyUI SaveImage filename_prefix is typically interpreted relative to the ComfyUI output dir.
+	# Use a relative prefix (under output/) to avoid path-sanitizing issues with absolute /e/... paths.
+	INTERMEDIATE_OUTPUT_REL=$(echo "$INTERMEDIATE_INPUT_FOLDER" | sed 's#^input/##')
+	I2I_FILENAME_PREFIX="$INTERMEDIATE_OUTPUT_REL/converted/converted"
 
 	# create segment helper dir and metadata under segdata with zero-padded index
 	sb_dir="$INTERMEDIATE_INPUT_FOLDER/segdata/segment_$(printf "%04d" "$seg_index")"
@@ -2095,10 +2099,18 @@ else
 					retry_once_or_error "ComfyUI not present; unable to submit i2i request"
 				fi
 			fi
+			submit_log="$INTERMEDIATE_OUTPUT_FOLDER/i2i_submit_${seg_index}.log"
 			submit_i2i() {
-				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$INTERMEDIATE_OUTPUT_FOLDER/converted" "$lorastrength" "$prompt"
+				"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH1 "$i2i_api" "$INPUT" "$I2I_FILENAME_PREFIX" "$lorastrength" "$prompt" >"$submit_log" 2>&1
 			}
 			submit_i2i
+			submit_rc=$?
+			if [ "${submit_rc:-0}" -ne 0 ] 2>/dev/null ; then
+				echo "Error: i2i submit failed (rc=$submit_rc). Log: $submit_log" >&2
+				# Show a small tail to keep console useful.
+				tail -n 50 "$submit_log" 2>/dev/null >&2 || true
+				retry_once_or_error "Step failed (i2i submit). See log: $submit_log"
+			fi
 
 			start=`date +%s`
 			end=`date +%s`
@@ -2193,6 +2205,13 @@ else
 					retry_once_or_error "Step failed (i2i). Unable to move output (file locked?): $INTERMEDIATE"
 				fi
 			else
+				echo "Debug: expected a converted_*${EXTENSION} under $INTERMEDIATE_OUTPUT_FOLDER (or converted/ subfolder)" >&2
+				echo "Debug: listing $INTERMEDIATE_OUTPUT_FOLDER:" >&2
+				ls -la "$INTERMEDIATE_OUTPUT_FOLDER" 2>/dev/null >&2 || true
+				echo "Debug: listing $INTERMEDIATE_OUTPUT_FOLDER/converted:" >&2
+				ls -la "$INTERMEDIATE_OUTPUT_FOLDER/converted" 2>/dev/null >&2 || true
+				echo "Debug: submit log tail ($submit_log):" >&2
+				tail -n 50 "$submit_log" 2>/dev/null >&2 || true
 				retry_once_or_error "Step failed (i2i). Output missing or zero-length: $INTERMEDIATE"
 			fi
 		done
