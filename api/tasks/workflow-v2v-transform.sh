@@ -1209,15 +1209,26 @@ else
 	INPUT="$1"
 	shift
 
-	# Optional flag: force start images for every segment (and thus i2i for every segment).
-	# Enable by adding e.g. "force_start": true to the task JSON.
+	# Optional flag: FORCE_START (integer).
+	# - 0: default behavior (only create startimages / i2i for scenestart segments)
+	# - 1: legacy force behavior (create startimages / i2i for every segment)
+	# - n>=2: cadence per scene (create startimages / i2i only for segment 1, 1+n, 1+2n, ... within each scene)
+	# Enable by adding e.g. "force_start": 1 (or true) to the task JSON.
 	FORCE_START=0
-	force_start_raw=$(grep -oE '"force_start"[[:space:]]*:[[:space:]]*(true|false|1|0|"true"|"false"|"1"|"0")' "$BLUEPRINTCONFIG" 2>/dev/null | head -n1 || true)
+	force_start_raw=$(grep -oE '"force_start"[[:space:]]*:[[:space:]]*(true|false|[0-9]+|"true"|"false"|"[0-9]+")' "$BLUEPRINTCONFIG" 2>/dev/null | head -n1 || true)
 	if [ -n "$force_start_raw" ]; then
 		force_start_val=$(printf '%s' "$force_start_raw" | sed -E 's/^.*:[[:space:]]*//; s/[",[:space:]]//g')
 		case "${force_start_val,,}" in
-			true|1) FORCE_START=1 ;;
-			*) FORCE_START=0 ;;
+			true) FORCE_START=1 ;;
+			false) FORCE_START=0 ;;
+			*)
+				if is_int "${force_start_val:-}" && [ "${force_start_val:-0}" -ge 0 ] 2>/dev/null; then
+					# Normalize to base-10 (avoid bash treating leading zeros as octal).
+					FORCE_START=$((10#$force_start_val))
+				else
+					FORCE_START=0
+				fi
+				;;
 		esac
 	fi
 
@@ -1248,7 +1259,7 @@ else
 	if ! is_int "${FACE_VIS_STABLE_FRAMES:-}" || [ "${FACE_VIS_STABLE_FRAMES:-0}" -lt 1 ] 2>/dev/null; then
 		FACE_VIS_STABLE_FRAMES=8
 	fi
-	# When FORCE_START=1, optionally blend boundary frames between contiguous main chunks
+	# When FORCE_START=1 (force i2i for every segment), optionally blend boundary frames between contiguous main chunks
 	# within the same scene to avoid hard cuts without changing frame count.
 	FORCED_INNER_SEG_BLEND=${FORCED_INNER_SEG_BLEND:-0.80}
 	if ! is_float_01 "${FORCED_INNER_SEG_BLEND:-}"; then
@@ -1433,16 +1444,8 @@ else
 			rm -rf -- $INTERMEDIATE_INPUT_FOLDER
 		fi
 
-		# --- Create a basic workplan JSON next to the scenes file. Include source filename.
-		WORKPLAN_FILE="$INTERMEDIATE_INPUT_FOLDER/workplan.json"
-		if [ -e "$SCENES_FILE" ]; then
-			# Build a JSON array from lines in scenes.txt
-			scenes_json=$(awk 'BEGIN{printf "["} NR>1{printf ","} {printf "\"%s\"", $0} END{printf "]"}' "$SCENES_FILE")
-		else
-			scenes_json="[]"
-		fi
-		# --- Build `segments` based on `scenes` and optional offsets
-		# last frame index (for final segment)., subtract 1 from count so last_frame is zero-based (index of last frame)
+		# --- Probe total frame count (needed for workplan + optional face visibility processing)
+		# last frame index (for final segment). subtract 1 from count so last_frame is zero-based (index of last frame)
 		"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=nb_frames -of json -i "$VIDEOINTERMEDIATE" >"$INTERMEDIATE_INPUT_FOLDER/probe.txt"
 		echo "---"
 		cat $INTERMEDIATE_INPUT_FOLDER/probe.txt
@@ -1503,6 +1506,71 @@ else
 			task_record_noncomfy_runtime $((nc_t1 - nc_t0))
 		fi
 
+		# If face visibility contains -1.0 sentinels ("no person detected"), insert those ranges
+		# as additional scene-cut timestamps into SCENES_FILE.
+		# For each contiguous negative range we add:
+		# - timestamp of the first frame of the range (unless it's frame 0)
+		# - timestamp of the frame after the range (end+1), if it exists (< frame_count)
+		# Then we unique+sort numerically to keep SCENES_FILE monotonically increasing.
+		if [ "${FACE_VIS_AVAILABLE:-0}" -eq 1 ] 2>/dev/null && [ -n "${FACE_VIS_FILE:-}" ] && [ -s "${FACE_VIS_FILE:-}" ] && [ -e "${SCENES_FILE:-}" ]; then
+			NO_PERSON_CUTS_TMP="$INTERMEDIATE_INPUT_FOLDER/no_person_scene_cuts.tmp.txt"
+			NO_PERSON_MERGE_TMP="$SCENES_FILE.merge.tmp"
+			awk -v fps="${SCENE_WORKFLOW_FPS}" -v fc="${frame_count}" '
+				function emit_time(frame) {
+					if(frame<0){return}
+					t = frame / fps
+					printf "%.6f\n", t
+				}
+				BEGIN{ re="^-?[0-9]+(\\.[0-9]+)?$"; in=0; start=0; end=0 }
+				{
+					v=$0
+					sub(/\r$/, "", v)
+					if(v~re){x=v+0.0}else{x=0.0}
+					frame=NR-1
+					if(x<0.0){
+						if(!in){in=1; start=frame}
+						end=frame
+					}else{
+						if(in){
+							emit_time(start)
+							nf=end+1
+							if(nf<fc){emit_time(nf)}
+							in=0
+						}
+					}
+				}
+				END{
+					if(in){
+						emit_time(start)
+						nf=end+1
+						if(nf<fc){emit_time(nf)}
+					}
+				}
+			' "$FACE_VIS_FILE" 2>/dev/null > "$NO_PERSON_CUTS_TMP" || true
+			if [ -s "$NO_PERSON_CUTS_TMP" ]; then
+				cat "$SCENES_FILE" "$NO_PERSON_CUTS_TMP" 2>/dev/null |
+				awk 'BEGIN{re="^-?[0-9]+(\\.[0-9]+)?$"} {v=$0; sub(/\r$/, "", v); if(v~re){printf "%.6f\n", v+0.0}}' |
+				sort -n -u > "$NO_PERSON_MERGE_TMP" || true
+				if [ -s "$NO_PERSON_MERGE_TMP" ]; then
+					mv -vf -- "$NO_PERSON_MERGE_TMP" "$SCENES_FILE"
+					[ ${loglevel:-0} -ge 1 ] && echo "Info: inserted no-person ranges into scenes list -> $SCENES_FILE"
+				else
+					rm -f -- "$NO_PERSON_MERGE_TMP" 2>/dev/null || true
+				fi
+			fi
+			rm -f -- "$NO_PERSON_CUTS_TMP" 2>/dev/null || true
+		fi
+
+		# --- Create a basic workplan JSON next to the scenes file. Include source filename.
+		WORKPLAN_FILE="$INTERMEDIATE_INPUT_FOLDER/workplan.json"
+		if [ -e "$SCENES_FILE" ]; then
+			# Build a JSON array from lines in scenes.txt
+			scenes_json=$(awk 'BEGIN{printf "["} NR>1{printf ","} {printf "\"%s\"", $0} END{printf "]"}' "$SCENES_FILE")
+		else
+			scenes_json="[]"
+		fi
+		# --- Build `segments` based on `scenes` and optional offsets
+
 		# Helper: decide an earlier split length within a chunk window based on
 		# face visibility (8 bad frames at start, then 8 good frames above threshold).
 		face_chunk_split_len() {
@@ -1523,11 +1591,15 @@ else
 			# Read only the needed window (avoids scanning the full file for every chunk).
 			tail -n +"${start_line}" "${_file}" 2>/dev/null | head -n "${_win_len}" |
 			awk -v n="${_win_len}" -v thr="${_thr}" -v st="${_stable}" '
-			BEGIN { re="^[0-9]+(\\.[0-9]+)?$" }
+			BEGIN { re="^-?[0-9]+(\\.[0-9]+)?$" }
 			{
 				v=$0
 				sub(/\r$/, "", v)
-				if(v!~re){a[NR-1]=0.0} else {a[NR-1]=v+0.0}
+				if(v!~re){a[NR-1]=0.0} else {
+					x=v+0.0
+					if(x<0.0){x=0.0}
+					a[NR-1]=x
+				}
 				cnt++
 			}
 			END {
@@ -1595,7 +1667,7 @@ else
 					# would be exactly 48 frames, shorten it to 40 so the last 8 frames shift
 					# into the next segment. This preserves total frames and only moves the
 					# boundary between segment 0 and 1.
-					if [ $is_first_segment -eq 1 ] && [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null && [ "${chunk_len:-0}" -eq 48 ] 2>/dev/null; then
+					if [ $is_first_segment -eq 1 ] && [ "${FORCE_START:-0}" -ge 1 ] 2>/dev/null && [ "${chunk_len:-0}" -eq 48 ] 2>/dev/null; then
 						chunk_len=40
 						[ ${loglevel:-0} -ge 1 ] && echo "Info: FORCE_START first segment boundary tweak: 48->40 frames (shift 8 frames into next segment)"
 					fi
@@ -1675,7 +1747,7 @@ else
 						fi
 					fi
 					# Same special case for the very first segment overall.
-					if [ $is_first_segment -eq 1 ] && [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null && [ "${chunk_len:-0}" -eq 48 ] 2>/dev/null; then
+					if [ $is_first_segment -eq 1 ] && [ "${FORCE_START:-0}" -ge 1 ] 2>/dev/null && [ "${chunk_len:-0}" -eq 48 ] 2>/dev/null; then
 						chunk_len=40
 						[ ${loglevel:-0} -ge 1 ] && echo "Info: FORCE_START first segment boundary tweak: 48->40 frames (shift 8 frames into next segment)"
 					fi
@@ -1787,38 +1859,60 @@ else
 		WP_TOTAL_FRAMES=0
 		WP_I2I_PLANNED=0
 		WP_I2I_PLANNED_FRAMES=0
+		# Track segment index within each scene (1-based) for FORCE_START>=2 cadence.
+		scene_seg_pos=0
 		for _i in $(seq 1 $seg_count); do
 			_fc=$(echo "$segments_framecount_vals" | cut -d',' -f$_i | tr -d '[:space:]')
 			if is_int "$_fc" && [ "$_fc" -ge 0 ] 2>/dev/null ; then
 				WP_TOTAL_FRAMES=$((WP_TOTAL_FRAMES + _fc))
 			fi
-			# i2i planned segments: all when FORCE_START=1, else only scenestart==1
-			if [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null ; then
+			_sc=1
+			if [ -n "$segments_scenestart_vals" ]; then
+				_sc=$(echo "$segments_scenestart_vals" | cut -d',' -f$_i | tr -d '[:space:]')
+				_sc=${_sc:-1}
+			fi
+			if [ "${_sc:-1}" -eq 1 ] 2>/dev/null ; then
+				scene_seg_pos=1
+			else
+				scene_seg_pos=$((scene_seg_pos + 1))
+			fi
+			# i2i planned segments:
+			# - FORCE_START=0: only scenestart segments
+			# - FORCE_START=1: all segments
+			# - FORCE_START=n>=2: segments 1, 1+n, 1+2n, ... within each scene
+			_i2i=0
+			if [ "${FORCE_START:-0}" -le 0 ] 2>/dev/null ; then
+				if [ "${_sc:-1}" -eq 1 ] 2>/dev/null ; then
+					_i2i=1
+				fi
+			elif [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null ; then
+				_i2i=1
+			else
+				_mod=$(((scene_seg_pos - 1) % FORCE_START))
+				if [ "${_mod:-1}" -eq 0 ] 2>/dev/null ; then
+					_i2i=1
+				fi
+			fi
+			if [ "${_i2i:-0}" -eq 1 ] 2>/dev/null ; then
 				WP_I2I_PLANNED=$((WP_I2I_PLANNED + 1))
 				if is_int "$_fc" && [ "$_fc" -gt 0 ] 2>/dev/null; then
 					WP_I2I_PLANNED_FRAMES=$((WP_I2I_PLANNED_FRAMES + _fc))
 				fi
-			else
-				_sc=1
-				if [ -n "$segments_scenestart_vals" ]; then
-					_sc=$(echo "$segments_scenestart_vals" | cut -d',' -f$_i | tr -d '[:space:]')
-					_sc=${_sc:-1}
-				fi
-				if [ "${_sc:-1}" -eq 1 ] 2>/dev/null ; then
-					WP_I2I_PLANNED=$((WP_I2I_PLANNED + 1))
-					if is_int "$_fc" && [ "$_fc" -gt 0 ] 2>/dev/null; then
-						WP_I2I_PLANNED_FRAMES=$((WP_I2I_PLANNED_FRAMES + _fc))
-					fi
-				fi
 			fi
 		done
 		# iterate by index (1-based fields for cut)
+		scene_seg_pos=0
 		for idx in $(seq 1 $seg_count); do
 			# determine scenestart flag (default 1)
 			scenestart=1
 			if [ -n "$segments_scenestart_vals" ]; then
 				scenestart=$(echo "$segments_scenestart_vals" | cut -d',' -f$idx | tr -d '[:space:]')
 				scenestart=${scenestart:-1}
+			fi
+			if [ "${scenestart:-1}" -eq 1 ] 2>/dev/null ; then
+				scene_seg_pos=1
+			else
+				scene_seg_pos=$((scene_seg_pos + 1))
 			fi
 
 			start=$(echo "$segments_start_vals" | cut -d',' -f$idx | tr -d '[:space:]')
@@ -1863,8 +1957,21 @@ else
 			echo "$start0" > "$sb_dir/start.txt"
 			echo "$end0" > "$sb_dir/end.txt"
 
-			# extract start frame only if scenestart == 1, unless FORCE_START is enabled (ffmpeg expects 0-based index)
-			if [ "$scenestart" -eq 1 ] || [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null; then
+			# Extract start frame according to FORCE_START cadence (ffmpeg expects 0-based index).
+			do_start_img=0
+			if [ "${FORCE_START:-0}" -le 0 ] 2>/dev/null ; then
+				if [ "${scenestart:-0}" -eq 1 ] 2>/dev/null ; then
+					do_start_img=1
+				fi
+			elif [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null ; then
+				do_start_img=1
+			else
+				_mod=$(((scene_seg_pos - 1) % FORCE_START))
+				if [ "${_mod:-1}" -eq 0 ] 2>/dev/null ; then
+					do_start_img=1
+				fi
+			fi
+			if [ "${do_start_img:-0}" -eq 1 ] 2>/dev/null; then
 				if [ ! -f "$tgt_start_img" ]; then
 					nc_t0=$(date +%s)
 					"$FFMPEGPATHPREFIX"ffmpeg.exe -hide_banner -loglevel error -y -i "$VIDEOINTERMEDIATE" -vf "select=eq(n\,$start0)" -vframes 1 -q:v 2 "$tgt_start_img"
@@ -1875,7 +1982,7 @@ else
 					fi
 				fi
 			else
-				echo "Skipping start image extraction for segment $seg_index (scenestart=$scenestart)"
+				echo "Skipping start image extraction for segment $seg_index (scenestart=$scenestart scene_seg_pos=$scene_seg_pos force_start=$FORCE_START)"
 			fi
 		done
 	fi
@@ -1891,6 +1998,7 @@ else
 	fi
 	seg_iter=0
 	# Iterate segments and run ComfyUI workflow for start/end images (placeholder)
+	scene_seg_pos=0
 	for d in "$INTERMEDIATE_INPUT_FOLDER"/segdata/segment_*; do
 		if [ ! -d "$d" ]; then
 			# no segments found (glob didn't match)
@@ -1900,7 +2008,7 @@ else
 		base="$(basename "$d")"
 		seg_index=${base#segment_}
 		# Determine scenestart flag for this segment (default 1).
-		# If scenestart != 1, skip i2i unless FORCE_START is enabled.
+		# Decide whether to run i2i according to FORCE_START cadence (per scene).
 		scenestart=1
 		if [ -n "$segments_scenestart_vals" ]; then
 			# seg_index may be zero-padded; compute 1-based field index safely (base-10)
@@ -1908,8 +2016,26 @@ else
 			scenestart=$(echo "$segments_scenestart_vals" | cut -d',' -f$next_index | tr -d '[:space:]')
 			scenestart=${scenestart:-1}
 		fi
-		if [ "${scenestart:-0}" -ne 1 ] 2>/dev/null && [ "${FORCE_START:-0}" -ne 1 ] 2>/dev/null ; then
-			echo "Skipping i2i for segment $seg_index (scenestart=$scenestart)"
+		if [ "${scenestart:-1}" -eq 1 ] 2>/dev/null ; then
+			scene_seg_pos=1
+		else
+			scene_seg_pos=$((scene_seg_pos + 1))
+		fi
+		do_i2i=0
+		if [ "${FORCE_START:-0}" -le 0 ] 2>/dev/null ; then
+			if [ "${scenestart:-0}" -eq 1 ] 2>/dev/null ; then
+				do_i2i=1
+			fi
+		elif [ "${FORCE_START:-0}" -eq 1 ] 2>/dev/null ; then
+			do_i2i=1
+		else
+			_mod=$(((scene_seg_pos - 1) % FORCE_START))
+			if [ "${_mod:-1}" -eq 0 ] 2>/dev/null ; then
+				do_i2i=1
+			fi
+		fi
+		if [ "${do_i2i:-0}" -ne 1 ] 2>/dev/null ; then
+			echo "Skipping i2i for segment $seg_index (scenestart=$scenestart scene_seg_pos=$scene_seg_pos force_start=$FORCE_START)"
 			continue
 		fi
 		seg_start0=$(cat "$d/start.txt" 2>/dev/null | tr -d '\r')
