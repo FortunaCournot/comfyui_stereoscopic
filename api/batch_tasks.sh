@@ -233,6 +233,7 @@ else
 		# Count files directly in this task folder (used for progress like "X of COUNT")
 		COUNT=$(find "$d" -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l | awk '{print $1}')
 		FOLDER_INDEX=0
+		INDEX=0
 
 		# Inner loop: files directly in this task folder that have a suffix (contain a dot)
 		while IFS= read -r -d '' nextinputfile; do
