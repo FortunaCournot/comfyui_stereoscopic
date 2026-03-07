@@ -1678,7 +1678,6 @@ else
 				--conf-threshold 0.1 \
 				--score-threshold 0.6 \
 				--eye-ratio-min 0.12 \
-				--no-progress \
 				--resolution 512 \
 				--bbox-detector yolox_l.onnx \
 				--pose-estimator dw-ll_ucoco_384_bs5.torchscript.pt \
