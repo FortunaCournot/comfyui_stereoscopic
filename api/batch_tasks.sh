@@ -260,7 +260,7 @@ else
 
 			taskpath=${INPUTDIR##*/}
 			DISPLAYNAME=$taskpath
-			echo "$INDEX $DISPLAYNAME" >input/vr/tasks/BATCHPROGRESS.TXT
+			echo "$INDEX/$COUNT [$DISPLAYNAME]" >input/vr/tasks/BATCHPROGRESS.TXT
 			
 			if [[ $taskpath == "_"* ]] ; then
 				jsonblueprint="user/default/comfyui_stereoscopic/tasks/"${taskpath:1}".json"
