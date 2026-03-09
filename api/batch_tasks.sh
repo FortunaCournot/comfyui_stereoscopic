@@ -360,8 +360,9 @@ else
 
 			# Log iteration duration (s) and task name
 			end_ms=$(now_ms)
-			elapsed_s=$(( (end_ms - start_ms) / 1000))
-			echo "Iteration $INDEX tasks/$TASKNAME took ${elapsed_s} s"
+			secs=$(( (end_ms - start_ms) / 1000))
+			itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+			echo "Iteration $INDEX tasks/$TASKNAME took ${itertimemsg}  "
 		done < <(find "$d" -maxdepth 1 -type f -name '*.*' -print0 2>/dev/null)
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
 		rm -f input/vr/tasks/BATCHPROGRESS.TXT 2>/dev/null
