@@ -188,6 +188,10 @@ def main() -> int:
 
     ensure_parent_dir(args.log_file)
 
+    # Decode the child output explicitly as UTF-8. ComfyUI progress bars
+    # and similar status lines frequently contain Unicode block chars.
+    # Writing Unicode text to the Windows console preserves them, whereas
+    # passing through raw UTF-8 bytes causes mojibake in batch windows.
     with open(args.log_file, "a", encoding="utf-8", buffering=1) as log_handle:
         log_handle.write(f"\n===== ComfyUI start {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
         process = subprocess.Popen(
@@ -195,6 +199,8 @@ def main() -> int:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
             universal_newlines=True,
             cwd=os.getcwd(),
@@ -227,7 +233,8 @@ def main() -> int:
 
             if not detected_line and matches_crash(item):
                 detected_line = item
-                log_handle.write("[comfyui_logwatch] fatal pattern detected, terminating ComfyUI process tree\n")
+                notice = "[comfyui_logwatch] fatal pattern detected, terminating ComfyUI process tree\n"
+                log_handle.write(notice)
                 log_handle.flush()
                 write_marker(args.marker_file, item)
                 kill_process_tree(process.pid)
