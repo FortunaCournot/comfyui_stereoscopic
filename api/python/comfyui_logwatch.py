@@ -183,6 +183,26 @@ def matches_crash(line: str) -> bool:
     return any(pattern.search(line) for pattern in CRASH_PATTERNS)
 
 
+def build_child_env() -> dict[str, str]:
+    env = os.environ.copy()
+    try:
+        terminal_size = os.get_terminal_size(sys.stdout.fileno())
+    except OSError:
+        try:
+            terminal_size = os.get_terminal_size()
+        except OSError:
+            terminal_size = None
+
+    if terminal_size is not None:
+        columns = str(terminal_size.columns)
+        lines = str(terminal_size.lines)
+        env.setdefault("COLUMNS", columns)
+        env.setdefault("LINES", lines)
+        env.setdefault("TQDM_NCOLS", columns)
+
+    return env
+
+
 def main() -> int:
     args = parse_args()
     # If marker file not explicitly provided, allow an environment variable
@@ -197,12 +217,14 @@ def main() -> int:
     # waiting for a trailing newline.
     with open(args.log_file, "a", encoding="utf-8", buffering=1) as log_handle:
         log_handle.write(f"\n===== ComfyUI start {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
+        child_env = build_child_env()
         process = subprocess.Popen(
             args.command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=0,
             cwd=os.getcwd(),
+            env=child_env,
         )
 
         out_queue: queue.Queue = queue.Queue()
