@@ -61,24 +61,24 @@ class LinearFade:
         if num_images == 0:
             return ([], [])
 
-        # mid gibt an, wo zwischen 0 und 1 der Übergang liegt
-        # → entspricht also einem prozentualen Anteil der Bildliste
+        # mid indicates where the transition lies between 0 and 1
+        # -> this therefore corresponds to a percentage of the image list
         mid_index = int(num_images * midpoint)
-        mid_index = max(1, min(mid_index, num_images - 1))  # Grenzen absichern
+        mid_index = max(1, min(mid_index, num_images - 1))  # Clamp to valid bounds
 
         strengths = []
         for i in range(num_images):
             if i < mid_index:
-                # Interpolieren zwischen start → midpoint
+                # Interpolate between start -> midpoint
                 t = i / max(1, mid_index - 1)
                 strength = start + t * (mid - start)
             else:
-                # Interpolieren zwischen midpoint → end
+                # Interpolate between midpoint -> end
                 t = (i - mid_index) / max(1, num_images - mid_index - 1)
                 strength = mid + t * (end - mid)
             strengths.append(strength)
 
-        # ⚠️ WICHTIG: separat zurückgeben (nicht als Tupel!)
+        # Important: return separately, not as a tuple.
         return (images, strengths)
 
 
@@ -88,7 +88,7 @@ class ColorCorrectBatch:
         return {
             "required": {
                 "images": ("IMAGE",),  # Tensor mit Shape [B, H, W, C]
-                "saturation": ("FLOAT", {"forceInput": True}),  # Liste von Floats
+                "saturation": ("FLOAT", {"forceInput": True}),  # List of floats
             },
         }
 
@@ -97,23 +97,23 @@ class ColorCorrectBatch:
     FUNCTION = "apply"
     CATEGORY = "Stereoscopic"
     DESCRIPTION = (
-        "Wendet eine Sättigungskorrektur auf ein Batch von Bildern an. "
-        "Der Input 'images' ist ein Tensor [B, H, W, C]; 'saturation' ist eine Liste von Float-Werten "
-        "mit der gleichen Länge wie die Batchgröße."
+        "Apply saturation correction to a batch of images. "
+        "The 'images' input is a tensor [B, H, W, C]; 'saturation' is a list of float values "
+        "with the same length as the batch size."
     )
 
     def apply(self, images, saturation):
-        # Sicherstellen, dass saturation eine Liste ist
+        # Make sure saturation is a list
         if not isinstance(saturation, (list, tuple)):
             saturation = [saturation]
 
         batch_size = images.shape[0]
         if len(saturation) != batch_size:
             raise ValueError(
-                f"Länge der Sättigungsliste ({len(saturation)}) muss der Batchgröße ({batch_size}) entsprechen."
+                f"Saturation list length ({len(saturation)}) must match the batch size ({batch_size})."
             )
 
-        # Wir kopieren, um nicht das Original zu verändern
+        # Copy values so the original tensor is not modified
         corrected = []
         weights = torch.tensor([0.299, 0.587, 0.114], device=images.device, dtype=images.dtype)
 

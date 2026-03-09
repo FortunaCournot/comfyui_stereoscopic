@@ -169,6 +169,12 @@ else
 				end=`date +%s`
 				secs=$((end-start))
 				itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+				# centralized failover check
+				if command -v failover_check >/dev/null 2>&1; then
+					if ! failover_check "" "$secs"; then
+						exit 0
+					fi
+				fi
 				echo -ne "$itertimemsg         \r"
 			done
 			runtime=$((end-start))

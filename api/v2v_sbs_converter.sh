@@ -336,8 +336,14 @@ else
 			itertimemsg=", $runtime""s/prompt, ETA in $eta"
 		fi
 		lastcount="$queuecount"
-			
-		echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
+				# centralized failover check
+				if command -v failover_check >/dev/null 2>&1; then
+					if ! failover_check "" "$secs"; then
+						exit 0
+					fi
+				fi
+				
+				echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 	done
 	runtime=$((end-startjob))
 	echo "done. duration: $runtime""s.                         "

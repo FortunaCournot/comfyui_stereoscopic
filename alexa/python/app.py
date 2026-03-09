@@ -189,11 +189,11 @@ class FallbackIntentHandler(AbstractRequestHandler):
         )
 
     def handle(self, handler_input: HandlerInput) -> Response:
-        speak_output = "Das habe ich nicht verstanden. Du kannst zum Beispiel fragen: Wie viele offene Jobs gibt es?"
+        speak_output = "I did not understand that. For example, you can ask: How many open jobs are there?"
         return (
             handler_input.response_builder
             .speak(speak_output)
-            .set_card(SimpleCard("Hilfe", speak_output))
+            .set_card(SimpleCard("Help", speak_output))
             .set_should_end_session(False)
             .response
         )

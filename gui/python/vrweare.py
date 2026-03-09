@@ -214,8 +214,9 @@ def get_property(file_path: str, key: str, default: str = None) -> str:
 
 def set_property(file_path: str, key: str, value: str) -> None:
     """
-    Setzt oder ersetzt in einer Property-Datei (Format: KEY=VALUE) den Eintrag mit dem gegebenen Key.
-    Wenn der Key nicht existiert, wird er am Ende hinzugefügt.
+    Set or replace the entry with the given key in a property file
+    using the format KEY=VALUE.
+    If the key does not exist, append it at the end.
     """
     lines = []
     key_found = False
@@ -224,7 +225,7 @@ def set_property(file_path: str, key: str, value: str) -> None:
     with open(file_path, "r", encoding="utf-8", errors="replace") as f:
         for line in f:
             stripped = line.strip()
-            # Kommentare oder leere Zeilen beibehalten
+            # Preserve comments and empty lines
             if not stripped or stripped.startswith("#"):
                 lines.append(line)
                 continue
@@ -236,7 +237,7 @@ def set_property(file_path: str, key: str, value: str) -> None:
                 lines.append(line)
 
     if not key_found:
-        # Key noch nicht vorhanden → am Ende hinzufügen
+        # Key not present yet -> append it at the end
         if not lines or not lines[-1].endswith("\n"):
             lines.append("\n")
         lines.append(new_line)
@@ -247,9 +248,9 @@ def set_property(file_path: str, key: str, value: str) -> None:
 
 def get_stage_input_type(stage_name: str) -> str:
     """
-    Bestimmt den input-Typ (z.B. "image" oder "video") einer Stage/Task
-    durch Einlesen der zugehörigen JSON-Definition wie im Rest der Anwendung.
-    Gibt None zurück, wenn unbekannt.
+    Determine the input type (for example "image" or "video") of a stage/task
+    by reading the corresponding JSON definition as done in the rest of the application.
+    Return None if the type is unknown.
     """
     if re.match(r"tasks/_.*", stage_name):
         stageDefRes = "user/default/comfyui_stereoscopic/tasks/" + stage_name[7:] + ".json"
@@ -266,7 +267,7 @@ def get_stage_input_type(stage_name: str) -> str:
         with open(defFile, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
                 if '"input"' in line:
-                    # einfaches Parsen wie im Originalcode
+                    # Simple parsing as in the original code
                     part = line.split('"input":', 1)[1]
                     m = re.search(r'"(.*?)"', part)
                     if m:
@@ -278,10 +279,10 @@ def get_stage_input_type(stage_name: str) -> str:
 
 
 def _is_allowed_for_type(file_path: str, input_type: str) -> bool:
-    """Prüft, ob Datei-Endung zu input_type passt.
+    """Check whether the file extension matches input_type.
 
-    Unterstützt mehrere Typen, getrennt mit Semikolon ('image;video').
-    Der Drop ist gültig, wenn mindestens ein Typ mit der Datei übereinstimmt.
+    Supports multiple types separated by semicolons ('image;video').
+    The drop is valid if at least one type matches the file.
     """
     if not input_type:
         return False
@@ -315,9 +316,9 @@ def _is_allowed_for_type(file_path: str, input_type: str) -> bool:
 
 
 def _is_url_allowed_for_type(url: str, input_type: str) -> bool:
-    """Prüft, ob eine URL (Content-Type) zu input_type passt.
+    """Check whether a URL Content-Type matches input_type.
 
-    Öffnet kurz die URL-Header und prüft `Content-Type`.
+    Open the URL headers briefly and inspect `Content-Type`.
     """
     if not input_type or not url:
         return False
@@ -2542,9 +2543,9 @@ class SpreadsheetApp(QMainWindow):
         labelPipeline.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         labelPipeline.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         
-        # ScrollArea für horizontales Scrollen
+        # ScrollArea for horizontal scrolling
         scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(False)  # Keine Skalierung des Inhalts
+        scroll_area.setWidgetResizable(False)  # Do not scale the content
         scroll_area.setBackgroundRole(QPalette.Dark)  # Used on right side
         scroll_area.setWidget(labelPipeline)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -2827,8 +2828,8 @@ class PipelineEditThread(QThread):
 class HoverTableWidget(QTableWidget):
     def __init__(self, rows, cols, isCellClickable, onCellClick, parent=None):
         super().__init__(rows, cols, parent)
-        self.setEditTriggers(QTableWidget.NoEditTriggers)  # Nur-Lese-Modus
-        self.setMouseTracking(True)  # Mausbewegungen ohne Klick erfassen
+        self.setEditTriggers(QTableWidget.NoEditTriggers)  # Read-only mode
+        self.setMouseTracking(True)  # Track mouse movement without clicks
         self.current_hover = None
         self.isCellClickable=isCellClickable
         self.onCellClick=onCellClick
@@ -2877,25 +2878,25 @@ class HoverTableWidget(QTableWidget):
         # Remember press-handled click to avoid double execution with cellClicked
         self._last_press_handled = None
 
-        # Tabelle mit Beispielwerten füllen
+        # Fill the table with example values
         #for row in range(rows):
         #    for col in range(cols):
         #        item = QTableWidgetItem(f"Zelle {row},{col}")
         #        self.setItem(row, col, item)
 
-        # Signal verbinden, wenn eine Zelle angeklickt wird
+        # Connect the signal emitted when a cell is clicked
         self.cellClicked.connect(self.on_cell_clicked)
 
-        # Signal verbinden, wenn Daten geändert werden
+        # Connect the signal emitted when data changes
         self.itemChanged.connect(self.on_item_changed)
 
     def mouseMoveEvent(self, event):
-        """Wird aufgerufen, wenn die Maus bewegt wird."""
+        """Called when the mouse moves."""
         index = self.indexAt(event.pos())
 
         if index.isValid():
             row, col = index.row(), index.column()
-            # Nur aktualisieren, wenn sich die Zelle geändert hat
+            # Update only when the cell has changed
             if self.current_hover != (row, col):
                 self.reset_hover_style()
                 self.current_hover = (row, col)
@@ -2905,7 +2906,7 @@ class HoverTableWidget(QTableWidget):
                 else:
                     self.setCursor(Qt.ArrowCursor)
         else:
-            # Maus außerhalb der Tabelle -> Reset
+            # Mouse outside the table -> reset
             self.reset_hover_style()
             self.current_hover = None
             self.setCursor(Qt.ArrowCursor)
@@ -4072,7 +4073,7 @@ class HoverTableWidget(QTableWidget):
     def reset_hover_style(self):
         if self.current_hover:
             row, col = self.current_hover
-            # Entfernt die Unterstreichung von der aktuell gehighlighteten Zelle
+            # Remove the underline from the currently highlighted cell
             item = self.item(row, col)
             if item:
                 try:
@@ -4081,7 +4082,7 @@ class HoverTableWidget(QTableWidget):
                     item.setFont(font)
                 except Exception:
                     pass
-            # Tooltip IMMER ausblenden, wenn die Maus die Zelle verlässt
+            # Always hide the tooltip when the mouse leaves the cell
             try:
                 if self._image_tooltip is not None:
                     self._image_tooltip.hide()
@@ -4123,14 +4124,14 @@ class HoverTableWidget(QTableWidget):
             pass
 
         if self.isCellClickable(row, col):
-            """Wird aufgerufen, wenn auf eine Zelle geklickt wird."""
+            """Called when a cell is clicked."""
             self.onCellClick(row, col)
 
     def on_item_changed(self, item):
         """
-        Wird aufgerufen, wenn eine Zelle aktualisiert wurde.
-        Wenn die aktuell gehighlightete Zelle geändert wird,
-        erneuern wir den Unterstreichungsstil.
+        Called when a cell has been updated.
+        If the currently highlighted cell changed,
+        refresh the underline style.
         """
         # avoid recursion during drag tinting
         if getattr(self, '_suppress_item_changed', False):

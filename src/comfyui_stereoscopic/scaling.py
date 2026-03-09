@@ -242,9 +242,9 @@ class CalculateDimensions:
             newheight = floor((h_num * normalized_scaling_multiplier) / rnd) * rnd
             return int(floor(newwidth)), int(floor(newheight))
 
-        # Fall: Batch (Liste/Tuple/ndarray/...), aber nicht String
+        # Case: batch input (list/tuple/ndarray/...), but not a string
         if self._is_iterable_but_not_str(width) and self._is_iterable_but_not_str(height):
-            # sichere Umwandlung in Listen (zip benötigt gleiche Länge)
+            # Safely convert to lists because zip requires matching lengths
             width_list = list(width)
             height_list = list(height)
             if len(width_list) != len(height_list):

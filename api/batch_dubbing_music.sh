@@ -113,7 +113,15 @@ else
 					itertimemsg=", $runtime""s/prompt, ETA in $eta"
 				fi
 				lastcount="$queuecount"
-					
+				# centralized failover check (non-task callers: pass empty timeout so
+				# failover_check reads COMFYUI_CALLTIMEOUT from config.ini)
+				end_now=`date +%s`
+				secs_now=$((end_now-startiteration))
+				if command -v failover_check >/dev/null 2>&1; then
+					if ! failover_check "" "$secs_now"; then
+						exit 0
+					fi
+				fi
 				echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 			done
 			end=`date +%s`

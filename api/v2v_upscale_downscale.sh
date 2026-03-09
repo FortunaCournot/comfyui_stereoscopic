@@ -356,6 +356,14 @@ else
 				itertimemsg=", $runtime""s/prompt, ETA in $eta"
 			fi
 			lastcount="$queuecount"
+			# centralized failover check (non-task callers pass empty timeout)
+			end_now=`date +%s`
+			secs_now=$((end_now-startjob))
+			if command -v failover_check >/dev/null 2>&1; then
+				if ! failover_check "" "$secs_now"; then
+					exit 0
+				fi
+			fi
 			
 			[ $loglevel -ge 0 ] && echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
 		done

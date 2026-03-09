@@ -147,12 +147,20 @@ else
 				exit 0
 			fi
 			
+			start=`date +%s`
 			until [ "$queuecount" = "0" ]
 			do
 				sleep 1
 				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-			done				
+				end=`date +%s`
+				secs=$((end-start))
+				if command -v failover_check >/dev/null 2>&1; then
+					if ! failover_check "" "$secs"; then
+						exit 0
+					fi
+				fi
+			done			
 
 			WAIT=0
 			until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] || [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ]  ; do

@@ -20,10 +20,10 @@ def make_grid_image():
     spacing = 512
     bg = np.full((height, width, 3), 255, np.uint8)
     cx, cy = width // 2, height // 2
-    # Hauptachsen
+    # Main axes
     cv2.line(bg, (cx, 0), (cx, height), (0,0,0), 5)
     cv2.line(bg, (0, cy), (width, cy), (0,0,0), 5)
-    # Gitterlinien
+    # Grid lines
     for dx in range(spacing, width//2+1, spacing):
         for sign in [-1, 1]:
             x = cx + sign*dx
@@ -34,7 +34,7 @@ def make_grid_image():
             y = cy + sign*dy
             if 0 <= y < height:
                 cv2.line(bg, (0, y), (width, y), (128,128,128), 2)
-    # Koordinatenpunkte und Labels
+    # Coordinate points and labels
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1.2
     font_thick = 2
@@ -118,14 +118,14 @@ def cosinus_fisheye_transform(src, deg_per_step=15, output_scale=1.0, debug_name
     angle_x = gx * effective_deg_per_step_work
     angle_y = gy * effective_deg_per_step_work
     fix_angle = 4 * effective_deg_per_step_work
-    # Zoomfaktor für Benutzer
-    user_zoom = 1.0  # <--- Hier anpassen für mehr/weniger Zoom
+    # User-facing zoom factor
+    user_zoom = 1.0  # <--- Adjust here for more/less zoom
     # horizontales Stretching proportional zur Abweichung vom 16:9-Referenz.
     # (16:9)/aspect — das war die zuvor funktionierende Formel.
     aspect = w / h
     aspect_169 = 16/9
     horizontal_stretch = aspect_169 / aspect
-    # Horizontales Sichtfeld für 4:3 und 16:9 identisch behandeln
+    # Treat the horizontal field of view identically for 4:3 and 16:9
     zoom_x = (1.0 / abs(np.cos(np.deg2rad(fix_angle)))) * user_zoom
     zoom_y = (1.0 / abs(np.cos(np.deg2rad(fix_angle)))) * (16/9) * user_zoom
     # horizontal_stretch wirkt nur auf die horizontale Cosinus-Komponente
@@ -175,10 +175,10 @@ spacing916 = 512
 def make_grid_image_916():
     bg = np.full((height916, width916, 3), 255, np.uint8)
     cx, cy = width916 // 2, height916 // 2
-    # Hauptachsen
+    # Main axes
     cv2.line(bg, (cx, 0), (cx, height916), (0,0,0), 6)
     cv2.line(bg, (0, cy), (width916, cy), (0,0,0), 6)
-    # Gitterlinien
+    # Grid lines
     for dx in range(spacing916, width916//2+1, spacing916):
         for sign in [-1, 1]:
             x = cx + sign*dx
@@ -189,7 +189,7 @@ def make_grid_image_916():
             y = cy + sign*dy
             if 0 <= y < height916:
                 cv2.line(bg, (0, y), (width916, y), (128,128,128), 2)
-    # Koordinatenpunkte und Labels
+    # Coordinate points and labels
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1.2
     font_thick = 2
@@ -208,7 +208,7 @@ def make_grid_image_916():
     return bg
 
 if __name__ == "__main__":
-    # Alte Testbilder und Debug-Images im aktuellen Verzeichnis löschen
+    # Remove old test images and debug images from the current directory
     # remove previous generated images (testgrid_, gridbase_, debug_*)
     for pattern in [
         "testgrid_*_RANDOM*.png",
@@ -227,7 +227,7 @@ if __name__ == "__main__":
                 pass
     ts = int(time.time())
 
-    # --- 9:16 Testbilder (Portrait) ---
+    # --- 9:16 test images (portrait) ---
     img916 = make_grid_image_916()
     sbs916 = np.concatenate([img916, img916], axis=1)
     out_sbs916 = cap_image(sbs916, 8192)
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     out_sbs916_fish = cap_image(sbs916_fish, 8192)
     cv2.imwrite(f"testgrid_{out_sbs916_fish.shape[1]}x{out_sbs916_fish.shape[0]}_RANDOM{ts}_LR_180.png", out_sbs916_fish)
 
-    # --- 16:9 Testbilder ---
+    # --- 16:9 test images ---
     img = make_grid_image()
     sbs = np.concatenate([img, img], axis=1)
     out_sbs = cap_image(sbs, 8192)
@@ -248,23 +248,23 @@ if __name__ == "__main__":
     deg_per_step = 15
     img_fish, _, _ = cosinus_fisheye_transform(img, deg_per_step=deg_per_step, output_scale=2.0, debug_name=f"debug_169_{ts}")
     sbs_fish = np.concatenate([img_fish, img_fish], axis=1)
-    # Mittelachse explizit auf schwarz setzen
+    # Explicitly set the center axis to black
     mid_col = sbs_fish.shape[1] // 2
     sbs_fish[:, mid_col] = 0
     out_sbs_fish = cap_image(sbs_fish, 8192)
     cv2.imwrite(f"testgrid_{out_sbs_fish.shape[1]}x{out_sbs_fish.shape[0]}_RANDOM{ts}_LR_180.png", out_sbs_fish)
 
-    # --- 4:3 Testbilder (4096x3072) ---
-    height43 = 2196  # gleiche Höhe wie 16:9
-    width43 = int(height43 * 4 / 3)  # echtes 4:3-Verhältnis
+    # --- 4:3 test images (4096x3072) ---
+    height43 = 2196  # Same height as 16:9
+    width43 = int(height43 * 4 / 3)  # True 4:3 aspect ratio
     spacing43 = 512
     def make_grid_image_43():
         bg = np.full((height43, width43, 3), 255, np.uint8)
         cx, cy = width43 // 2, height43 // 2
-        # Hauptachsen
+        # Main axes
         cv2.line(bg, (cx, 0), (cx, height43), (0,0,0), 6)
         cv2.line(bg, (0, cy), (width43, cy), (0,0,0), 6)
-        # Gitterlinien
+        # Grid lines
         for dx in range(spacing43, width43//2+1, spacing43):
             for sign in [-1, 1]:
                 x = cx + sign*dx
@@ -275,7 +275,7 @@ if __name__ == "__main__":
                 y = cy + sign*dy
                 if 0 <= y < height43:
                     cv2.line(bg, (0, y), (width43, y), (128,128,128), 2)
-        # Koordinatenpunkte und Labels
+        # Coordinate points and labels
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 1.2
         font_thick = 2
@@ -294,20 +294,20 @@ if __name__ == "__main__":
         return bg
 
     img43 = make_grid_image_43()
-    # SBS: echte horizontale Verdopplung
+    # SBS: actual horizontal duplication
     sbs43 = np.concatenate([img43, img43], axis=1)
     out_sbs43 = cap_image(sbs43, 8192)
     cv2.imwrite(f"gridbase_{out_sbs43.shape[1]}x{out_sbs43.shape[0]}_RANDOM{ts}_SBS_LR.png", out_sbs43)
-    # Fisheye für 4:3 (gleiche Transformation wie zuvor)
+    # Fisheye for 4:3 (same transformation as before)
     img43_fish, _, _ = cosinus_fisheye_transform(img43, deg_per_step=15, output_scale=2.0, debug_name=f"debug_43_{ts}")
     sbs43_fish = np.concatenate([img43_fish, img43_fish], axis=1)
-    # Mittelachse explizit auf schwarz setzen
+    # Explicitly set the center axis to black
     mid_col43 = sbs43_fish.shape[1] // 2
     sbs43_fish[:, mid_col43] = 0
     out_sbs43_fish = cap_image(sbs43_fish, 8192)
     cv2.imwrite(f"testgrid_{out_sbs43_fish.shape[1]}x{out_sbs43_fish.shape[0]}_RANDOM{ts}_LR_180.png", out_sbs43_fish)
 
-    # --- Zusatz: fisheye-Erzeugung für input/testbear.png in nativer Auflösung ---
+    # --- Additional step: generate fisheye output for input/testbear.png at native resolution ---
     tb_path = os.path.join(os.path.dirname(__file__), "input", "testbear.png")
     if os.path.exists(tb_path):
         src_tb = cv2.imread(tb_path)

@@ -1838,7 +1838,7 @@ class RateAndCutDialog(QDialog):
             self.fileSlider.setSingleStep(1)
             self.fileSlider.setPageStep(10)
             self.fileSlider.setTracking(True)
-            self.fileSlider.setStyleSheet("QSlider::handle:horizontal { background-color: black; border: 2px solid white; width: 12px; height: 12px; border-radius: 6px; margin: -7px 0;} QSlider::groove:horizontal { height: 0px; border-radius: 0px; } QSlider::sub-page:horizontal { /* Farbe für den gefüllten Bereich links vom Griff */ border: 1px solid #111111; height: 6px; border-radius: 3px; } QSlider::add-page:horizontal { /* Farbe für den Bereich rechts vom Griff */ border: 1px solid #111111; height: 6px; border-radius: 3px;}")
+            self.fileSlider.setStyleSheet("QSlider::handle:horizontal { background-color: black; border: 2px solid white; width: 12px; height: 12px; border-radius: 6px; margin: -7px 0;} QSlider::groove:horizontal { height: 0px; border-radius: 0px; } QSlider::sub-page:horizontal { /* Color for the filled area to the left of the handle */ border: 1px solid #111111; height: 6px; border-radius: 3px; } QSlider::add-page:horizontal { /* Color for the area to the right of the handle */ border: 1px solid #111111; height: 6px; border-radius: 3px;}")
             self.fileSlider.sliderPressed.connect(self.fileSliderDragStart)
             self.fileSlider.valueChanged.connect(self.fileSliderDragged)
             self.fileSlider.sliderReleased.connect(self.fileSliderChanged)
@@ -2622,7 +2622,7 @@ class RateAndCutDialog(QDialog):
             current_filter = getattr(self, 'active_content_filter', None)
             current_filter_id = str(getattr(current_filter, 'filter_id', '')).strip().lower() if current_filter is not None else ""
             if current_filter_id == 'none':
-                tooltip_text = "Kein Filter gewählt"
+                tooltip_text = "No filter selected"
             else:
                 if idx >= 0:
                     item_tip = self.filter_mode_combo.itemData(idx, Qt.ToolTipRole)
@@ -3197,14 +3197,14 @@ class RateAndCutDialog(QDialog):
 
     def showEvent(self, event):
         try:
-            """Wird aufgerufen, wenn der Dialog angezeigt wird."""
+            """Called when the dialog is shown."""
             super().showEvent(event)
             
-            # Stelle sicher, dass das Fenster den Fokus erhält
+            # Make sure the window receives focus
             self.activateWindow()
             self.raise_()
 
-            # Setze den Fokus explizit auf ein Widget
+            # Explicitly set focus to a widget
             #self.button.setFocus(Qt.OtherFocusReason)
         except:
             print(traceback.format_exc(), flush=True)
@@ -3389,7 +3389,7 @@ class RateAndCutDialog(QDialog):
         root, ext = os.path.splitext(filename)
         if len(filename) <= max_length:
             return filename
-        cutoff = max_length - len(ext) - 1  # Platz für '~' + Suffix
+        cutoff = max_length - len(ext) - 1  # Space for '~' + suffix
         return root[:cutoff] + "~" + ext
         
     def fileSliderDragStart(self):
@@ -3882,7 +3882,7 @@ class RateAndCutDialog(QDialog):
                     self.sl.setVisible(self.isVideo)
                     fileDragged=False
                     self.hasCropOrTrim=False
-                    # Zusatz: Falls Pixmap nach Laden noch leer ist, einen verzögerten Refresh anstoßen
+                    # Extra safeguard: if the pixmap is still empty after loading, trigger a delayed refresh
                     try:
                         pm = self.display.pixmap()
                         if pm is None or pm.isNull() or pm.width() == 0 or pm.height() == 0:
@@ -5260,7 +5260,7 @@ class GroupBoxHoverFilter(QObject):
             if widget_under is self.box:
                 self.box.setCursor(Qt.CursorShape.DragLinkCursor)
             else:
-                # Cursor auf Kind oder außerhalb
+                # Cursor is on a child widget or outside
                 if self.box.cursor().shape() == Qt.CursorShape.DragLinkCursor:
                     self.box.unsetCursor()
 
@@ -5532,8 +5532,8 @@ class VideoThread(QThread):
                         else:
                             ret, cv_img = self.cap.read()
                             if not self.is_frame_valid(ret, cv_img):
-                                # Fehlerbehandlung: EOF, defekter Frame oder Lesefehler
-                                print("Fehler beim Laden des Frames", flush=True)
+                                # Error handling: EOF, corrupted frame, or read error
+                                print("Error while loading frame", flush=True)
                             
                             if self.pause and self.lastLoadedFrame>=0:
                                 print("meanwhile paused. ignore image.", flush=True)
@@ -5673,18 +5673,18 @@ class VideoThread(QThread):
         
     def is_frame_valid(self, ret, frame) -> bool:
         """
-        Robust prüfen, ob cap.read() ein gültiges Bild geliefert hat.
-        - ret: bool (Rückgabewert von cap.read())
-        - frame: ndarray oder None
+        Robustly check whether cap.read() returned a valid image.
+        - ret: bool (return value from cap.read())
+        - frame: ndarray or None
         """
         if not bool(ret):
             return False
         if frame is None:
             return False
-        # ndarray hat .size: 0 bedeutet kein Pixelinhalt
+        # An ndarray with .size == 0 contains no pixel data
         if getattr(frame, "size", 0) == 0:
             return False
-        # optional: sicherstellen, dass es ein numpy-array ist mit min. 2 Dimensionen (H,W[,C])
+        # Optional: ensure this is a numpy array with at least 2 dimensions (H, W[, C])
         if not isinstance(frame, np.ndarray) or frame.ndim < 2:
             return False
         return True
@@ -5881,7 +5881,7 @@ class Display(QLabel):
             super().showEvent(event)
         except Exception:
             pass
-        # Sobald sichtbar, kurz verzögert neu setzen
+        # Once visible, apply a short delayed refresh
         try:
             QTimer.singleShot(0, self._refresh_after_load)
         except Exception:
@@ -6085,9 +6085,9 @@ class Display(QLabel):
         cv_img  = safe_imread(self.filepath)
         #print("setImage from cv2", flush=True)
         self.update_image(cv_img, self.displayUid)
-        # In manchen Fällen erscheint das Bild erst nach Interaktion (z.B. Crop-Slider).
-        # Ein kleiner verzögerter Refresh nach dem Laden stellt sicher, dass
-        # die Anzeige aktualisiert wird, sobald der Event-Loop wieder läuft.
+        # In some cases the image appears only after interaction (for example the crop slider).
+        # A small delayed refresh after loading ensures that
+        # the display is updated once the event loop runs again.
         try:
             QTimer.singleShot(DISPLAY_REFRESH_DELAY_MS, self._refresh_after_load)
         except Exception:
@@ -6095,7 +6095,7 @@ class Display(QLabel):
 
     def _refresh_after_load(self):
         try:
-            # Warten, bis Widget sichtbar und mit gültiger Größe
+            # Wait until the widget is visible and has a valid size
             if not self.isVisible() or self.width() <= 0 or self.height() <= 0:
                 try:
                     QTimer.singleShot(100, self._refresh_after_load)
@@ -6103,13 +6103,13 @@ class Display(QLabel):
                     pass
                 return
 
-            # Falls bereits ein Bild vorhanden ist, erneut skaliert setzen und Redraw anstoßen
+            # If an image is already available, apply scaling again and trigger a redraw
             if self.qt_img is not None:
                 w = self.width()
                 h = self.height()
                 pm = self.qt_img.scaled(w, h, Qt.KeepAspectRatio)
                 self.setPixmap(pm)
-                # Leichte UI-Aktualisierung
+                # Light UI refresh
                 try:
                     self.update()
                     self.repaint()
@@ -6117,7 +6117,7 @@ class Display(QLabel):
                 except Exception:
                     pass
 
-            # Fallback: wenn Pixmap noch leer, später erneut versuchen
+            # Fallback: if the pixmap is still empty, try again later
             try:
                 current_pm = self.pixmap()
                 if current_pm is None or current_pm.isNull() or current_pm.width() == 0 or current_pm.height() == 0:
@@ -6371,7 +6371,7 @@ class Display(QLabel):
                 #print("show!", flush=True)
 
     def mouseMoveEvent(self, event):
-        # Für Lupe...
+        # For the magnifier...
         self.pos = event.pos()
         
         if cutModeActive:
@@ -6592,7 +6592,7 @@ class FrameSlider(QSlider):
         self._hasFocus=True
         sliderpos = self.value() / (self.maximum()+1)
         self._setTempPositioningText(sliderpos, self.buildPosSliderText(sliderpos), Qt.cyan)
-        super().focusInEvent(event)  # wichtig: Standardverhalten beibehalten
+        super().focusInEvent(event)  # Important: preserve the default behavior
 
     def focusOutEvent(self, event):
         self._hasFocus=False
@@ -6620,7 +6620,7 @@ class FrameSlider(QSlider):
 class CropWidget(QWidget):
     def __init__(self, display, parent=None):
         """
-        CropWidget, das erst später angewiesen wird, welches Bild aus einem externen QLabel verwendet werden soll.
+        CropWidget that is told later which image from an external QLabel should be used.
         """
         super().__init__(parent)
 
@@ -6642,7 +6642,7 @@ class CropWidget(QWidget):
         #self.image_label.setFrameStyle(QFrame.Box)
         #self.image_label.setStyleSheet("background-color: black;")
 
-        # Noch kein Bild vorhanden
+        # No image loaded yet
         self.original_pixmap = None
         self.display_pixmap = None
         self.slidersInitialized = False
@@ -6650,15 +6650,15 @@ class CropWidget(QWidget):
         self.currentH=0
         self.scene_intersections=[]
 
-        # Crop-Werte
+        # Crop values
         self.crop_left = 0
         self.crop_right = 0
         self.crop_top = 0
         self.crop_bottom = 0
         self.clean = True;
         
-        # Standard-Rahmen-Einstellungen
-        self.frame_color = QColor(255, 255, 255)  # Weiß
+        # Default frame settings
+        self.frame_color = QColor(255, 255, 255)  # White
         self.frame_thickness = 2
         self.frame_style = Qt.DashLine
 
@@ -6672,7 +6672,7 @@ class CropWidget(QWidget):
         self.slider_bottom = self.create_slider(Qt.Vertical, False)
         self.slider_bottom.setFocusPolicy(Qt.ClickFocus)
 
-        # Lupen-Label
+        # Magnifier label
         self.magnifier = QLabel(self)
         self.magnifier.setFixedSize(self.magsize, self.magsize)
         self.magnifier.setFrameStyle(QFrame.Box)
@@ -6724,17 +6724,17 @@ class CropWidget(QWidget):
         '''
         self.setLayout(self.main_layout)
 
-        # Signale verbinden
+        # Connect signals
         self.slider_left.valueChanged.connect(lambda val: self.update_crop("left", val))
         self.slider_right.valueChanged.connect(lambda val: self.update_crop("right", val))
         self.slider_top.valueChanged.connect(lambda val: self.update_crop("top", val))
         self.slider_bottom.valueChanged.connect(lambda val: self.update_crop("bottom", val))
         
-        # Slider deaktivieren, bis Bild geladen
+        # Disable sliders until an image is loaded
         self.enable_sliders(False)
         self.display_sliders(False)
         
-        # Hotkey STRG+S zum Speichern
+        # CTRL+S hotkey for saving
         #self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
         
         self.resizeEvent(None)
@@ -6751,7 +6751,7 @@ class CropWidget(QWidget):
         
         self.scene_intersections=[]
 
-        # Crop-Werte zurücksetzen
+        # Reset crop values
         self.crop_left = 0
         self.crop_right = 0
         self.crop_top = 0
@@ -6816,7 +6816,7 @@ class CropWidget(QWidget):
        
         sourcePixmap = self.image_label.getSourcePixmap()
         if sourcePixmap is None or sourcePixmap.isNull():
-            raise ValueError("Das Source Image enthält kein gültiges Bild.")
+            raise ValueError("The source image does not contain a valid picture.")
 
         filtered_pixmap = sourcePixmap.copy()
         try:
@@ -7548,7 +7548,7 @@ class InpaintCropWidget(CropWidget):
     def change_frame_color(self):
         if not self.original_pixmap:
             return
-        color = QColorDialog.getColor(self.frame_color, self, "Rahmenfarbe auswählen")
+        color = QColorDialog.getColor(self.frame_color, self, "Select frame color")
         if color.isValid():
             self.frame_color = color
             self.apply_crop()
@@ -7660,22 +7660,22 @@ class InpaintCropWidget(CropWidget):
 
     def darken_outside_area(self, pixmap: QPixmap, clear_rect: QRect, darkness: int = 120) -> QPixmap:
         """
-        Gibt eine neue QPixmap zurück, bei der der Bereich außerhalb von `clear_rect`
-        mit einer halbtransparenten schwarzen Farbe abgedunkelt wird.
-        :param pixmap: Originalbild als QPixmap (Koordinaten für clear_rect in Pixmap-Koordinaten!)
-        :param clear_rect: Bereich, der unverändert bleiben soll
-        :param darkness: Transparenzwert (0-255), 0 = transparent, 255 = vollständig schwarz
-        :return: Neue QPixmap mit Abdunklung
+        Return a new QPixmap where the area outside `clear_rect`
+        is dimmed with a semi-transparent black overlay.
+        :param pixmap: Original image as QPixmap (coordinates for clear_rect are in pixmap coordinates)
+        :param clear_rect: Area that should remain unchanged
+        :param darkness: Transparency value (0-255), 0 = transparent, 255 = fully black
+        :return: New QPixmap with dimming
         """
         if pixmap is None or pixmap.isNull():
             return QPixmap()
 
         try:
-            # Beschneide clear_rect auf Bildgrenzen (sicherer)
+            # Clamp clear_rect to image bounds for safer handling
             img_rect = pixmap.rect()
             clear_rect = clear_rect.intersected(img_rect)
             if clear_rect.isEmpty():
-                # Kein sichtbarer Ausschnitt -> ganzes Bild abdunkeln
+                # No visible sub-rectangle -> dim the entire image
                 result = QPixmap(pixmap.size())
                 result.fill(Qt.transparent)
                 
@@ -7686,23 +7686,23 @@ class InpaintCropWidget(CropWidget):
                 
                 return result
 
-            # 1) Overlay mit Alphakanal erzeugen
+            # 1) Create an overlay with an alpha channel
             overlay = QPixmap(pixmap.size())
-            overlay.fill(Qt.transparent)  # Start mit transparentem Hintergrund
+            overlay.fill(Qt.transparent)  # Start with a transparent background
             
             painter = QPainter(overlay)
             painter.setRenderHint(QPainter.Antialiasing)
 
-            # 2) Ganze Overlayfläche mit halbtransparentem Schwarz füllen
+            # 2) Fill the complete overlay with semi-transparent black
             painter.fillRect(overlay.rect(), QColor(0, 0, 0, darkness))
 
-            # 3) "Loch" in das Overlay stanzen (macht Region transparent)
+            # 3) Punch a hole into the overlay to make that region transparent
             painter.setCompositionMode(QPainter.CompositionMode_Clear)
             painter.fillRect(clear_rect, QColor(0, 0, 0, 0))
 
             painter.end()
 
-            # 4) Original und Overlay zusammenführen
+            # 4) Combine the original image and the overlay
             result = QPixmap(pixmap.size())
             result.fill(Qt.transparent)
             painter = QPainter(result)
@@ -7759,7 +7759,7 @@ class InpaintCropWidget(CropWidget):
                     self.frame_color = QColor(255, 63, 0)  # Orange
                     self.frame_thickness = 5
                 else:
-                    self.frame_color = QColor(255, 255, 255)  # Weiß
+                    self.frame_color = QColor(255, 255, 255)  # White
                     self.frame_thickness = 1
 
                 # Rahmen zeichnen
@@ -7911,17 +7911,17 @@ class StyledIcon(QIcon):
         self.addPixmap( pixm, QIcon.Normal, QIcon.On)
 
 class InputBlocker(QWidget):
-    """Transparente Sperr-Schicht über dem Dialog."""
+    """Transparent blocking layer above the dialog."""
     def __init__(self, parent):
         super().__init__(parent)
-        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)  # Wichtig: Events abfangen!
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)  # Important: intercept events
         self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setStyleSheet("background: transparent;")  # Unsichtbar
+        self.setStyleSheet("background: transparent;")  # Invisible
         self.setGeometry(parent.rect())
         self.show()
 
     def resizeEvent(self, event):
-        """Overlay immer an Fenstergröße anpassen."""
+        """Always resize the overlay to the window size."""
         self.setGeometry(self.parent().rect())
 
 def setFileFilter(filterImg, filterVid, filterEdit):
@@ -8026,17 +8026,17 @@ def statMTime(path):
 
 def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
     """
-    Aktualisiert die bestehende Datei-Liste:
-      - Entfernt nicht mehr existierende Dateien
-      - Fügt neue Dateien ein (holt mtime nur für neue Dateien)
-      - Behält die Sortierung bei, ohne vollständige Neusortierung
+        Update the existing file list:
+            - Remove files that no longer exist
+            - Insert new files only (retrieve mtime only for new files)
+            - Preserve sorting without performing a full re-sort
     """
     try:
         fullbasepath=os.path.join(path, base_path)
         if not os.path.exists(fullbasepath):
             os.makedirs(fullbasepath)
 
-        # Aktuell vorhandene Dateien NUR als Menge laden (kein mtime!)
+        # Load currently present files only as a set (no mtime yet)
         bpath = os.path.abspath(os.path.join(path, fullbasepath))
         current_files = {
             f for f in os.listdir(bpath)
@@ -8044,17 +8044,17 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List
             and any(f.lower().endswith(suf.lower()) for suf in _activeExtensions)
         }
 
-        # ---- 1. Entferne Dateien, die nicht mehr existieren ----
+        # ---- 1. Remove files that no longer exist ----
         existing_names_in_list = {fname for fname, _ in file_list}
         file_list[:] = [(fname, mtime) for fname, mtime in file_list if fname in current_files]
 
-        # ---- 2. Finde neue Dateien (die noch nicht in der Liste sind) ----
+        # ---- 2. Find new files that are not yet in the list ----
         new_files = current_files - existing_names_in_list
 
-        # ---- 3. Füge neue Dateien mit mtime ein (nur hier wird getmtime aufgerufen) ----
+        # ---- 3. Insert new files with mtime (getmtime is called only here) ----
         for fname in new_files:
             full_path = os.path.join(bpath, fname)
-            mtime = statMTime(bpath)  # Nur für neue Dateien aufrufen
+            mtime = statMTime(bpath)  # Call only for new files
             insert_sorted(file_list, (fname, mtime))
     except:
         print(traceback.format_exc(), flush=True)
@@ -8063,23 +8063,23 @@ def update_file_list(base_path: str, file_list: List[Tuple[str, float]]) -> List
 
 def _get_sort_key(item: Tuple[str, float]):
     """
-    Liefert den Sortierschlüssel für ein Element (Dateiname, mtime)
-    basierend auf dem globalen _sortOrderIndex.
+    Return the sort key for an item (filename, mtime)
+    based on the global _sortOrderIndex.
     """
     global _sortOrderIndex
 
-    if _sortOrderIndex in (0, 1):  # alphabetisch
+    if _sortOrderIndex in (0, 1):  # alphabetical
         return item[0].lower()
-    elif _sortOrderIndex in (2, 3):  # nach Zeit
+    elif _sortOrderIndex in (2, 3):  # by time
         return item[1]
     else:
-        # Fallback: Zeit aufsteigend
+        # Fallback: ascending by time
         return item[1]
 
 
 def _sort_file_list(file_list: List[Tuple[str, float]]):
     """
-    Sortiert eine Datei-Liste gemäß der aktuellen globalen Sortierregel.
+    Sort a file list according to the current global sort rule.
     """
     global _sortOrderIndex
 
@@ -8088,8 +8088,8 @@ def _sort_file_list(file_list: List[Tuple[str, float]]):
 
 def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
     """
-    Erstellt eine sortierte Liste mit Tupeln (Dateiname, Modifikationsdatum).
-    Sortiert nach Modifikationsdatum aufsteigend (alte zuerst).
+    Create a sorted list of tuples (filename, modification time).
+    Sort by modification time in ascending order (oldest first).
     """
     fullbasepath=os.path.join(path, base_path)
     if not os.path.exists(fullbasepath):
@@ -8110,8 +8110,8 @@ def get_initial_file_list(base_path: str) -> List[Tuple[str, float]]:
 
 def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float]):
     """
-    Fügt ein neues Element (Dateiname, Modifikationsdatum) an der richtigen
-    Stelle in die bestehende Liste ein, basierend auf der aktuellen Sortierlogik.
+    Insert a new item (filename, modification time) into the correct
+    position of the existing list based on the current sort logic.
     """
     global _sortOrderIndex
 
@@ -8119,13 +8119,13 @@ def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float
         file_list.append(new_item)
         return
 
-    # Bestimme den Sortierschlüssel für das neue Element
+    # Determine the sort key for the new item
     new_key = _get_sort_key(new_item)
 
-    # Liste der bestehenden Sortierschlüssel erzeugen
+    # Build the list of existing sort keys
     keys = [_get_sort_key(item) for item in file_list]
 
-    # Je nach Sortierreihenfolge passende Einfügelogik
+    # Choose insertion logic based on the current sort order
     if _sortOrderIndex in (0, 2):  # aufsteigend
         pos = bisect.bisect_left(keys, new_key)
     elif _sortOrderIndex in (1, 3):  # absteigend
@@ -8140,8 +8140,8 @@ def insert_sorted(file_list: List[Tuple[str, float]], new_item: Tuple[str, float
 
 def applySortOrder():
     """
-    Sortiert alle relevanten globalen Listen anhand der aktuellen Einstellung
-    von _sortOrderIndex neu. Wird aufgerufen, wenn die Sortiermethode geändert wird.
+    Re-sort all relevant global lists according to the current
+    _sortOrderIndex setting. Called when the sort method changes.
     """
     global _filesWithoutEdit, _editedfiles, _readyfiles, _cutModeFolderOverrideFiles
 
@@ -8186,23 +8186,23 @@ def gitbash_to_windows_path(unix_path: str) -> str:
 
 def format_timedelta_hundredth(td: timedelta) -> str:
     """
-    Gibt ein timedelta als String auf Hundertstel Sekunden genau aus.
-    
-    Parameter:
-        td (timedelta): Ein timedelta-Objekt
-    
-    Rückgabe:
-        str: Zeit im Format "HH:MM:SS.ss"
+    Format a timedelta as a string with hundredth-of-a-second precision.
+
+    Parameters:
+        td (timedelta): A timedelta object
+
+    Returns:
+        str: Time formatted as "HH:MM:SS.ss"
     """
-    # Gesamtdauer in Sekunden als float
+    # Total duration in seconds as a float
     total_seconds = td.total_seconds()
-    
-    # Stunden, Minuten, Sekunden extrahieren
+
+    # Extract hours, minutes, and seconds
     hours = int(total_seconds // 3600)
     minutes = int((total_seconds % 3600) // 60)
-    seconds = total_seconds % 60  # Sekunden inkl. Bruchteile
+    seconds = total_seconds % 60  # Seconds including fractional part
     
-    # Auf zwei Nachkommastellen (Hundertstel) runden
+    # Round to two decimal places (hundredths)
     return f"{hours:02}:{minutes:02}:{seconds:05.2f}"
 
 

@@ -1075,9 +1075,15 @@ cd python_embeded
 cd ..
 ::.\python_embeded\python -m pip install %SAGEATTENTIONURL%
 
-echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build  >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
-::  echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+:: Create start scripts with log watching and simple self-restart (%0) behavior
+echo .\python_embeded\python.exe -u ComfyUI\custom_nodes\comfyui_stereoscopic\api\python\comfyui_logwatch.py --log-file ComfyUI\user\default\comfyui_stereoscopic\comfyui-server.log --marker-file ComfyUI\user\default\comfyui_stereoscopic\.comfyui_logwatch_crash -- .\python_embeded\python.exe -u -s ComfyUI\main.py --windows-standalone-build >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 echo %%0 >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+
+echo .\python_embeded\python.exe -u ComfyUI\custom_nodes\comfyui_stereoscopic\api\python\comfyui_logwatch.py --log-file ComfyUI\user\default\comfyui_stereoscopic\comfyui-server.log --marker-file ComfyUI\user\default\comfyui_stereoscopic\.comfyui_logwatch_crash -- .\python_embeded\python.exe -u -s ComfyUI\main.py --cpu --windows-standalone-build >%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat
+echo %%0 >>%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat
+
+echo .\python_embeded\python.exe -u ComfyUI\custom_nodes\comfyui_stereoscopic\api\python\comfyui_logwatch.py --log-file ComfyUI\user\default\comfyui_stereoscopic\comfyui-server.log --marker-file ComfyUI\user\default\comfyui_stereoscopic\.comfyui_logwatch_crash -- .\python_embeded\python.exe -u -s ComfyUI\main.py --windows-standalone-build --fast fp16_accumulation >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu_fast_fp16_accumulation.bat
+echo %%0 >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu_fast_fp16_accumulation.bat
 
 .\python_embeded\python %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\tests\test_triton.py
 

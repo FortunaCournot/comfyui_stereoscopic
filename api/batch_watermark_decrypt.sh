@@ -184,12 +184,20 @@ else
 					exit 0
 				fi
 				
+				startiteration=`date +%s`
 				until [ "$queuecount" = "0" ]
 				do
 					sleep 1
 					curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 					queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-				done				
+					end_now=`date +%s`
+					secs_now=$((end_now-startiteration))
+					if command -v failover_check >/dev/null 2>&1; then
+						if ! failover_check "" "$secs_now"; then
+							exit 0
+						fi
+					fi
+				done			
 				
 				if [ -e "output/vr/watermark/decrypt/intermediate/$TARGETPREFIX""_00001_.png" ]; then
 					mv -vf "output/vr/watermark/decrypt/intermediate/$TARGETPREFIX""_00001_.png" "output/vr/watermark/decrypt/$TARGETPREFIX""_test.png"

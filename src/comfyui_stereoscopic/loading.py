@@ -32,7 +32,7 @@ class LoadImageAdvanced:
 
     @classmethod
     def IS_CHANGED(cls, image):
-        """Erzwingt Reload, wenn sich die Datei geändert hat."""
+        """Force a reload when the file has changed."""
         path = cls.resolve_path(image)
         if not path or not os.path.isfile(path):
             return None
@@ -46,21 +46,21 @@ class LoadImageAdvanced:
 
     @staticmethod
     def resolve_path(image):
-        """Löst relative oder absolute Pfade korrekt auf."""
+        """Resolve relative or absolute paths correctly."""
         if not image:
             return None
 
-        # Absoluter Pfad
+        # Absolute path
         if os.path.isabs(image) and os.path.isfile(image):
             return image
 
-        # Relativer Pfad zum input-Verzeichnis
+        # Relative path under the input directory
         input_dir = folder_paths.get_input_directory()
         rel_path = os.path.join(input_dir, image)
         if os.path.isfile(rel_path):
             return rel_path
 
-        # Fallback: Prüfen, ob die Datei direkt im Input liegt
+        # Fallback: check whether the file exists directly in the input directory
         fallback_path = os.path.join(input_dir, os.path.basename(image))
         if os.path.isfile(fallback_path):
             return fallback_path
@@ -68,29 +68,29 @@ class LoadImageAdvanced:
         return None
 
     def load_image(self, image):
-        """Lädt ein einzelnes Bild und gibt Tensor + Infos zurück."""
+        """Load a single image and return tensor data plus metadata."""
         image_path = self.resolve_path(image)
         if not image_path or not os.path.isfile(image_path):
-            raise FileNotFoundError(f"❌ Datei nicht gefunden: {image}")
+            raise FileNotFoundError(f"❌ File not found: {image}")
 
-        # Bild öffnen + EXIF-Rotation korrigieren
+        # Open the image and correct EXIF rotation
         pil_img = Image.open(image_path)
         pil_img = ImageOps.exif_transpose(pil_img)
 
-        # Alphakanal extrahieren (Maske)
+        # Extract the alpha channel as a mask
         mask_tensor = None
         if "A" in pil_img.getbands():
             alpha = pil_img.getchannel("A")
             alpha_np = np.array(alpha).astype(np.float32) / 255.0
             mask_tensor = torch.from_numpy(alpha_np)[None,]
 
-        # RGB konvertieren
+        # Convert to RGB
         rgb = pil_img.convert("RGB")
         w, h = rgb.size
         img_np = np.array(rgb).astype(np.float32) / 255.0
         img_tensor = torch.from_numpy(img_np).unsqueeze(0)
 
-        # 🔹 Dateiname ergänzen (fix)
+        # Add the filename explicitly
         filename = os.path.basename(image_path)
 
         return (img_tensor, mask_tensor, filename, w, h)
@@ -130,7 +130,7 @@ class LoadImageByIndex:
 
     def load_image_by_index(self, directory, index):
         if not os.path.isdir(directory):
-            raise FileNotFoundError(f"❌ Verzeichnis nicht gefunden: {directory}")
+            raise FileNotFoundError(f"❌ Directory not found: {directory}")
 
         files = sorted([
             f for f in os.listdir(directory)
@@ -138,10 +138,10 @@ class LoadImageByIndex:
         ])
 
         if not files:
-            raise FileNotFoundError(f"⚠️ Keine unterstützten Bilddateien in: {directory}")
+            raise FileNotFoundError(f"⚠️ No supported image files found in: {directory}")
 
         if index < 0 or index >= len(files):
-            raise IndexError(f"Index {index} außerhalb des gültigen Bereichs (0-{len(files)-1})")
+            raise IndexError(f"Index {index} is outside the valid range (0-{len(files)-1})")
 
         path = os.path.join(directory, files[index])
         return self._load_single_image(path)
@@ -235,8 +235,8 @@ class LoopWhileNotFinished:
 
     def execute(self, start, finished):
         if not finished:
-            return (True,)  # Trigger nächsten Increment
-        return (None,)  # Schleife stoppen
+            return (True,)  # Trigger the next increment
+        return (None,)  # Stop the loop
 
 
 
@@ -245,15 +245,15 @@ class StartLoopTrigger:
     def INPUT_TYPES(cls):
         return {"required": {}}
 
-    # EXEC Node → kein RETURN_NAME
-    RETURN_TYPES = ()            # 👈 wichtig, auch wenn leer
+    # EXEC node -> no RETURN_NAME
+    RETURN_TYPES = ()            # Important, even when empty
     OUTPUT_NODE = True
     FUNCTION = "trigger"
 
     CATEGORY = "Stereoscopic/Utility"
-    DESCRIPTION = "Gibt bei Workflowstart ein EXEC-Signal aus."
+    DESCRIPTION = "Emit an EXEC signal when the workflow starts."
 
     def trigger(self):
-        # Kein return notwendig — einfach nur EXEC triggern
+        # No return needed - just trigger EXEC
         pass
 
