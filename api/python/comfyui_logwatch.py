@@ -105,6 +105,7 @@ monitoring and additional logging.
 """
 
 import argparse
+import codecs
 import os
 import queue
 import re
@@ -156,8 +157,11 @@ def write_marker(marker_file: str, line: str) -> None:
 
 def stream_reader(stream, out_queue: queue.Queue) -> None:
     try:
-        for line in iter(stream.readline, ""):
-            out_queue.put(line)
+        while True:
+            chunk = os.read(stream.fileno(), 4096)
+            if not chunk:
+                break
+            out_queue.put(chunk)
     finally:
         try:
             stream.close()
@@ -188,21 +192,16 @@ def main() -> int:
 
     ensure_parent_dir(args.log_file)
 
-    # Decode the child output explicitly as UTF-8. ComfyUI progress bars
-    # and similar status lines frequently contain Unicode block chars.
-    # Writing Unicode text to the Windows console preserves them, whereas
-    # passing through raw UTF-8 bytes causes mojibake in batch windows.
+    # Decode the child output explicitly as UTF-8. Read in chunks rather than
+    # lines so carriage-return based progress displays are forwarded without
+    # waiting for a trailing newline.
     with open(args.log_file, "a", encoding="utf-8", buffering=1) as log_handle:
         log_handle.write(f"\n===== ComfyUI start {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
         process = subprocess.Popen(
             args.command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-            universal_newlines=True,
+            bufsize=0,
             cwd=os.getcwd(),
         )
 
@@ -212,6 +211,28 @@ def main() -> int:
 
         stream_done = False
         detected_line = ""
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        pending_line = ""
+
+        def check_pending_lines(flush_final: bool = False) -> None:
+            nonlocal pending_line, detected_line
+            while "\n" in pending_line:
+                line, pending_line = pending_line.split("\n", 1)
+                line = f"{line}\n"
+                if not detected_line and matches_crash(line):
+                    detected_line = line
+                    notice = "[comfyui_logwatch] fatal pattern detected, terminating ComfyUI process tree\n"
+                    log_handle.write(notice)
+                    log_handle.flush()
+                    write_marker(args.marker_file, line)
+                    kill_process_tree(process.pid)
+            if flush_final and pending_line and not detected_line and matches_crash(pending_line):
+                detected_line = pending_line
+                notice = "[comfyui_logwatch] fatal pattern detected, terminating ComfyUI process tree\n"
+                log_handle.write(notice)
+                log_handle.flush()
+                write_marker(args.marker_file, pending_line)
+                kill_process_tree(process.pid)
 
         while True:
             try:
@@ -223,21 +244,23 @@ def main() -> int:
 
             if item is None:
                 stream_done = True
+                remaining_text = decoder.decode(b"", final=True)
+                if remaining_text:
+                    sys.stdout.write(remaining_text)
+                    sys.stdout.flush()
+                    log_handle.write(remaining_text)
+                    pending_line += remaining_text
+                check_pending_lines(flush_final=True)
                 if process.poll() is not None:
                     break
                 continue
 
-            sys.stdout.write(item)
+            text_chunk = decoder.decode(item)
+            sys.stdout.write(text_chunk)
             sys.stdout.flush()
-            log_handle.write(item)
-
-            if not detected_line and matches_crash(item):
-                detected_line = item
-                notice = "[comfyui_logwatch] fatal pattern detected, terminating ComfyUI process tree\n"
-                log_handle.write(notice)
-                log_handle.flush()
-                write_marker(args.marker_file, item)
-                kill_process_tree(process.pid)
+            log_handle.write(text_chunk)
+            pending_line += text_chunk
+            check_pending_lines()
 
         return process.wait()
 
