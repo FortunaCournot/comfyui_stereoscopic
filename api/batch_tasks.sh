@@ -358,12 +358,10 @@ else
 				exit 0
 			fi
 
-			# Log iteration duration (ms) and task name when loglevel >= 1
+			# Log iteration duration (s) and task name
 			end_ms=$(now_ms)
-			elapsed_ms=$((end_ms - start_ms))
-			if [ ${loglevel:-0} -ge 1 ] ; then
-				echo "Iteration $INDEX tasks/$TASKNAME took ${elapsed_ms} ms"
-			fi
+			elapsed_s=$(( (end_ms - start_ms) / 1000))
+			echo "Iteration $INDEX tasks/$TASKNAME took ${elapsed_s} s"
 		done < <(find "$d" -maxdepth 1 -type f -name '*.*' -print0 2>/dev/null)
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
 		rm -f input/vr/tasks/BATCHPROGRESS.TXT 2>/dev/null
