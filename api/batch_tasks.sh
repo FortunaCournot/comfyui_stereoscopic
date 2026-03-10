@@ -39,53 +39,25 @@ normalize_rename_path() {
 get_json_value() {
 	local json_file="$1"
 	local json_key="$2"
-	local line rest value
-	while IFS= read -r line || [ -n "$line" ]; do
-		case "$line" in
-			*"\"$json_key\""*)
-				rest=${line#*"$json_key"}
-				[ "$rest" = "$line" ] && continue
-				rest=${rest#*:}
-				[ "$rest" = "${line#*:}" ] && continue
-				while : ; do
-					case "$rest" in
-						' '*) rest=${rest# } ;;
-						$'\t'*) rest=${rest#$'\t'} ;;
-						*) break ;;
-					esac
-				done
-				if [[ "$rest" == \"* ]]; then
-					rest=${rest#\"}
-					value=${rest%%\"*}
-				else
-					value=${rest%%,*}
-					value=${value%%\}*}
-					while : ; do
-						case "$value" in
-							*' ') value=${value% } ;;
-							*$'\t') value=${value%$'\t'} ;;
-							*) break ;;
-						esac
-					done
-				fi
-				printf '%s' "$value"
-				return 0
-				;;
-		esac
-	done < "$json_file"
-	printf ''
+
+	# Prefer jq when available (robust and handles JSON properly)
+	if command -v jq >/dev/null 2>&1 ; then
+		jq -r --arg k "$json_key" '.[$k] // empty' "$json_file" 2>/dev/null || printf ''
+		return 0
+	fi
+
+	# Fallback: sed-based extraction tolerant to quoted numbers and trailing commas/braces
+	# Match: "key" : "value"  OR  "key" : value
+	sed -nE "s/.*\"$json_key\"[[:space:]]*:[[:space:]]*\"?([^\",}]*)\"?.*/\1/p" "$json_file" | head -n1 || printf ''
 }
 
 has_json_key() {
 	local json_file="$1"
 	local json_key="$2"
-	local line
-	while IFS= read -r line || [ -n "$line" ]; do
-		case "$line" in
-			*"\"$json_key\""*:* ) return 0 ;;
-		esac
-	done < "$json_file"
-	return 1
+	if command -v jq >/dev/null 2>&1 ; then
+		jq -e --arg k "$json_key" 'has($k)' "$json_file" >/dev/null 2>&1 && return 0 || return 1
+	fi
+	grep -qE "\"$json_key\"[[:space:]]*:" "$json_file" 2>/dev/null && return 0 || return 1
 }
 
 # Return epoch time in milliseconds (portable): prefer GNU date, fallback to python, else seconds*1000
