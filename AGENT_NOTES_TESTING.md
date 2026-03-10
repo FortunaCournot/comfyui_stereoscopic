@@ -87,4 +87,9 @@ Current assessment (no code changes requested):
 Suggested next-day verification (no code changes):
 - Temporarily rename `user/default/comfyui_stereoscopic/unused.properties` and compare startup speed; if faster, `is_disabled()` cost is material.
 
+## Shell optimization preference
+- In shell scripts for this repo, avoid `sed` where plain shell parameter expansion can do the same job safely.
+- Typical examples: trimming whitespace, extracting path parts, removing prefixes/suffixes, and simple character replacement.
+- Keep `sed` only where the transformation is genuinely regex-heavy or would become less readable in pure shell.
+
 (These notes exist so the agent/user avoids repeating the same environment setup mistakes.)
