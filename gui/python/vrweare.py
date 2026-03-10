@@ -1720,7 +1720,7 @@ class SpreadsheetApp(QMainWindow):
                                     # - white otherwise
                                     # done_nocleanup must not affect the color.
                                     if count > 0:
-                                        color = "white" if stage_name == "tasks/trashbin" else "green"
+                                        color = "white" if stage_name in {"tasks/trashbin", "check/rate"} else "green"
                                         # If the stage/task is disabled, do not show green; show orange instead.
                                         try:
                                             states = getattr(self, '_unused_states', None)
