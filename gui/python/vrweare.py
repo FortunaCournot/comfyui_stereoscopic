@@ -126,6 +126,25 @@ def _save_flag_file(file_path: str, data: dict):
     except Exception:
         pass
 
+
+def _scan_output_folder_info(folder_out: str) -> dict:
+    info_out = {'exists': False, 'count': 0, 'forward': False, 'signature': tuple()}
+    if not os.path.exists(folder_out):
+        return info_out
+    info_out['exists'] = True
+    try:
+        onlyfiles = next(os.walk(folder_out))[2]
+        info_out['forward'] = any(f.lower() == "forward.txt" for f in onlyfiles)
+        onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
+        onlyfiles = [f for f in onlyfiles if '.' in f]
+        onlyfiles = [f for f in onlyfiles if f.lower() not in IGNORED_BASENAMES]
+        onlyfiles = sorted(onlyfiles)
+        info_out['count'] = len(onlyfiles)
+        info_out['signature'] = tuple(onlyfiles)
+    except Exception:
+        pass
+    return info_out
+
 pipelinePauseLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelinepause'))
 pipelineActiveLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.pipelineactive'))
 pipelineFowardingLockPath = os.path.abspath(os.path.join(path, '../../../../user' , 'default', 'comfyui_stereoscopic', '.forwardstop'))
@@ -613,6 +632,13 @@ class SpreadsheetApp(QMainWindow):
         self._last_daemon_status = None
         # remember what preview (path,status) we attached per stage index to avoid re-logging
         self._last_attached_previews = {}
+        self._initial_output_signatures = {}
+        try:
+            for stage in STAGES:
+                folder_out = os.path.join(path, "../../../../output/vr/" + stage)
+                self._initial_output_signatures[stage] = _scan_output_folder_info(folder_out).get('signature', tuple())
+        except Exception:
+            self._initial_output_signatures = {}
 
         # Ensure column index attributes exist early so other components
         # can call `isCellClickable()` before `update_table()` runs.
@@ -1323,18 +1349,7 @@ class SpreadsheetApp(QMainWindow):
                         # Output side
                         try:
                             folder_out = os.path.join(path, "../../../../output/vr/" + stage)
-                            info_out = {'exists': False, 'count': 0, 'forward': False}
-                            if os.path.exists(folder_out):
-                                info_out['exists'] = True
-                                try:
-                                    onlyfiles = next(os.walk(folder_out))[2]
-                                    info_out['forward'] = any(f.lower() == "forward.txt" for f in onlyfiles)
-                                    onlyfiles = [f for f in onlyfiles if not f.lower().endswith(".txt")]
-                                    onlyfiles = [f for f in onlyfiles if '.' in f]
-                                    onlyfiles = [f for f in onlyfiles if f.lower() not in IGNORED_BASENAMES]
-                                    info_out['count'] = len(onlyfiles)
-                                except Exception:
-                                    pass
+                            info_out = _scan_output_folder_info(folder_out)
                             self._fs_cache['output'][stage] = info_out
                         except Exception:
                             pass
@@ -1742,13 +1757,15 @@ class SpreadsheetApp(QMainWindow):
                                 info = getattr(self, '_fs_cache', {'output':{}}).get('output', {}).get(stage_name, None)
                                 if info and info.get('exists', False):
                                     forward = info.get('forward', False)
-                                    if not forward:
-                                        color = "green"
                                     count = info.get('count', 0)
+                                    current_signature = info.get('signature', tuple())
+                                    initial_signature = getattr(self, '_initial_output_signatures', {}).get(stage_name, tuple())
+                                    changed_since_start = current_signature != initial_signature
+                                    color = "white"
                                     if count > 0:
                                         displayRequired = True
                                         value = str(count)
-                                        if idletime > 15:
+                                        if changed_since_start:
                                             color = "green"
                                     else:
                                         value = ""
