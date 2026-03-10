@@ -37,30 +37,55 @@ normalize_rename_path() {
 }
 
 get_json_value() {
-	json_file="$1"
-	json_key="$2"
-	value=$(awk -v k="$json_key" '
-		$0 ~ "\"" k "\"[[:space:]]*:" {
-			line = $0
-			sub("^.*\"" k "\"[[:space:]]*:[[:space:]]*", "", line)
-			if (line ~ /^\"/) {
-				sub(/^\"/, "", line)
-				sub(/\".*$/, "", line)
-			} else {
-				sub(/[[:space:]]*[},].*$/, "", line)
-				sub(/[[:space:]]*$/, "", line)
-			}
-			print line
-			exit
-		}
-	' "$json_file")
-	printf '%s' "$value"
+	local json_file="$1"
+	local json_key="$2"
+	local line rest value
+	while IFS= read -r line || [ -n "$line" ]; do
+		case "$line" in
+			*"\"$json_key\""*)
+				rest=${line#*"$json_key"}
+				[ "$rest" = "$line" ] && continue
+				rest=${rest#*:}
+				[ "$rest" = "${line#*:}" ] && continue
+				while : ; do
+					case "$rest" in
+						' '*) rest=${rest# } ;;
+						$'\t'*) rest=${rest#$'\t'} ;;
+						*) break ;;
+					esac
+				done
+				if [[ "$rest" == \"* ]]; then
+					rest=${rest#\"}
+					value=${rest%%\"*}
+				else
+					value=${rest%%,*}
+					value=${value%%\}*}
+					while : ; do
+						case "$value" in
+							*' ') value=${value% } ;;
+							*$'\t') value=${value%$'\t'} ;;
+							*) break ;;
+						esac
+					done
+				fi
+				printf '%s' "$value"
+				return 0
+				;;
+		esac
+	done < "$json_file"
+	printf ''
 }
 
 has_json_key() {
-	json_file="$1"
-	json_key="$2"
-	grep -qE "\"$json_key\"[[:space:]]*:" "$json_file"
+	local json_file="$1"
+	local json_key="$2"
+	local line
+	while IFS= read -r line || [ -n "$line" ]; do
+		case "$line" in
+			*"\"$json_key\""*:* ) return 0 ;;
+		esac
+	done < "$json_file"
+	return 1
 }
 
 # Return epoch time in milliseconds (portable): prefer GNU date, fallback to python, else seconds*1000
@@ -349,6 +374,17 @@ else
 				taskversion="-1"
 				if [ -f "$effective_jsonblueprint" ]; then
 					taskversion=$(get_json_value "$effective_jsonblueprint" "version")
+					# normalize: allow numeric values stored as strings and tolerate trailing commas/braces
+					# remove surrounding double quotes if present
+					taskversion=${taskversion#\"}
+					taskversion=${taskversion%\"}
+					# remove trailing commas or spaces
+					taskversion=${taskversion%,}
+					taskversion=$(printf '%s' "$taskversion" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+					# if still non-numeric, strip non-digits to try to recover a numeric value
+					if ! printf '%s' "$taskversion" | grep -qE '^[0-9]+$' ; then
+						taskversion=${taskversion//[^0-9]/}
+					fi
 					taskversion=${taskversion:-"-1"}
 				fi
 				CURRENTVERSION=1
