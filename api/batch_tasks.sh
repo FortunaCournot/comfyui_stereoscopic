@@ -12,18 +12,21 @@ trap onExit EXIT
 get_json_value() {
 	json_file="$1"
 	json_key="$2"
-	entry=`grep -oE "\"$json_key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$json_file" | head -n 1`
-	if [ -z "$entry" ] ; then
-		entry=`grep -oE "\"$json_key\"[[:space:]]*:[[:space:]]*[^,}]*" "$json_file" | head -n 1`
-	fi
-	if [ -z "$entry" ] ; then
-		printf ''
-		return 0
-	fi
-	value=`printf '%s' "$entry" | sed -E 's/^.*:[[:space:]]*//'`
-	value=`printf '%s' "$value" | sed -E 's/[[:space:]]*$//'`
-	value=${value#\"}
-	value=${value%\"}
+	value=$(awk -v k="$json_key" '
+		$0 ~ "\"" k "\"[[:space:]]*:" {
+			line = $0
+			sub("^.*\"" k "\"[[:space:]]*:[[:space:]]*", "", line)
+			if (line ~ /^\"/) {
+				sub(/^\"/, "", line)
+				sub(/\".*$/, "", line)
+			} else {
+				sub(/[[:space:]]*[},].*$/, "", line)
+				sub(/[[:space:]]*$/, "", line)
+			}
+			print line
+			exit
+		}
+	' "$json_file")
 	printf '%s' "$value"
 }
 
@@ -135,6 +138,8 @@ UNUSED_PROPS=./user/default/comfyui_stereoscopic/unused.properties
 is_disabled() {
 	local name="$1"
 	local key
+	local vals
+	local v
 	if [[ "$name" =~ ^tasks/_ ]]; then
 		key=customtask
 	elif [[ "$name" =~ ^tasks/ ]]; then
@@ -145,14 +150,14 @@ is_disabled() {
 	if [ ! -f "$UNUSED_PROPS" ]; then
 		return 1
 	fi
-	local vals
 	vals=$(awk -F"=" -v k="$key" '$1==k {print $2; exit}' "$UNUSED_PROPS" | tr -d '\r')
 	if [ -z "$vals" ]; then
 		return 1
 	fi
 	IFS=',' read -ra arr <<< "$vals"
 	for v in "${arr[@]}"; do
-		v=$(echo "$v" | sed -e 's/^\s*//' -e 's/\s*$//')
+		v=${v#"${v%%[![:space:]]*}"}
+		v=${v%"${v##*[![:space:]]}"}
 		if [ "$v" = "$name" ]; then
 			return 0
 		fi
@@ -182,12 +187,13 @@ else
 		shopt -s nullglob
 		for d in input/vr/tasks/*; do
 			[ -d "$d" ] || continue
-			# Rename only immediate children; use NUL delimiters for safety
-			while IFS= read -r -d '' f; do
+			# Rename only immediate children with spaces in their names.
+			for f in "$d"/*\ *; do
+				[ -e "$f" ] || continue
 				new="${f// /_}"
 				[ "$new" = "$f" ] && continue
 				mv -- "$f" "$new"
-			done < <(find "$d" -maxdepth 1 -mindepth 1 -name '* *' -print0 2>/dev/null)
+			done
 		done
 	} 2>/dev/null
 	echo "Checking files in input/vr/tasks ..."
@@ -226,24 +232,29 @@ else
 			cand2="tasks/_$TASKNAME"
 		fi
 		if is_disabled "$cand1" || is_disabled "$cand2" ; then
-			[ $loglevel -ge 1 ] && echo "Skipping disabled task folder $cand1 / $cand2"
+			[ $loglevel -ge 1 ] && echo -e $"\e[90mSkipping disabled task folder $cand1 / $cand2\e[0m"
 			continue
 		fi
 
-		# Count files directly in this task folder (used for progress like "X of COUNT")
-		COUNT=$(find "$d" -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l | awk '{print $1}')
+		# Scan files directly in this task folder once and reuse the list for count and processing.
+		TASKFILES=()
+		while IFS= read -r -d '' nextinputfile; do
+			TASKFILES+=("$nextinputfile")
+		done < <(find "$d" -maxdepth 1 -type f -name '*.*' -print0 2>/dev/null)
+		COUNT=${#TASKFILES[@]}
+		[ "$COUNT" -eq 0 ] && continue
 		FOLDER_INDEX=0
 		INDEX=0
 
 		# Inner loop: files directly in this task folder that have a suffix (contain a dot)
-		while IFS= read -r -d '' nextinputfile; do
+		for nextinputfile in "${TASKFILES[@]}"; do
 			[ -e "$nextinputfile" ] || continue
 			# pipelinepause must be checked at the start of the inner loop
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			processed_any=1
 			FOLDER_INDEX=$((FOLDER_INDEX + 1))
 
-			INPUTDIR=`dirname -- "$nextinputfile"`
+			INPUTDIR=${nextinputfile%/*}
 			# TASKNAME already known from outer loop (folder name)
 
 			INDEX+=1
@@ -276,7 +287,7 @@ else
 				effective_jsonblueprint="$jsonblueprint"
 				mkdir -p "$resolved_blueprint_dir" "$cache_dir"
 				# Try to use a cache based on file hash to skip resolving when unchanged
-				cache_file="$cache_dir/$(basename "$jsonblueprint")"
+				cache_file="$cache_dir/${jsonblueprint##*/}"
 				cache_hash_file="$cache_file.hash"
 				# compute source hash (prefer sha1sum, fallback to md5sum)
 				src_hash=''
@@ -285,7 +296,11 @@ else
 				elif command -v md5sum >/dev/null 2>&1 ; then
 					src_hash=$(md5sum "$jsonblueprint" | awk '{print $1}')
 				fi
-				if [ -n "$src_hash" ] && [ -f "$cache_file" ] && [ -f "$cache_hash_file" ] && [ "$(cat "$cache_hash_file")" = "$src_hash" ] ; then
+				cached_hash=''
+				if [ -f "$cache_hash_file" ] ; then
+					read -r cached_hash < "$cache_hash_file"
+				fi
+				if [ -n "$src_hash" ] && [ -f "$cache_file" ] && [ "$cached_hash" = "$src_hash" ] ; then
 					# cache hit: copy cached resolved blueprint
 					cp -f -- "$cache_file" "$resolved_jsonblueprint"
 					effective_jsonblueprint="$resolved_jsonblueprint"
@@ -310,22 +325,13 @@ else
 
 				# handle only current version
 				taskversion="-1"
-				# extract numeric version robustly from JSON (prefer digits only)
 				if [ -f "$effective_jsonblueprint" ]; then
-					ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$effective_jsonblueprint" | head -n1 || true)
-					if [ -n "$ver_line" ]; then
-						taskversion=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*//')
-					else
-						# fallback: quoted numeric version
-						ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+"' "$effective_jsonblueprint" | head -n1 || true)
-						if [ -n "$ver_line" ]; then
-							taskversion=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*"([0-9]+)"/\1/')
-						fi
-					fi
+					taskversion=$(get_json_value "$effective_jsonblueprint" "version")
+					taskversion=${taskversion:-"-1"}
 				fi
 				CURRENTVERSION=1
 				if printf '%s' "$taskversion" | grep -qE '^[0-9]+$' && [ "$taskversion" -eq "$CURRENTVERSION" ] ; then
-					blueprint=`cat "$effective_jsonblueprint" | grep -o '"blueprint":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+					blueprint=$(get_json_value "$effective_jsonblueprint" "blueprint")
 					blueprint=${blueprint##*/}
 					blueprint=${blueprint//[^[:alnum:].-]/_}
 					blueprint=${blueprint// /_}
@@ -363,7 +369,7 @@ else
 			secs=$(( (end_ms - start_ms) / 1000))
 			itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 			echo "Iteration $INDEX tasks/$TASKNAME took ${itertimemsg}  "
-		done < <(find "$d" -maxdepth 1 -type f -name '*.*' -print0 2>/dev/null)
+		done
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus 2>/dev/null
 		rm -f input/vr/tasks/BATCHPROGRESS.TXT 2>/dev/null
 	done
