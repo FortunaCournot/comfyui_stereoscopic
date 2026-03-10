@@ -12,6 +12,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
@@ -52,7 +79,12 @@ else
 	
 	echo -ne $"\e[97m\e[1m=== CONCAT READY - PRESS RETURN TO START ===\e[0m" ; read forgetme ; echo "starting..."
 
-	for f in input/vr/concat/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/concat/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 
 	if [ -z "$COMFYUIPATH" ]; then
 		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
@@ -91,7 +123,7 @@ else
 			if echo "$IMGANDVIDFILES" | grep -q "_SBS_LR" ; then
 				SUFFIX="_SBS_LR"
 			fi
-			TARGET=output/vr/concat/${BASE}-${NOW}${SUFFIX}.mp4
+			TARGET=$(normalize_rename_path "output/vr/concat/${BASE}-${NOW}${SUFFIX}.mp4")
 			cd output/vr/concat/intermediate
 			echo -ne "Concat (${BASE})...                             \r"
 			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4

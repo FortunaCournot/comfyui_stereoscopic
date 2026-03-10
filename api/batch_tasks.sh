@@ -9,6 +9,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 get_json_value() {
 	json_file="$1"
 	json_key="$2"
@@ -187,10 +214,9 @@ else
 		shopt -s nullglob
 		for d in input/vr/tasks/*; do
 			[ -d "$d" ] || continue
-			# Rename only immediate children with spaces in their names.
-			for f in "$d"/*\ *; do
+			for f in "$d"/*; do
 				[ -e "$f" ] || continue
-				new="${f// /_}"
+				new=$(normalize_rename_path "$f")
 				[ "$new" = "$f" ] && continue
 				mv -- "$f" "$new"
 			done
@@ -260,12 +286,8 @@ else
 			INDEX+=1
 			echo "tasks/$TASKNAME" >user/default/comfyui_stereoscopic/.daemonstatus
 			echo "$FOLDER_INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=$INPUTDIR/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv -- "$nextinputfile" $newfn 
+			newfn=$(normalize_rename_path "$INPUTDIR/${nextinputfile##*/}")
+			mv -- "$nextinputfile" "$newfn" 
 
 			start_ms=$(now_ms)
 			startiteration=$start_ms

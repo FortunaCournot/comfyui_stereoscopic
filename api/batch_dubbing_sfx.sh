@@ -35,6 +35,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
@@ -53,7 +80,12 @@ elif test $# -ne 0 ; then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
-	for f in input/vr/dubbing/sfx/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/dubbing/sfx/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 	
 	if [ -z "$COMFYUIPATH" ]; then
 		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
@@ -75,12 +107,8 @@ else
 			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
 			echo "dubbing/sfx" >user/default/comfyui_stereoscopic/.daemonstatus
 			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/dubbing/sfx/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
+			newfn=$(normalize_rename_path "input/vr/dubbing/sfx/${nextinputfile##*/}")
+			mv "$nextinputfile" "$newfn" 
 
 			start=`date +%s`
 			end=`date +%s`

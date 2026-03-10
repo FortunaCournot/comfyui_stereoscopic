@@ -9,6 +9,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
@@ -75,10 +102,12 @@ else
 	#	mv -- "$file" "${file// /_}"
 	#done
 
-	for f in input/vr/fullsbs/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\(*; do mv -- "$f" "${f//\(/_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/fullsbs/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 
 	if [ -z "$COMFYUIPATH" ]; then
 		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
@@ -101,12 +130,8 @@ else
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			echo "fullsbs" >user/default/comfyui_stereoscopic/.daemonstatus
 			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv -- "$nextinputfile" $newfn
+			newfn=$(normalize_rename_path "input/vr/fullsbs/${nextinputfile##*/}")
+			mv -- "$nextinputfile" "$newfn"
 			
 			TARGETPREFIX=${newfn##*/}
 			if [[ "$TARGETPREFIX" = "*_SBS_LR.*" ]]; then
@@ -146,12 +171,8 @@ else
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			echo "fullsbs" >user/default/comfyui_stereoscopic/.daemonstatus
 			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv -- "$nextinputfile" $newfn 
+			newfn=$(normalize_rename_path "input/vr/fullsbs/${nextinputfile##*/}")
+			mv -- "$nextinputfile" "$newfn" 
 			
 			if [[ "$newfn" == *_SBS_LR* ]]; then
 				echo "Skipping $newfn (already SBS)"

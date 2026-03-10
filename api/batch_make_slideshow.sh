@@ -11,6 +11,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
@@ -62,7 +89,12 @@ elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 else
 	echo -ne $"\e[97m\e[1m=== READY TO CREATE SLIDESHOW - PRESS RETURN TO START ===\e[0m" ; read forgetme ; echo "starting..."
 
-	for f in input/vr/slideshow/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/slideshow/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 
 	IMGFILES=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
 	# (canonical lib_fs sourcing handled above)
@@ -92,12 +124,8 @@ else
 			echo "slideshow" >user/default/comfyui_stereoscopic/.daemonstatus
 			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/slideshow/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
+			newfn=$(normalize_rename_path "input/vr/slideshow/${nextinputfile##*/}")
+			mv "$nextinputfile" "$newfn" 
 			
 			if [ -e "$newfn" ]; then
 			
