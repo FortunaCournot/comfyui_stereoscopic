@@ -41,6 +41,26 @@ export PYTHON
 FS_STATUS_FILE=${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}
 export FS_STATUS_FILE
 
+_fs_status_is_fresh_for_dir() {
+    dir="$1"
+    [ -f "$FS_STATUS_FILE" ] || return 1
+    [ -d "$dir" ] || return 0
+    "$PYTHON" - "$FS_STATUS_FILE" "$dir" <<'PY' >/dev/null 2>&1
+import os, sys
+
+status_file = sys.argv[1]
+directory = sys.argv[2]
+
+try:
+    status_mtime = os.stat(status_file).st_mtime_ns
+    dir_mtime = os.stat(directory).st_mtime_ns
+except OSError:
+    sys.exit(1)
+
+sys.exit(0 if status_mtime >= dir_mtime else 1)
+PY
+}
+
 # --- Tracing helpers ---
 # Minimal start/end trace to measure call durations (seconds, milliseconds when available)
 _trace_start() {
@@ -185,7 +205,7 @@ count_files_any_ext() {
     _trace_start
     dir="$1"
     # Prefer authoritative FS status file when present
-    if [ -f "$FS_STATUS_FILE" ]; then
+    if _fs_status_is_fresh_for_dir "$dir"; then
         lookup="$(_normalize_lookup_dir "$dir")"
         # ensure unix-style separators
         lookup="$(echo "$lookup" | sed 's#\\#/#g')"
@@ -229,7 +249,7 @@ count_files_with_exts() {
     _trace_start
     dir="$1"; shift || true
     # If status file present, map requested extensions to a category
-    if [ -f "$FS_STATUS_FILE" ]; then
+    if _fs_status_is_fresh_for_dir "$dir"; then
         # lowercase and normalize single ext (or first ext)
         ext_lc="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/^\.//')"
         # define categories consistent with compute_fs_status.py

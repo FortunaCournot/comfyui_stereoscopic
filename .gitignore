@@ -125,6 +125,12 @@ node.zip
 # Test / Installation
 .test/
 
+# Generated local batch/debug logs
+/batch_out*.txt
+/batch_err*.txt
+/out.txt
+/err.txt
+
 /cache/
 
 # Alexa local runtime

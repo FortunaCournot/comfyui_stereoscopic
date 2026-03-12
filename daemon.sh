@@ -201,15 +201,23 @@ else
 	read_fs_status() {
 		typ="$1"
 		dir="$2"
-		file="${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}"
-		if [ -f "$file" ]; then
-			val=$(grep -F "${typ}|${dir}=" "$file" 2>/dev/null | tail -n1 | sed -E 's/^.*=([0-9]+)$/\1/')
-			if [ -n "$val" ]; then
-				echo "$val"
-				return
-			fi
-		fi
-		echo 0
+		case "$typ" in
+			any)
+				count_files_any_ext "$dir"
+				;;
+			images)
+				count_files_with_exts "$dir" png jpg jpeg webp
+				;;
+			videos)
+				count_files_with_exts "$dir" mp4 webm ts mkv avi mov
+				;;
+			audio)
+				count_files_with_exts "$dir" flac mp3 wav aac m4a
+				;;
+			*)
+				echo 0
+				;;
+		esac
 	}
 
 	INITIALRUN=TRUE
