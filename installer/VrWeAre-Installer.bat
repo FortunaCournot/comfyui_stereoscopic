@@ -36,8 +36,11 @@ SET VRWEARE_VERSION=4.0
 ::SET COMFYUI_SHA=3bb5a3ca6772cff3dc1dd7137826db560d686aa7915ec57d3faf2b77f50241cb
 ::SET COMFYUI_TAG=v0.3.76
 
-SET COMFYUI_SHA=4635974ace3e3c99a30e128a97a344cee519d88aa80b6d24693cec1b6ceee5ca
-SET COMFYUI_TAG=v0.13.0
+::SET COMFYUI_SHA=4635974ace3e3c99a30e128a97a344cee519d88aa80b6d24693cec1b6ceee5ca
+::SET COMFYUI_TAG=v0.13.0
+
+SET COMFYUI_SHA=c583b6590934a41b63b3f601d53f2101bbffa94af833f3c367e9ade0aa3bc9ba
+SET COMFYUI_TAG=v0.16.4
 
 SET PYTHON_VERSION=3.13
 
@@ -664,7 +667,6 @@ echo checkoutSoftware() { >>install.sh
 echo   git clone  $1 $2  >>install.sh
 echo   CWD=`pwd`  >>install.sh
 echo   if [ ^^! -z "$3" ] ; then >>install.sh
-echo     set -x  >>install.sh
 echo     cd "$2"  >>install.sh
 echo     COUTPATH="$3"  >>install.sh
 echo     if [ "${COUTPATH:0:6}" == "heads/" ] ; then >>install.sh
