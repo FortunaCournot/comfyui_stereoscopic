@@ -155,6 +155,15 @@ def write_marker(marker_file: str, line: str) -> None:
             handle.write("\n")
 
 
+def clear_marker(marker_file: str) -> None:
+    if not marker_file:
+        return
+    try:
+        os.remove(marker_file)
+    except FileNotFoundError:
+        return
+
+
 def stream_reader(stream, out_queue: queue.Queue) -> None:
     try:
         while True:
@@ -211,6 +220,7 @@ def main() -> int:
         args.marker_file = os.environ.get("COMFYUI_LOGWATCH_MARKER", "user/default/comfyui_stereoscopic/.comfyui_logwatch_crash")
 
     ensure_parent_dir(args.log_file)
+    clear_marker(args.marker_file)
 
     # Decode the child output explicitly as UTF-8. Read in chunks rather than
     # lines so carriage-return based progress displays are forwarded without
