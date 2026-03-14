@@ -176,7 +176,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
 	echo "SPLITSEGMENTTIME=1">>"$CONFIGFILE"
 	echo "# Videos with durations below above this threshold will be segmented.">>"$CONFIGFILE"
-	echo "DUBBINGSEGMENTTING_THRESHOLD=20">>"$CONFIGFILE"
+	echo "DUBBINGSEGMENTTING_THRESHOLD=59">>"$CONFIGFILE"
 	echo "# Segment Duration. should be same as slide duration (including transition) for slideshows dubbing.">>"$CONFIGFILE"
 	echo "DUBBINGSEGMENTTIME_DURATION=5">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
@@ -246,6 +246,9 @@ if [ ! -e $CONFIGFILE ] ; then
 	else
 		echo "VIDEO2X_DIR=" >>"$CONFIGFILE"
 	fi
+	echo "VIDEO2X_SCALING_OPTS=-s 4 --realesrgan-model realesrgan-plus -c libx264rgb -e crf=18 -e preset=medium" >>"$CONFIGFILE"
+	echo "VIDEO2X_DOUBLE_INTERPOLATE_OPTS=-p rife --rife-model rife-v4.6 -c libx264rgb -e crf=18 -e preset=medium" >>"$CONFIGFILE"
+
 	echo "">>"$CONFIGFILE"
 
 	echo "# --- VR we are App config ---">>"$CONFIGFILE"
@@ -456,8 +459,6 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 			mkdir -p tasks/$task/done
 		fi
 	done
-
-	#touch fullsbs/done/.nocleanup slideshow/done/.nocleanup interpolate/done/.nocleanup dubbing/sfx/done/.nocleanup watermark/encrypt/done/.nocleanup watermark/decrypt/done/.nocleanup singleloop/done/.nocleanup slides/done/.nocleanup tasks/credit-vr-we-are/done/.nocleanup tasks/vlimit-720p/done/.nocleanup tasks/vlimit-1080p/done/.nocleanup tasks/split-1m/done/.nocleanup tasks/fps-limit-15/done/.nocleanup
 	
 fi
 cd ../..
@@ -494,25 +495,6 @@ if [ ! -e "$CONFIGPATH"/uml/"autoforward.png" ] || [ ! -s "$CONFIGPATH"/uml/"aut
 	# Requires to be online...
 	./custom_nodes/comfyui_stereoscopic/api/uml_generate_image.sh
 fi
-
-# Cleanup
-#echo -e $"\e[2mCleaning up unprotected done folders\e[0m"
-#for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx dubbing/music watermark/encrypt watermark/decrypt caption interpolate ; do
-#	if [ ! -f input/vr/$stagepath/done/.nocleanup ] ; then
-#		#rm -f -- input/vr/$stagepath/done/* 2>/dev/null
-#    	powershell -NoProfile -Command "param([string]\$childpath); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr' -ChildPath \$childpath; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$stagepath" 2>/dev/null
-#	fi
-#done
-#TASKDIR=`find input/vr/tasks -maxdepth 1 -type d`
-#for task in $TASKDIR; do
-#	taskpath=${task#input/vr/tasks/}
-#	if [ ! -z $taskpath ] ; then
-#		if [ ! -f input/vr/tasks/$taskpath/done/.nocleanup ] ; then
-#			#rm -f -- input/vr/tasks/$taskpath/done/* 2>/dev/null
-#      		powershell -NoProfile -Command "param([string]\$childpath); Add-Type -AssemblyName Microsoft.VisualBasic; \$p = Join-Path -Path 'input/vr/tasks' -ChildPath \$childpath; \$p = Join-Path -Path \$p -ChildPath 'done'; Get-ChildItem -LiteralPath \$p -File -ErrorAction SilentlyContinue | ForEach-Object { try { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\$_.FullName, [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin) } catch { } }" -ArgumentList "$taskpath" 2>/dev/null
-#		fi
-#	fi
-#done
 
 # check if install enforces a test run and then wait for ComfyUI to be started.
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.forced" ] ; then

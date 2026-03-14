@@ -1,5 +1,6 @@
 import os
 import re
+import traceback
 
 path = os.path.dirname(os.path.abspath(__file__))
 
@@ -75,7 +76,6 @@ with open(uml_def, "w") as f:
     transitionRules=[]
     typeDef=[]
     childs=[]
-    nocleanup=[]
     for s in range(len(STAGES)):
         stage=STAGES[s]
         
@@ -110,17 +110,7 @@ with open(uml_def, "w") as f:
             if not s in involved:
                 involved.append(s)
 
-        nocleanupfile = os.path.join(path, "../../../../input/vr/" + stage + "/done/.nocleanup")
-        if os.path.exists(nocleanupfile):
-            childs.append(" {\n  state keep"+str(s)+" <<history>>\n}")
-            nocleanup.append(True)
-            if not s in involved:
-                involved.append(s)            
-            if not s in startsCand:
-                startsCand.append(s)            
-        else:
-            childs.append("")
-            nocleanup.append(False)
+        childs.append("")
         
     for s in range(len(STAGES)):
         stage=STAGES[s]
@@ -166,7 +156,7 @@ with open(uml_def, "w") as f:
                         elif not style  == "":
                             style="["+style+"]"
                             
-                        name = "stage" #"nocleanup" if nocleanup[sidx] else "stage"
+                        name = "stage"
                         transitionRules.append("stage" + str(s) + " -"+style+"-> " + name + str(sidx) + options)
                     except Exception as e:
                         typeDef[s]=" : error (forward)"
@@ -214,7 +204,7 @@ with open(uml_def, "w") as f:
                 style="[#8C018C]"
             else:
                 style="[#darkgray]"
-            name = "stage" #"nocleanup" if nocleanup[s] else "stage"
+            name = "stage"
             f.write("[*] -" + style + "-> " + name + str(s) + "\n")
     f.write("\n")
 

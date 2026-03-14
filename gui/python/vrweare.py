@@ -1259,7 +1259,7 @@ class SpreadsheetApp(QMainWindow):
                         # Input side
                         try:
                             folder_in = os.path.join(path, "../../../../input/vr/" + stage)
-                            info_in = {'exists': False, 'count': 0, 'ddd_count': 0, 'sss_count': 0, 'done_count': 0, 'done_nocleanup': False, 'error_count': 0, 'wait_count': 0}
+                            info_in = {'exists': False, 'count': 0, 'ddd_count': 0, 'sss_count': 0, 'done_count': 0, 'error_count': 0, 'wait_count': 0}
                             if os.path.exists(folder_in):
                                 info_in['exists'] = True
                                 try:
@@ -1303,9 +1303,7 @@ class SpreadsheetApp(QMainWindow):
                                 if os.path.exists(subfolder_done):
                                     try:
                                         done_files = next(os.walk(subfolder_done))[2]
-                                        info_in['done_nocleanup'] = any(f.lower() == ".nocleanup" for f in done_files)
-                                        # exclude marker file from counts
-                                        done_files = [f for f in done_files if f.lower() != ".nocleanup"]
+                                        done_files = [f for f in done_files if not f.startswith(".")]
                                         done_files = [f for f in done_files if not f.lower().endswith(".txt")]
                                         done_files = [f for f in done_files if '.' in f]
                                         done_files = [f for f in done_files if f.lower() not in IGNORED_BASENAMES]
@@ -1710,15 +1708,9 @@ class SpreadsheetApp(QMainWindow):
                                         value = value + f"({sssc_disp})"
                                         displayRequired = True
 
-                                    # Keep legacy marker when everything is empty (only when done_nocleanup is set)
-                                    if info.get('done_nocleanup', False) and count == 0 and waitc == 0 and sssc == 0:
-                                        value = value + " (-)"
-                                        displayRequired = True
-
                                     # Color semantics for INPUT column:
                                     # - green when there are direct input files (DDD)
                                     # - white otherwise
-                                    # done_nocleanup must not affect the color.
                                     if count > 0:
                                         color = "white" if stage_name in {"tasks/trashbin", "check/rate"} else "green"
                                         # If the stage/task is disabled, do not show green; show orange instead.
