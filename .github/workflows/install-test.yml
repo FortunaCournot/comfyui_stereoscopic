@@ -35,7 +35,7 @@ jobs:
   install-test-windows:
     name: Smoke test (Windows)
     runs-on: windows-latest
-    timeout-minutes: 20   # ← beendet den Job nach 20 Minuten
+    timeout-minutes: 20   # terminates the job after 20 minutes
     
     env:
       INSTALL_DIR: C:\Users\runneradmin\AppData\Local

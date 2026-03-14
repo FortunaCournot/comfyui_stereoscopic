@@ -1,0 +1,177 @@
+#!/bin/sh
+#
+# v2v_upscale_downscale_tvai.sh || exit 1
+#
+# Upscales a base video (input) with Topaz Video AI and places result under ComfyUI/output/vr/scaling folder.
+#
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
+
+
+# Prerequisite: Topaz Video AI pathes must be configured and login active.
+# Prerequisite: Git Bash installed. Call this script in Git Bash
+
+# either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
+if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
+COMFYUIPATH=`realpath $(dirname "$0")/../../..`
+# API relative to COMFYUIPATH, or absolute path:
+SCRIPTPATH=
+
+
+if test $# -ne 1 -a $# -ne 2
+then
+    # targetprefix path is relative; parent directories are created as needed
+    echo "Usage: $0 input"
+    echo "E.g.: $0 SmallIconicTown.mp4 override_active"
+else
+	cd $COMFYUIPATH
+
+	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+	CONFIGFILE=`realpath $CONFIGFILE`
+	export CONFIGFILE
+	if [ -e $CONFIGFILE ] ; then
+		loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+		[ $loglevel -ge 2 ] && set -x
+		config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
+	else
+		touch "$CONFIGFILE"
+		echo "config_version=1">>"$CONFIGFILE"
+	fi
+
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+
+	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+
+	# Use Systempath for python by default, but set it explictly for comfyui portable.
+	PYTHON_BIN_PATH=
+	if [ -d "../python_embeded" ]; then
+	  PYTHON_BIN_PATH=../python_embeded/
+	fi
+
+	DOWNSCALE=1.0
+	INPUT="$1"
+
+	if [ ! -e "$INPUT" ] ; then echo "input file removed: $INPUT"; exit 0; fi
+	shift
+	override_active=$1
+	
+
+	VIDEO2X_DIR=$(awk -F "=" '/VIDEO2X_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; VIDEO2X_DIR=${VIDEO2X_DIR:-""}
+	VIDEO2X_SCALING_OPTS=$(awk -F "=" '/VIDEO2X_SCALING_OPTS=/ {print $2}' $CONFIGFILE | head -n 1) ; VIDEO2X_SCALING_OPTS=${VIDEO2X_SCALING_OPTS:-"-s 4 --realesrgan-model realesrgan-plus -c libx264rgb -e crf=18 -e preset=medium"}
+
+
+	if [ ! -e "$VIDEO2X_DIR/video2x.exe" ] ; then
+		echo -e $"\e[91mError:\e[0m VIDEO2X settings wrong. Please configure at $CONFIGFILE"":"
+		[ ! -e "$VIDEO2X_DIR" ] && echo -e $"\e[91mError:\e[0m VIDEO2X_DIR=$VIDEO2X_DIR"
+		exit 1
+	fi
+	
+	PROGRESS=" "
+	if [ -e input/vr/scaling/BATCHPROGRESS.TXT ]
+	then
+		PROGRESS=`cat input/vr/scaling/BATCHPROGRESS.TXT`" "
+	fi
+	regex="[^/]*$"
+	[ $loglevel -ge 0 ] && echo "========== $PROGRESS""rescale (video2x) "`echo $INPUT | grep -oP "$regex"`" =========="
+	
+	TARGETPREFIX=${INPUT##*/}
+	INPUT=`realpath "$INPUT"`
+	TARGETPREFIX_UPSCALE=${TARGETPREFIX%.*}
+	TARGETPREFIX=output/vr/scaling/intermediate/$TARGETPREFIX_UPSCALE
+	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
+	mkdir -p output/vr/scaling/intermediate
+	
+  set -x
+  
+	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT=/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
+	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF=/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
+	
+	RESW=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 $INPUT`
+	RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT`
+	if [ `echo $RESW | wc -l` -ne 1 ] || [ `echo $RESH | wc -l` -ne 1 ] ; then
+		echo -e $"\e[91mError:\e[0m Can't process video. please resample ${INPUT##*/} from input/vr/scaling/error"
+		mkdir -p input/vr/scaling/error
+		mv -f --  $INPUT input/vr/scaling/error
+		exit 0
+	fi
+	PIXEL=$(( $RESW * $RESH ))
+	
+	LIMIT4X=$(awk -F "=" '/LIMIT4X_NORMAL=/ {print $2}' $CONFIGFILE) ; LIMIT4X=${LIMIT4X:-"518400"}
+	LIMIT2X=$(awk -F "=" '/LIMIT2X_NORMAL=/ {print $2}' $CONFIGFILE) ; LIMIT2X=${LIMIT2X:-"2073600"}
+	override_active=1	# override in TVAI always active
+	if [ $override_active -gt 0 ]; then
+		[ $loglevel -ge 0 ] && echo "override active"
+		LIMIT4X=$(awk -F "=" '/LIMIT4X_OVERRIDE=/ {print $2}' $CONFIGFILE) ; LIMIT4X_OVERRIDE=${LIMIT4X_OVERRIDE:-"1036800"}
+		duration=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1:nk=1 $INPUT`
+		duration=${duration%.*}
+		if test $duration -ge 600 ; then
+			LIMIT2X=$(awk -F "=" '/LIMIT2X_OVERRIDE_LONG=/ {print $2}' $CONFIGFILE) ; LIMIT2X_OVERRIDE_LONG=${LIMIT2X_OVERRIDE_LONG:-"4147200"}
+			[ $loglevel -ge 0 ] && echo "long video detected."
+		fi
+	fi
+
+
+	TARGETPREFIX="$TARGETPREFIX""_x4"
+	UPSCALEFACTOR=4
+
+	set -x
+	nice "$VIDEO2X_DIR"/video2x.exe -i "$INPUT" -o "$TARGETPREFIX"".mp4" -p realesrgan $VIDEO2X_SCALING_OPTS
+	set +x
+	if [ -e "$TARGETPREFIX"".mp4" ] ; then
+		# downscale result to max 4K (3840x2160) preserving aspect ratio
+		OUTFILE="$TARGETPREFIX"".mp4"
+		# probe resolution of generated file
+		RESW_GEN=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "$OUTFILE"`
+		RESH_GEN=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 "$OUTFILE"`
+		if [ -n "$RESW_GEN" ] && [ -n "$RESH_GEN" ]; then
+			MAXW=3840
+			MAXH=2160
+			# If filename contains 'sbs' (any case), allow larger width by doubling MAXW
+			BASENAME=`basename "$OUTFILE"`
+			if echo "$BASENAME" | tr '[:upper:]' '[:lower:]' | grep -q 'sbs' ; then
+				MAXW=$((MAXW * 2))
+				[ $loglevel -ge 0 ] && echo "SBS detected in filename, MAXW doubled -> $MAXW"
+			fi
+			if [ "$RESW_GEN" -gt $MAXW ] || [ "$RESH_GEN" -gt $MAXH ]; then
+				# decide limiting dimension by aspect
+				if [ $(( RESW_GEN * MAXH )) -gt $(( RESH_GEN * MAXW )) ]; then
+					newW=$MAXW
+					newH=$(( (RESH_GEN * MAXW) / RESW_GEN ))
+				else
+					newH=$MAXH
+					newW=$(( (RESW_GEN * MAXH) / RESH_GEN ))
+				fi
+				# ensure even dimensions
+				newW=$(( (newW / 2) * 2 ))
+				newH=$(( (newH / 2) * 2 ))
+				[ $loglevel -ge 0 ] && echo "Downscaling ${RESW_GEN}x${RESH_GEN} -> ${newW}x${newH}"
+				TMP_DOWN="$TARGETPREFIX""_4k.mp4"
+				# transcode/downscale and keep audio
+				nice "$FFMPEGPATHPREFIX"ffmpeg -y -i "$OUTFILE" -vf "scale=${newW}:${newH}" -c:v libx264 -crf 18 -preset medium -c:a copy "$TMP_DOWN"
+				if [ -e "$TMP_DOWN" ]; then
+					mv -f -- "$TMP_DOWN" "$OUTFILE"
+					[ $loglevel -ge 0 ] && echo "Downscale complete -> $OUTFILE"
+				else
+					[ $loglevel -ge 0 ] && echo "Warning: downscale failed, keeping original $OUTFILE"
+				fi
+			fi
+		fi
+		[ -e "$EXIFTOOLBINARY" ] &&  nice "$FFMPEGPATHPREFIX"ffmpeg -i "$TARGETPREFIX"".mp4" -vcodec libx264 -crf 18 -qscale:v 2 -acodec aac -ac 2 -async 1 -strict experimental -threads 0 output/vr/scaling/intermediate/exifinput.mp4
+		[ -e "$EXIFTOOLBINARY" ] &&  mv -f -- output/vr/scaling/intermediate/exifinput.mp4 "$TARGETPREFIX"".mp4"
+		[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$INPUT" -xmp:rating -SharedUserRating -overwrite_original "$TARGETPREFIX"".mp4" && echo "Rating tags copied."
+		mv -vf "$TARGETPREFIX"".mp4" $FINALTARGETFOLDER
+		mkdir -p input/vr/scaling/done
+		mv -f -- "$INPUT" input/vr/scaling/done
+		echo -e $"\e[92mdone\e[0m"
+	else
+		echo -e $"\e[91mError:\e[0m Video2X generation failed. Check for error messages."
+		mkdir -p input/vr/scaling/error
+		mv -vf -- "$INPUT" input/vr/scaling/error
+		exit 0
+	fi
+fi
+exit 0
+

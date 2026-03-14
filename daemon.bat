@@ -58,9 +58,11 @@ ECHO   [91mPlease download Git from [96m https://git-scm.com/ [0m
 GOTO Fail
 
 
-:: Execute daemon shell script
+:: Execute daemon shell script. 
+:: Alexa custom skill needs configuration and expose handling. See alexa/README.md for details.
 :Start
 ECHO ON
+"%GIT%"\git-bash.exe alexa/script/start.sh
 "%GIT%"git-bash.exe daemon.sh
 IF %ERRORLEVEL% == 0 GOTO End
 ECHO [91mError level: %ERRORLEVEL%[0m
@@ -73,5 +75,6 @@ GOTO End
 
 :: Done 
 :End
+"%GIT%"\git-bash.exe alexa/script/stop.sh >NUL 2>NUL
 ENDLOCAL
 

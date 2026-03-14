@@ -9,6 +9,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
@@ -17,7 +44,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale.sh 
 SCRIPTPATH2=./custom_nodes/comfyui_stereoscopic/api/i2i_upscale_downscale.sh 
 SCRIPTPATH_TVAI=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale_tvai.sh 
-
+SCRIPTPATH_VIDEO2X=./custom_nodes/comfyui_stereoscopic/api/v2v_upscale_downscale_video2x.sh
 cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
@@ -58,6 +85,7 @@ else
 	fi
 	
 	TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
+	VIDEO2X_DIR=$(awk -F "=" '/VIDEO2X_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; VIDEO2X_DIR=${VIDEO2X_DIR:-""}
 	
 	#for file in input/vr/scaling/*' '*
 	#do
@@ -72,28 +100,36 @@ else
 	#	mv -- "$file" "${file// /_}"
 	#done
 	
-	for f in input/vr/scaling/*\ *; do mv "$f" "${f// /_}"; done 2>/dev/null
-	for f in input/vr/scaling/*\(*; do mv "$f" "${f//\(/_}"; done 2>/dev/null
-	for f in input/vr/scaling/*\)*; do mv "$f" "${f//\)/_}"; done 2>/dev/null
-	for f in input/vr/scaling/*\'*; do mv "$f" "${f//\'/_}"; done 2>/dev/null
-	
-	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	shopt -s nullglob
+	for f in input/vr/scaling/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
+		if [ -z "$COMFYUIPATH" ]; then
+			echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+		fi
+		LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+		if [ -f "$LIB_FS" ]; then
+			. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+		else
+			echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+		fi
+		COUNT=$(count_files_with_exts "input/vr/scaling" mp4 webm)
+	COUNT=$(count_files_with_exts "input/vr/scaling" mp4 webm)
 	[ $loglevel -ge 1 ] && echo "Video Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			echo "scaling" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/scaling/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			newfn=$(normalize_rename_path "input/vr/scaling/${nextinputfile##*/}")
+			mv "$nextinputfile" "$newfn" 
 			
 			if [ -e "$newfn" ]
 			then
@@ -109,12 +145,16 @@ else
 					echo -e $"\e[93mWarning:\e[0m long video (>600s) detected."
 				fi
 				if [ ! -d "$TVAI_BIN_DIR" ] ; then
-					/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
-				
-					status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-					if [ "$status" = "closed" ]; then
-						echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
-						exit 1
+					if [ -d "$VIDEO2X_DIR" ] ; then
+						/bin/bash $SCRIPTPATH_VIDEO2X "$newfn" $override_active || exit 1
+					else
+						/bin/bash $SCRIPTPATH "$newfn" $override_active || exit 1
+					
+						status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+						if [ "$status" = "closed" ]; then
+							echo -e $"\e[91mError:\e[0m ComfyUI not present. Ensure it is running on $COMFYUIHOST port $COMFYUIPORT"
+							exit 1
+						fi
 					fi
 				else
 					/bin/bash $SCRIPTPATH_TVAI "$newfn" $override_active || exit 1
@@ -130,22 +170,19 @@ else
 	
 
 	IMGFILES=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webp'`
-	COUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webp' | wc -l`
+	COUNT=$(count_files_with_exts "input/vr/scaling" png jpg jpeg webp)
 	declare -i INDEX=0
 	[ $loglevel -ge 1 ] && echo "Image Count: $COUNT"
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/scaling/BATCHPROGRESS.TXT
 			echo "scaling" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/scaling/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			newfn=$(normalize_rename_path "input/vr/scaling/${nextinputfile##*/}")
+			mv "$nextinputfile" "$newfn" 
 			
 			if [[ "$newfn" == *_x?* ]]; then
 				echo "Skipping $newfn (already scaled)"

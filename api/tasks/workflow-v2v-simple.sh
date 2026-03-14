@@ -146,13 +146,21 @@ else
 
 	
 	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	# optional timeout (seconds) to trigger failover restart of ComfyUI
+	timeout=`cat "$BLUEPRINTCONFIG" | grep -o '"timeout":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	# source shared failover helper (if available)
+	if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
+		. ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh
+	fi
 	
-	[ $loglevel -lt 2 ] && set -x
+	[ $loglevel -ge 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX"
 	set +x && [ $loglevel -ge 2 ] && set -x
 
 	EXTENSION=".mp4"
-	INTERMEDIATE="$TARGETPREFIX""_00001""$EXTENSION"
+	SEARCH_PREFIX="${TARGETPREFIX##*/}"
+	INTERMEDIATE=""
+	INTERMEDIATE=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*${EXTENSION}" -size +0c -print -quit 2>/dev/null)
 	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
 	
 	start=`date +%s`
@@ -175,24 +183,32 @@ else
 		secs=$((end-start))
 		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 		echo -ne "$itertimemsg         \r"
+		# centralized failover check
+		if ! failover_check "$timeout" "$secs"; then
+			exit 0
+		fi
 	done
 	runtime=$((end-start))
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 	
-	if [ -e "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
+	if [ -n "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] ; then
   	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$ORIGINALINPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$INTERMEDIATE" && echo "tags copied."
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
 		mkdir -p input/vr/tasks/$TASKNAME/done
-		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/done
 		echo -e $"\e[92mtask done.\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m Task failed. $INTERMEDIATE missing or zero-length."
+		if [ -z "$INTERMEDIATE" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. No intermediate video found (prefix: $SEARCH_PREFIX, ext: $EXTENSION)."
+		else
+			echo -e $"\e[91mError:\e[0m Task failed. Intermediate video exists but has zero length: $INTERMEDIATE"
+		fi
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
 		mkdir -p input/vr/tasks/$TASKNAME/error
-		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
 	fi
 	
-	rm -rf -- $INTERMEDIATE_INPUT_FOLDER
+	rm -rf -- "$INTERMEDIATE_INPUT_FOLDER"
 
 fi
 exit 0

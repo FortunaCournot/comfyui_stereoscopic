@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "workflow-im2i-sd15-inpaint",
+  "workflow_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/IM2I_SD15_Inpaint.json",
+  "model_checkpoint": "512-inpainting-ema.safetensors",
+  "input": "image",
+  "output": "image",
+}

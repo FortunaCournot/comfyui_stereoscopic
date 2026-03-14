@@ -7,7 +7,21 @@
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
-cd $COMFYUIPATH
+	cd $COMFYUIPATH
+
+	# filesystem helpers (canonical sourcing)
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	if ! command -v count_files_with_exts >/dev/null 2>&1 || ! command -v count_files_any_ext >/dev/null 2>&1 ; then
+		echo "Error: lib_fs functions missing after sourcing $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1;
+	fi
 
 echo "Test starting..." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
 
@@ -21,16 +35,16 @@ COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=
 find ./input/vr -name test_* -exec rm -rf -- {} \;  2>/dev/null
 find ./output/vr -name test_* -exec rm -rf -- {} \;  2>/dev/null
 
-SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.WEBM' | wc -l`
-SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
-DUBSFXCOUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
-SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
-CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
-WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.WEBM' -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+SLIDECOUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm)
+SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" png)
+DUBSFXCOUNT=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
+SCALECOUNT=$(count_files_with_exts "input/vr/scaling" mp4 webm png jpg jpeg)
+SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 webm png jpg jpeg)
+OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" mp4 webm png jpg jpeg)
+SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" mp4 webm)
+CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
+WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" mp4 webm png jpg jpeg)
+WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" mp4 webm png jpg jpeg)
 
 COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT ))
 if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 0 ]] || [[ $SLIDESBSCOUNT -gt 0 ]] ; then

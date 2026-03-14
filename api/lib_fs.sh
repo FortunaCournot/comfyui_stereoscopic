@@ -1,0 +1,382 @@
+#!/bin/sh
+# Fast Filesystem helper library (Python-backed)
+# Replaces slow `find | wc -l` calls with a small Python implementation
+# using os.scandir() for efficiency. Falls back to `find` when no Python.
+
+# relative or absolute path of ComfyUI folder in your ComfyUI_windows_portable
+# Default: Executed in ComfyUI folder
+# Determine script directory robustly (works when the file is sourced or executed)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" >/dev/null 2>&1 && pwd)"
+_COMFYUIPATH="$(realpath "$SCRIPT_DIR/../../..")"
+
+# Use Systempath for python by default, but set it explictly for comfyui portable.
+# Try to set PYTHON_BIN_PATH if not already set by caller scripts
+## PYTHON handling: strict embedded python only (no system fallback)
+# If caller did not set PYTHON_BIN_PATH, prefer the repository's python_embeded relative to _COMFYUIPATH
+if [ -z "${PYTHON_BIN_PATH:-}" ]; then
+    PYTHON_BIN_PATH="../python_embeded/"
+fi
+# Normalize PYTHON_BIN_PATH: make absolute relative to _COMFYUIPATH when not absolute
+case "$PYTHON_BIN_PATH" in
+    /*|?:\\*) ;; # absolute Unix path or Windows drive letter
+    *) PYTHON_BIN_PATH="${_COMFYUIPATH%/}/${PYTHON_BIN_PATH%/}/" ;;
+esac
+export PYTHON_BIN_PATH
+
+# Resolve embedded python.exe path (must exist). Do NOT fallback to system python.
+PYTHON="${PYTHON_BIN_PATH}python.exe"
+if [ ! -x "$PYTHON" ]; then
+    echo "LOG: ERROR=\"embedded python not found at $PYTHON; set PYTHON_BIN_PATH to the embedded Python directory\"" >&2
+    # if sourced, return non-zero; if executed directly, exit
+    if [ "${BASH_SOURCE[0]:-$0}" != "$0" ]; then
+        return 1
+    else
+        exit 1
+    fi
+fi
+export PYTHON
+
+# Path to the FS status property file (written by compute_fs_status.py)
+# Can be overridden by environment variable `FS_STATUS_FILE`.
+FS_STATUS_FILE=${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}
+export FS_STATUS_FILE
+
+_fs_status_is_fresh_for_dir() {
+    dir="$1"
+    [ -f "$FS_STATUS_FILE" ] || return 1
+    [ -d "$dir" ] || return 0
+    "$PYTHON" - "$FS_STATUS_FILE" "$dir" <<'PY' >/dev/null 2>&1
+import os, sys
+
+status_file = sys.argv[1]
+directory = sys.argv[2]
+
+try:
+    status_mtime = os.stat(status_file).st_mtime_ns
+    dir_mtime = os.stat(directory).st_mtime_ns
+except OSError:
+    sys.exit(1)
+
+sys.exit(0 if status_mtime >= dir_mtime else 1)
+PY
+}
+
+# --- Tracing helpers ---
+# Minimal start/end trace to measure call durations (seconds, milliseconds when available)
+_trace_start() {
+    # try sub-second precision; fall back to integer seconds
+    _TRACE_START=$(date +%s.%N 2>/dev/null || date +%s)
+}
+
+_trace_end() {
+    func="$1"; shift || true
+    params="$*"
+    _TRACE_END=$(date +%s.%N 2>/dev/null || date +%s)
+    # compute elapsed using awk for floating arithmetic
+    elapsed=$(awk -v s="${_TRACE_START}" -v e="${_TRACE_END}" 'BEGIN{printf "%.3f", e - s}')
+    # echo "LOG: TRACE=\"${func} params=[${params}] elapsed=${elapsed}s\"" >&2
+}
+
+
+_py_count() {
+    dir="$1"; mode="$2"; shift 2
+    # Optional debug instrumentation when FS_DEBUG=1 to separate Python startup vs scan time
+    if [ "${FS_DEBUG:-0}" -eq 1 ]; then
+        PY_STDERR_TMP=$(mktemp 2>/dev/null || echo /tmp/libfs_dbg.$$)
+        PY_CALL_START=$(date +%s.%N 2>/dev/null || date +%s)
+        pyout=$("$PYTHON" - "$dir" "$mode" "$@" <<'PY' 2>"$PY_STDERR_TMP"
+import os,sys,time
+def safe_int(x):
+    try:
+        return int(x)
+    except Exception:
+        return 0
+
+d=sys.argv[1]
+mode=sys.argv[2]
+args=sys.argv[3:]
+if not os.path.isdir(d):
+    print(0); sys.exit(0)
+cnt=0
+scan_t0=time.time()
+try:
+    it=os.scandir(d)
+    if mode=='any':
+        cnt = sum(1 for e in it if e.is_file() and '.' in e.name)
+    elif mode=='exts':
+        exts=[a.lstrip('.').lower() for a in args]
+        for e in it:
+            if not e.is_file():
+                continue
+            nm=e.name.lower()
+            for ex in exts:
+                if nm.endswith('.'+ex):
+                    cnt += 1
+                    break
+    elif mode=='dirs_prefix':
+        pref=args[0] if args else ''
+        cnt = sum(1 for e in it if e.is_dir() and e.name.startswith(pref))
+    else:
+        cnt = 0
+except Exception:
+    cnt = 0
+scan_t1=time.time()
+print(cnt)
+sys.stderr.write(f"LOG: PY_SCAN=\"{(scan_t1-scan_t0):.6f}s\"\n")
+PY
+        )
+        # forward python stderr to our stderr and remove tmp
+        [ -f "$PY_STDERR_TMP" ] && cat "$PY_STDERR_TMP" >&2 && rm -f "$PY_STDERR_TMP"
+        PY_CALL_END=$(date +%s.%N 2>/dev/null || date +%s)
+        # compute python process elapsed
+        py_elapsed=$(awk -v s="$PY_CALL_START" -v e="$PY_CALL_END" 'BEGIN{printf "%.6f", e - s}')
+        # echo "LOG: PY_CALL=\"${py_elapsed}s\"" >&2
+        echo "$pyout"
+        return
+    fi
+    # Call Python with script read from stdin; pass args after '-'
+    "$PYTHON" - "$dir" "$mode" "$@" <<'PY'
+import os,sys
+def safe_int(x):
+    try:
+        return int(x)
+    except Exception:
+        return 0
+
+d=sys.argv[1]
+mode=sys.argv[2]
+args=sys.argv[3:]
+if not os.path.isdir(d):
+    print(0); sys.exit(0)
+cnt=0
+try:
+    it=os.scandir(d)
+    if mode=='any':
+        # count regular files that contain a dot (has an extension)
+        cnt = sum(1 for e in it if e.is_file() and '.' in e.name)
+    elif mode=='exts':
+        exts=[a.lstrip('.').lower() for a in args]
+        for e in it:
+            if not e.is_file():
+                continue
+            nm=e.name.lower()
+            for ex in exts:
+                if nm.endswith('.'+ex):
+                    cnt += 1
+                    break
+    elif mode=='dirs_prefix':
+        pref=args[0] if args else ''
+        cnt = sum(1 for e in it if e.is_dir() and e.name.startswith(pref))
+    else:
+        cnt = 0
+except Exception:
+    cnt = 0
+print(cnt)
+PY
+}
+_normalize_lookup_dir() {
+    # Normalize a directory path to a repository-relative, unix-style path
+    dir="$1"
+    # convert Windows backslashes to forward slashes
+    dir="$(echo "$dir" | sed 's#\\#/#g')"
+    # If dir is absolute, convert to relative path via python relpath.
+    # NOTE: this must pass the path as argv[1] (previously caused IndexError).
+    case "$dir" in
+        /*|?:/*)
+            rel=$("$PYTHON" - "$dir" <<'PY' 2>/dev/null
+import os,sys
+path = sys.argv[1] if len(sys.argv) > 1 else ""
+if not path:
+    sys.exit(0)
+print(os.path.relpath(path, os.getcwd()).replace('\\\\','/'))
+PY
+)
+            [ -n "$rel" ] && dir="$rel"
+            ;;
+    esac
+    # strip leading ./ if present
+    dir="${dir#./}"
+    # strip trailing slash so keys like "input/vr/tasks/foo" match
+    dir="${dir%/}"
+    echo "$dir"
+}
+
+count_files_any_ext() {
+    _trace_start
+    dir="$1"
+    # Prefer authoritative FS status file when present
+    if _fs_status_is_fresh_for_dir "$dir"; then
+        lookup="$(_normalize_lookup_dir "$dir")"
+        # ensure unix-style separators
+        lookup="$(echo "$lookup" | sed 's#\\#/#g')"
+        # attempt to read any|<path>=N
+        if [ -f "$FS_STATUS_FILE" ]; then
+            val=$(awk -F"=" -v k="any|$lookup" '$1==k{print $2; exit}' "$FS_STATUS_FILE" 2>/dev/null)
+            if [ -n "$val" ]; then
+                echo "$val"
+                _trace_end count_files_any_ext "$dir"
+                return
+            fi
+        fi
+        # If not found in status file, fall back to live count (covers temp folders, cwd=".", etc.)
+    fi
+    # Fast path for Git Bash / bash users: avoid Python startup overhead by
+    # using a small bash snippet. 
+    if [ ! -d "$dir" ]; then
+        echo 0
+        _trace_end count_files_any_ext "$dir"
+        return
+    fi
+    # Run a bash one-liner (avoids Python process startup) to count regular files
+    result=$(bash -c '
+shopt -s nullglob dotglob 2>/dev/null || true
+n=0
+for f in "$1"/*; do
+[ -f "$f" ] && n=$((n+1))
+done
+printf "%d" "$n"
+' bash "$dir")
+    echo "$result"
+    _trace_end count_files_any_ext "$dir"
+    return
+
+#    result=$(_py_count "$dir" any)
+#    echo "$result"
+#    _trace_end count_files_any_ext "$dir"
+}
+
+count_files_with_exts() {
+    _trace_start
+    dir="$1"; shift || true
+    # If status file present, map requested extensions to a category
+    if _fs_status_is_fresh_for_dir "$dir"; then
+        # lowercase and normalize single ext (or first ext)
+        ext_lc="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/^\.//')"
+        # define categories consistent with compute_fs_status.py
+        case "$ext_lc" in
+            png|jpg|jpeg|webp)
+                typ=images ;;
+            mp4|webm|ts|mkv|avi|mov)
+                typ=videos ;;
+            flac|mp3|wav|aac|m4a)
+                typ=audio ;;
+            *) typ=any ;;
+        esac
+        lookup="$(_normalize_lookup_dir "$dir")"
+        val=$(awk -F"=" -v k="$typ|$lookup" '$1==k{print $2; exit}' "$FS_STATUS_FILE" 2>/dev/null)
+        if [ -n "$val" ]; then
+            echo "$val"
+            _trace_end count_files_with_exts "$dir" "$@"
+            return
+        fi
+        # If not found in status file, fall back to live count (covers temp folders, cwd=".", etc.)
+    fi
+    result=$(_py_count "$dir" exts "$@")
+    echo "$result"
+    _trace_end count_files_with_exts "$dir" "$@"
+}
+
+count_dirs_with_prefix() {
+    _trace_start
+    dir="$1"; pref="$2"
+    result=$(_py_count "$dir" dirs_prefix "$pref")
+    echo "$result"
+    _trace_end count_dirs_with_prefix "$dir" "$pref"
+}
+
+# If no Python detected, provide a find-based fallback to preserve behavior
+if [ -z "$PYTHON" ]; then
+    count_files_any_ext() {
+        _trace_start
+        dir="$1"
+        if [ ! -d "$dir" ]; then
+            echo 0; _trace_end count_files_any_ext "$dir"; return
+        fi
+        result=$(find "$dir" -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l)
+        echo "$result"
+        _trace_end count_files_any_ext "$dir"
+    }
+    count_files_with_exts() {
+        _trace_start
+        dir="$1"; shift || true
+        if [ ! -d "$dir" ]; then
+            echo 0; _trace_end count_files_with_exts "$dir" "$@"; return
+        fi
+        total=0
+        for ext in "$@"; do
+            e="$ext"
+            case "$e" in
+                .* ) e="${e#*.}" ;;
+            esac
+            cnt=$(find "$dir" -maxdepth 1 -type f -iname "*.$e" 2>/dev/null | wc -l)
+            total=$((total + cnt))
+        done
+        echo "$total"
+        _trace_end count_files_with_exts "$dir" "$@"
+    }
+    count_dirs_with_prefix() {
+        _trace_start
+        dir="$1"; prefix="$2"
+        if [ ! -d "$dir" ]; then
+            echo 0; _trace_end count_dirs_with_prefix "$dir" "$prefix"; return
+        fi
+        result=$(find "$dir" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null | wc -l)
+        echo "$result"
+        _trace_end count_dirs_with_prefix "$dir" "$prefix"
+    }
+fi
+
+# Compute number of task files under a tasks base folder, excluding disabled tasks
+# listed in unused.properties and excluding special folders (intermediate/, trashbin/).
+#
+# Usage:
+#   compute_task_count [base] [unused_props]
+# Defaults:
+#   base=input/vr/tasks
+#   unused_props=$UNUSED_PROPS or ./user/default/comfyui_stereoscopic/unused.properties
+compute_task_count() {
+    local base unused_props disabled_raw
+    base="${1:-input/vr/tasks}"
+    unused_props="${2:-${UNUSED_PROPS:-./user/default/comfyui_stereoscopic/unused.properties}}"
+    base="${base%/}"
+
+    if [ ! -d "$base" ]; then
+        echo 0
+        return
+    fi
+
+    disabled_raw=""
+    if [ -f "$unused_props" ]; then
+        disabled_raw=$(awk -F"=" '$1=="task" || $1=="customtask" {print $2}' "$unused_props" | tr -d '\r' | paste -sd "," -)
+    fi
+
+    # Count files located directly inside each immediate task subfolder only (-mindepth 2 -maxdepth 2).
+    # Exclude base/intermediate and base/trashbin.
+    find "$base" -mindepth 2 -maxdepth 2 -type f \
+        ! -path "$base/intermediate/*" \
+        ! -path "$base/trashbin/*" \
+        -printf '%h\n' 2>/dev/null | awk -v disabled="${disabled_raw}" -F'/' '
+    BEGIN{
+        n=split(disabled, arr, ",")
+        for(i=1;i<=n;i++){
+            v=arr[i]
+            gsub(/^[ \t]+|[ \t]+$/,"",v)
+            if(v!="") dis[v]=1
+        }
+    }
+    {
+        parent=$NF
+        cand1="tasks/"parent
+        cand2="tasks/_"parent
+        if(substr(parent,1,1)=="_"){
+            cand3="tasks/"substr(parent,2)
+        } else {
+            cand3=""
+        }
+        if(dis[cand1] || dis[cand2] || (cand3!="" && dis[cand3])) next
+        count++
+    }
+    END{print count+0}'
+}
+
+return 0

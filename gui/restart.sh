@@ -13,8 +13,8 @@ if [ -d "../python_embeded" ]; then
 fi
 
 cleanup() {
-    #echo "Reinigung wird durchgeführt..."
-    exit 0 # Beendet das Skript nach der Bereinigung
+  #echo "Running cleanup..."
+  exit 0 # Exit the script after cleanup
 }
 
 trap cleanup EXIT

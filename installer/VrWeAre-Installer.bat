@@ -21,7 +21,7 @@ SETLOCAL enabledelayedexpansion
 
 SET VRWEARE_VERSION=4.0
 
-:: Files ouside of my authority with provided checksum:
+:: Files ouside of my authority with provided checksum (sha256sum):
 :: ComfyUI_windows_portable_nvidia.7z from https://github.com/comfyanonymous/ComfyUI/releases
 
 ::SET COMFYUI_SHA=38c4cae0e4983a033d65920a3e293c58c986637c9fb15cb13274f0f5bc27ee89
@@ -30,8 +30,17 @@ SET VRWEARE_VERSION=4.0
 ::SET COMFYUI_SHA=6d17839039e3e70ec7edb757bcf330811fc645ad5c27f958233bf4d46592061e
 ::SET COMFYUI_TAG=v0.3.65
 
-SET COMFYUI_SHA=cb8a5cff9a1c3bb5dc37e5f1d146e04c385bfc60aa83216312a134cbcf7861ff
-SET COMFYUI_TAG=v0.3.68
+::SET COMFYUI_SHA=cb8a5cff9a1c3bb5dc37e5f1d146e04c385bfc60aa83216312a134cbcf7861ff
+::SET COMFYUI_TAG=v0.3.68
+
+::SET COMFYUI_SHA=3bb5a3ca6772cff3dc1dd7137826db560d686aa7915ec57d3faf2b77f50241cb
+::SET COMFYUI_TAG=v0.3.76
+
+::SET COMFYUI_SHA=4635974ace3e3c99a30e128a97a344cee519d88aa80b6d24693cec1b6ceee5ca
+::SET COMFYUI_TAG=v0.13.0
+
+SET COMFYUI_SHA=c583b6590934a41b63b3f601d53f2101bbffa94af833f3c367e9ade0aa3bc9ba
+SET COMFYUI_TAG=v0.16.4
 
 SET PYTHON_VERSION=3.13
 
@@ -57,12 +66,11 @@ SET DEPTH_ANYTHING_V2_TAG=tags/1.0.1
 SET FFMPEG_SHA=48ca5e824d2660a94f89fd55287b7c35129b55bbe680c4330efeed5269c4820f
 SET FFMPEG_TAG=8.0
 
-:: Files redistributed through released forks:
-::SET CONTROLNETAUX_TAG=1.1.2-rev562
-
+:: CONTROLNET-AUX is missing tag for 1.0.4:
+SET CONTROLNETAUX_TAG=95a13e2e5d8f8ae57583fbebb0be1f670889858b
 :: Addional files
 SET KJNODES_TAG=tags/1.1.9
-SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
+::SET SAGEATTENTIONURL=https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl
 
 
 :: TAGS
@@ -480,7 +488,7 @@ ECHO   [35m2[0m - Judging: Pipeline for first/last image: [1m%PIPELINE_OPTION
 ECHO   [35m3[0m - Generate Watermark (experimental): [1m%PIPELINE_OPTION_WATERMARK_TEXT%[0m
 ECHO  ComfyUI options:
 ECHO   [35m4[0m - Add extra packages: [1m%EXTRAS_TEXT%[0m
-ECHO         rgthree, easy-use, ReActor, WD14-Tagger
+ECHO         rgthree, easy-use, ReActor, WD14-Tagger, Controlnet-aux
 ECHO   [35m5[0m - Install Training software (+%INSTALLSIZE_TRAINING%): [1m%TRAINING_TEXT%[0m
 ECHO         AI-Toolkit
 ECHO/
@@ -659,7 +667,6 @@ echo checkoutSoftware() { >>install.sh
 echo   git clone  $1 $2  >>install.sh
 echo   CWD=`pwd`  >>install.sh
 echo   if [ ^^! -z "$3" ] ; then >>install.sh
-echo     set -x  >>install.sh
 echo     cd "$2"  >>install.sh
 echo     COUTPATH="$3"  >>install.sh
 echo     if [ "${COUTPATH:0:6}" == "heads/" ] ; then >>install.sh
@@ -738,9 +745,8 @@ echo\ >>install.sh
 echo echo "Download license files..." >>install.sh
 :: Download licenses . for tags from /tags/... the other from /heads/main/
 echo  installFile "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/refs/heads/master/LICENSE" "./LICENSE_ComfyUI-portable.TXT"  >>install.sh
-echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/tags/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Manager/refs/%MANAGER_TAG%/LICENSE.txt" "./LICENSE_ComfyUI-Manager.TXT"  >>install.sh
 IF %INTERACTIVE% equ 1 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/%VRWEARE_TAG%/LICENSE" "./LICENSE_VRweare.TXT"  >>install.sh
-::echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 echo echo "cc-by-4.0 Jukka Kijai Seppänen , https://depth-anything-v2.github.io/" ^> ./LICENSE_DepthAnythingV2.txt >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/ComfyUI-Custom-Scripts/refs/heads/main/LICENSE" "./LICENSE_ComfyUI-Custom-Scripts.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/FortunaCournot/comfy_mtb/refs/heads/main/LICENSE" "./LICENSE_comfy_mtb.TXT"  >>install.sh
@@ -765,6 +771,7 @@ echo  installFile "https://raw.githubusercontent.com/yolain/ComfyUI-Easy-Use/ref
 echo  installFile "https://raw.githubusercontent.com/rgthree/rgthree-comfy/refs/heads/main/LICENSE" "./LICENSE_rgthree.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/Gourieff/ComfyUI-ReActor/refs/%REACTOR_TAG%/LICENSE" "./LICENSE_ReActor.TXT"  >>install.sh
 echo  installFile "https://raw.githubusercontent.com/pythongosssss/ComfyUI-WD14-Tagger/refs/heads/main/LICENSE" "./LICENSE_WD14-Tagger.TXT"  >>install.sh
+echo  installFile "https://raw.githubusercontent.com/Fannovel16/comfyui_controlnet_aux/refs/heads/main/LICENSE.txt" "./LICENSE_comfyui_controlnet_aux.TXT"  >>install.sh
 :EXTRAS_LIC_END
 
 :: Ask user for commitment
@@ -852,8 +859,6 @@ echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 IF %INTERACTIVE% equ 1 echo   checkoutSoftware "https://github.com/FortunaCournot/comfyui_stereoscopic.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic" "%VRWEARE_TAG%"  >>install.sh
 IF %INTERACTIVE% equ 0 echo   cp -r "$PROJECT_DIR" ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_stereoscopic >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
-::echo   installCustomNodes "https://github.com/FortunaCournot/comfyui_controlnet_aux/archive/refs/tags/%CONTROLNETAUX_TAG%.tar.gz"  "install/controlnetaux.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" >>install.sh
-::echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-DepthAnythingV2/archive/refs/tags/%DEPTH_ANYTHING_V2_TAG%.tar.gz"  "install/depthanythingv2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" >>install.sh
 echo   checkoutSoftware "https://github.com/kijai/ComfyUI-DepthAnythingV2.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-depthanythingv2" "%DEPTH_ANYTHING_V2_TAG%"  >>install.sh
@@ -867,6 +872,18 @@ echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Crystools/archive/refs/tags/%CRYSTOOLS_TAG%.tar.gz" "install/crystools.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" >>install.sh
 echo   checkoutSoftware "https://github.com/crystian/ComfyUI-Crystools.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools" "%CRYSTOOLS_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
+:: fix crystools crash problems - set default for GPU display to off.
+setlocal DISABLEDELAYEDEXPANSION
+echo   FILE="ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools/web/monitor.ts" >>install.sh
+echo   sed -E -i '/const monitorGPUNElement:[^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+echo   sed -E -i '/const monitorVRAMNElement:[^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+echo   sed -E -i '/const monitorTemperatureNElement:[^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+echo   FILE="ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-crystools/web/monitor.js" >>install.sh
+echo   sed -E -i '/const monitorGPUNElement [^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+echo   sed -E -i '/const monitorVRAMNElement [^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+echo   sed -E -i '/const monitorTemperatureNElement [^^=]*=/,/^^[[:space:]]*};/s/(defaultValue:[[:space:]]*)true/\1false/' "$FILE" >>install.sh
+endlocal
+
 ::echo   installCustomNodes "https://github.com/FortunaCournot/ComfyUI-Florence2/archive/refs/tags/%FLORENCE2_TAG%.tar.gz" "install/florence2.tar.gz" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-florence2" >>install.sh
 echo   checkoutSoftware "https://github.com/kijai/ComfyUI-Florence2.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui-florence2" "%FLORENCE2_TAG%"  >>install.sh
 echo   if [ ^^! $? = 0 ] ; then exit 1 ; fi >>install.sh
@@ -890,6 +907,7 @@ echo   checkoutSoftware "https://github.com/yolain/ComfyUI-Easy-Use.git" "ComfyU
 echo   checkoutSoftware "https://github.com/rgthree/rgthree-comfy.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/rgthree-comfy" "%RGTHREE_TAG%"  >>install.sh
 echo   checkoutSoftware "https://github.com/Gourieff/ComfyUI-ReActor.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-ReActor" "%REACTOR_TAG%"  >>install.sh
 echo   checkoutSoftware "https://github.com/pythongosssss/ComfyUI-WD14-Tagger.git" "ComfyUI_windows_portable/ComfyUI/custom_nodes/ComfyUI-WD14-Tagger" "%WD14_TAG%"  >>install.sh
+echo   checkoutSoftware "https://github.com/Fannovel16/comfyui_controlnet_aux.git"  "ComfyUI_windows_portable/ComfyUI/custom_nodes/comfyui_controlnet_aux" "%CONTROLNETAUX_TAG%"  >>install.sh
 :EXTRAS_INST_END
 
 IF %TRAINING% equ 0 GOTO TRAINING_INST_END
@@ -1021,9 +1039,24 @@ ECHO Apply extra requirements ...
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\comfyui-easy-use\requirements.txt
 .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\rgthree-comfy\requirements.txt
 :: cause errors: .\python_embeded\python -m pip install -r ComfyUI\custom_nodes\ComfyUI-ReActor\requirements.txt
-.\python_embeded\python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp313-cp313-win_amd64.whl
+
+.\python_embeded\python -m pip install --upgrade pip setuptools wheel build cython setuptools_scm
+.\python_embeded\python -m pip install --force-reinstall "stringzilla==4.4.0"
+.\python_embeded\python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp313-cp313-win_amd64.whl --no-deps
+.\python_embeded\python -m pip install albumentations
+.\python_embeded\python -c "import importlib; m=importlib.import_module('insightface.model_zoo.model_zoo'); print('HAS_PICKABLE', 'PickableInferenceSession' in dir(m)); print('insightface', getattr(importlib.import_module('insightface'),'__version__',None))"
+
 .\python_embeded\python -s -m pip install segment_anything
+
+
+:: For ReActor:
+.\python_embeded\python -m pip install onnx
 :EXTRAS_END
+
+:: ComfyUI fixes for current release v0.16.4
+.\python_embeded\python -m pip install simpleeval
+.\python_embeded\python -m pip install --force-reinstall pyflakes
+
 
 DEL %VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 IF "%LOCALPYTHONPATH%" == "" GOTO END_INSTALL_PACKS
@@ -1031,7 +1064,6 @@ IF "%HAS_NVIDIA_GPU%" == "0" GOTO END_INSTALL_PACKS
 
 :: sage attention dependencies
 ECHO Installing dependencies for Sage Attention
-.\python_embeded\python -m pip install --force-reinstall --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
 .\python_embeded\python -m pip install bitsandbytes
 .\python_embeded\python -s -m pip install "accelerate >= 1.4.0"
 .\python_embeded\python -s -m pip install "diffusers >= 0.32.2"
@@ -1042,19 +1074,26 @@ ECHO Installing dependencies for Sage Attention
 .\python_embeded\python -s -m pip install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/packaging/onnxruntime-cuda-12/pypi/simple/
 
 
-ECHO Installing Triton and Sage Attention
+ECHO Installing Triton 
+:: and Sage Attention (DEACTIVATED IN 0.3.76 due to failing)
 .\python_embeded\python -m pip uninstall triton-windows
 .\python_embeded\python -m pip install -U --pre triton-windows
 cd python_embeded
 :: rem  (using URL instead)  git clone https://github.com/thu-ml/SageAttention
 cd ..
-.\python_embeded\python -m pip install %SAGEATTENTIONURL%
+::.\python_embeded\python -m pip install %SAGEATTENTIONURL%
+
+:: Create start scripts with log watching and simple self-restart (%0) behavior
+echo .\python_embeded\python.exe -u ComfyUI\custom_nodes\comfyui_stereoscopic\api\python\comfyui_logwatch.py --log-file ComfyUI\user\default\comfyui_stereoscopic\comfyui-server.log --marker-file ComfyUI\user\default\comfyui_stereoscopic\.comfyui_logwatch_crash -- .\python_embeded\python.exe -u -s ComfyUI\main.py --windows-standalone-build >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+echo %%0 >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
+
+echo .\python_embeded\python.exe -u ComfyUI\custom_nodes\comfyui_stereoscopic\api\python\comfyui_logwatch.py --log-file ComfyUI\user\default\comfyui_stereoscopic\comfyui-server.log --marker-file ComfyUI\user\default\comfyui_stereoscopic\.comfyui_logwatch_crash -- .\python_embeded\python.exe -u -s ComfyUI\main.py --cpu --windows-standalone-build >%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat
+echo %%0 >>%VRWEAREPATH%\ComfyUI_windows_portable\run_cpu.bat
+
+echo .\python_embeded\python.exe -u ComfyUI\custom_nodes\comfyui_stereoscopic\api\python\comfyui_logwatch.py --log-file ComfyUI\user\default\comfyui_stereoscopic\comfyui-server.log --marker-file ComfyUI\user\default\comfyui_stereoscopic\.comfyui_logwatch_crash -- .\python_embeded\python.exe -u -s ComfyUI\main.py --windows-standalone-build --fast fp16_accumulation >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu_fast_fp16_accumulation.bat
+echo %%0 >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu_fast_fp16_accumulation.bat
 
 .\python_embeded\python %VRWEAREPATH%\ComfyUI_windows_portable\ComfyUI\custom_nodes\comfyui_stereoscopic\tests\test_triton.py
-
-echo .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention >%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
-echo pause >>%VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
-
 
 :END_INSTALL_PACKS
 cd ..

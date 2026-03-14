@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2i",
+FROMLASTromlast%  "options": "",
+  "extension": ".gif",
+  "input": "video",
+  "output": "image",
+  "fromlast": "22",
+}

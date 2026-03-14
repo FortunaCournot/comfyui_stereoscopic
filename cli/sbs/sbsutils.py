@@ -120,19 +120,7 @@ def merge_with_preset(args: argparse.Namespace, preset_data: dict, cls_type) -> 
             print(f"Type mismatch for key '{k}' — expected {expected_types}, got {type(v)}")
 
         merged[k] = v
-        
-    # Optional NVENC auto-switch
-    if (
-        preset_data.get("codec", "").startswith("libx")
-        and args_dict.get("codec") is None
-        and preset_data.get("input_type", "video") == "video"
-    ):
-        if detect_nvenc_support():
-            merged["codec"] = "h264_nvenc"
-            print("NVENC available — using GPU encoder (h264_nvenc).")
-        else:
-            print(f"Using CPU encoder: {preset_data.get('codec', 'libx264')}")
-        
+                
     # overwrite from CLI
     for k, v in args_dict.items():
         if v is None:
@@ -184,7 +172,7 @@ def get_system_info():
 
     return info
 
-def prepare_batch(images: list[tuple[int, np.ndarray]], depth_maps: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+def prepare_batch(images: list[tuple[int, np.ndarray]], depth_maps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Prepares a batch of images and depth maps for processing.
     """
@@ -319,6 +307,8 @@ def debug_report(ctx):
         if ctx.input_type == "video":
             print(f"Quality: {ctx.video_quality}")
         print(f"Codec: {ctx.codec}")
+        if ctx.autocast:
+            print(f"AMP autocast: {ctx.autocast}")
         print(f"Queue sizes: raw={ctx.r_queue}, input={ctx.in_queue}, "
               f"process={ctx.p_queue}, save={ctx.s_queue}")
               

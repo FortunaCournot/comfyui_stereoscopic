@@ -1,0 +1,43 @@
+﻿--- # workflow profile
+profile:
+  name: human_scene
+  variations:
+  - variant:
+      weight: 2.0
+      props:
+        scene: Upper body shot
+      variations:
+      - variant:
+          weight: 3.0
+          props:
+            clothing: historic costume
+      - variant:
+          weight: 1.0
+          props:
+            clothing: casual clothing
+  - variant:
+      weight: 1.0
+      props:
+        scene: full body shot
+      variations:
+      - variant:
+          weight: 3.0
+          props:
+            clothing: historic costume
+      - variant:
+          weight: 1.0
+          props:
+            clothing: casual clothing
+  - variant:
+      weight: 1.0
+      props:
+        scene: Close-up of face
+      variations:
+      - variant:
+          weight: 3.0
+          props:
+            clothing: historic costume
+      - variant:
+          weight: 1.0
+          props:
+            clothing: casual clothing

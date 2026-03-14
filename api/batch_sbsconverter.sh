@@ -9,6 +9,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
@@ -75,28 +102,36 @@ else
 	#	mv -- "$file" "${file// /_}"
 	#done
 
-	for f in input/vr/fullsbs/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\(*; do mv -- "$f" "${f//\(/_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
-	for f in input/vr/fullsbs/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/fullsbs/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 
-	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	COUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 webm)
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			[ ! -e $nextinputfile ] && continue
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			echo "fullsbs" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv -- "$nextinputfile" $newfn
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			newfn=$(normalize_rename_path "input/vr/fullsbs/${nextinputfile##*/}")
+			mv -- "$nextinputfile" "$newfn"
 			
 			TARGETPREFIX=${newfn##*/}
 			if [[ "$TARGETPREFIX" = "*_SBS_LR.*" ]]; then
@@ -123,23 +158,21 @@ else
 	fi	
 	
 	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webp'`
-	COUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'  -o -name '*.webp'| wc -l`
+	# lib_fs already sourced above (canonical)
+	COUNT=$(count_files_with_exts "input/vr/fullsbs" png jpg jpeg webp)
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			[ ! -e $nextinputfile ] && continue
 			echo "$INDEX/$COUNT">input/vr/fullsbs/BATCHPROGRESS.TXT
 			echo "fullsbs" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/fullsbs/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv -- "$nextinputfile" $newfn 
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			newfn=$(normalize_rename_path "input/vr/fullsbs/${nextinputfile##*/}")
+			mv -- "$nextinputfile" "$newfn" 
 			
 			if [[ "$newfn" == *_SBS_LR* ]]; then
 				echo "Skipping $newfn (already SBS)"

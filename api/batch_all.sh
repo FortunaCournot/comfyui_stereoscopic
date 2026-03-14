@@ -23,6 +23,20 @@ if [ -e $CONFIGFILE ] ; then
 	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 	export COMFYUIHOST COMFYUIPORT
+	# Source filesystem helpers (baseline counting functions)
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	# Refresh FS status once for this run so property-based counts are not stale
+	if [ -n "${PYTHON:-}" ] && [ -x "${PYTHON:-}" ]; then
+		"$PYTHON" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
+	fi
 else
     touch "$CONFIGFILE"
 fi
@@ -35,6 +49,40 @@ onExit() {
 trap onExit EXIT
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
+
+# Path to unused flags (list of disabled items)
+UNUSED_PROPS=./user/default/comfyui_stereoscopic/unused.properties
+
+# Check if a given stage/task/customtask name is listed as unused (disabled).
+# Returns 0 if disabled, 1 otherwise.
+is_disabled() {
+	local name="$1"
+	local key
+	if [[ "$name" =~ ^tasks/_ ]]; then
+		key=customtask
+	elif [[ "$name" =~ ^tasks/ ]]; then
+		key=task
+	else
+		key=stage
+	fi
+	if [ ! -f "$UNUSED_PROPS" ]; then
+		return 1
+	fi
+	local vals
+	vals=$(awk -F"=" -v k="$key" '$1==k {print $2; exit}' "$UNUSED_PROPS" | tr -d '\r')
+	if [ -z "$vals" ]; then
+		return 1
+	fi
+	IFS=',' read -ra arr <<< "$vals"
+	for v in "${arr[@]}"; do
+		v=$(echo "$v" | sed -e 's/^\s*//' -e 's/\s*$//')
+		if [ "$v" = "$name" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
 FREESPACE=${FREESPACE%G}
 MINSPACE=10
 status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
@@ -73,8 +121,23 @@ elif [ -d "custom_nodes" ]; then
 	#./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SCALECOUNT=`find input/vr/scaling -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
-	OVERRIDECOUNT=`find input/vr/scaling/override -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	CAPCOUNT=$(count_files_with_exts "input/vr/caption" mp4 webm png jpg jpeg webp)
+	# zero if caption stage disabled
+	if [ ${CAPCOUNT:-0} -gt 0 ] && is_disabled "caption"; then CAPCOUNT=0; fi
+	if [ $CAPCOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh || exit 1
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh caption || exit 1 )
+		rm -f user/default/comfyui_stereoscopic/.daemonstatus
+	fi
+
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+	SCALECOUNT=$(count_files_with_exts "input/vr/scaling" mp4 png jpg jpeg webm webp)
+	OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" mp4 png jpg jpeg webm webp)
+	# zero if scaling stage disabled
+	if { [ ${SCALECOUNT:-0} -gt 0 ] || [ ${OVERRIDECOUNT:-0} -gt 0 ]; } && is_disabled "scaling"; then SCALECOUNT=0; OVERRIDECOUNT=0; fi
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
 		MEMFREE=`awk '/MemFree/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
 		MEMTOTAL=`awk '/MemTotal/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
@@ -101,7 +164,9 @@ elif [ -d "custom_nodes" ]; then
 
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SLIDECOUNT=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	SLIDECOUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm webp)
+	# zero if slides stage disabled
+	if [ ${SLIDECOUNT:-0} -gt 0 ] && is_disabled "slides"; then SLIDECOUNT=0; fi
 	if [ $SLIDECOUNT -ge 2 ]; then
 		# PREPARE 4K SLIDES
 		# In:  input/vr/slides
@@ -117,7 +182,9 @@ elif [ -d "custom_nodes" ]; then
 	
 	
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SBSCOUNT=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp' | wc -l`
+	SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 png jpg jpeg webm webp)
+	# zero if fullsbs stage disabled
+	if [ ${SBSCOUNT:-0} -gt 0 ] && is_disabled "fullsbs"; then SBSCOUNT=0; fi
 	if [ $SBSCOUNT -ge 1 ]; then
 		# SBS CONVERTER: Video -> Video, Image -> Image
 		# In:  input/vr/fullsbs
@@ -132,9 +199,24 @@ elif [ -d "custom_nodes" ]; then
 		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh fullsbs || exit 1 )
 	fi
 
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+	INTERPOLATECOUNT=$(count_files_with_exts "input/vr/interpolate" mp4 webm)
+	# zero if interpolate stage disabled
+	if [ ${INTERPOLATECOUNT:-0} -gt 0 ] && is_disabled "interpolate"; then INTERPOLATECOUNT=0; fi
+	if [ $INTERPOLATECOUNT -gt 0 ] ; then
+		[ $loglevel -ge 1 ] && echo "**************************"
+		[ $loglevel -ge 0 ] && echo "****** INTERPOLATE *******"
+		[ $loglevel -ge 1 ] && echo "**************************"
+		./custom_nodes/comfyui_stereoscopic/api/batch_interpolate.sh || exit 1
+		rm -f user/default/comfyui_stereoscopic/.daemonstatus
+		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh interpolate || exit 1 )
+	fi
+
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SINGLELOOPCOUNT=`find input/vr/singleloop -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm' | wc -l`
+	SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" mp4 webm)
+	# zero if singleloop stage disabled
+	if [ ${SINGLELOOPCOUNT:-0} -gt 0 ] && is_disabled "singleloop"; then SINGLELOOPCOUNT=0; fi
 	if [ $SINGLELOOPCOUNT -ge 1 ]; then
 		# SINGLE LOOP
 		# In:  input/vr/singleloop_in
@@ -149,7 +231,9 @@ elif [ -d "custom_nodes" ]; then
 
 	
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SLIDESBSCOUNT=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' | wc -l`
+	SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" png)
+	# zero if slideshow stage disabled
+	if [ ${SLIDESBSCOUNT:-0} -gt 0 ] && is_disabled "slideshow"; then SLIDESBSCOUNT=0; fi
 	if [ $SLIDESBSCOUNT -ge 2 ]; then
 		# MAKE SLIDESHOW
 		# In:  input/vr/slideshow
@@ -164,7 +248,9 @@ elif [ -d "custom_nodes" ]; then
 
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	CONCATCOUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
+	# zero if concat stage disabled
+	if [ ${CONCATCOUNT:-0} -gt 0 ] && is_disabled "concat"; then CONCATCOUNT=0; fi
 	if [ $CONCATCOUNT -ge 1 ]; then
 		# CONCAT
 		# In:  input/vr/concat_in
@@ -179,7 +265,9 @@ elif [ -d "custom_nodes" ]; then
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	DUBCOUNTSFX=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  | wc -l`
+	DUBCOUNTSFX=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
+	# zero if dubbing/sfx disabled
+	if [ ${DUBCOUNTSFX:-0} -gt 0 ] && is_disabled "dubbing/sfx"; then DUBCOUNTSFX=0; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
 		if [ -x "$(command -v nvidia-smi)" ]; then
 			# DUBBING: Video -> Video with SFX
@@ -200,10 +288,38 @@ elif [ -d "custom_nodes" ]; then
 		mv -fv input/vr/dubbing/sfx/*.mp4 input/vr/dubbing/sfx/error
 	fi
 
+	### SKIP IF DEPENDENCY CHECK FAILED ###
+	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+	DUBCOUNTMUSIC=$(count_files_with_exts "input/vr/dubbing/music" mp4 webm)
+	# zero if dubbing/music disabled
+	if [ ${DUBCOUNTMUSIC:-0} -gt 0 ] && is_disabled "dubbing/music"; then DUBCOUNTMUSIC=0; fi
+	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTMUSIC -gt 0 ]; then
+		if [ -x "$(command -v nvidia-smi)" ]; then
+			# DUBBING: Video -> Video with music
+			# In:  input/vr/dubbing/music
+			# Out: output/vr/dubbing/music
+			[ $loglevel -ge 1 ] && echo "**************************"
+			[ $loglevel -ge 0 ] && echo "***** DUBBING MUSIC ******"
+			[ $loglevel -ge 1 ] && echo "**************************"
+			./custom_nodes/comfyui_stereoscopic/api/batch_dubbing_music.sh || exit 1
+			rm -f user/default/comfyui_stereoscopic/.daemonstatus
+			[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh dubbing/music || exit 1 )
+		else
+			echo 'Warning: nvidea-smi is not installed. Dubbing required CUDA.'
+		fi
+
+	elif [ $DUBCOUNTMUSIC -gt 0 ]; then
+		mkdir -p input/vr/dubbing/music/error
+		mv -fv input/vr/dubbing/music/*.mp4 input/vr/dubbing/music/error
+	fi
+
 	### SKIP IF CONFIG CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	WMECOUNT=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
-	WMDCOUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" png jpg jpeg)
+	WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" png jpg jpeg)
+	# zero if watermark stages disabled
+	if [ ${WMECOUNT:-0} -gt 0 ] && is_disabled "watermark/encrypt"; then WMECOUNT=0; fi
+	if [ ${WMDCOUNT:-0} -gt 0 ] && is_disabled "watermark/decrypt"; then WMDCOUNT=0; fi
 	if [ $WMECOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** ENCRYPTING ********"
@@ -220,31 +336,9 @@ elif [ -d "custom_nodes" ]; then
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 	fi
 
-	### SKIP IF CONFIG CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	CAPCOUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o  -name '*.webm'  -o -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
-	if [ $CAPCOUNT -gt 0 ] ; then
-		[ $loglevel -ge 1 ] && echo "**************************"
-		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
-		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_caption.sh || exit 1
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh caption || exit 1 )
-		rm -f user/default/comfyui_stereoscopic/.daemonstatus
-	fi
-
-	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	INTERPOLATECOUNT=`find input/vr/interpolate -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
-	if [ $INTERPOLATECOUNT -gt 0 ] ; then
-		[ $loglevel -ge 1 ] && echo "**************************"
-		[ $loglevel -ge 0 ] && echo "****** INTERPOLATE *******"
-		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_interpolate.sh || exit 1
-		rm -f user/default/comfyui_stereoscopic/.daemonstatus
-		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh interpolate || exit 1 )
-	fi
-
-	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	TASKCOUNT=`find input/vr/tasks/*/ -maxdepth 1 -type f | wc -l`
+	# TASKCOUNT: sum files in each task directory (non-recursive)
+	TASKCOUNT=$(compute_task_count)
 	if [ $TASKCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "********* TASKS **********"

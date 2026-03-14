@@ -14,6 +14,9 @@ cd $COMFYUIPATH
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
+# Marker for GUI to show that forward.sh is currently active.
+FORWARD_ACTIVE_LOCK=./user/default/comfyui_stereoscopic/.forwardactive
+
 if [ -e $CONFIGFILE ] ; then
 	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 	[ $loglevel -ge 2 ] && set -x
@@ -26,12 +29,75 @@ if [ $PIPELINE_AUTOFORWARD -lt 1 ] ; then
 fi
 
 DEBUG_AUTOFORWARD_RULES=$(awk -F "=" '/DEBUG_AUTOFORWARD_RULES=/ {print $2}' $CONFIGFILE) ; DEBUG_AUTOFORWARD_RULES=${DEBUG_AUTOFORWARD_RULES:-"0"}
+IMAGE_INDEX_LIMIT=$(awk -F "=" '/IMAGE_INDEX_LIMIT=/ {print $2}' $CONFIGFILE) ; IMAGE_INDEX_LIMIT=${IMAGE_INDEX_LIMIT:-3}
 
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
 if [ -d "../python_embeded" ]; then
   PYTHON_BIN_PATH=../python_embeded/
 fi
+
+# FS status helper functions: update individual property keys in the FS status file
+FS_STATUS_FILE=${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}
+
+# Ensure FS status file exists so forward's incremental updates don't operate on an empty file
+PY_EXEC="${PYTHON_BIN_PATH}python.exe"
+if [ ! -x "$PY_EXEC" ]; then
+	if command -v python3 >/dev/null 2>&1 ; then
+		PY_EXEC=python3
+	elif command -v python >/dev/null 2>&1 ; then
+		PY_EXEC=python
+	fi
+fi
+if [ ! -f "$FS_STATUS_FILE" ] && [ -n "$PY_EXEC" ]; then
+	"$PY_EXEC" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
+fi
+
+fs_key_from_dir() {
+	# normalize dir to match keys written by compute_fs_status.py
+	local dir="$1"
+	dir="${dir#./}"
+	dir="$(echo "$dir" | sed 's#\\#/#g')"
+	dir="${dir%/}"
+	# if moving into input/vr/<stage>/wait or /stop, use the parent stage dir
+	case "$dir" in
+		*/wait|*/stop) dir="${dir%/*}" ;;
+	esac
+	echo "$dir"
+}
+
+fs_update_prop() {
+	# fs_update_prop "<type>|<path>" <delta>
+	local key="$1"; local delta="$2"; local file="$FS_STATUS_FILE"
+	[ -z "$key" ] && return 1
+	tmpf=$(mktemp 2>/dev/null || echo "$file.tmp")
+	if [ ! -f "$file" ]; then
+		# initialize file with zero for this key
+		echo "$key=0" > "$file"
+	fi
+	awk -F"=" -v k="$key" -v d="$delta" 'BEGIN{OFS=FS} $1==k{n=$2 + d; if(n<0) n=0; $2=n; found=1} {print} END{if(!found){n=d; if(n<0) n=0; print k"="n}}' "$file" > "$tmpf" && mv "$tmpf" "$file"
+}
+
+fs_adjust_move_counts() {
+	# fs_adjust_move_counts <src_dir> <dest_dir> <filename>
+	local src="$1"; local dest="$2"; local fname="$3"
+	[ -z "$src" ] && return
+	[ -z "$dest" ] && return
+	lc="${fname,,}"
+	typ="any"
+	case "$lc" in
+		*.png|*.jpg|*.jpeg|*.webp|*.gif) typ="images" ;;
+		*.mp4|*.webm|*.ts|*.mkv|*.avi|*.mov) typ="videos" ;;
+		*.flac|*.mp3|*.wav|*.aac|*.m4a) typ="audio" ;;
+		*) typ="any" ;;
+	esac
+	srckey_dir=$(fs_key_from_dir "$src")
+	destkey_dir=$(fs_key_from_dir "$dest")
+	fs_update_prop "any|$srckey_dir" -1
+	fs_update_prop "$typ|$srckey_dir" -1
+	fs_update_prop "any|$destkey_dir" 1
+	fs_update_prop "$typ|$destkey_dir" 1
+}
 
 
 CheckProbeValue() {
@@ -55,7 +121,7 @@ CheckProbeValue() {
 		if [[ "$file" = *"_SBS_LR"* ]] ; then echo "_SBS_LR check true for $file"; else echo "_SBS_LR check false for $file" ; fi
 	elif [ "$key" = "image" ] ; then
 		lcfile="${file,,}"
-		if [[ "$lcfile" = *".mp4" ]] || [[ "$lcfile" = *".webm" ]] || [[ "$lcfile" = *".ts" ]] ; then value1="false" ; else value1="true" ; fi
+		if [[ "$lcfile" = *".png" ]] || [[ "$lcfile" = *".webp" ]] || [[ "$lcfile" = *".jpg" ]] || [[ "$lcfile" = *".jpeg" ]] || [[ "$lcfile" = *".gif" ]] ; then value1="true" ; else value1="false" ; fi
 	elif [ "$key" = "video" ] ; then
 		lcfile="${file,,}"
 		if [[ "$lcfile" = *".mp4" ]] || [[ "$lcfile" = *".webm" ]] || [[ "$lcfile" = *".ts" ]] ; then value1="true" ; else value1="false" ; fi
@@ -162,12 +228,20 @@ else
 			exit 0
 		fi
 
+		# Mark forward activity for the GUI and guarantee cleanup.
+		mkdir -p ./user/default/comfyui_stereoscopic 2>/dev/null || true
+		touch "$FORWARD_ACTIVE_LOCK" 2>/dev/null || true
+		cleanup_forward_active() {
+			rm -f "$FORWARD_ACTIVE_LOCK" 2>/dev/null || true
+		}
+		trap cleanup_forward_active EXIT INT TERM
+
 		temp=`grep "\"output\":" $sourcedef`
 		temp=${temp#*:}
 		temp="${temp%\"*}"
 		temp="${temp#*\"}"
 		outputrule="${temp%,*}"
-		#[ $loglevel -ge 1 ] && echo "forward output rule = $outputrule"
+		[ $loglevel -ge 2 ] && echo "forward output rule = $outputrule"
 
 		DELAY=0
 		temp=`grep forward_delay $sourcedef`
@@ -184,11 +258,35 @@ else
 			destination=`echo $destination`
 			[ !  -z "$destination" ] && [ "${destination:0:1}" = "#" ] && continue
 			conditionalrules=`echo "$destination" | sed -nr 's/.*\[(.*)\].*/\1/p'`
-			[ $LOGRULES -gt 0 ] && echo "destination: '""$destination""'"
-			[ $LOGRULES -gt 0 ] && echo "conditionalrules: '""$destination""'"
+			# extract wait flag (wait=true) from conditionalrules and remove it
+			WAIT_FLAG=0
+			if [ -n "$conditionalrules" ] ; then
+				new_rules=""
+				for token in $(echo "$conditionalrules" | sed "s/:/ /g") ; do
+					if [ "$token" = "wait=true" ] ; then
+						WAIT_FLAG=1
+					else
+						if [ -z "$new_rules" ] ; then
+							new_rules="$token"
+						else
+							new_rules="$new_rules:$token"
+						fi
+					fi
+				done
+				conditionalrules="$new_rules"
+			fi
+			[ $LOGRULES -gt 0 ] && echo "Rule: '""$destination""'"
+			[ $LOGRULES -gt 0 ] && echo "conditionalrules: '""$conditionalrules""' (wait=$WAIT_FLAG)"
 			destination=${destination##*\]}
 			[ $LOGRULES -gt 0 ] && echo "destination: '""$destination""'"
 			mkdir -p input/vr/$destination 2>/dev/null
+			# if wait flag set, create wait subfolder and use it as input target
+			if [ "$WAIT_FLAG" -eq 1 ] ; then
+				mkdir -p input/vr/$destination/wait 2>/dev/null
+				DEST_INPUT_DIR="input/vr/$destination/wait"
+			else
+				DEST_INPUT_DIR="input/vr/$destination"
+			fi
 			if [ -z "$destination" ] ; then
 				SKIPPING_EMPTY_LINE=	# just ignore this line
 			elif [ -d input/vr/$destination ] ; then
@@ -245,7 +343,7 @@ else
 					
 				fi
 				
-				#[ $loglevel -ge 1 ] && echo "forward input rule rules = $inputrule"
+				[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo "forward input rule rules = $inputrule"
 				
 				mkdir -p user/default/comfyui_stereoscopic
 				MOVEMSGPREFIX=$'\n'
@@ -253,6 +351,7 @@ else
 				do
 					for o in ${outputrule//;/ }
 					do
+            			[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo "$i :: $o"
 						if [[ $i == $o ]] ; then
 							if [[ $i == "video" ]] ; then
 								OIFS="$IFS"
@@ -282,8 +381,16 @@ else
 											fi
 										done
 									fi
-                  capfile="${file%.*}.txt"
-									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX= && [ -s "$capfile" ] && mv -f -- "$capfile" input/vr/$destination 
+								   	capfile="${file%.*}.txt"
+													if [ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
+														if mv -f -- "$file" "$DEST_INPUT_DIR" ; then
+															echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+															fs_adjust_move_counts "output/vr/$sourcestage" "$DEST_INPUT_DIR" "$(basename -- "$file")"
+														fi
+														if [ -s "$capfile" ] ; then
+															mv -f -- "$capfile" "$DEST_INPUT_DIR"
+														fi
+													fi
 								done
 							elif  [[ $i == "image" ]] ; then
 								OIFS="$IFS"
@@ -312,9 +419,57 @@ else
 											fi
 										done
 									fi
-                  capfile="${file%.*}.txt"
-									[ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] && mv -f -- "$file" input/vr/$destination  && echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX= && [ -s "$capfile" ] && mv -f -- "$capfile" input/vr/$destination 
+									capfile="${file%.*}.txt"
+									if [ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
+										TARGET_DIR="$DEST_INPUT_DIR"
+										# if filename matches _<digits>_.ext pattern, and digits > IMAGE_INDEX_LIMIT,
+										# move into wait subfolder instead of direct input
+										fname=$(basename -- "$file")
+										if [[ "$fname" =~ _([0-9]+)_\. ]]; then
+											idx="${BASH_REMATCH[1]}"
+											# force base-10 parsing for zero-padded numbers
+											idx=$((10#$idx))
+											if [ "$idx" -gt "$IMAGE_INDEX_LIMIT" ] ; then
+												mkdir -p "input/vr/$destination/stop" 2>/dev/null
+												TARGET_DIR="input/vr/$destination/stop"
+											fi
+										fi
+										if mv -f -- "$file" "$TARGET_DIR" ; then
+											echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+											fs_adjust_move_counts "output/vr/$sourcestage" "$TARGET_DIR" "$(basename -- "$file")"
+										fi
+										if [ -s "$capfile" ] ; then
+											mv -f -- "$capfile" "$TARGET_DIR"
+										fi
+									fi
 								done
+								# If images are being forwarded but there is no rule to forward videos,
+								# also move any video files found from the source stage into the
+								# destination's OUTPUT folder (not into input). This preserves
+								# videos when only image forwarding rules exist — but only when
+								# source and destination are different.
+								if ! echo " $inputrule " | grep -qw "video" ; then
+									if [ "$sourcestage" = "$destination" ] ; then
+										[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo -e $"\e[2m     skipping auto-move videos (same source/destination: $sourcestage)\e[0m"
+									else
+										mkdir -p output/vr/$destination 2>/dev/null
+										OIFS="$IFS"
+										IFS=$'\n'
+										VFILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' 2>/dev/null`
+										IFS="$OIFS"
+										[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$VFILES" ] && echo -e $"\e[2m""     $destination: no video files to auto-move to output.""\e[0m"
+										for file in $VFILES ; do
+											capfile="${file%.*}.txt"
+											if [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
+												if mv -f -- "$file" output/vr/$destination ; then
+													echo "$MOVEMSGPREFIX""Moved ""$file"" --> output/$destination" && MOVEMSGPREFIX=
+													fs_adjust_move_counts "output/vr/$sourcestage" "output/vr/$destination" "$(basename -- "$file")"
+												fi
+												[ -s "$capfile" ] && mv -f -- "$capfile" output/vr/$destination
+											fi
+										done
+									fi
+								fi
 							else
 								echo -e $"\e[93mWarning:\e[0m Unknown media match in forwarding ignored: $i"
 							fi
@@ -328,7 +483,7 @@ else
 			fi
 		done < $forwarddef
 	else
-		[ $loglevel -ge 1 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"
+		[ $loglevel -ge 2 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"
 	fi
 fi
 

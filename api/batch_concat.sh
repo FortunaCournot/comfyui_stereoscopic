@@ -12,6 +12,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 # abolute path of ComfyUI folder in your ComfyUI_windows_portable. ComfyUI server is not used.
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
 COMFYUIPATH=`realpath $(dirname "$0")/../../..`
@@ -52,57 +79,87 @@ else
 	
 	echo -ne $"\e[97m\e[1m=== CONCAT READY - PRESS RETURN TO START ===\e[0m" ; read forgetme ; echo "starting..."
 
-	for f in input/vr/concat/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/concat/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 
-	COUNT=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | wc -l`
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	COUNT=$(count_files_with_exts "input/vr/concat" mp4)
 	INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
-		IMGANDVIDFILES=`find input/vr/concat -maxdepth 1 -type f -name '*.mp4'`
 		echo "concat" >user/default/comfyui_stereoscopic/.daemonstatus
-	
-		echo "" >output/vr/concat/intermediate/mylist.txt
-		for nextinputfile in $IMGANDVIDFILES ; do
-			INDEX+=1
-			newfn=part_$INDEX.mp4
-			cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
-			
-			if [ -e "output/vr/concat/intermediate/$newfn" ]
-			then
-				echo "file $newfn" >>output/vr/concat/intermediate/mylist.txt
+		# helper: process current group stored in IMGANDVIDFILES
+		process_group() {
+			echo "" >output/vr/concat/intermediate/mylist.txt
+			INDEX=0
+			for nextinputfile in $IMGANDVIDFILES ; do
+				[ -e "$nextinputfile" ] || continue
+				INDEX=$((INDEX+1))
+				newfn=part_$INDEX.mp4
+				cp "$nextinputfile" output/vr/concat/intermediate/$newfn 
+				if [ -e "output/vr/concat/intermediate/$newfn" ]
+				then
+					echo "file $newfn" >>output/vr/concat/intermediate/mylist.txt
+				else
+					echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/concat/intermediate/$newfn"
+					exit 1
+				fi
+			done
+			NOW=$( date '+%F_%H%M' )
+			BASE=${nextinputfile##*/}
+			BASE=${BASE%_*}
+			SUFFIX=""
+			if echo "$IMGANDVIDFILES" | grep -q "_SBS_LR" ; then
+				SUFFIX="_SBS_LR"
+			fi
+			TARGET=$(normalize_rename_path "output/vr/concat/${BASE}-${NOW}${SUFFIX}.mp4")
+			cd output/vr/concat/intermediate
+			echo -ne "Concat (${BASE})...                             \r"
+			nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
+			if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit 1 ; fi
+			cd ../../../..
+			mv -f output/vr/concat/intermediate/result.mp4 "$TARGET"
+			# move only the files belonging to this group into done
+			for mvf in $IMGANDVIDFILES ; do
+				mv "$mvf" input/vr/concat/done/ 2>/dev/null || true
+			done
+			if [ -e "$TARGET" ]; then
+				rm -f output/vr/concat/intermediate/*
 			else
-				echo -e $"\e[91mError:\e[0m prompting failed. Missing file: output/vr/concat/intermediate/$newfn"
-				exit 1
-			fi						
+				echo -e $"\e[91mError:\e[0m Failed to create target file $TARGET"
+			fi
+			echo -e $"\e[92mdone (${BASE}).\e[0m                            "
+		}
+		
+		# build group keys by replacing the last numeric token (_NNN_) with _NUM_
+		# use greedy capture so we only replace the final _NNN_ occurrence (avoids requiring `rev`)
+		KEYS=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' -printf '%f\n' | grep -E '_[0-9]{3,}_' | sed -E 's/^(.*)_[0-9]{3,}_/\1_NUM_/' | sort -u)
+		for KEY in $KEYS ; do
+			# create a glob pattern by replacing the marker back to wildcard
+			PATTERN=$(echo "$KEY" | sed 's/_NUM_/_*_/')
+			IMGANDVIDFILES=$(find input/vr/concat -maxdepth 1 -type f -name "$PATTERN" | sort)
+			[ -z "$IMGANDVIDFILES" ] && continue
+			process_group
 		done
-		
-		NOW=$( date '+%F_%H%M' )
-		BASE=${nextinputfile##*/}
-		BASE=${BASE%%_*}
-		if [[ "$nextinputfile" == *"_SBS_LR"* ]] ; then
-			TARGET=output/vr/concat/$BASE-$NOW"_SBS_LR".mp4
-		else
-			TARGET=output/vr/concat/$BASE-$NOW"".mp4
+		# process rest (files without the numeric _NNN_ token)
+		RESTFILES=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | sort | grep -Ev '_[0-9]{3,}_' || true)
+		if [ -n "$RESTFILES" ] ; then
+			IMGANDVIDFILES=$RESTFILES
+			process_group
 		fi
-		
-		cd output/vr/concat/intermediate
-		echo -ne "Concat ($COUNT)...                             \r"
-		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i mylist.txt -c copy result.mp4
-		if [ ! -e "result.mp4" ]; then echo -e $"\e[91mError:\e[0m failed to create result.mp4" && exit ; fi
-		
-		
-		cd ../../../..
-		mv -f output/vr/concat/intermediate/result.mp4 "$TARGET"
-		mv input/vr/concat/*.mp4 input/vr/concat/done
-		
-		if [ -e "$TARGET" ]; then
-			rm -f output/vr/concat/intermediate/*
-		else
-			echo -e $"\e[91mError:\e[0m Failed to create target file $TARGET"
-		fi
-		echo -e $"\e[92mdone.\e[0m                            "
-	
 	else
-			echo -e $"\e[91mError:\e[0m COUNT=$COUNT: $IMGANDVIDFILES"
+		echo -e $"\e[91mError:\e[0m COUNT=$COUNT: $(find input/vr/concat -maxdepth 1 -type f -name '*.mp4')"
 	fi
 	echo "Batch ($COUNT) done.                             "
 fi

@@ -194,11 +194,6 @@ pipeline:
           to: dubbing/sfx
   - from: dubbing/sfx
     keepinput: true
-    forward:
-      - rule:
-          to: tasks/pad-16-9-sbs
-          conditions:
-            - sbs=true
   - from: concat
     keepinput: true
   - from: tasks/pad-16-9-sbs

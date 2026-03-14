@@ -9,6 +9,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
@@ -72,10 +99,12 @@ else
 	#	mv -- "$file" "${file// /_}"
 	#done
 
-	for f in input/vr/watermark/decrypt/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
-	for f in input/vr/watermark/decrypt/*\(*; do mv -- "$f" "${f//\(/_}"; done 2>/dev/null
-	for f in input/vr/watermark/decrypt/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
-	for f in input/vr/watermark/decrypt/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/watermark/decrypt/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 
 	WATERMARK_SECRETKEY=$(awk -F "=" '/WATERMARK_SECRETKEY=/ {print $2}' $CONFIGFILE) ; WATERMARK_SECRETKEY=${WATERMARK_SECRETKEY:-"-1"}
 	WATERMARK_LABEL=$(awk -F "=" '/WATERMARK_LABEL=/ {print $2}' $CONFIGFILE) ; WATERMARK_LABEL=${WATERMARK_LABEL:-""}
@@ -103,17 +132,13 @@ else
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/watermark/decrypt/BATCHPROGRESS.TXT
 			echo "watermark/decrypt" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			newfn=$INTERMEDIATEFOLDER/$newfn
-			mv -- "$nextinputfile" $newfn 
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			newfn=$(normalize_rename_path "$INTERMEDIATEFOLDER/${nextinputfile##*/}")
+			mv -- "$nextinputfile" "$newfn" 
 			
 			TARGETPREFIX=${newfn##*/}
 			
@@ -124,27 +149,33 @@ else
 	fi	
 
 	IMGFILES=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	COUNT=`find input/vr/watermark/decrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' | wc -l`
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	COUNT=$(count_files_with_exts "input/vr/watermark/decrypt" png jpg jpeg)
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			if [ ! -e $nextinputfile ] ; then
 				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."
 				exit 1
 			fi
 			INDEX+=1
 			echo "watermark/decrypt" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
 			
 			regex="[^/]*$"
 			echo "========== $INDEX/$COUNT"" decode "`echo $nextinputfile | grep -oP "$regex"`" =========="
 
-			newfn=${nextinputfile##*/}
-			newfn=${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
+			newfn=$(normalize_rename_path "${nextinputfile##*/}")
 			STORENAME=$newfn
 			
 			if [ ! -e "$WATERMARK_STOREFOLDER/$STORENAME" ]; then
@@ -154,8 +185,8 @@ else
 				exit 0
 			fi
 			
-			newfn=$INTERMEDIATEFOLDER/$newfn
-			mv -- "$nextinputfile" $newfn 
+			newfn=$(normalize_rename_path "$INTERMEDIATEFOLDER/$newfn")
+			mv -- "$nextinputfile" "$newfn" 
 			
 			if [ -e "$newfn" ]; then
 				TARGETPREFIX=${newfn##*/}
@@ -173,12 +204,20 @@ else
 					exit 0
 				fi
 				
+				startiteration=`date +%s`
 				until [ "$queuecount" = "0" ]
 				do
 					sleep 1
 					curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 					queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-				done				
+					end_now=`date +%s`
+					secs_now=$((end_now-startiteration))
+					if command -v failover_check >/dev/null 2>&1; then
+						if ! failover_check "" "$secs_now"; then
+							exit 0
+						fi
+					fi
+				done			
 				
 				if [ -e "output/vr/watermark/decrypt/intermediate/$TARGETPREFIX""_00001_.png" ]; then
 					mv -vf "output/vr/watermark/decrypt/intermediate/$TARGETPREFIX""_00001_.png" "output/vr/watermark/decrypt/$TARGETPREFIX""_test.png"

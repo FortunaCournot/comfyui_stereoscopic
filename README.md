@@ -1,7 +1,7 @@
 # VR we are! (comfyui_stereoscopic nodes and scripts)
 ComfyUI Custom Nodes to create stereoscopic images and movies.
 
-![License](https://img.shields.io/github/license/FortunaCournot/comfyui_stereoscopic)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 Documentation and download is available here ([latest doc](https://github.com/FortunaCournot/comfyui_stereoscopic/blob/main/docs/VR_We_Are_User_Manual.pdf)), 
 and on Civitai: [![VR we are!](https://raw.githubusercontent.com/FortunaCournot/comfyui_stereoscopic/refs/heads/main/docs/advertising/VR-we-are-title.png)](https://civitai.com/models/1757677)

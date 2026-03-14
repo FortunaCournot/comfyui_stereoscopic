@@ -1,0 +1,79 @@
+﻿--- # workflow profile
+profile:
+  name: human
+  variations:
+  - variant:
+      weight: 0
+      props:
+        ethnic: african
+      variations:
+      - variant:
+          weight: 1.0
+          props:
+            nationality: african
+  - variant:
+      weight: 0
+      props:
+        ethnic: asian
+      variations:
+      - variant:
+          weight: 1.0
+          props:
+            nationality: chinese
+      - variant:
+          weight: 1.0
+          props:
+            nationality: japanese
+      - variant:
+          weight: 1.0
+          props:
+            nationality: korean
+  - variant:
+      weight: 11
+      props:
+        ethnic: european
+      variations:
+      - variant:
+          weight: 1.0
+          props:
+            nationality: spanish
+      - variant:
+          weight: 1.0
+          props:
+            nationality: french
+      - variant:
+          weight: 0.0
+          props:
+            nationality: german
+      - variant:
+          weight: 1.0
+          props:
+            nationality: british
+      - variant:
+          weight: 1.0
+          props:
+            nationality: irish
+      - variant:
+          weight: 1.0
+          props:
+            nationality: czech
+      - variant:
+          weight: 1.0
+          props:
+            nationality: russian
+      - variant:
+          weight: 1.0
+          props:
+            nationality: italian
+      - variant:
+          weight: 1.0
+          props:
+            nationality: american
+      - variant:
+          weight: 1.0
+          props:
+            nationality: canadian
+      - variant:
+          weight: 1.0
+          props:
+            nationality: swedish

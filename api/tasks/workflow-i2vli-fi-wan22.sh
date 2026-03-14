@@ -155,12 +155,27 @@ else
 	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 
 	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+
+	timeout=`cat "$BLUEPRINTCONFIG" | grep -o '"timeout":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+
+	# Optional smarttag (prepend '-' if present, else empty)
+	smarttag=`cat "$BLUEPRINTCONFIG" | grep -o '"smarttag":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ -n "$smarttag" ]; then
+		smarttag="-$smarttag"
+	else
+		smarttag=""
+	fi
 	
-	[ $loglevel -lt 2 ] && set -x
+	# source shared failover helper (if available)
+	if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
+		. ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh
+	fi
+	[ $loglevel -ge 2 ] && set -x
 	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX" "$prompt"
 	set +x && [ $loglevel -ge 2 ] && set -x
 
 	EXTENSION=".mp4"
+	SEARCH_PREFIX="${TARGETPREFIX##*/}"
 	
 	start=`date +%s`
 	end=`date +%s`
@@ -176,41 +191,67 @@ else
 		secs=$((end-start))
 		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
 		echo -ne "$itertimemsg         \r"
+
+		# centralized failover check
+		if ! failover_check "$timeout" "$secs"; then
+			exit 0
+		fi
+    
 	done
 	runtime=$((end-start))
 	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
 	
-	INTERMEDIATE=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*"$EXTENSION" -print`
-  INTERMEDIATECAP=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".txt" -print`
-  INTERMEDIATEIMG=`find output/vr/tasks/intermediate -name "${TARGETPREFIX##*/}"*".png" -print`
-  if [[ "$TARGETPREFIX" =~ _[0-9]{5}_$ ]]; then
-      # Already matches the pattern; do nothing
-      :
-  else
-      TARGETPREFIX="${TARGETPREFIX}_00001_"
-  fi  
+	INTERMEDIATE=""
+	INTERMEDIATECAP=""
+	INTERMEDIATEIMG=""
+	INTERMEDIATE=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*${EXTENSION}" -size +0c -print -quit 2>/dev/null)
+	INTERMEDIATECAP=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*.txt" -size +0c -print -quit 2>/dev/null)
+	INTERMEDIATEIMG=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*.png" -size +0c -print -quit 2>/dev/null)
+	# Ensure numeric pattern suffix and inject smarttag immediately before it if not present
+	num_suffix=$(echo "$TARGETPREFIX" | grep -oE '_[0-9]{5}_$')
+	if [ -n "$num_suffix" ]; then
+		base=${TARGETPREFIX%"$num_suffix"}
+		if [ -n "$smarttag" ] && [[ "$base" != *"$smarttag" ]]; then
+			TARGETPREFIX="${base}${smarttag}${num_suffix}"
+		fi
+	else
+		# No numeric suffix yet: add smarttag (if missing) then the initial suffix
+		if [ -n "$smarttag" ] && [[ "$TARGETPREFIX" != *"$smarttag" ]]; then
+			TARGETPREFIX="${TARGETPREFIX}${smarttag}"
+		fi
+		TARGETPREFIX="${TARGETPREFIX}_00001_"
+	fi  
 	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
 	FINALTARGETCAP="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}"".txt"
-  tmp=${TARGETPREFIX%_}
-  num=${tmp##*_}
-  prefix=${tmp%_*}_
-  TARGETPREFIXNEXT=$(printf "%s%05d_" "$prefix" "$((num+1))")
+	tmp=${TARGETPREFIX%_}
+	num=${tmp##*_}
+	prefix=${tmp%_*}_
+	TARGETPREFIXNEXT=$(printf "%s%05d_" "$prefix" "$((10#$num+1))")
 	FINALTARGETIMG="$FINALTARGETFOLDER/""${TARGETPREFIXNEXT##*/}"".png"
 
-	if [ -s "$INTERMEDIATE" ] && [ -s "$INTERMEDIATEIMG" ] ; then
+	if [ -n "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] && [ -n "$INTERMEDIATEIMG" ] && [ -s "$INTERMEDIATEIMG" ] ; then
   	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$ORIGINALINPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$INTERMEDIATE" && echo "tags copied."
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
 		mv -- "$INTERMEDIATEIMG" "$FINALTARGETIMG"
 		#mv -- "$INTERMEDIATECAP" "$FINALTARGETCAP"
 		mkdir -p input/vr/tasks/$TASKNAME/done
-		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/done
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/done
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
-	  rm -rf -- $INTERMEDIATE_INPUT_FOLDER
+	  rm -rf -- "$INTERMEDIATE_INPUT_FOLDER"
 		echo -e $"\e[92mtask done.\e[0m"
 	else
-		echo -e $"\e[91mError:\e[0m Task failed. $INTERMEDIATE missing or zero-length."
+		if [ -z "$INTERMEDIATE" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. No intermediate video found (prefix: $SEARCH_PREFIX, ext: $EXTENSION)."
+		elif [ ! -s "$INTERMEDIATE" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. Intermediate video exists but has zero length: $INTERMEDIATE"
+		fi
+		if [ -z "$INTERMEDIATEIMG" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. No preview image found (prefix: $SEARCH_PREFIX, ext: .png)."
+		elif [ ! -s "$INTERMEDIATEIMG" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. Preview image exists but has zero length: $INTERMEDIATEIMG"
+		fi
 		mkdir -p input/vr/tasks/$TASKNAME/error
-		mv -- $ORIGINALINPUT input/vr/tasks/$TASKNAME/error
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
 	fi
 	
 

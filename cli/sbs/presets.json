@@ -49,7 +49,7 @@
       "in_queue": 6,
       "p_queue": 6,
       "s_queue": 6,
-      "codec": "libx264"
+      "codec": "auto"
     },
     "balance": {
       "model_name": "depth-anything/Depth-Anything-V2-Base-hf",
@@ -62,7 +62,7 @@
       "in_queue": 16,
       "p_queue": 16,
       "s_queue": 16,
-      "codec": "libx264"
+      "codec": "auto"
     },
     "max_quality": {
       "model_name": "depth-anything/Depth-Anything-V2-Large-hf",
@@ -75,7 +75,7 @@
       "in_queue": 16,
       "p_queue": 16,
       "s_queue": 16,
-      "codec": "libx264"
+      "codec": "auto"
     }
   }
 }

@@ -19,5 +19,5 @@ def test_return_types():
 #    assert Example.RETURN_TYPES == ("IMAGE",)
 #    assert Example.FUNCTION == "test"
 #    assert Example.CATEGORY == "Example"
-     assert "Example" == "Example"
+    assert "Example" == "Example"
 

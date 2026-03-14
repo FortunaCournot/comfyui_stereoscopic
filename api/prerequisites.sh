@@ -8,7 +8,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
-CONFIG_VERSION=10
+CONFIG_VERSION=11
 
 rm -f "custom_nodes/comfyui_stereoscopic/.test/.signalfail" >/dev/null
 
@@ -67,7 +67,9 @@ if [ -e $CONFIGFILE ] ; then
 	fi
 fi
 if [ -e ./user/default/comfyui_stereoscopic/.installprofile ] ; then
-    source ./user/default/comfyui_stereoscopic/.installprofile
+	# Source installer profile silently to avoid noisy missing-file errors
+	# (installer may write lines using backticks that cat missing dot-files).
+	( . ./user/default/comfyui_stereoscopic/.installprofile ) 2>/dev/null || true
 fi
 if [ ! -e $CONFIGFILE ] ; then
 	mkdir -p ./user/default/comfyui_stereoscopic
@@ -174,7 +176,7 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "FLORENCE2MODEL=microsoft/Florence-2-base">>"$CONFIGFILE"
 	echo "SPLITSEGMENTTIME=1">>"$CONFIGFILE"
 	echo "# Videos with durations below above this threshold will be segmented.">>"$CONFIGFILE"
-	echo "DUBBINGSEGMENTTING_THRESHOLD=20">>"$CONFIGFILE"
+	echo "DUBBINGSEGMENTTING_THRESHOLD=59">>"$CONFIGFILE"
 	echo "# Segment Duration. should be same as slide duration (including transition) for slideshows dubbing.">>"$CONFIGFILE"
 	echo "DUBBINGSEGMENTTIME_DURATION=5">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
@@ -208,8 +210,8 @@ if [ ! -e $CONFIGFILE ] ; then
  
 	echo "# --- TVAI config ---">>"$CONFIGFILE"
 
-	# Check windows default path for default
-	echo "# Path of the Topaz Video AI (v6 + v7) software. If present Video AI software is used for the video scaling stage.">>"$CONFIGFILE"
+	# Check path for Topaz Video AI
+	echo "# Path of the Topaz Video AI (v6 + v7) software. If present Video AI software is used for the video scaling/interpolation stage.">>"$CONFIGFILE"
 	if [ -e  '/c/Program Files/Topaz Labs LLC/Topaz Video AI/ffmpeg.exe' ] ; then
 		echo "TVAI_BIN_DIR=/c/Program Files/Topaz Labs LLC/Topaz Video AI" >>"$CONFIGFILE"
 	else
@@ -237,10 +239,26 @@ if [ ! -e $CONFIGFILE ] ; then
 	echo "TVAI_FILTER_STRING_IP=tvai_fi=model=chf-3:slowmo=1:rdt=-0.000001:device=0:vram=0.8:instances=1:fps=">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
+	# Check path for Video2X
+	echo "# Path of the Video2X software. If present Video2X software is used for the video scaling/interpolation stage.">>"$CONFIGFILE"
+	if [ -e  '$(HOME)/AppData/Local/Programs/video2x/video2x.exe' ] ; then
+		echo "VIDEO2X_DIR=$(HOME)/AppData/Local/Programs/video2x" >>"$CONFIGFILE"
+	else
+		echo "VIDEO2X_DIR=" >>"$CONFIGFILE"
+	fi
+	echo "VIDEO2X_SCALING_OPTS=-s 4 --realesrgan-model realesrgan-plus -c libx264rgb -e crf=18 -e preset=medium" >>"$CONFIGFILE"
+	echo "VIDEO2X_DOUBLE_INTERPOLATE_OPTS=-p rife --rife-model rife-v4.6 -c libx264rgb -e crf=18 -e preset=medium" >>"$CONFIGFILE"
+
+	echo "">>"$CONFIGFILE"
+
 	echo "# --- VR we are App config ---">>"$CONFIGFILE"
 	echo "SCENEDETECTION_INPUTLENGTHLIMIT=20.0">>"$CONFIGFILE"
 	echo "SCENEDETECTION_THRESHOLD_DEFAULT=0.1">>"$CONFIGFILE"
 	echo "UML_FONTSIZE=11">>"$CONFIGFILE"
+	echo "">>"$CONFIGFILE"
+
+	echo "# --- FFLF Settings ---">>"$CONFIGFILE"
+	echo "IMAGE_INDEX_LIMIT=3">>"$CONFIGFILE"
 	echo "">>"$CONFIGFILE"
 
 	cp ./custom_nodes/comfyui_stereoscopic/docs/img/watermark-background.png ./user/default/comfyui_stereoscopic/watermark_background.png
@@ -369,8 +387,20 @@ taskdefinitions=`ls custom_nodes/comfyui_stereoscopic/config/tasks/*.json`
 for task in $taskdefinitions ; do
 	taskname=${task##*/}
 	taskname=${taskname%.json}
-	version=`cat "$task" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-	if [ $version -eq 1 ] ; then
+	version="0"
+	if [ -f "$task" ]; then
+		ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$task" | head -n1 || true)
+		if [ -n "$ver_line" ]; then
+			version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*//')
+		else
+			# fallback: try to extract quoted numeric version
+			ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+"' "$task" | head -n1 || true)
+			if [ -n "$ver_line" ]; then
+				version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*"([0-9]+)"/\1/')
+			fi
+		fi
+	fi
+	if printf '%s' "$version" | grep -qE '^[0-9]+$' && [ "$version" -eq 1 ] ; then
 		mkdir -p input/vr/tasks/$taskname output/vr/tasks/$taskname
 	fi
 done
@@ -380,16 +410,33 @@ then
 fi
 taskdefinitions=`ls "$CONFIGPATH"/tasks/*.json 2>/dev/null` 
 for task in $taskdefinitions ; do
-	taskname=${task##*/}
-	taskname=${taskname%.json}
-	taskname=${taskname//[^[:alnum:].-]/_}
-	taskname=${taskname// /_}
-	taskname=${taskname//\(/_}
-	taskname=${taskname//\)/_}
-	version=`cat "$task" | grep -o '"version":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
-	if [ $version -eq 1 ] ; then
-		mkdir -p input/vr/tasks/"_"$taskname output/vr/tasks/"_"$taskname
-	fi
+  if [ -e "$task" ] ; then
+    taskname=${task##*/}
+    taskname=${taskname%.json}
+    taskname=${taskname//[^[:alnum:].-]/_}
+    taskname=${taskname// /_}
+    taskname=${taskname//\(/_}
+    taskname=${taskname//\)/_}
+		version="0"
+		if [ -f "$task" ]; then
+			ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$task" | head -n1 || true)
+			if [ -n "$ver_line" ]; then
+				version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*//')
+			else
+				ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+"' "$task" | head -n1 || true)
+				if [ -n "$ver_line" ]; then
+					version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*"([0-9]+)"/\1/')
+				fi
+			fi
+		fi
+		if [ -z "$version" ] ; then
+			version=0
+			echo -e $"\e[93mWarning: Invalid Version definition: $task \e[0m"
+		fi
+		if printf '%s' "$version" | grep -qE '^[0-9]+$' && [ "$version" -eq 1 ] ; then
+			mkdir -p input/vr/tasks/"_"$taskname output/vr/tasks/"_"$taskname
+		fi
+  fi
 done
 
 # PLACE HINT FILES
@@ -402,7 +449,7 @@ mkdir -p input/vr/singleloop/error
 mkdir -p input/vr
 cd input/vr
 if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
-	for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
+	for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx dubbing/music watermark/encrypt watermark/decrypt caption interpolate ; do
 		mkdir -p $stagepath/done
 	done
 	TASKDIR=`find tasks -maxdepth 1 -type d`
@@ -412,8 +459,6 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 			mkdir -p tasks/$task/done
 		fi
 	done
-
-	#touch fullsbs/done/.nocleanup slideshow/done/.nocleanup interpolate/done/.nocleanup dubbing/sfx/done/.nocleanup watermark/encrypt/done/.nocleanup watermark/decrypt/done/.nocleanup singleloop/done/.nocleanup slides/done/.nocleanup tasks/credit-vr-we-are/done/.nocleanup tasks/vlimit-720p/done/.nocleanup tasks/vlimit-1080p/done/.nocleanup tasks/split-1m/done/.nocleanup tasks/fps-limit-15/done/.nocleanup
 	
 fi
 cd ../..
@@ -421,7 +466,7 @@ cd ../..
 # Initialize folders
 mkdir -p output/vr
 cd output/vr
-mkdir -p caption fullsbs scaling dubbing/sfx interpolate watermark/encrypt watermark/decrypt slides concat singleloop slideshow
+mkdir -p caption fullsbs scaling dubbing/sfx dubbing/music interpolate watermark/encrypt watermark/decrypt slides concat singleloop slideshow
 cd ../..
 
 # REBUILD FORWARD PIPELINE
@@ -451,23 +496,6 @@ if [ ! -e "$CONFIGPATH"/uml/"autoforward.png" ] || [ ! -s "$CONFIGPATH"/uml/"aut
 	./custom_nodes/comfyui_stereoscopic/api/uml_generate_image.sh
 fi
 
-# Cleanup
-echo -e $"\e[2mCleaning up unprotected done folders\e[0m"
-for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
-	if [ ! -f input/vr/$stagepath/done/.nocleanup ] ; then
-		rm -f -- input/vr/$stagepath/done/* 2>/dev/null
-	fi
-done
-TASKDIR=`find input/vr/tasks -maxdepth 1 -type d`
-for task in $TASKDIR; do
-	task=${task#input/vr/tasks/}
-	if [ ! -z $task ] ; then
-		if [ ! -f input/vr/tasks/$task/done/.nocleanup ] ; then
-			rm -f -- input/vr/tasks/$task/done/* 2>/dev/null
-		fi
-	fi
-done
-
 # check if install enforces a test run and then wait for ComfyUI to be started.
 if [ -e "custom_nodes/comfyui_stereoscopic/.test/.forced" ] ; then
   COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
@@ -491,32 +519,10 @@ if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 	fi
 fi
 
-# Do initial auto-forward and cleanup
+# Do initial auto-forward and cleanup (externalized)
+. ./custom_nodes/comfyui_stereoscopic/api/lib_forward.sh
 if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
-	echo -e $"\e[2mSearching for files left to forward and cleanup.\e[0m"
-	for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx watermark/encrypt watermark/decrypt caption interpolate ; do
-		[ $loglevel -ge 1 ] && echo " - $stagepath"
-		FILECOUNT=`find output/vr/$stagepath -maxdepth 1 -type f -name '*.*' | wc -l 2>/dev/null` 
-		# forward.txt + one media
-		if [ $FILECOUNT -gt 1 ] ; then
-			./custom_nodes/comfyui_stereoscopic/api/forward.sh $stagepath || exit 1
-		fi
-		rm -rf -- output/vr/$stagepath/intermediate input/vr/$stagepath/intermediate 2>/dev/null
-	done
-	
-	TASKDIR=`find output/vr/tasks -maxdepth 1 -type d`
-	for task in $TASKDIR; do
-		task=${task#output/vr/tasks/}
-		if [ ! -z $task ] ; then
-			[ $loglevel -ge 1 ] && echo " - tasks/$task"
-			FILECOUNT=`find output/vr/$stagepath -maxdepth 1 -type f -name '*.*' | wc -l 2>/dev/null`  
-			# forward.txt + one media
-			if [ $FILECOUNT -gt 1 ] ; then
-				./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task || exit 1
-			fi
-			rm -rf -- output/vr/$stagepath/intermediate input/vr/$stagepath/intermediate 2>/dev/null
-		fi
-	done
+	do_autoforward
 else
 	echo -e $"\e[94mInfo:\e[0m Auto-Forward deactivated."
 fi
@@ -530,6 +536,16 @@ fi
 if [ ! -e "$NEGATIVEPSFXATH" ]
 then
 	echo "music, voice, crying, squeaking." >$NEGATIVESFXPATH
+fi
+POSITIVEMUSICPATH="$CONFIGPATH/dubbing_music_positive.txt"
+NEGATIVEMUSICPATH="$CONFIGPATH/dubbing_music_negative.txt"
+if [ ! -e "$POSITIVEMUSICPATH" ]
+then
+	echo "cinematic film orchestral soundtrack music ." >$POSITIVEMUSICPATH
+fi
+if [ ! -e "$NEGATIVEMUSICPATH" ]
+then
+	echo "crying, squeaking." >$NEGATIVEMUSICPATH
 fi
 
 [ $loglevel -ge 0 ] && echo -e $"\e[2mFor processings read docs. \e[36mhttps://www.3d-gallery.org\e[0m"

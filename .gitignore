@@ -1,3 +1,12 @@
+# Testbilder mit RANDOM-Timestamp
+*_RANDOM*.png
+testgrid_*_RANDOM*.png
+gridbase_*_RANDOM*.png
+# Debug-Images produced by `make_testgrid.py`
+debug_*.png
+debug_*_pre_*.png
+debug_*_post_*.png
+gridbase_single_*_RANDOM*.png
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -116,4 +125,13 @@ node.zip
 # Test / Installation
 .test/
 
+# Generated local batch/debug logs
+/batch_out*.txt
+/batch_err*.txt
+/out.txt
+/err.txt
+
 /cache/
+
+# Alexa local runtime
+alexa/script/alexa.pid

@@ -100,19 +100,19 @@ app.registerExtension({
 
     // compute minimal node height for rowCount and ensure node.size[1] >= needed
     function ensureNodeMinHeight(node, rowCount) {
-        const rowH = 30;       // Höhe einer Tabellenzeile
-        const base = 54;       // Oberer Bereich (Titelzeile + Core Widgets)
-        const extra = 8;       // Gewünschter zusätzlicher Abstand
+        const rowH = 30;       // Height of one table row
+        const base = 54;       // Upper area (title row + core widgets)
+        const extra = 8;       // Desired additional spacing
         const needed = base + (rowCount + 4) * rowH + extra;
 
-        // Mindesthöhe setzen
+        // Set the minimum height
         node.min_height = needed;
 
         if (node.size[1] < needed) {
             node.size[1] = needed;
         }
 
-        // Mindestbreite (für Tabelle + Delete Buttons)
+        // Minimum width for the table plus delete buttons
         const minWidth = 380;
         node.min_width = minWidth;
 

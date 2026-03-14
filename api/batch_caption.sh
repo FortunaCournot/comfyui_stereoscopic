@@ -9,6 +9,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 # relative or abolute path of ComfyUI folder in your ComfyUI_windows_portable
 # Default: Executed in ComfyUI folder
 if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
@@ -73,10 +100,12 @@ else
 
 
 
-	for f in input/vr/caption/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
-	for f in input/vr/caption/*\(*; do mv -- "$f" "${f//\(/_}"; done 2>/dev/null
-	for f in input/vr/caption/*\)*; do mv -- "$f" "${f//\)/_}"; done 2>/dev/null
-	for f in input/vr/caption/*\'*; do mv -- "$f" "${f//\'/_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/caption/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 
 	TITLE_GENERATION_CSKEYLIST=$(awk -F "=" '/TITLE_GENERATION_CSKEYLIST=/ {print $2}' $CONFIGFILE) ; TITLE_GENERATION_CSKEYLIST=${TITLE_GENERATION_CSKEYLIST:-"XMP:Title"}
 	DESCRIPTION_GENERATION_CSKEYLIST=$(awk -F "=" '/DESCRIPTION_GENERATION_CSKEYLIST=/ {print $2}' $CONFIGFILE) ; DESCRIPTION_GENERATION_CSKEYLIST=${DESCRIPTION_GENERATION_CSKEYLIST:-"XPComment,iptc:Caption-Abstract"}
@@ -93,23 +122,28 @@ else
 	mkdir -p $INTERMEDIATEFOLDER
 	mkdir -p output/vr/caption/intermediate
 	
-	COUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	COUNT=$(count_files_with_exts "input/vr/caption" mp4 webm)
 	declare -i INDEX=0
 	declare -i WAIT=0
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/caption -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDEOFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/caption/BATCHPROGRESS.TXT
 			echo "caption" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			newfn=$INTERMEDIATEFOLDER/$newfn
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			newfn=$(normalize_rename_path "$INTERMEDIATEFOLDER/${nextinputfile##*/}")
 			EXTENSION="${newfn##*.}"
 			if [ "$EXTENSION" == "mp4" ] ; then
 				cp -- "$nextinputfile" $newfn 
@@ -137,12 +171,20 @@ else
 				exit 0
 			fi
 			
+			start=`date +%s`
 			until [ "$queuecount" = "0" ]
 			do
 				sleep 1
 				curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
 				queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
-			done				
+				end=`date +%s`
+				secs=$((end-start))
+				if command -v failover_check >/dev/null 2>&1; then
+					if ! failover_check "" "$secs"; then
+						exit 0
+					fi
+				fi
+			done			
 
 			WAIT=0
 			until [ -e "output/vr/caption/intermediate/temp_caption_short.txt" ] || [ -e "output/vr/caption/intermediate/temp_caption_long.txt" ]  ; do
@@ -207,11 +249,13 @@ else
 	fi	
 
 	IMGFILES=`find input/vr/caption -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp'`
-	COUNT=`find input/vr/caption -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.webp' | wc -l`
+	# lib_fs already sourced above
+	COUNT=$(count_files_with_exts "input/vr/caption" png jpg jpeg webp)
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
 		for nextinputfile in $IMGFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			if [ ! -e $nextinputfile ] ; then
 				echo -e $"\e[91mError:\e[0m File removed. Batch task terminated."
@@ -220,14 +264,10 @@ else
 			INDEX+=1
 			echo "$INDEX/$COUNT">input/vr/caption/BATCHPROGRESS.TXT
 			echo "caption" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "image $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
+			echo "image $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			newfn=$(normalize_rename_path "${nextinputfile##*/}")
 			STORENAME=$newfn
-			newfn=$INTERMEDIATEFOLDER/$newfn
+			newfn=$(normalize_rename_path "$INTERMEDIATEFOLDER/$newfn")
 			cp -- "$nextinputfile" "$newfn"
 			
 			if [ -e "$newfn" ]; then

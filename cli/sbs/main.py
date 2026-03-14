@@ -83,13 +83,13 @@ def init_pipeline(
     SBSConverter: ImageSBSConverter,
     output_path: str,
     *,
-    batch_size: int = 20,
-    in_queue: int = 32,
-    r_queue: int = 32,
-    s_queue: int = 32,
-    p_queue: int = 32,
+    batch_size: int = 5,
+    in_queue: int = 16,
+    r_queue: int = 16,
+    s_queue: int = 16,
+    p_queue: int = 16,
     n_preprocess: int = 2,
-    n_processors: int = 6,
+    n_processors: int = 8,
     n_savers: int = 1,
     n_feeders: int = 1,
     model_name: str = "depth-anything/Depth-Anything-V2-Small-hf",
@@ -101,34 +101,12 @@ def init_pipeline(
     switch_sides: bool = False,
     symetric: bool = False,
     blur_radius: int = 19,
-    video_quality: str = "medium"
+    video_quality: str = "medium",
+    autocast: str = None
     ) -> PipelineContext:
         
     """
     Initialize the multistage conversion pipeline.
-
-    Args:
-        video_path (str): Path to video file, folder, or single image.
-        estimator (DepthEstimator): Depth prediction module.
-        SBSConverter (ImageSBSConverter): Stereo SBS converter.
-        output_path (str): Where to save output results.
-        batch_size (int): Number of frames/images processed per batch.
-        *_queue (int): Queue capacities for each stage (raw, input, process, save).
-        n_preprocess (int): Number of CPU threads for preprocessing.
-        n_processors (int): Number of CPU threads for SBS conversion.
-        n_savers (int): Number of disk writer threads.
-        n_feeders (int): Number of threads feeding input frames.
-        model_name (str): Depth model name from HuggingFace.
-        codec (str): Output video codec (for video mode only).
-        input_type (str): One of ['video', 'folder', 'i2i'].
-        debug (bool): Enable memory/queue monitoring.
-        depth_scale, depth_offset (float): Depth parameters.
-        switch_sides (bool): Swap left/right views in the final SBS frame.
-        symetric (bool): Enable symmetric stereo rendering.
-        blur_radius (int): Radius for blurring depth maps before conversion.
-
-    Returns:
-        PipelineContext: fully configured context object with worker threads ready to start.
     """
         
     # --- Detect and prepare input source ---
@@ -145,13 +123,30 @@ def init_pipeline(
             raise RuntimeError("Failed to read first frame")
         H, W = frame.shape[:2]
         cudnn_benchmark = True
-        
+       
+        # Encoder check
+        if not codec or codec == "auto":
+            if W*2 <= 4096 and H <= 4096 and detect_nvenc_support():
+                codec = "h264_nvenc"
+                print("NVENC available — using GPU encoder (h264_nvenc).")
+            else:
+                codec = "libx264"
+                print("Using CPU encoder — libx264")
+        elif codec == "h264_nvenc":
+            if W*2 <= 4096 and H <= 4096 and detect_nvenc_support():
+                pass
+            else:
+                codec = "libx264"
+                print("h264_nvenc not available — using CPU encoder (libx264).")
+                
+        # Definitions of quality
         if video_quality == "low":
             crf, cq = 30, 35
         elif video_quality == "medium":
             crf, cq = 26, 31
-        else:  # high
+        elif video_quality == "high":  
             crf, cq = 23, 28
+            
     elif input_type == "folder":
         files = natsorted([f for f in os.listdir(video_path) if f.lower().endswith((".png", ".jpg", ".jpeg"))])
         if not files:
@@ -212,17 +207,18 @@ def init_pipeline(
         blur_radius=blur_radius,
         input_type=input_type,
         n_feeders=n_feeders,
-        video_quality=video_quality
+        video_quality=video_quality,
+        autocast=autocast
     )
     
-    if debug:
-        print("\n[Pipeline Configuration]")
-        for f in fields(ctx):
-            name = f.name
-            value = getattr(ctx, name)
-            if isinstance(value, (list, dict)) or "queue" in name or "worker" in name:
-                continue
-            print(f"{name:>15}: {value}")
+    #if debug:
+    #    print("\n[Pipeline Configuration]")
+    #    for f in fields(ctx):
+    #        name = f.name
+    #        value = getattr(ctx, name)
+    #        if isinstance(value, (list, dict)) or "queue" in name or "worker" in name:
+    #            continue
+    #        print(f"{name:>15}: {value}")
     
     max_frames = None
         
@@ -249,10 +245,10 @@ def init_pipeline(
     for _ in range(n_preprocess):
         ctx.pre_workers.append(Thread(target=PipelineContext.preprocess_worker,args=(raw_q, batch_size, estimator.processor, estimator.device, inp_q)))
         
-    ctx.gpu_worker = Thread(target=PipelineContext.gpu_worker_loop,args=(estimator, inp_q, proc_q, model_name, n_preprocess, H, W, n_processors,cudnn_benchmark,input_type))
+    ctx.gpu_worker = Thread(target=PipelineContext.gpu_worker_loop,args=(estimator, inp_q, proc_q, model_name, n_preprocess, H, W, n_processors,cudnn_benchmark,input_type,ctx.autocast))
                             
     for _ in range(n_processors):
-        ctx.processors.append(Thread(target=PipelineContext.process_worker, args=(proc_q, SBSConverter, save_q,input_type,depth_scale,depth_offset,switch_sides,symetric,blur_radius)))
+        ctx.processors.append(Thread(target=PipelineContext.process_worker, args=(proc_q, SBSConverter, save_q,input_type,ctx.depth_scale,ctx.depth_offset,ctx.switch_sides,ctx.symetric,ctx.blur_radius)))
     
     if input_type == "video":
         for _ in range(n_savers):
@@ -326,12 +322,13 @@ def run_pipeline(ctx: PipelineContext):
     ctx.t_end = time.perf_counter()
     print(f"Process time: {ctx.t_end - ctx.t_start:.4f} sec")
 
-
-        
+    if ctx.fatal_error == True:
+        sys.exit(1)
+ 
 # --- Command-line interface ---
 if __name__ == "__main__":
     import argparse
-    version = "1.0.0"
+    version = "1.0.5"
     parser = argparse.ArgumentParser(
         description="VR we are! CLI pipeline (video → 3D SBS video, "
                     "folder → batch of images, i2i → single/multiple images one-by-one)."
@@ -359,7 +356,10 @@ if __name__ == "__main__":
                     help="Codec for output video (CPU: libx264/libx265, GPU: h264_nvenc/hevc_nvenc)")
     parser.add_argument("--quality", type=str,
             choices=["low", "medium", "high"],default=None,
-            help="Output video quality (changes the values of -crf or -cq in ffmpeg)")   
+            help="Output video quality (changes the values of -crf or -cq in ffmpeg)") 
+    parser.add_argument(
+        "--autocast",type=str,choices=["bfloat16", "float16"],default=None,
+        help="Enable torch.amp.autocast on CUDA with selected dtype (default=None = disabled)")     
     parser.add_argument("--input-type", type=str,
                         choices=["video", "folder", "i2i"], default="video",
                         help=("Processing mode:\n"
@@ -453,6 +453,7 @@ if __name__ == "__main__":
                 n_preprocess=1, n_processors=1, n_savers=1, n_feeders=1,
                 model_name=args.model or "depth-anything/Depth-Anything-V2-Base-hf",
                 codec="png",
+                autocast=args.autocast,
                 input_type=args.input_type,
                 debug=args.debug,
                 depth_scale=args.depth_scale or 1.0,
@@ -463,7 +464,6 @@ if __name__ == "__main__":
             )
             run_pipeline(ctx)
         debug_report(ctx)
-        print(f"Conversion complete. Output saved to: {ctx.output_path}")
     # ---  video and folder mods ---
     else:
         if args.preset:
@@ -486,16 +486,6 @@ if __name__ == "__main__":
             run_pipeline(ctx)
             debug_report(ctx)
         else:
-            if args.input_type == "video":
-                if detect_nvenc_support():
-                    codec = "h264_nvenc"
-                    print("NVENC available — using GPU encoder (h264_nvenc).")
-                else:
-                    codec = "libx264"
-                    print("Using CPU encoder: libx264")
-            else:
-                codec = None
-                
             validate_config(args, parser)
             ctx = init_pipeline(
                 version,
@@ -513,7 +503,8 @@ if __name__ == "__main__":
                 n_savers=args.savers or 1,
                 n_feeders=args.feeders or 1,
                 model_name=args.model or "depth-anything/Depth-Anything-V2-Base-hf",
-                codec=args.codec or codec,
+                codec=args.codec or None,
+                autocast=args.autocast or None,
                 input_type=args.input_type,
                 debug=args.debug,
                 depth_scale=args.depth_scale or 1.0,
@@ -525,6 +516,6 @@ if __name__ == "__main__":
             )
             run_pipeline(ctx)
             debug_report(ctx)
-            print(f"Conversion complete. Output saved to: {ctx.output_path}")
         
+
 

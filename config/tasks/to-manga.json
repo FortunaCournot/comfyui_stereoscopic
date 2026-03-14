@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "blueprint": "workflow-v2v-transform",
+  "i2i_api": "custom_nodes/comfyui_stereoscopic/config/tasks/workflow/api/I2V_FF_Wan22_API.json",
+  "sdxl_checkpoint": "SDXL/juggernautXL_ragnarokBy.safetensors",
+  "input": "video",
+  "output": "video",
+}

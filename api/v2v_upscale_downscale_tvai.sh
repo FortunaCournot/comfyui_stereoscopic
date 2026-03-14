@@ -101,6 +101,8 @@ else
 	FINALTARGETFOLDER=`realpath "output/vr/scaling"`
 	mkdir -p output/vr/scaling/intermediate
 	
+  set -x
+  
 	VIDEO_PIXFMT=$(awk -F "=" '/VIDEO_PIXFMT=/ {print $2}' $CONFIGFILE) ; VIDEO_PIXFMT=${VIDEO_PIXFMT:-"yuv420p"}
 	VIDEO_CRF=$(awk -F "=" '/VIDEO_CRF=/ {print $2}' $CONFIGFILE) ; VIDEO_CRF=${VIDEO_CRF:-"17"}
 	
@@ -129,8 +131,8 @@ else
 	fi
 
 
-	if [ $PIXEL -le $LIMIT2X ]; then
-		if [ $PIXEL -le $LIMIT4X ]; then
+	if [ $PIXEL -le $LIMIT2X ] || [ $RESH -lt 2160 ] ; then
+		if [ $PIXEL -le $LIMIT4X ] || [ $RESH -lt 1080 ] ; then
 			TARGETPREFIX="$TARGETPREFIX""_x4"
 			UPSCALEFACTOR=4
 			TVAI_FILTER_STRING="$TVAI_FILTER_STRING_UP4X"
@@ -154,6 +156,44 @@ else
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$TARGETPREFIX"".mkv" -c:v libx264 -crf 19 -c:a aac -pix_fmt yuv420p -movflags frag_keyframe+empty_moov "$TARGETPREFIX"".mp4"
 		if [ -e "$TARGETPREFIX"".mp4" ] ; then
 			rm -f -- "$TARGETPREFIX"".mkv"
+			# downscale result to max 4K (3840x2160) preserving aspect ratio
+			OUTFILE="$TARGETPREFIX"".mp4"
+			# probe resolution of generated file
+			RESW_GEN=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "$OUTFILE"`
+			RESH_GEN=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 "$OUTFILE"`
+			if [ -n "$RESW_GEN" ] && [ -n "$RESH_GEN" ]; then
+				MAXW=3840
+				MAXH=2160
+				# If filename contains 'sbs' (any case), allow larger width by doubling MAXW
+				BASENAME=`basename "$OUTFILE"`
+				if echo "$BASENAME" | tr '[:upper:]' '[:lower:]' | grep -q 'sbs' ; then
+					MAXW=$((MAXW * 2))
+					[ $loglevel -ge 0 ] && echo "SBS detected in filename, MAXW doubled -> $MAXW"
+				fi
+				if [ "$RESW_GEN" -gt $MAXW ] || [ "$RESH_GEN" -gt $MAXH ]; then
+					# decide limiting dimension by aspect
+					if [ $(( RESW_GEN * MAXH )) -gt $(( RESH_GEN * MAXW )) ]; then
+						newW=$MAXW
+						newH=$(( (RESH_GEN * MAXW) / RESW_GEN ))
+					else
+						newH=$MAXH
+						newW=$(( (RESW_GEN * MAXH) / RESH_GEN ))
+					fi
+					# ensure even dimensions
+					newW=$(( (newW / 2) * 2 ))
+					newH=$(( (newH / 2) * 2 ))
+					[ $loglevel -ge 0 ] && echo "Downscaling ${RESW_GEN}x${RESH_GEN} -> ${newW}x${newH}"
+					TMP_DOWN="$TARGETPREFIX""_4k.mp4"
+					# transcode/downscale and keep audio
+					nice "$FFMPEGPATHPREFIX"ffmpeg -y -i "$OUTFILE" -vf "scale=${newW}:${newH}" -c:v libx264 -crf 18 -preset medium -c:a copy "$TMP_DOWN"
+					if [ -e "$TMP_DOWN" ]; then
+						mv -f -- "$TMP_DOWN" "$OUTFILE"
+						[ $loglevel -ge 0 ] && echo "Downscale complete -> $OUTFILE"
+					else
+						[ $loglevel -ge 0 ] && echo "Warning: downscale failed, keeping original $OUTFILE"
+					fi
+				fi
+			fi
 			#[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -all:all= -overwrite_original "$TARGETPREFIX"".mp4"
 			#[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$INPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$TARGETPREFIX"".mp4" && echo "ItemList tags copied."
 			[ -e "$EXIFTOOLBINARY" ] &&  nice "$FFMPEGPATHPREFIX"ffmpeg -i "$TARGETPREFIX"".mp4" -vcodec libx264 -crf 18 -qscale:v 2 -acodec aac -ac 2 -async 1 -strict experimental -threads 0 output/vr/scaling/intermediate/exifinput.mp4

@@ -62,7 +62,7 @@ prompt_text = """
   "177": {
     "inputs": {
       "filename_prefix": "video/sbstest",
-      "format": "mp4",
+      "format": "auto",
       "codec": "h264",
       "video": [
         "178",

@@ -35,6 +35,33 @@ onExit() {
 }
 trap onExit EXIT
 
+SAFE_BASENAME_MAXLEN=${SAFE_BASENAME_MAXLEN:-72}
+
+normalize_rename_path() {
+	local path="$1"
+	local max_len="${2:-$SAFE_BASENAME_MAXLEN}"
+	local dir file stem suffix
+	dir="${path%/*}"
+	[ "$dir" = "$path" ] && dir=""
+	file="${path##*/}"
+	stem="$file"
+	suffix=""
+	if [[ "$file" == *.* && "$file" != .* ]]; then
+		suffix=".${file##*.}"
+		stem="${file%.*}"
+	fi
+	stem="${stem//[^[:alnum:].-]/_}"
+	[ -z "$stem" ] && stem="file"
+	if [ "${#stem}" -gt "$max_len" ] ; then
+		stem="${stem:0:$max_len}"
+	fi
+	if [ -n "$dir" ] ; then
+		printf '%s/%s%s' "$dir" "$stem" "$suffix"
+	else
+		printf '%s%s' "$stem" "$suffix"
+	fi
+}
+
 
 FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
@@ -53,24 +80,35 @@ elif test $# -ne 0 ; then
     echo "Usage: $0 "
     echo "E.g.: $0 "
 else
-	for f in input/vr/dubbing/sfx/*\ *; do mv -- "$f" "${f// /_}"; done 2>/dev/null
+	shopt -s nullglob
+	for f in input/vr/dubbing/sfx/*; do
+		[ -e "$f" ] || continue
+		new=$(normalize_rename_path "$f")
+		[ "$new" = "$f" ] || mv -- "$f" "$new"
+	done 2>/dev/null
 	
-	COUNT=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' | wc -l`
+	if [ -z "$COMFYUIPATH" ]; then
+		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
+	fi
+	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
+	if [ -f "$LIB_FS" ]; then
+		. "$LIB_FS" || { echo "Error: failed to source canonical $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1; }
+	else
+		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
+	fi
+	COUNT=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDFILES=`find input/vr/dubbing/sfx -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
 		for nextinputfile in $VIDFILES ; do
+			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 			INDEX+=1
 			echo "$INDEX/$COUNT" >input/vr/dubbing/sfx/BATCHPROGRESS.TXT
 			echo "dubbing/sfx" >user/default/comfyui_stereoscopic/.daemonstatus
-			echo "video $INDEX of $COUNT" >>user/default/comfyui_stereoscopic/.daemonstatus
-			newfn=${nextinputfile##*/}
-			newfn=input/vr/dubbing/sfx/${newfn//[^[:alnum:].-]/_}
-			newfn=${newfn// /_}
-			newfn=${newfn//\(/_}
-			newfn=${newfn//\)/_}
-			mv "$nextinputfile" $newfn 
+			echo "video $INDEX of $COUNT: ${nextinputfile##*/}" >>user/default/comfyui_stereoscopic/.daemonstatus
+			newfn=$(normalize_rename_path "input/vr/dubbing/sfx/${nextinputfile##*/}")
+			mv "$nextinputfile" "$newfn" 
 
 			start=`date +%s`
 			end=`date +%s`
@@ -103,9 +141,16 @@ else
 					itertimemsg=", $runtime""s/prompt, ETA in $eta"
 				fi
 				lastcount="$queuecount"
-					
+				# centralized failover check (non-task callers pass empty timeout)
+				end_now=`date +%s`
+				secs_now=$((end_now-startiteration))
+				if command -v failover_check >/dev/null 2>&1; then
+					if ! failover_check "" "$secs_now"; then
+						exit 0
+					fi
+				fi
 				echo -ne $"\e[1mqueuecount:\e[0m $queuecount $itertimemsg         \r"
-			done
+				done
 			end=`date +%s`
 			runtime=$((end-startiteration))
 			echo -e $"\e[92mdone.\e[0m duration: $runtime""s                        "

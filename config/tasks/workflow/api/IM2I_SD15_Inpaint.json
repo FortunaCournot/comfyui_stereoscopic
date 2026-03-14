@@ -1,0 +1,216 @@
+{
+  "5": {
+    "inputs": {
+      "ckpt_name": "512-inpainting-ema.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "11": {
+    "inputs": {
+      "seed": [
+        "86",
+        0
+      ],
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "uni_pc_bh2",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "5",
+        0
+      ],
+      "positive": [
+        "62",
+        0
+      ],
+      "negative": [
+        "58",
+        0
+      ],
+      "latent_image": [
+        "103",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "15": {
+    "inputs": {
+      "samples": [
+        "11",
+        0
+      ],
+      "vae": [
+        "5",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "48": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Postfix"
+    }
+  },
+  "49": {
+    "inputs": {
+      "value": "text, watermark, oversaturated, black and white, greyscale, color cast, faded, old, washed out, low quality, lacluster"
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Negative"
+    }
+  },
+  "58": {
+    "inputs": {
+      "text": [
+        "49",
+        0
+      ],
+      "clip": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "62": {
+    "inputs": {
+      "text": [
+        "63",
+        0
+      ],
+      "clip": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "63": {
+    "inputs": {
+      "value": " "
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Prefix"
+    }
+  },
+  "67": {
+    "inputs": {
+      "image": "example_10_bw.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "68": {
+    "inputs": {
+      "filename_prefix": "RecoloredImage",
+      "images": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "86": {
+    "inputs": {
+      "value": 507824198253856
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Seed"
+    }
+  },
+  "96": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "Positive Postfix Appendum"
+    }
+  },
+  "100": {
+    "inputs": {
+      "image": "example_10_bw.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Mask"
+    }
+  },
+  "103": {
+    "inputs": {
+      "grow_mask_by": 6,
+      "pixels": [
+        "67",
+        0
+      ],
+      "vae": [
+        "5",
+        2
+      ],
+      "mask": [
+        "104",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE Encode (for Inpainting)"
+    }
+  },
+  "104": {
+    "inputs": {
+      "min": 0,
+      "max": 1,
+      "mask": [
+        "105",
+        0
+      ]
+    },
+    "class_type": "RemapMaskRange",
+    "_meta": {
+      "title": "Remap Mask Range"
+    }
+  },
+  "105": {
+    "inputs": {
+      "channel": "red",
+      "image": [
+        "100",
+        0
+      ]
+    },
+    "class_type": "ImageToMask",
+    "_meta": {
+      "title": "Convert Image to Mask"
+    }
+  }
+}

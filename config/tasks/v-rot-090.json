@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-vf 'transpose=1'",
+  "input": "video",
+  "output": "video",
+}
