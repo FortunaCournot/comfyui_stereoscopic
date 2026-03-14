@@ -11,7 +11,7 @@
 @ECHO OFF
 
 :: VR we are TAG to be checked out, default heads/develop
-SET VRWEARE_TAG=tags/4.1.0
+SET VRWEARE_TAG=tags/4.3.0
 
 
 :: Windows version check 
@@ -19,7 +19,7 @@ IF NOT "%OS%"=="Windows_NT" GOTO Fail
 :: Keep variable local 
 SETLOCAL enabledelayedexpansion
 
-SET VRWEARE_VERSION=4.0
+SET VRWEARE_VERSION=4.3
 
 :: Files ouside of my authority with provided checksum (sha256sum):
 :: ComfyUI_windows_portable_nvidia.7z from https://github.com/comfyanonymous/ComfyUI/releases
