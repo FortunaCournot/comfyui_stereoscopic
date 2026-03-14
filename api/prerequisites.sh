@@ -8,7 +8,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 
 cd $COMFYUIPATH
 
-CONFIG_VERSION=10
+CONFIG_VERSION=11
 
 rm -f "custom_nodes/comfyui_stereoscopic/.test/.signalfail" >/dev/null
 

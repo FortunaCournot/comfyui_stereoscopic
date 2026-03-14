@@ -1048,9 +1048,15 @@ ECHO Apply extra requirements ...
 
 .\python_embeded\python -s -m pip install segment_anything
 
+
 :: For ReActor:
 .\python_embeded\python -m pip install onnx
 :EXTRAS_END
+
+:: ComfyUI fixes for current release v0.16.4
+.\python_embeded\python -m pip install simpleeval
+.\python_embeded\python -m pip install --force-reinstall pyflakes
+
 
 DEL %VRWEAREPATH%\ComfyUI_windows_portable\run_nvidia_gpu.bat
 IF "%LOCALPYTHONPATH%" == "" GOTO END_INSTALL_PACKS
