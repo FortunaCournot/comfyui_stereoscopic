@@ -249,9 +249,10 @@ elif [ -d "custom_nodes" ]; then
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
+	OVERRIDECOUNT=$(count_files_with_exts "input/vr/concat/ignorename" mp4)
 	# zero if concat stage disabled
-	if [ ${CONCATCOUNT:-0} -gt 0 ] && is_disabled "concat"; then CONCATCOUNT=0; fi
-	if [ $CONCATCOUNT -ge 1 ]; then
+	if { [ ${CONCATCOUNT:-0} -gt 0 ] || [ ${OVERRIDECOUNT:-0} -gt 0 ]; } && is_disabled "concat"; then CONCATCOUNT=0; OVERRIDECOUNT=0; fi
+	if [ $CONCATCOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
 		# CONCAT
 		# In:  input/vr/concat_in
 		# Out: output/vr/concat
@@ -259,6 +260,9 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 0 ] && echo "******** CONCAT **********"
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh || exit 1
+		if [ $OVERRIDECOUNT -ge 1 ]; then
+			./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh /ignorename || exit 1
+		fi
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 		[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh concat || exit 1 )
 	fi

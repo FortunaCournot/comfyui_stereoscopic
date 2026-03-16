@@ -50,10 +50,10 @@ FREESPACE=$(df -khBG . | tail -n1 | awk '{print $4}')
 FREESPACE=${FREESPACE%G}
 MINSPACE=10
 status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
-if test $# -gt 0
-then
-    echo "Usage: $0 "
-    echo "E.g.: $0"
+if test $# -ne 0 -a $# -ne 1; then
+    # targetprefix path is relative; parent directories are created as needed
+    echo "Usage: $0 [OVERRIDESUBPATH]"
+    echo "E.g.: $0 /ignorename"
 elif [[ $FREESPACE -lt $MINSPACE ]] ; then
 	echo -e $"\e[91mError:\e[0m Less than $MINSPACE""G left on device: $FREESPACE""G"
 else
@@ -72,6 +72,13 @@ else
 	else
 		touch "$CONFIGFILE"
 		echo "config_version=1">>"$CONFIGFILE"
+	fi
+
+	if test $# -eq 1; then
+		OVERRIDESUBPATH="$1"
+		shift
+		
+		mv -fv "input/vr/concat""$OVERRIDESUBPATH"/*.* input/vr/concat
 	fi
 
 	mkdir -p output/vr/concat/intermediate
@@ -144,16 +151,21 @@ else
 		
 		# build group keys by replacing the last numeric token (_NNN_) with _NUM_
 		# use greedy capture so we only replace the final _NNN_ occurrence (avoids requiring `rev`)
-		KEYS=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' -printf '%f\n' | grep -E '_[0-9]{3,}_' | sed -E 's/^(.*)_[0-9]{3,}_/\1_NUM_/' | sort -u)
-		for KEY in $KEYS ; do
-			# create a glob pattern by replacing the marker back to wildcard
-			PATTERN=$(echo "$KEY" | sed 's/_NUM_/_*_/')
-			IMGANDVIDFILES=$(find input/vr/concat -maxdepth 1 -type f -name "$PATTERN" | sort)
-			[ -z "$IMGANDVIDFILES" ] && continue
-			process_group
-		done
-		# process rest (files without the numeric _NNN_ token)
-		RESTFILES=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | sort | grep -Ev '_[0-9]{3,}_' || true)
+		if [ -z "$OVERRIDESUBPATH" ]; then
+			KEYS=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' -printf '%f\n' | grep -E '_[0-9]{3,}_' | sed -E 's/^(.*)_[0-9]{3,}_/\1_NUM_/' | sort -u)
+			for KEY in $KEYS ; do
+				# create a glob pattern by replacing the marker back to wildcard
+				PATTERN=$(echo "$KEY" | sed 's/_NUM_/_*_/')
+				IMGANDVIDFILES=$(find input/vr/concat -maxdepth 1 -type f -name "$PATTERN" | sort)
+				[ -z "$IMGANDVIDFILES" ] && continue
+				process_group
+			done
+			# process rest (files without the numeric _NNN_ token)
+			RESTFILES=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | sort | grep -Ev '_[0-9]{3,}_' || true)
+		else
+			# process rest (files without the numeric _NNN_ token)
+			RESTFILES=$(find input/vr/concat -maxdepth 1 -type f -name '*.mp4' | sort || true)
+		fi
 		if [ -n "$RESTFILES" ] ; then
 			IMGANDVIDFILES=$RESTFILES
 			process_group

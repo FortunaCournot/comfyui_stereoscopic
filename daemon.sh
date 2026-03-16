@@ -41,7 +41,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/dubbing/music input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/downscale/4K input/vr/caption input/vr/check/rate input/vr/check/released
+mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/dubbing/music input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/ignorename input/vr/downscale/4K input/vr/caption input/vr/check/rate input/vr/check/released
 mkdir -p output/vr/check/rate output/vr/check/released
 
 source ./user/default/comfyui_stereoscopic/.environment
@@ -315,6 +315,7 @@ else
 			SCALECOUNT=$(read_fs_status any "input/vr/scaling")
 			SBSCOUNT=$(read_fs_status any "input/vr/fullsbs")
 			OVERRIDECOUNT=$(read_fs_status any "input/vr/scaling/override")
+			IGNORENAMECOUNT=$(read_fs_status any "input/vr/concat/ignorename")
 			SINGLELOOPCOUNT=$(read_fs_status videos "input/vr/singleloop")
 			INTERPOLATECOUNT=$(read_fs_status videos "input/vr/interpolate")
 			CONCATCOUNT=$(read_fs_status videos "input/vr/concat")
@@ -333,7 +334,7 @@ else
 				fi
 			fi
 			
-			COUNT=$(( DUBSFXCOUNT + DUBMUSICCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + INTERPOLATECOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT + CAPCOUNT + TASKCOUNT ))
+			COUNT=$(( DUBSFXCOUNT + DUBMUSICCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + INTERPOLATECOUNT + CONCATCOUNT + IGNORENAMECOUNT + WMECOUNT + WMDCOUNT + CAPCOUNT + TASKCOUNT ))
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
 			COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
 			if [ -e user/default/comfyui_stereoscopic/.pipelinepause ] ; then
