@@ -259,7 +259,11 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "******** CONCAT **********"
 		[ $loglevel -ge 1 ] && echo "**************************"
-		./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh || exit 1
+		echo -ne $"\e[97m\e[1m=== CONCAT READY - PRESS RETURN TO START ===\e[0m" ; read forgetme ; echo "starting..."
+
+		if [ $CONCATCOUNT -ge 1 ]; then
+			./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh || exit 1
+		fi
 		if [ $OVERRIDECOUNT -ge 1 ]; then
 			./custom_nodes/comfyui_stereoscopic/api/batch_concat.sh /ignorename || exit 1
 		fi

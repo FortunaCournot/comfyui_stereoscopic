@@ -84,8 +84,6 @@ else
 	mkdir -p output/vr/concat/intermediate
 	mkdir -p input/vr/concat/done
 	
-	echo -ne $"\e[97m\e[1m=== CONCAT READY - PRESS RETURN TO START ===\e[0m" ; read forgetme ; echo "starting..."
-
 	shopt -s nullglob
 	for f in input/vr/concat/*; do
 		[ -e "$f" ] || continue
