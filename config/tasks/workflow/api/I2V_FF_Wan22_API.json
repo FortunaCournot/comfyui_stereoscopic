@@ -250,6 +250,15 @@
       "title": "length"
     }
   },
+  "78": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Actor Image"
+    }
+  },
   "39:68": {
     "inputs": {
       "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
