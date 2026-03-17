@@ -1,0 +1,343 @@
+#!/bin/sh
+#
+# workflow-i2v-fi-wan22.sh
+#
+# executes a i2v workflow for a start image (input) and places video result under ComfyUI/output/vr/tasks folder.
+#
+# Copyright (c) 2025 Fortuna Cournot. MIT License. www.3d-gallery.org
+
+# This ComfyUI API script needs addional custom node packages: 
+#  MMAudio, Florence2
+
+# Prerequisite: local ComfyUI_windows_portable server must be running (on default port).
+# Prerequisite: Configured path variables below.
+# Prerequisite: Git Bash installed. Call this script in Git Bash
+
+# - It queues workflows via api,
+# - Waits until comfyui is done, then call created script.
+
+# either start this script in ComfyUI folder or enter absolute path of ComfyUI folder in your ComfyUI_windows_portable here
+if [[ "$0" == *"\\"* ]] ; then echo -e $"\e[91m\e[1mCall from Git Bash shell please.\e[0m"; sleep 5; exit; fi
+
+assertlimit() {
+    mode_upperlimit=$1
+    kv=$2
+	
+    key=${kv%=*}
+    value2=$(( ${kv#*=} ))
+
+    temp=`grep "$key" output/vr/tasks/intermediate/probe.txt`
+	temp=${temp#*:}
+    temp="${temp%,*}"
+	temp="${temp%\"*}"
+    temp="${temp#*\"}"
+	value1=$(( $temp ))
+
+    if [ "$mode_upperlimit" != "true" ] ; then tmp="$value1" ; value1="$value2" ; value2="$tmp" ; fi
+	
+    if [ "$value1" -gt "$value2" ] ; then
+		echo -e $"\e[32mLimit already fullfilled:\e[0m $key"": $value1 > $value2"". Skip processing and forwarding to output."
+		mv -vf -- "$INPUT" "$FINALTARGETFOLDER"
+		exit 0
+	else
+		echo "Condition met. $key"": $value1 <= $value2"
+	fi
+} 
+
+
+COMFYUIPATH=`realpath $(dirname "$0")/../../../..`
+
+if test $# -ne 3 
+then
+    # targetprefix path is relative; parent directories are created as needed
+    echo "Usage: $0 jsonblueprintpath taskname inputfile"
+else
+	
+	cd $COMFYUIPATH
+
+	CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+
+	# API relative to COMFYUIPATH, or absolute path:
+	SCRIPTPATH=./custom_nodes/comfyui_stereoscopic/api/python/workflow/i2v_fi_ai_wan22.py
+
+	NOLINE=-ne
+	
+	export CONFIGFILE
+	if [ -e $CONFIGFILE ] ; then
+		loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
+		[ $loglevel -ge 2 ] && set -x
+		[ $loglevel -ge 2 ] && NOLINE="" ; echo $NOLINE
+		config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
+		COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
+		export COMFYUIHOST COMFYUIPORT
+	else
+		echo -e $"\e[91mError:\e[0m No config!?"
+		exit 1
+	fi
+
+	# set FFMPEGPATHPREFIX if ffmpeg binary is not in your enviroment path
+	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
+
+	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+
+	until [ "$queuecount" = "0" ]
+	do
+		sleep 1
+		
+	  status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
+	  if [ "$status" = "open" ]; then
+      curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+      queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+    else
+		  echo -ne "Waiting for empty queue        \r"
+	  fi
+	done
+    queuecount=
+    echo "                                   "
+  
+	# Use Systempath for python by default, but set it explictly for comfyui portable.
+	PYTHON_BIN_PATH=
+	if [ -d "../python_embeded" ]; then
+	  PYTHON_BIN_PATH=../python_embeded/
+	fi
+
+	BLUEPRINTCONFIG="$1"
+	shift
+	TASKNAME="$1"
+	shift
+	INPUT="$1"
+	shift
+
+	PROGRESS=" "
+	if [ -e input/vr/tasks/BATCHPROGRESS.TXT ]
+	then
+		PROGRESS=`cat input/vr/tasks/BATCHPROGRESS.TXT`" "
+	fi
+	regex="[^/]*$"
+	echo "========== $PROGRESS"`echo $INPUT | grep -oP "$regex"`" =========="
+	
+    rm -rf -- output/vr/tasks/intermediate
+	mkdir -p  output/vr/tasks/intermediate
+
+	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/tasks/intermediate/probe.txt`
+	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$INPUT" >>output/vr/tasks/intermediate/probe.txt`
+	
+	ORIGINALINPUT="$INPUT"
+	TARGETPREFIX=${INPUT##*/}
+	TARGETPREFIX=output/vr/tasks/intermediate/${TARGETPREFIX%.*}
+	TARGETPREFIX=`realpath "$TARGETPREFIX"`
+	FINALTARGETFOLDER=`realpath "output/vr/tasks/$TASKNAME"`
+	mkdir -p $FINALTARGETFOLDER
+
+	uuid=$(openssl rand -hex 16)
+	INTERMEDIATE_INPUT_FOLDER=input/vr/tasks/intermediate/$uuid
+	mkdir -p $INTERMEDIATE_INPUT_FOLDER
+	EXTENSION="${INPUT##*.}"
+	IMAGEINTERMEDIATE=$INTERMEDIATE_INPUT_FOLDER/tmp-input.$EXTENSION
+	cp -fv $INPUT $IMAGEINTERMEDIATE
+	INPUT="$IMAGEINTERMEDIATE"
+	INPUT=`realpath "$INPUT"`
+
+	# Optional smarttag (prepend '-' if present, else empty)
+	smarttag=`cat "$BLUEPRINTCONFIG" | grep -o '"smarttag":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	if [ -n "$smarttag" ]; then
+		smarttag="-$smarttag"
+	else
+		smarttag=""
+	fi
+
+	ACTORINPUT=$ORIGINALINPUT
+	# Search ACTORINPUT image path in input done folder of this task. Prefer BASE.*, else use the smallest BASE[-TAG]_NNNNN_.*.
+	ACTORINPUT_DONE_DIR=input/vr/tasks/$TASKNAME/done
+	if [ -d "$ACTORINPUT_DONE_DIR" ]; then
+		actor_lookup_name=${ORIGINALINPUT##*/}
+		actor_lookup_stem=${actor_lookup_name%.*}
+		actor_lookup_prefix=$actor_lookup_stem
+		actor_lookup_base=$actor_lookup_stem
+		actor_lookup_has_num=false
+		actor_lookup_input_num=
+		actor_lookup_input_tag=
+		actor_lookup_smallest_path=
+		actor_lookup_smallest_num=
+
+		case "$actor_lookup_stem" in
+			*_[0-9][0-9][0-9][0-9][0-9]_*)
+				actor_lookup_prefix=${actor_lookup_stem%_[0-9][0-9][0-9][0-9][0-9]_*}
+				actor_lookup_input_num_part=${actor_lookup_stem#"$actor_lookup_prefix"_}
+				actor_lookup_input_num=${actor_lookup_input_num_part%%_*}
+				actor_lookup_has_num=true
+				;;
+		esac
+
+		if [ -n "$smarttag" ] && [[ "$actor_lookup_prefix" == *"$smarttag" ]]; then
+			actor_lookup_base=${actor_lookup_prefix%"$smarttag"}
+			actor_lookup_input_tag=$smarttag
+		else
+			actor_lookup_base=$actor_lookup_prefix
+		fi
+
+		if [ -n "$actor_lookup_base" ]; then
+			actor_lookup_candidates=$(find "$ACTORINPUT_DONE_DIR" -maxdepth 1 -type f -print 2>/dev/null | LC_ALL=C sort)
+			actor_lookup_old_ifs=$IFS
+			IFS='
+'
+			if [ "$actor_lookup_has_num" != "true" ]; then
+				for actor_lookup_candidate in $actor_lookup_candidates
+				do
+					actor_lookup_candidate_name=${actor_lookup_candidate##*/}
+					actor_lookup_candidate_stem=${actor_lookup_candidate_name%.*}
+					if [ "$actor_lookup_candidate_stem" = "$actor_lookup_base" ]; then
+						ACTORINPUT=$actor_lookup_candidate
+						break
+					fi
+				done
+			fi
+
+			if [ "$ACTORINPUT" = "$ORIGINALINPUT" ]; then
+				actor_lookup_family_prefix=$actor_lookup_base
+				if [ -n "$actor_lookup_input_tag" ]; then
+					actor_lookup_family_prefix=${actor_lookup_family_prefix}$smarttag
+				fi
+				actor_lookup_family_prefix=${actor_lookup_family_prefix}_
+
+				for actor_lookup_candidate in $actor_lookup_candidates
+				do
+					actor_lookup_candidate_name=${actor_lookup_candidate##*/}
+					actor_lookup_candidate_stem=${actor_lookup_candidate_name%.*}
+					case "$actor_lookup_candidate_stem" in
+						"$actor_lookup_family_prefix"[0-9][0-9][0-9][0-9][0-9]_*)
+							actor_lookup_candidate_rest=${actor_lookup_candidate_stem#"$actor_lookup_family_prefix"}
+							actor_lookup_candidate_num=${actor_lookup_candidate_rest%%_*}
+							if [ "$actor_lookup_has_num" = "true" ] && [ $((10#$actor_lookup_candidate_num)) -ge $((10#$actor_lookup_input_num)) ]; then
+								continue
+							fi
+							if [ -z "$actor_lookup_smallest_num" ] || [ $((10#$actor_lookup_candidate_num)) -lt $((10#$actor_lookup_smallest_num)) ]; then
+								actor_lookup_smallest_num=$actor_lookup_candidate_num
+								actor_lookup_smallest_path=$actor_lookup_candidate
+							fi
+							;;
+					esac
+				done
+
+				if [ -n "$actor_lookup_smallest_path" ]; then
+					ACTORINPUT=$actor_lookup_smallest_path
+				fi
+			fi
+			IFS=$actor_lookup_old_ifs
+		fi
+	fi
+	ACTORINPUT=`realpath "$ACTORINPUT"`
+	echo "ACTORINPUT: $ACTORINPUT"
+  
+	upperlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"upperlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	for parameterkv in $(echo $upperlimits | sed "s/,/ /g")
+	do
+		assertlimit "true" "$parameterkv"
+	done
+	
+	lowerlimits=`cat "$BLUEPRINTCONFIG" | grep -o '"lowerlimits":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	for parameterkv in $(echo $lowerlimits | sed "s/,/ /g")
+	do
+		assertlimit "false" "$parameterkv"
+	done
+	
+	
+	workflow_api=`cat "$BLUEPRINTCONFIG" | grep -o '"workflow_api":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+
+	prompt=`cat "$BLUEPRINTCONFIG" | grep -o '"prompt":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+
+	timeout=`cat "$BLUEPRINTCONFIG" | grep -o '"timeout":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	
+	# source shared failover helper (if available)
+	if [ -f ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh ]; then
+		. ./custom_nodes/comfyui_stereoscopic/api/tasks/lib_failover.sh
+	fi
+	[ $loglevel -ge 2 ] && set -x
+	"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH "$workflow_api" "$INPUT" "$TARGETPREFIX" "$prompt" "$ACTORINPUT"
+	set +x && [ $loglevel -ge 2 ] && set -x
+
+	EXTENSION=".mp4"
+	SEARCH_PREFIX="${TARGETPREFIX##*/}"
+	
+	start=`date +%s`
+	end=`date +%s`
+	secs=0
+	until [ "$queuecount" = "0" ]
+	do
+		sleep 1
+		
+		curl -silent "http://$COMFYUIHOST:$COMFYUIPORT/prompt" >queuecheck.json
+		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
+	
+		end=`date +%s`
+		secs=$((end-start))
+		itertimemsg=`printf '%02d:%02d:%02s\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))`
+		echo -ne "$itertimemsg         \r"
+
+		# centralized failover check
+		if ! failover_check "$timeout" "$secs"; then
+			exit 0
+		fi
+    
+	done
+	runtime=$((end-start))
+	[ $loglevel -ge 0 ] && echo "done. duration: $runtime""s.                             "
+	
+	INTERMEDIATE=""
+	INTERMEDIATECAP=""
+	INTERMEDIATEIMG=""
+	INTERMEDIATE=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*${EXTENSION}" -size +0c -print -quit 2>/dev/null)
+	INTERMEDIATECAP=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*.txt" -size +0c -print -quit 2>/dev/null)
+	INTERMEDIATEIMG=$(find output/vr/tasks/intermediate -type f -name "${SEARCH_PREFIX}*.png" -size +0c -print -quit 2>/dev/null)
+	# Ensure numeric pattern suffix and inject smarttag immediately before it if not present
+	num_suffix=$(echo "$TARGETPREFIX" | grep -oE '_[0-9]{5}_$')
+	if [ -n "$num_suffix" ]; then
+		base=${TARGETPREFIX%"$num_suffix"}
+		if [ -n "$smarttag" ] && [[ "$base" != *"$smarttag" ]]; then
+			TARGETPREFIX="${base}${smarttag}${num_suffix}"
+		fi
+	else
+		# No numeric suffix yet: add smarttag (if missing) then the initial suffix
+		if [ -n "$smarttag" ] && [[ "$TARGETPREFIX" != *"$smarttag" ]]; then
+			TARGETPREFIX="${TARGETPREFIX}${smarttag}"
+		fi
+		TARGETPREFIX="${TARGETPREFIX}_00001_"
+	fi  
+	FINALTARGET="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}""$EXTENSION"
+	FINALTARGETCAP="$FINALTARGETFOLDER/""${TARGETPREFIX##*/}"".txt"
+	tmp=${TARGETPREFIX%_}
+	num=${tmp##*_}
+	prefix=${tmp%_*}_
+	TARGETPREFIXNEXT=$(printf "%s%05d_" "$prefix" "$((10#$num+1))")
+	FINALTARGETIMG="$FINALTARGETFOLDER/""${TARGETPREFIXNEXT##*/}"".png"
+
+	if [ -n "$INTERMEDIATE" ] && [ -s "$INTERMEDIATE" ] && [ -n "$INTERMEDIATEIMG" ] && [ -s "$INTERMEDIATEIMG" ] ; then
+  	[ -e "$EXIFTOOLBINARY" ] && "$EXIFTOOLBINARY" -m -tagsfromfile "$ORIGINALINPUT" -ItemList:Title -ItemList:Comment -creditLine -xmp:rating -SharedUserRating -overwrite_original "$INTERMEDIATE" && echo "tags copied."
+		mv -- "$INTERMEDIATE" "$FINALTARGET"
+		mv -- "$INTERMEDIATEIMG" "$FINALTARGETIMG"
+		#mv -- "$INTERMEDIATECAP" "$FINALTARGETCAP"
+		mkdir -p input/vr/tasks/$TASKNAME/done
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/done
+		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
+	  rm -rf -- "$INTERMEDIATE_INPUT_FOLDER"
+		echo -e $"\e[92mtask done.\e[0m"
+	else
+		if [ -z "$INTERMEDIATE" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. No intermediate video found (prefix: $SEARCH_PREFIX, ext: $EXTENSION)."
+		elif [ ! -s "$INTERMEDIATE" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. Intermediate video exists but has zero length: $INTERMEDIATE"
+		fi
+		if [ -z "$INTERMEDIATEIMG" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. No preview image found (prefix: $SEARCH_PREFIX, ext: .png)."
+		elif [ ! -s "$INTERMEDIATEIMG" ]; then
+			echo -e $"\e[91mError:\e[0m Task failed. Preview image exists but has zero length: $INTERMEDIATEIMG"
+		fi
+		mkdir -p input/vr/tasks/$TASKNAME/error
+		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/error
+	fi
+	
+
+fi
+exit 0
+
