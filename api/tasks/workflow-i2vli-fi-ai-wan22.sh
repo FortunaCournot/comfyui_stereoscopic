@@ -195,33 +195,51 @@ else
 			fi
 
 			if [ "$ACTORINPUT" = "$ORIGINALINPUT" ]; then
-				actor_lookup_family_prefix=$actor_lookup_base
-				if [ -n "$actor_lookup_input_tag" ]; then
-					actor_lookup_family_prefix=${actor_lookup_family_prefix}$smarttag
+				if [ "$actor_lookup_has_num" = "true" ] && [ -n "$actor_lookup_input_tag" ] && [ $((10#$actor_lookup_input_num)) -gt 1 ]; then
+					actor_lookup_previous_num=$(printf "%05d" "$((10#$actor_lookup_input_num-1))")
+					actor_lookup_previous_stem="${actor_lookup_base}_${actor_lookup_previous_num}_"
+					for actor_lookup_candidate in $actor_lookup_candidates
+					do
+						actor_lookup_candidate_name=${actor_lookup_candidate##*/}
+						actor_lookup_candidate_stem=${actor_lookup_candidate_name%.*}
+						if [ "$actor_lookup_candidate_stem" = "$actor_lookup_previous_stem" ]; then
+							ACTORINPUT=$actor_lookup_candidate
+							break
+						fi
+					done
 				fi
-				actor_lookup_family_prefix=${actor_lookup_family_prefix}_
 
-				for actor_lookup_candidate in $actor_lookup_candidates
-				do
-					actor_lookup_candidate_name=${actor_lookup_candidate##*/}
-					actor_lookup_candidate_stem=${actor_lookup_candidate_name%.*}
-					case "$actor_lookup_candidate_stem" in
-						"$actor_lookup_family_prefix"[0-9][0-9][0-9][0-9][0-9]_*)
-							actor_lookup_candidate_rest=${actor_lookup_candidate_stem#"$actor_lookup_family_prefix"}
-							actor_lookup_candidate_num=${actor_lookup_candidate_rest%%_*}
-							if [ "$actor_lookup_has_num" = "true" ] && [ $((10#$actor_lookup_candidate_num)) -ge $((10#$actor_lookup_input_num)) ]; then
-								continue
-							fi
-							if [ -z "$actor_lookup_smallest_num" ] || [ $((10#$actor_lookup_candidate_num)) -lt $((10#$actor_lookup_smallest_num)) ]; then
-								actor_lookup_smallest_num=$actor_lookup_candidate_num
-								actor_lookup_smallest_path=$actor_lookup_candidate
-							fi
-							;;
-					esac
-				done
+				if [ "$ACTORINPUT" != "$ORIGINALINPUT" ]; then
+					:
+				else
+					actor_lookup_family_prefix=$actor_lookup_base
+					if [ -n "$actor_lookup_input_tag" ]; then
+						actor_lookup_family_prefix=${actor_lookup_family_prefix}$smarttag
+					fi
+					actor_lookup_family_prefix=${actor_lookup_family_prefix}_
 
-				if [ -n "$actor_lookup_smallest_path" ]; then
-					ACTORINPUT=$actor_lookup_smallest_path
+					for actor_lookup_candidate in $actor_lookup_candidates
+					do
+						actor_lookup_candidate_name=${actor_lookup_candidate##*/}
+						actor_lookup_candidate_stem=${actor_lookup_candidate_name%.*}
+						case "$actor_lookup_candidate_stem" in
+							"$actor_lookup_family_prefix"[0-9][0-9][0-9][0-9][0-9]_*)
+								actor_lookup_candidate_rest=${actor_lookup_candidate_stem#"$actor_lookup_family_prefix"}
+								actor_lookup_candidate_num=${actor_lookup_candidate_rest%%_*}
+								if [ "$actor_lookup_has_num" = "true" ] && [ $((10#$actor_lookup_candidate_num)) -ge $((10#$actor_lookup_input_num)) ]; then
+									continue
+								fi
+								if [ -z "$actor_lookup_smallest_num" ] || [ $((10#$actor_lookup_candidate_num)) -lt $((10#$actor_lookup_smallest_num)) ]; then
+									actor_lookup_smallest_num=$actor_lookup_candidate_num
+									actor_lookup_smallest_path=$actor_lookup_candidate
+								fi
+								;;
+						esac
+					done
+
+					if [ -n "$actor_lookup_smallest_path" ]; then
+						ACTORINPUT=$actor_lookup_smallest_path
+					fi
 				fi
 			fi
 			IFS=$actor_lookup_old_ifs
