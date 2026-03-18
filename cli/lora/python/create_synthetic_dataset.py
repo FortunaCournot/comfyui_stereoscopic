@@ -79,6 +79,7 @@ class FriendlyArgumentParser(argparse.ArgumentParser):
         sys.exit(2)
 
 def parse_args():
+    """Parse CLI arguments and enforce the required dataset-generation constraints."""
     parser = FriendlyArgumentParser(
         description="Create synthetic dataset via per-frame queueing to ComfyUI."
     )
