@@ -240,6 +240,53 @@ else
 					if [ -n "$actor_lookup_smallest_path" ]; then
 						ACTORINPUT=$actor_lookup_smallest_path
 					fi
+
+					# Final fallback: if still not found, try a relaxed BASE.* match by
+					# stripping a trailing "-TAG" fragment from the base (e.g. "xyz-tag" -> "xyz")
+					# This allows files like "xyz.png" to be used when the input was "xyz-tag_00001_.png".
+					if [ "$ACTORINPUT" = "$ORIGINALINPUT" ]; then
+						# First try a direct BASE match (e.g. actor_lookup_base == "lml" matches "lml.png")
+						actor_lookup_root=$actor_lookup_base
+						if [ "$loglevel" -ge 2 ] 2>/dev/null; then
+							echo "DEBUG: trying relaxed BASE match for root=$actor_lookup_root" >&2
+							echo "DEBUG: actor_lookup_candidates:" >&2
+							for _c in $actor_lookup_candidates; do echo "  $_c" >&2; done
+						fi
+						for actor_lookup_candidate in $actor_lookup_candidates; do
+							actor_lookup_candidate_name=${actor_lookup_candidate##*/}
+							actor_lookup_candidate_stem=${actor_lookup_candidate_name%.*}
+							if [ "$loglevel" -ge 2 ] 2>/dev/null; then
+								echo "DEBUG: checking candidate stem='$actor_lookup_candidate_stem' against root='$actor_lookup_root'" >&2
+							fi
+							if [ "$actor_lookup_candidate_stem" = "$actor_lookup_root" ]; then
+								ACTORINPUT=$actor_lookup_candidate
+								break
+							fi
+						done
+
+						# If not found yet and base contains a hyphen, try the part before the first hyphen
+						if [ "$ACTORINPUT" = "$ORIGINALINPUT" ]; then
+							case "$actor_lookup_base" in
+								*-*)
+									actor_lookup_short=${actor_lookup_base%%-*}
+									if [ "$loglevel" -ge 2 ] 2>/dev/null; then
+										echo "DEBUG: trying shortened BASE match for short=$actor_lookup_short" >&2
+									fi
+									for actor_lookup_candidate in $actor_lookup_candidates; do
+										actor_lookup_candidate_name=${actor_lookup_candidate##*/}
+										actor_lookup_candidate_stem=${actor_lookup_candidate_name%.*}
+										if [ "$loglevel" -ge 2 ] 2>/dev/null; then
+											echo "DEBUG: checking candidate stem='$actor_lookup_candidate_stem' against short='$actor_lookup_short'" >&2
+										fi
+										if [ "$actor_lookup_candidate_stem" = "$actor_lookup_short" ]; then
+											ACTORINPUT=$actor_lookup_candidate
+											break
+										fi
+									done
+									;;
+							esac
+						fi
+					fi
 				fi
 			fi
 			IFS=$actor_lookup_old_ifs
