@@ -57,8 +57,53 @@ class LinearFade:
 
 
     def fade(self, images, start, mid, end, midpoint):
-        num_images = len(images)
+        # Normalize `images` to a Python list for per-item logic while preserving
+        # knowledge about whether the original input was a sequence, a batched
+        # tensor/array, or a single image. This avoids using `len()` on a
+        # numeric array (which would return its height) and producing wrong
+        # strengths length.
+        original_images = images
+        is_sequence = isinstance(images, (list, tuple))
+        is_torch = isinstance(images, torch.Tensor)
+        is_numpy = isinstance(images, np.ndarray)
+
+        images_list = None
+        batch_like = False
+
+        if is_sequence:
+            images_list = list(images)
+            batch_like = True
+        elif is_torch:
+            if images.ndim == 4:
+                # Batched tensor [B, H, W, C] or [B, C, H, W]
+                images_list = [images[i] for i in range(images.shape[0])]
+                batch_like = True
+            else:
+                images_list = [images]
+                batch_like = False
+        elif is_numpy:
+            if images.ndim == 4:
+                images_list = [images[i] for i in range(images.shape[0])]
+                batch_like = True
+            else:
+                images_list = [images]
+                batch_like = False
+        else:
+            # Fallback: treat as single object
+            try:
+                if hasattr(images, "__len__") and not isinstance(images, (str, bytes)):
+                    images_list = list(images)
+                    batch_like = True
+                else:
+                    images_list = [images]
+                    batch_like = False
+            except Exception:
+                images_list = [images]
+                batch_like = False
+
+        num_images = len(images_list)
         if num_images == 0:
+            print("LinearFade: no images", flush=True)
             return ([], [])
 
         # mid indicates where the transition lies between 0 and 1
@@ -78,8 +123,43 @@ class LinearFade:
                 strength = mid + t * (end - mid)
             strengths.append(strength)
 
-        # Important: return separately, not as a tuple.
-        return (images, strengths)
+        # Debug logging to help locate broadcasting issues downstream
+        try:
+            first = images_list[0] if num_images > 0 else None
+
+            def _shape(obj):
+                if isinstance(obj, torch.Tensor):
+                    return tuple(obj.shape)
+                if isinstance(obj, np.ndarray):
+                    return obj.shape
+                if hasattr(obj, "shape"):
+                    return getattr(obj, "shape")
+                try:
+                    return len(obj)
+                except Exception:
+                    return None
+
+            print(
+                f"LinearFade: num_images={num_images}, original_type={type(original_images)}, "
+                f"first_type={type(first)}, first_shape={_shape(first)}, "
+                f"strengths_len={len(strengths)}, strengths_type={type(strengths)}, batch_like={batch_like}",
+                flush=True
+            )
+        except Exception as e:
+            print(f"LinearFade: logging failed: {e}", flush=True)
+
+        # Defensive return policy:
+        # - If the original input looked like a single image (not batch-like),
+        #   return a single scalar float (the first strength) to avoid downstream
+        #   nodes accidentally receiving a list/array and attempting to broadcast
+        #   it against a single image.
+        # - If the input was batch-like (list or batched tensor/array), return
+        #   the list of strengths (one per item).
+        if not batch_like:
+            out_strength = float(strengths[0]) if strengths else 0.0
+            return (original_images, out_strength)
+        else:
+            return (original_images, strengths)
 
 
 class ColorCorrectBatch:
