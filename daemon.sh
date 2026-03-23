@@ -62,6 +62,25 @@ log_step_end() {
 	[ "${loglevel:-0}" -ge 0 ] && echo "Info: $label done (${elapsed}s)."
 }
 
+# Verbose wrappers: only show these step logs when loglevel >= 1
+log_step_start_verbose() {
+	[ "${loglevel:-0}" -ge 1 ] && log_step_start "$@"
+}
+
+log_step_end_verbose() {
+	[ "${loglevel:-0}" -ge 1 ] && log_step_end "$@"
+}
+
+# Verbose wrapper for slow-step logging: only show when loglevel >= 1
+log_step_if_slow_verbose() {
+	local label="$1"
+	local started="$2"
+	local threshold="${3:-2}"
+	if [ "${loglevel:-0}" -ge 1 ]; then
+		log_step_if_slow "$label" "$started" "$threshold"
+	fi
+}
+
 log_step_if_slow() {
 	local label="$1"
 	local started="$2"
@@ -439,7 +458,7 @@ else
 			WMDCOUNT=$(read_fs_status images "input/vr/watermark/decrypt")
 			CAPCOUNT=$(read_fs_status any "input/vr/caption")
 			TASKCOUNT=$(compute_task_count)
-			idle_waiting_append_dot_if_slow "$count_started" 2 || log_step_if_slow "Incoming file and task count refresh" "$count_started" 2
+			idle_waiting_append_dot_if_slow "$count_started" 2 || log_step_if_slow_verbose "Incoming file and task count refresh" "$count_started" 2
 
 
 			
@@ -493,18 +512,18 @@ else
 			WORKFLOW_FORWARDER_COUNT=$(read_fs_status any "output/vr/tasks/forwarder")
 			if [[ $WORKFLOW_FORWARDER_COUNT -gt 0 ]] ; then
 				forwarder_started=$(now_epoch)
-				idle_waiting_append_dot || log_step_start "Forwarding output from tasks/forwarder"
+				idle_waiting_append_dot || log_step_start_verbose "Forwarding output from tasks/forwarder"
 				sleep 1
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/forwarder || exit 1 )
-				idle_waiting_append_dot || log_step_end "Forwarding output from tasks/forwarder" "$forwarder_started"
+				idle_waiting_append_dot || log_step_end_verbose "Forwarding output from tasks/forwarder" "$forwarder_started"
 			fi
 			WORKFLOW_RELEASED_COUNT=$(read_fs_status any "output/vr/check/released")
 			if [[ $WORKFLOW_RELEASED_COUNT -gt 0 ]] ; then
 				released_started=$(now_epoch)
-				idle_waiting_append_dot || log_step_start "Forwarding output from check/released"
+				idle_waiting_append_dot || log_step_start_verbose "Forwarding output from check/released"
 				sleep 1
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/released || exit 1 )
-				idle_waiting_append_dot || log_step_end "Forwarding output from check/released" "$released_started"
+				idle_waiting_append_dot || log_step_end_verbose "Forwarding output from check/released" "$released_started"
 			fi
 			
 			# CHECK FOR FORWAPIPELINE_AUTOFORWARD ACTIVATION IN CONFIG AND DO A FULL FORWARD OVER ALL STAGES AND TASKS.
