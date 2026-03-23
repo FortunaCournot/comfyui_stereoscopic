@@ -41,11 +41,97 @@ cleanup() {
 
 trap cleanup EXIT
 
+now_epoch() {
+	date +%s
+}
+
+log_info() {
+	[ "${loglevel:-0}" -ge 0 ] && echo "Info: $*"
+}
+
+log_step_start() {
+	[ "${loglevel:-0}" -ge 0 ] && echo "Info: $1..."
+}
+
+log_step_end() {
+	local label="$1"
+	local started="$2"
+	local finished elapsed
+	finished=$(now_epoch)
+	elapsed=$((finished-started))
+	[ "${loglevel:-0}" -ge 0 ] && echo "Info: $label done (${elapsed}s)."
+}
+
+log_step_if_slow() {
+	local label="$1"
+	local started="$2"
+	local threshold="${3:-2}"
+	local finished elapsed
+	finished=$(now_epoch)
+	elapsed=$((finished-started))
+	if [ "${loglevel:-0}" -ge 0 ] && [ "$elapsed" -ge "$threshold" ] ; then
+		echo "Info: $label took ${elapsed}s."
+	fi
+}
+
+IDLE_WAITING_ACTIVE=0
+IDLE_WAITING_SUFFIX=
+
+idle_waiting_clear_line() {
+	local clear_width="${columns:-120}"
+	[ "${loglevel:-0}" -ge 0 ] && printf '\r%*s\r' "$clear_width" ''
+}
+
+idle_waiting_show() {
+	local suffix="${1:-}"
+	IDLE_WAITING_ACTIVE=1
+	IDLE_WAITING_SUFFIX="$suffix"
+	idle_waiting_clear_line
+	[ "${loglevel:-0}" -ge 0 ] && printf '\e[2mWaiting for new files%s\e[0m                     \r' "$IDLE_WAITING_SUFFIX"
+}
+
+idle_waiting_append_dot() {
+	[ "$IDLE_WAITING_ACTIVE" -eq 1 ] || return 1
+	IDLE_WAITING_SUFFIX="${IDLE_WAITING_SUFFIX}."
+	idle_waiting_clear_line
+	[ "${loglevel:-0}" -ge 0 ] && printf '\e[2mWaiting for new files%s\e[0m                     \r' "$IDLE_WAITING_SUFFIX"
+	return 0
+}
+
+idle_waiting_append_dot_if_slow() {
+	local started="$1"
+	local threshold="${2:-2}"
+	local finished elapsed
+	[ "$IDLE_WAITING_ACTIVE" -eq 1 ] || return 1
+	finished=$(now_epoch)
+	elapsed=$((finished-started))
+	if [ "$elapsed" -ge "$threshold" ] ; then
+		idle_waiting_append_dot
+		return 0
+	fi
+	return 1
+}
+
+idle_waiting_endline() {
+	if [ "$IDLE_WAITING_ACTIVE" -eq 1 ] ; then
+		[ "${loglevel:-0}" -ge 0 ] && printf '\n'
+		IDLE_WAITING_ACTIVE=0
+		IDLE_WAITING_SUFFIX=
+	fi
+}
+
 mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/dubbing/music input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/ignorename input/vr/downscale/4K input/vr/caption input/vr/check/rate input/vr/check/released
 mkdir -p output/vr/check/rate output/vr/check/released
 
+env_started=$(now_epoch)
+log_step_start "Loading daemon environment"
 source ./user/default/comfyui_stereoscopic/.environment
+log_step_end "Loading daemon environment" "$env_started"
+
+prereq_started=$(now_epoch)
+log_step_start "Checking daemon prerequisites"
 ./custom_nodes/comfyui_stereoscopic/api/prerequisites.sh || exit 1
+log_step_end "Checking daemon prerequisites" "$prereq_started"
 
 # filesystem counting helpers (robust sourcing with diagnostics)
 # Prefer the canonical location inside the repo root (COMFYUIPATH).
@@ -74,7 +160,10 @@ rm -f -- user/default/comfyui_stereoscopic/.forwardactive 2>/dev/null
 touch user/default/comfyui_stereoscopic/.daemonactive
 OPENCV_FFMPEG_READ_ATTEMPTS=8192
 export OPENCV_FFMPEG_READ_ATTEMPTS
+gui_started=$(now_epoch)
+log_step_start "Starting daemon GUI helper"
 "$PYTHON_BIN_PATH"python.exe ./custom_nodes/comfyui_stereoscopic/gui/python/vrweare.py 2>/dev/null &
+log_step_end "Starting daemon GUI helper" "$gui_started"
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
@@ -82,6 +171,8 @@ SHORT_CONFIGFILE=$CONFIGFILE
 CONFIGFILE=`realpath "$CONFIGFILE"`
 export CONFIGFILE
 
+config_started=$(now_epoch)
+log_step_start "Loading daemon configuration"
 loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 [ $loglevel -ge 2 ] && set -x
 
@@ -98,6 +189,7 @@ DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT=/ {print $2}' $CONFIGFILE) ; DE
 TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE | head -n 1) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 TVAI_MODEL_DATA_DIR=$(awk -F "=" '/TVAI_MODEL_DATA_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DATA_DIR=${TVAI_MODEL_DATA_DIR:-""}
 TVAI_MODEL_DIR=$(awk -F "=" '/TVAI_MODEL_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DIR=${TVAI_MODEL_DIR:-""}
+log_step_end "Loading daemon configuration" "$config_started"
 
 CONFIGERROR=
 
@@ -154,6 +246,8 @@ else
 	fi
 
 	### WAIT FOR OLD QUEUE TO FINISH ###
+	queuecheck_started=$(now_epoch)
+	log_step_start "Checking existing ComfyUI queue"
 	COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
 	COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=${COMFYUIPORT:-"8188"}
 	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
@@ -162,7 +256,10 @@ else
 		queuecount=`grep -oP '(?<="queue_remaining": )[^}]*' queuecheck.json`
 		[ $loglevel -ge 0 ] && echo "Info: ComfyUI busy. Queuecount: $queuecount"
 		queuecount=
+	else
+		log_info "ComfyUI queue check skipped because server is not reachable."
 	fi
+	log_step_end "Checking existing ComfyUI queue" "$queuecheck_started"
 
 	### GET READY ... ###
 	echo ""
@@ -184,7 +281,10 @@ else
 
 
 	[ $loglevel -ge 0 ] && echo "" 
+	initial_status_started=$(now_epoch)
+	log_step_start "Rendering initial pipeline status"
 	./custom_nodes/comfyui_stereoscopic/api/status.sh
+	log_step_end "Rendering initial pipeline status" "$initial_status_started"
 	[ $loglevel -ge 0 ] && echo " "
 
 	# Precompute filesystem status once per iteration to avoid many lib_fs calls.
@@ -224,15 +324,19 @@ else
 	TVAIREPORTED=-1
 	while true;
 	do
+		iteration_started=$(now_epoch)
 		# Check for external soft-kill signal
 		if [ ! -e user/default/comfyui_stereoscopic/.daemonactive ]; then
 			break
 		fi
 
 		# Run scanner in background to keep iteration responsive; wait for it before using values
+		scan_started=$(now_epoch)
 		"$PY_EXEC" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
+		log_step_if_slow "Filesystem scan before batch evaluation" "$scan_started" 2
 
     	# Check availablity of TVAI server
+		tvai_check_started=$(now_epoch)
 		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ $TVAIREPORTED -ne 0 ] ; then
 			TMP_FILE=$(mktemp)
 			curl --ssl-no-revoke -v -s -o - -I https://topazlabs.com/ >/dev/null 2>$TMP_FILE
@@ -251,6 +355,7 @@ else
 			fi
 			rm "$TMP_FILE"    
 		fi
+		log_step_if_slow "TVAI availability check" "$tvai_check_started" 2
 
 		# Is there is a limit a TVAI login is valid? Enforce re-login before watermark is applied.
 		#if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [[ $(find "$TVAI_MODEL_DIR"/auth.tpz -mtime +40 -print) ]]; then
@@ -258,6 +363,11 @@ else
 		#  mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
 		#fi
 
+		tvai_login_started=
+		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ ! -e "$TVAI_MODEL_DIR"/auth.tpz ] ; then
+			tvai_login_started=$(now_epoch)
+			log_step_start "Waiting for TVAI login"
+		fi
 		while [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ ! -e "$TVAI_MODEL_DIR"/auth.tpz ]  ; do
 			export TVAI_MODEL_DIR
 			"$TVAI_BIN_DIR"/login.exe
@@ -267,6 +377,9 @@ else
 			TVAI_MODEL_DATA_DIR=$(awk -F "=" '/TVAI_MODEL_DATA_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DATA_DIR=${TVAI_MODEL_DATA_DIR:-""}
 			TVAI_MODEL_DIR=$(awk -F "=" '/TVAI_MODEL_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_MODEL_DIR=${TVAI_MODEL_DIR:-""}			
 		done
+		if [ -n "$tvai_login_started" ] ; then
+			log_step_end "Waiting for TVAI login" "$tvai_login_started"
+		fi
 	
 		# happens every iteration since daemon is responsibe to initially create config and detect comfyui changes
 		COMFYUIHOST=$(awk -F "=" '/COMFYUIHOST=/ {print $2}' $CONFIGFILE) ; COMFYUIHOST=${COMFYUIHOST:-"127.0.0.1"}
@@ -276,6 +389,7 @@ else
 		[ $loglevel -ge 0 ] && [[ ! -z "$INITIALRUN" ]] && echo "Using ComfyUI on $COMFYUIHOST port $COMFYUIPORT" && INITIALRUN=
 
 		# GLOBAL: move output to next stage input (This must happen in batch_all per stage, too)
+		global_move_started=$(now_epoch)
 		mkdir -p input/vr/scaling input/vr/fullsbs
 		# scaling -> fullsbs
 		GLOBIGNORE="*_SBS_LR*.*"
@@ -291,6 +405,7 @@ else
 
 		# FAILSAFE
 		mv -f -- input/vr/fullsbs/*_SBS_LR*.* output/vr/fullsbs  >/dev/null 2>&1
+		log_step_if_slow "Global pre-batch forwarding" "$global_move_started" 2
 		
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 		if [ "$status" = "closed" ]; then
@@ -303,6 +418,7 @@ else
 				SERVERERROR=
 			fi
 			
+			count_started=$(now_epoch)
 			SLIDECOUNT=$(read_fs_status images "input/vr/slides")
 			SLIDESBSCOUNT=$(read_fs_status images "input/vr/slideshow")
 			if [ -x "$(command -v nvidia-smi)" ]; then
@@ -323,6 +439,7 @@ else
 			WMDCOUNT=$(read_fs_status images "input/vr/watermark/decrypt")
 			CAPCOUNT=$(read_fs_status any "input/vr/caption")
 			TASKCOUNT=$(compute_task_count)
+			idle_waiting_append_dot_if_slow "$count_started" 2 || log_step_if_slow "Incoming file and task count refresh" "$count_started" 2
 
 
 			
@@ -338,26 +455,35 @@ else
 			COUNTWSLIDES=$(( SLIDECOUNT + $COUNT ))
 			COUNTSBSSLIDES=$(( SLIDESBSCOUNT + $COUNT ))
 			if [ -e user/default/comfyui_stereoscopic/.pipelinepause ] ; then
+				idle_waiting_endline
 				rm -f user/default/comfyui_stereoscopic/.pipelineactive 2>/dev/null
 				BLINK=`shuf -n1 -e "..." "   "`
 				[ $loglevel -ge 0 ] && echo -ne $"\e[93m\e[2m*** PAUSED (Use App to resume) *** $BLINK\e[0m \r"
 				sleep 1
 			elif [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 1 ]] || [[ $COUNTSBSSLIDES -gt 1 ]] ; then
+				idle_waiting_endline
 				[ $loglevel -ge 0 ] && echo "Found $COUNT files in incoming folders:                               "
 				[ $loglevel -ge 0 ] && echo "$SLIDECOUNT slides , $SCALECOUNT + $OVERRIDECOUNT to scale >> $SBSCOUNT for sbs >> $SINGLELOOPCOUNT to loop >> $INTERPOLATECOUNT to interpolate, $SLIDECOUNT for slideshow >> $CONCATCOUNT to concat" && echo "$DUBSFXCOUNT to dub, $WMECOUNT to encrypt, $WMDCOUNT to decrypt, $CAPCOUNT for caption, $TASKCOUNT in tasks"
 
 				touch user/default/comfyui_stereoscopic/.pipelineactive
+				log_info "Preparation before batch_all took $(( $(now_epoch) - iteration_started ))s."
 
         		TVAIREPORTED=-1
+				batch_all_started=$(now_epoch)
+				log_step_start "Running batch_all for $COUNT queued inputs"
 				./custom_nodes/comfyui_stereoscopic/api/batch_all.sh || exit 1
+				log_step_end "Running batch_all" "$batch_all_started"
 				[ $loglevel -ge 0 ] && echo "****************************************************"
 				[ $loglevel -ge 0 ] && echo "Using ComfyUI on $COMFYUIHOST port $COMFYUIPORT"
 				
+				post_status_started=$(now_epoch)
+				log_step_start "Refreshing status after batch_all"
 				./custom_nodes/comfyui_stereoscopic/api/status.sh				
+				log_step_end "Refreshing status after batch_all" "$post_status_started"
 				[ $loglevel -ge 0 ] && echo " "
 			else
 				BLINK=`shuf -n1 -e "..." "   "`
-				[ $loglevel -ge 0 ] && echo -ne $"\e[2mWaiting for new files$BLINK\e[0m                     \r"
+				idle_waiting_show "$BLINK"
 				rm -f user/default/comfyui_stereoscopic/.pipelineactive
 				sleep 1
 			fi
@@ -366,13 +492,19 @@ else
 
 			WORKFLOW_FORWARDER_COUNT=$(read_fs_status any "output/vr/tasks/forwarder")
 			if [[ $WORKFLOW_FORWARDER_COUNT -gt 0 ]] ; then
+				forwarder_started=$(now_epoch)
+				idle_waiting_append_dot || log_step_start "Forwarding output from tasks/forwarder"
 				sleep 1
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/forwarder || exit 1 )
+				idle_waiting_append_dot || log_step_end "Forwarding output from tasks/forwarder" "$forwarder_started"
 			fi
 			WORKFLOW_RELEASED_COUNT=$(read_fs_status any "output/vr/check/released")
 			if [[ $WORKFLOW_RELEASED_COUNT -gt 0 ]] ; then
+				released_started=$(now_epoch)
+				idle_waiting_append_dot || log_step_start "Forwarding output from check/released"
 				sleep 1
 				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh check/released || exit 1 )
+				idle_waiting_append_dot || log_step_end "Forwarding output from check/released" "$released_started"
 			fi
 			
 			# CHECK FOR FORWAPIPELINE_AUTOFORWARD ACTIVATION IN CONFIG AND DO A FULL FORWARD OVER ALL STAGES AND TASKS.
@@ -380,18 +512,11 @@ else
 			# changed from 0 to 1 since the last loop iteration.
 			. ./custom_nodes/comfyui_stereoscopic/api/lib_forward.sh
 			if [ "$PREV_PIPELINE_AUTOFORWARD" -eq 0 ] && [ "$PIPELINE_AUTOFORWARD" -ge 1 ] ; then
+				idle_waiting_endline
+				autoforward_started=$(now_epoch)
+				log_step_start "Running autoforward cleanup across stages and tasks"
 				do_autoforward
-			fi
-			# update previous value for next iteration
-			PREV_PIPELINE_AUTOFORWARD=$PIPELINE_AUTOFORWARD
-			
-		fi
-		
-	done #KILL ME
-fi
-[ $loglevel -ge 0 ] && set +x
- 1 ] ; then
-				do_autoforward
+				log_step_end "Running autoforward cleanup across stages and tasks" "$autoforward_started"
 			fi
 			# update previous value for next iteration
 			PREV_PIPELINE_AUTOFORWARD=$PIPELINE_AUTOFORWARD

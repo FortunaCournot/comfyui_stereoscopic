@@ -10,6 +10,56 @@ cd $COMFYUIPATH
 
 CONFIG_VERSION=11
 
+now_epoch() {
+	date +%s
+}
+
+log_info() {
+	[ "${loglevel:-0}" -ge 0 ] && echo "Info: $*"
+}
+
+log_step_start() {
+	[ "${loglevel:-0}" -ge 0 ] && echo "Info: $1..."
+}
+
+log_step_end() {
+	local label="$1"
+	local started="$2"
+	local finished elapsed
+	finished=$(now_epoch)
+	elapsed=$((finished-started))
+	[ "${loglevel:-0}" -ge 0 ] && echo "Info: $label done (${elapsed}s)."
+}
+
+count_non_empty_lines() {
+	printf '%s\n' "$1" | awk 'NF { count++ } END { print count + 0 }'
+}
+
+render_progress_bar() {
+	local current="$1"
+	local total="$2"
+	local label="$3"
+	local width=24
+	local filled empty percent filled_bar empty_bar
+
+	[ "${loglevel:-0}" -ge 0 ] || return 0
+	[ -t 1 ] || return 0
+	[ "$total" -le 0 ] && total=1
+
+	filled=$((current * width / total))
+	empty=$((width - filled))
+	percent=$((current * 100 / total))
+	filled_bar=$(printf '%*s' "$filled" '')
+	empty_bar=$(printf '%*s' "$empty" '')
+	filled_bar=${filled_bar// /#}
+	empty_bar=${empty_bar// /-}
+
+	printf '\r\e[2K\e[2m[%s%s] %3d%% (%d/%d) %s\e[0m' "$filled_bar" "$empty_bar" "$percent" "$current" "$total" "$label"
+	if [ "$current" -ge "$total" ] ; then
+		printf '\n'
+	fi
+}
+
 rm -f "custom_nodes/comfyui_stereoscopic/.test/.signalfail" >/dev/null
 
 if [ ! -e "custom_nodes/comfyui_stereoscopic/.test" ] ; then
@@ -26,6 +76,8 @@ if [ -d "../python_embeded" ]; then
 fi
 
 node_dependencies=`cat custom_nodes/comfyui_stereoscopic/node_dependencies.txt`
+dependency_check_started=$(now_epoch)
+log_step_start "Checking required custom node dependencies"
 for dependency in $node_dependencies ; do
 	if [ ! -z "$dependency" ] ; then
 			nodes="${dependency%=*}"
@@ -60,8 +112,11 @@ done
  
 
 CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
+log_step_end "Checking required custom node dependencies" "$dependency_check_started"
 if [ -e $CONFIGFILE ] ; then
 	config_version=$(awk -F "=" '/config_version=/ {print $2}' $CONFIGFILE) ; config_version=${config_version:-"-1"}
+config_prepare_started=$(now_epoch)
+log_step_start "Preparing daemon configuration files"
 	if [ $config_version -lt $CONFIG_VERSION ]; then
 		mv -f -- $CONFIGFILE $CONFIGFILE-$config_version.bak
 	fi
@@ -274,11 +329,14 @@ if [ ! -e $CONFIGFILE ] ; then
 		exit 1
 	fi
 fi
+log_step_end "Preparing daemon configuration files" "$config_prepare_started"
 
 SHORT_CONFIGFILE=$CONFIGFILE
 CONFIGFILE=`realpath "$CONFIGFILE"`
 export CONFIGFILE
 
+config_read_started=$(now_epoch)
+log_step_start "Reading effective daemon configuration"
 loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
 [ $loglevel -ge 2 ] && set -x
 
@@ -290,6 +348,7 @@ UPSCALEMODELx4=$(awk -F "=" '/UPSCALEMODELx4=/ {print $2}' $CONFIGFILE) ; UPSCAL
 UPSCALEMODELx2=$(awk -F "=" '/UPSCALEMODELx2=/ {print $2}' $CONFIGFILE) ; UPSCALEMODELx2=${UPSCALEMODELx2:-"RealESRGAN_x4plus.pth"}
 FLORENCE2MODEL=$(awk -F "=" '/FLORENCE2MODEL=/ {print $2}' $CONFIGFILE) ; FLORENCE2MODEL=${FLORENCE2MODEL:-"microsoft/Florence-2-base"}
 DEPTH_MODEL_CKPT=$(awk -F "=" '/DEPTH_MODEL_CKPT=/ {print $2}' $CONFIGFILE) ; DEPTH_MODEL_CKPT=${DEPTH_MODEL_CKPT:-"depth_anything_v2_vitl.pth"}
+log_step_end "Reading effective daemon configuration" "$config_read_started"
 
 CONFIGERROR=
 
@@ -304,6 +363,8 @@ CONFIGERROR=
 #fi
 
 ### Crystools: Enforce deactivation of GPU Management. Problems detected, especially with TVAI.
+settings_check_started=$(now_epoch)
+log_step_start "Checking ComfyUI settings overrides"
 COMFYUI_SETTINGS_FILE=`realpath "./user/default/comfy.settings.json"`
 if [ -e "$COMFYUI_SETTINGS_FILE" ]; then
 	PROHIBITED_SETTING_COUNT=`grep "\"Crystools.ShowGpu.*\": true" "$COMFYUI_SETTINGS_FILE" | wc -l`
@@ -314,10 +375,13 @@ if [ -e "$COMFYUI_SETTINGS_FILE" ]; then
 		echo -e $"\e[93mWarning:\e[0m ComfyUI settings changed ($PROHIBITED_SETTING_COUNT). Crystools.ShowGpu settings must be false.\n\e[95m*** Please restart ComfyUI ***\e[0m"
 	fi
 fi
+log_step_end "Checking ComfyUI settings overrides" "$settings_check_started"
 
 TVAI_BIN_DIR=$(awk -F "=" '/TVAI_BIN_DIR=/ {print $2}' $CONFIGFILE) ; TVAI_BIN_DIR=${TVAI_BIN_DIR:-""}
 
 ### CHECK TOOLS ###
+tool_check_started=$(now_epoch)
+log_step_start "Checking external tools and required models"
 if ! command -v $FFMPEGPATHPREFIX"ffmpeg" >/dev/null 2>&1
 then
 	echo -e $"\e[91mError:\e[0m ffmpeg could not be found."
@@ -372,6 +436,7 @@ if [ ! -z "$TVAI_BIN_DIR" ] && [ ! -d "$TVAI_BIN_DIR" ] ; then
 	echo -e $"\e[93mWarning:\e[0m TVAI path set but now found. Please configure in $CONFIGFILE"":"
 	echo -e $"\e[93mWarning:\e[0m TVAI_BIN_DIR=$TVAI_BIN_DIR"
 fi
+log_step_end "Checking external tools and required models" "$tool_check_started"
 
 
 CONFIGPATH=user/default/comfyui_stereoscopic
@@ -383,8 +448,14 @@ fi
 
 
 # prepare tasks
+task_prepare_started=$(now_epoch)
+log_step_start "Preparing task folders"
 taskdefinitions=`ls custom_nodes/comfyui_stereoscopic/config/tasks/*.json`
+TASKDEF_TOTAL=$(count_non_empty_lines "$taskdefinitions")
+TASKDEF_INDEX=0
 for task in $taskdefinitions ; do
+	TASKDEF_INDEX=$((TASKDEF_INDEX + 1))
+	render_progress_bar "$TASKDEF_INDEX" "$TASKDEF_TOTAL" "Validate task: config/tasks/${task##*/}"
 	taskname=${task##*/}
 	taskname=${taskname%.json}
 	version="0"
@@ -409,14 +480,18 @@ then
 	mkdir -p "$CONFIGPATH"/tasks
 fi
 taskdefinitions=`ls "$CONFIGPATH"/tasks/*.json 2>/dev/null` 
+USERTASK_TOTAL=$(count_non_empty_lines "$taskdefinitions")
+USERTASK_INDEX=0
 for task in $taskdefinitions ; do
   if [ -e "$task" ] ; then
-    taskname=${task##*/}
-    taskname=${taskname%.json}
-    taskname=${taskname//[^[:alnum:].-]/_}
-    taskname=${taskname// /_}
-    taskname=${taskname//\(/_}
-    taskname=${taskname//\)/_}
+		USERTASK_INDEX=$((USERTASK_INDEX + 1))
+		render_progress_bar "$USERTASK_INDEX" "$USERTASK_TOTAL" "Validate user task: user/tasks/${task##*/}"
+		taskname=${task##*/}
+		taskname=${taskname%.json}
+		taskname=${taskname//[^[:alnum:].-]/_}
+		taskname=${taskname// /_}
+		taskname=${taskname//\(/_}
+		taskname=${taskname//\)/_}
 		version="0"
 		if [ -f "$task" ]; then
 			ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$task" | head -n1 || true)
@@ -438,6 +513,7 @@ for task in $taskdefinitions ; do
 		fi
   fi
 done
+log_step_end "Preparing task folders" "$task_prepare_started"
 
 # PLACE HINT FILES
 echo "PLACE FILES NOT HERE. PLACE THEM IN SUBFOLDERS PLEASE." >input/vr/dubbing/DO_NOT_PLACE_HERE.TXT
@@ -446,28 +522,42 @@ mkdir -p input/vr/singleloop/error
 #touch input/vr/singleloop/error/CONSIDER_REPAIRING
 
 # Initialize input 'done' folders
+done_folder_started=$(now_epoch)
+log_step_start "Preparing stage done folders"
 mkdir -p input/vr
 cd input/vr
 if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
+	STAGE_TOTAL=12
+	STAGE_INDEX=0
 	for stagepath in scaling slides fullsbs singleloop slideshow concat dubbing/sfx dubbing/music watermark/encrypt watermark/decrypt caption interpolate ; do
+		STAGE_INDEX=$((STAGE_INDEX + 1))
+		render_progress_bar "$STAGE_INDEX" "$STAGE_TOTAL" "Create stage done folder: $stagepath/done"
 		mkdir -p $stagepath/done
 	done
 	TASKDIR=`find tasks -maxdepth 1 -type d`
+	DONE_TASK_TOTAL=$(printf '%s\n' "$TASKDIR" | awk 'NF && $0 != "tasks" { count++ } END { print count + 0 }')
+	DONE_TASK_INDEX=0
 	for task in $TASKDIR; do
 		task=${task#tasks/}
 		if [ ! -z $task ] ; then
+			DONE_TASK_INDEX=$((DONE_TASK_INDEX + 1))
+			render_progress_bar "$DONE_TASK_INDEX" "$DONE_TASK_TOTAL" "Create task done folder: tasks/$task/done"
 			mkdir -p tasks/$task/done
 		fi
 	done
 	
 fi
 cd ../..
+log_step_end "Preparing stage done folders" "$done_folder_started"
 
 # Initialize folders
+output_folder_started=$(now_epoch)
+log_step_start "Preparing output stage folders"
 mkdir -p output/vr
 cd output/vr
 mkdir -p caption fullsbs scaling dubbing/sfx dubbing/music interpolate watermark/encrypt watermark/decrypt slides concat singleloop slideshow
 cd ../..
+log_step_end "Preparing output stage folders" "$output_folder_started"
 
 # REBUILD FORWARD PIPELINE
 if [ ! -e "$CONFIGPATH"/"autoforward.yaml" ] ; then
@@ -477,6 +567,8 @@ if [ ! -e "$CONFIGPATH"/"autoforward.yaml" ] ; then
 		cp ./custom_nodes/comfyui_stereoscopic/config/default_autoforward.yaml "$CONFIGPATH"/"autoforward.yaml"
 	fi
 fi
+rebuild_forward_started=$(now_epoch)
+log_step_start "Preparing autoforward rule rebuild"
 echo -e $"\e[2mRebuild forward rules with \e[36m$CONFIGPATH""/autoforward.yaml\e[0m"
 # Clear forward definitions and rebuild.
 #rm -f -- output/vr/*/forward.txt output/vr/*/*/forward.txt 2>/dev/null
@@ -484,6 +576,7 @@ echo -e $"\e[2mRebuild forward rules with \e[36m$CONFIGPATH""/autoforward.yaml\e
 echo -ne $"\e[91m"
 "$PYTHON_BIN_PATH"python.exe ./custom_nodes/comfyui_stereoscopic/api/python/rebuild_autoforward.py 2>/dev/null
 echo -e $"\e[0m"
+log_step_end "Preparing autoforward rule rebuild" "$rebuild_forward_started"
 
 
 [ $PIPELINE_AUTOFORWARD -ge 1 ] && echo -e $"Auto-Forwarding \e[32mactive\e[0m" || echo -e $"Auto-Forwarding \e[33mdeactivated\e[0m"
@@ -531,21 +624,21 @@ POSITIVESFXPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
 NEGATIVESFXPATH="$CONFIGPATH/dubbing_sfx_negative.txt"
 if [ ! -e "$POSITIVESFXPATH" ]
 then
-	echo "" >$POSITIVESFXPATH
+	echo "" >"$POSITIVESFXPATH"
 fi
-if [ ! -e "$NEGATIVEPSFXATH" ]
+if [ ! -e "$NEGATIVESFXPATH" ]
 then
-	echo "music, voice, crying, squeaking." >$NEGATIVESFXPATH
+	echo "music, voice, crying, squeaking." >"$NEGATIVESFXPATH"
 fi
 POSITIVEMUSICPATH="$CONFIGPATH/dubbing_music_positive.txt"
 NEGATIVEMUSICPATH="$CONFIGPATH/dubbing_music_negative.txt"
 if [ ! -e "$POSITIVEMUSICPATH" ]
 then
-	echo "cinematic film orchestral soundtrack music ." >$POSITIVEMUSICPATH
+	echo "cinematic film orchestral soundtrack music ." >"$POSITIVEMUSICPATH"
 fi
 if [ ! -e "$NEGATIVEMUSICPATH" ]
 then
-	echo "crying, squeaking." >$NEGATIVEMUSICPATH
+	echo "crying, squeaking." >"$NEGATIVEMUSICPATH"
 fi
 
 [ $loglevel -ge 0 ] && echo -e $"\e[2mFor processings read docs. \e[36mhttps://www.3d-gallery.org\e[0m"
