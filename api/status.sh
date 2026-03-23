@@ -38,54 +38,117 @@ else
     echo "config_version=1">>"$CONFIGFILE"
 fi
 
+"$PYTHON" - <<'PY'
+import os
+from pathlib import Path
 
-echo -e $"\e[4m+++ Summary of Disk Usage +++\e[0m"
-du -s -BG *put/vr
-echo " "
+ROOT = Path('.')
+IGNORED_BASENAMES = {"thumbs.db", "desktop.ini", ".ds_store"}
 
-# Report completed files
-mkdir -p user/default/comfyui_stereoscopic
-TMPLOG=user/default/comfyui_stereoscopic/tmplog
->"$TMPLOG"
-du --inodes -d 0 -S output/vr/*           | { while read inodes path; do files=`ls -F "$path" 2>/dev/null |grep -v / |grep -v .txt | wc -l`; [ "$files" -gt 0 ] && printf "%s\t%s\n" "$files" "$path"; done } >>"$TMPLOG"
-du --inodes -d 0 -S output/vr/dubbing/*   | { while read inodes path; do files=`ls -F "$path" 2>/dev/null |grep -v / |grep -v .txt | wc -l`; [ "$files" -gt 0 ] && printf "%s\t%s\n" "$files" "$path"; done } >>"$TMPLOG"
-du --inodes -d 0 -S output/vr/tasks/*   | { while read inodes path; do files=`ls -F "$path" 2>/dev/null |grep -v / |grep -v .txt | wc -l`; [ "$files" -gt 0 ] && printf "%s\t%s\n" "$files" "$path"; done } >>"$TMPLOG"
-if [ -s "$TMPLOG" ] ; then
-	echo -e $"\e[4m\e[32m+++ Summary of Completed Files per Folder +++\e[0m\e[92m"
-	cat "$TMPLOG"
-	echo -ne $"\e[0m"
-fi
-rm -f "$TMPLOG"
 
-# Count error/stopped folders that contain files using lib_fs helper
-TMPCOUNTLIST=.tmperrcount.list
-TMPCOUNTFILE=.tmperrcount
-rm -f "$TMPCOUNTLIST" "$TMPCOUNTFILE" 2>/dev/null
-find input/vr -type d \( -name error -o -name stopped \) | while IFS= read -r path; do
-	files=$(count_files_any_ext "$path")
-	if [ "$files" -gt 0 ]; then
-		printf "%s\t%s\n" "$files" "$path"
-	fi
-done >"$TMPCOUNTLIST" || true
-ERRFOLDERCOUNT=$(wc -l < "$TMPCOUNTLIST" 2>/dev/null || echo 0)
-rm -f "$TMPCOUNTLIST" "$TMPCOUNTFILE" 2>/dev/null
-if [ "$ERRFOLDERCOUNT" -gt 0 ] ; then
-	echo " "
-	echo -e $"\e[31m\e[4m+++ Summary of Folders with Errors +++\e[0m"
-	echo -ne "\e[91m"
-	find input/vr -type d -name error | while IFS= read -r path; do
-		files=$(count_files_any_ext "$path")
-		if [ "$files" -gt 0 ]; then
-			printf "%s\t%s\n" "$files" "$path"
-		fi
-	done
-	echo -ne $"\e[0m\e[93m"
-	find input/vr -type d -name stopped | while IFS= read -r path; do
-		files=$(count_files_any_ext "$path")
-		if [ "$files" -gt 0 ]; then
-			printf "%s\t%s\n" "$files" "$path"
-		fi
-	done
-	echo -ne $"\e[0m"
-fi
+def iter_files(directory: Path):
+	try:
+		with os.scandir(directory) as entries:
+			for entry in entries:
+				try:
+					if entry.is_file(follow_symlinks=False):
+						yield entry
+				except OSError:
+					continue
+	except OSError:
+		return
+
+
+def count_visible_files(directory: Path, exclude_txt: bool = False) -> int:
+	count = 0
+	for entry in iter_files(directory):
+		name = entry.name
+		lower_name = name.lower()
+		if '.' not in name or lower_name in IGNORED_BASENAMES:
+			continue
+		if exclude_txt and lower_name.endswith('.txt'):
+			continue
+		count += 1
+	return count
+
+
+def dir_size_bytes(directory: Path) -> int:
+	total = 0
+	if not directory.exists():
+		return total
+	for root, _, files in os.walk(directory):
+		for filename in files:
+			file_path = Path(root) / filename
+			try:
+				total += file_path.stat().st_size
+			except OSError:
+				continue
+	return total
+
+
+def format_gib_rounded(byte_count: int) -> str:
+	gib = (byte_count + (1024 ** 3) - 1) // (1024 ** 3)
+	return f"{gib}G"
+
+
+def display_path(path: Path) -> str:
+	return path.as_posix().lstrip('./')
+
+
+def colorize(text: str, *codes: str) -> str:
+	prefix = ''.join(f"\033[{code}m" for code in codes)
+	return f"{prefix}{text}\033[0m"
+
+
+print(colorize("+++ Summary of Disk Usage +++", "4"))
+for rel in (Path('input/vr'), Path('output/vr')):
+	print(f"{format_gib_rounded(dir_size_bytes(rel))}\t{display_path(rel)}")
+print(" ")
+
+completed_paths = []
+for base in (Path('output/vr'), Path('output/vr/dubbing'), Path('output/vr/tasks')):
+	if not base.is_dir():
+		continue
+	try:
+		children = sorted((child for child in base.iterdir() if child.is_dir()), key=lambda p: p.as_posix())
+	except OSError:
+		continue
+	for child in children:
+		files = count_visible_files(child, exclude_txt=True)
+		if files > 0:
+			completed_paths.append((files, display_path(child)))
+
+if completed_paths:
+	print(colorize("+++ Summary of Completed Files per Folder +++", "4", "32"))
+	for files, path in completed_paths:
+		print(colorize(f"{files}\t{path}", "92"))
+
+error_entries = []
+stopped_entries = []
+input_root = Path('input/vr')
+if input_root.is_dir():
+	for root, dirs, _ in os.walk(input_root):
+		for dirname in sorted(dirs):
+			if dirname not in ('error', 'stopped'):
+				continue
+			path = Path(root) / dirname
+			files = count_visible_files(path, exclude_txt=False)
+			if files <= 0:
+				continue
+			entry = (files, display_path(path))
+			if dirname == 'error':
+				error_entries.append(entry)
+			else:
+				stopped_entries.append(entry)
+
+if error_entries or stopped_entries:
+	print(" ")
+	print(colorize("+++ Summary of Folders with Errors +++", "31", "4"))
+	if error_entries:
+		for files, path in error_entries:
+			print(colorize(f"{files}\t{path}", "91"))
+	if stopped_entries:
+		for files, path in stopped_entries:
+			print(colorize(f"{files}\t{path}", "93"))
+PY
 exit 0
