@@ -17,6 +17,12 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 # Marker for GUI to show that forward.sh is currently active.
 FORWARD_ACTIVE_LOCK=./user/default/comfyui_stereoscopic/.forwardactive
 FORWARD_LASTRUN_FILE=./user/default/comfyui_stereoscopic/forward_last_run.properties
+FORWARD_RULE_CACHE_DIR=./user/default/comfyui_stereoscopic/forward_rule_cache
+FORWARD_LASTRUN_REF=
+
+declare -A FORWARD_INPUT_RULE_CACHE
+declare -A FORWARD_OUTPUT_RULE_CACHE
+declare -A FORWARD_DELAY_CACHE
 
 if [ -e $CONFIGFILE ] ; then
 	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
@@ -129,6 +135,80 @@ should_skip_old_forward_file() {
 	[ "$file_mtime" -le "$FORWARD_LASTRUN_TS" ]
 }
 
+json_cache_key() {
+	local path="$1"
+	path="${path#./}"
+	path="${path//\\//}"
+	echo "${path//[^[:alnum:]._-]/_}"
+}
+
+json_file_mtime() {
+	stat --format=%Y "$1" 2>/dev/null
+}
+
+load_json_rule_cache() {
+	local json_file="$1"
+	local cache_key="$2"
+	local cache_file json_mtime input_value output_value delay_value
+
+	if [ -n "${FORWARD_INPUT_RULE_CACHE[$cache_key]+x}" ] ; then
+		return 0
+	fi
+
+	json_mtime=$(json_file_mtime "$json_file") || return 1
+	mkdir -p "$FORWARD_RULE_CACHE_DIR" 2>/dev/null || true
+	cache_file="$FORWARD_RULE_CACHE_DIR/$(json_cache_key "$json_file").properties"
+
+	if [ -f "$cache_file" ] ; then
+		unset CACHE_MTIME CACHE_INPUT_RULE CACHE_OUTPUT_RULE CACHE_FORWARD_DELAY
+		. "$cache_file"
+		if [ "${CACHE_MTIME:-}" = "$json_mtime" ] ; then
+			FORWARD_INPUT_RULE_CACHE[$cache_key]="${CACHE_INPUT_RULE:-}"
+			FORWARD_OUTPUT_RULE_CACHE[$cache_key]="${CACHE_OUTPUT_RULE:-}"
+			FORWARD_DELAY_CACHE[$cache_key]="${CACHE_FORWARD_DELAY:-0}"
+			return 0
+		fi
+	fi
+
+	input_value=$(awk -F '"' '/"input"[[:space:]]*:/ {print $4; exit}' "$json_file")
+	output_value=$(awk -F '"' '/"output"[[:space:]]*:/ {print $4; exit}' "$json_file")
+	delay_value=$(awk -F '[:",]' '/forward_delay/ {gsub(/[[:space:]]/, "", $2); if ($2 != "") { print $2; exit }}' "$json_file")
+	delay_value=${delay_value:-0}
+
+	FORWARD_INPUT_RULE_CACHE[$cache_key]="$input_value"
+	FORWARD_OUTPUT_RULE_CACHE[$cache_key]="$output_value"
+	FORWARD_DELAY_CACHE[$cache_key]="$delay_value"
+
+	printf 'CACHE_MTIME=%q\nCACHE_INPUT_RULE=%q\nCACHE_OUTPUT_RULE=%q\nCACHE_FORWARD_DELAY=%q\n' \
+		"$json_mtime" "$input_value" "$output_value" "$delay_value" > "$cache_file"
+}
+
+forward_path_changed_since_last_run() {
+	local path="$1"
+	local path_mtime
+	[ -n "$FORWARD_LASTRUN_TS" ] || return 0
+	[ -e "$path" ] || return 1
+	path_mtime=$(stat --format=%Y "$path" 2>/dev/null) || return 1
+	[ "$path_mtime" -gt "$FORWARD_LASTRUN_TS" ]
+}
+
+has_forward_media_candidates() {
+	local dir="$1"
+	local dir_mtime
+	[ -d "$dir" ] || return 1
+	if [ -n "$FORWARD_LASTRUN_TS" ] ; then
+		dir_mtime=$(stat --format=%Y "$dir" 2>/dev/null) || dir_mtime=
+		if [ -n "$dir_mtime" ] && [ "$dir_mtime" -le "$FORWARD_LASTRUN_TS" ] ; then
+			return 1
+		fi
+	fi
+	if [ -n "$FORWARD_LASTRUN_REF" ] && [ -e "$FORWARD_LASTRUN_REF" ] ; then
+		find "$dir" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' -o -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.gif' \) -newer "$FORWARD_LASTRUN_REF" -print -quit 2>/dev/null | grep -q .
+		return $?
+	fi
+	find "$dir" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' -o -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.gif' \) -print -quit 2>/dev/null | grep -q .
+}
+
 
 CheckProbeValue() {
     kopv="$1"
@@ -238,6 +318,12 @@ else
 	FORWARD_LASTRUN_TS=$(forward_last_run_read "$sourcestage")
 	if ! printf '%s' "$FORWARD_LASTRUN_TS" | grep -Eq '^[0-9]+$' ; then
 		FORWARD_LASTRUN_TS=
+	else
+		FORWARD_LASTRUN_REF=$(mktemp 2>/dev/null || echo "./user/default/comfyui_stereoscopic/.forward_last_run_$$.tmp")
+		if ! touch -d "@$FORWARD_LASTRUN_TS" "$FORWARD_LASTRUN_REF" 2>/dev/null ; then
+			rm -f -- "$FORWARD_LASTRUN_REF" 2>/dev/null
+			FORWARD_LASTRUN_REF=
+		fi
 	fi
 	
 	if [ -e output/vr/"$sourcestage"/forward.txt ] ; then
@@ -267,26 +353,25 @@ else
 		touch "$FORWARD_ACTIVE_LOCK" 2>/dev/null || true
 		cleanup_forward_active() {
 			rm -f "$FORWARD_ACTIVE_LOCK" 2>/dev/null || true
+			[ -n "$FORWARD_LASTRUN_REF" ] && rm -f "$FORWARD_LASTRUN_REF" 2>/dev/null || true
 		}
 		trap cleanup_forward_active EXIT INT TERM
 
-		temp=`grep "\"output\":" $sourcedef`
-		temp=${temp#*:}
-		temp="${temp%\"*}"
-		temp="${temp#*\"}"
-		outputrule="${temp%,*}"
-		[ $loglevel -ge 2 ] && echo "forward output rule = $outputrule"
-
-		DELAY=0
-		temp=`grep forward_delay $sourcedef`
-		if [ ! -z "$temp" ] ; then
-			temp=${temp#*:}
-			temp="${temp%\"*}"
-			DELAY="${temp#*\"}"
-		fi
-		
 		forwarddef=output/vr/"$sourcestage"/forward.txt
 		forwarddef=`realpath $forwarddef`
+		FORWARD_SOURCE_DIR="output/vr/$sourcestage"
+		if [ -n "$FORWARD_LASTRUN_TS" ] \
+			&& ! forward_path_changed_since_last_run "$sourcedef" \
+			&& ! forward_path_changed_since_last_run "$forwarddef" \
+			&& ! has_forward_media_candidates "$FORWARD_SOURCE_DIR" ; then
+			exit 0
+		fi
+
+		load_json_rule_cache "$sourcedef" "$sourcedef" || exit 1
+		outputrule="${FORWARD_OUTPUT_RULE_CACHE[$sourcedef]}"
+		[ $loglevel -ge 2 ] && echo "forward output rule = $outputrule"
+
+		DELAY="${FORWARD_DELAY_CACHE[$sourcedef]:-0}"
 
 		while read -r destination; do
 			destination=`echo $destination`
@@ -324,6 +409,7 @@ else
 			if [ -z "$destination" ] ; then
 				SKIPPING_EMPTY_LINE=	# just ignore this line
 			elif [ -d input/vr/$destination ] ; then
+				json_cache_key_path=
 				if [[ $destination == *"tasks/_"* ]] ; then
 					userdestination=tasks/${destination#tasks/_}
 
@@ -336,11 +422,7 @@ else
 					
 					#[ $loglevel -ge 1 ] && echo "forwarding media to user's $destination"
 
-					temp=`grep "\"input\":" user/default/comfyui_stereoscopic/"$userdestination".json`
-					temp=${temp#*:}
-					temp="${temp%\"*}"
-					temp="${temp#*\"}"
-					inputrule="${temp%,*}"
+					json_cache_key_path="$jsonFile"
 					
 				elif [[ $destination == *"tasks/"* ]] ; then
 				
@@ -353,11 +435,7 @@ else
 
 					#[ $loglevel -ge 1 ] && echo "forwarding media to $destination"
 					
-					temp=`grep "\"input\":" custom_nodes/comfyui_stereoscopic/config/"$destination".json`
-					temp=${temp#*:}
-					temp="${temp%\"*}"
-					temp="${temp#*\"}"
-					inputrule="${temp%,*}"
+					json_cache_key_path="$jsonFile"
 					
 				else
 					jsonFile="custom_nodes/comfyui_stereoscopic/config/stages/""$destination"".json"
@@ -369,13 +447,11 @@ else
 					
 					#[ $loglevel -ge 1 ] && echo "forwarding media to stage $destination"
 					
-					temp=`grep "\"input\":" custom_nodes/comfyui_stereoscopic/config/stages/"$destination".json`
-					temp=${temp#*:}
-					temp="${temp%\"*}"
-					temp="${temp#*\"}"
-					inputrule="${temp%,*}"
+					json_cache_key_path="$jsonFile"
 					
 				fi
+				load_json_rule_cache "$json_cache_key_path" "$json_cache_key_path" || exit 1
+				inputrule="${FORWARD_INPUT_RULE_CACHE[$json_cache_key_path]}"
 				
 				[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && echo "forward input rule rules = $inputrule"
 				
@@ -525,7 +601,9 @@ else
 				exit 1
 			fi
 		done < $forwarddef
-		forward_last_run_write "$sourcestage" "$(date +%s)"
+		if ! has_forward_media_candidates "$FORWARD_SOURCE_DIR" ; then
+			forward_last_run_write "$sourcestage" "$(date +%s)"
+		fi
 	else
 		[ $loglevel -ge 2 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"
 	fi

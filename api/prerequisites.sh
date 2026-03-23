@@ -35,6 +35,15 @@ count_non_empty_lines() {
 	printf '%s\n' "$1" | awk 'NF { count++ } END { print count + 0 }'
 }
 
+json_version() {
+	awk '
+		match($0, /"version"[[:space:]]*:[[:space:]]*"?([0-9]+)"?/, match_data) {
+			print match_data[1]
+			exit
+		}
+	' "$1"
+}
+
 render_progress_bar() {
 	local current="$1"
 	local total="$2"
@@ -450,27 +459,17 @@ fi
 # prepare tasks
 task_prepare_started=$(now_epoch)
 log_step_start "Preparing task folders"
-taskdefinitions=`ls custom_nodes/comfyui_stereoscopic/config/tasks/*.json`
-TASKDEF_TOTAL=$(count_non_empty_lines "$taskdefinitions")
+shopt -s nullglob
+taskdefinitions=(custom_nodes/comfyui_stereoscopic/config/tasks/*.json)
+TASKDEF_TOTAL=${#taskdefinitions[@]}
 TASKDEF_INDEX=0
 for task in $taskdefinitions ; do
 	TASKDEF_INDEX=$((TASKDEF_INDEX + 1))
 	render_progress_bar "$TASKDEF_INDEX" "$TASKDEF_TOTAL" "Validate task: config/tasks/${task##*/}"
 	taskname=${task##*/}
 	taskname=${taskname%.json}
-	version="0"
-	if [ -f "$task" ]; then
-		ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$task" | head -n1 || true)
-		if [ -n "$ver_line" ]; then
-			version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*//')
-		else
-			# fallback: try to extract quoted numeric version
-			ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+"' "$task" | head -n1 || true)
-			if [ -n "$ver_line" ]; then
-				version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*"([0-9]+)"/\1/')
-			fi
-		fi
-	fi
+	version=$(json_version "$task")
+	version=${version:-0}
 	if printf '%s' "$version" | grep -qE '^[0-9]+$' && [ "$version" -eq 1 ] ; then
 		mkdir -p input/vr/tasks/$taskname output/vr/tasks/$taskname
 	fi
@@ -479,8 +478,8 @@ if [ ! -e "$CONFIGPATH"/tasks ]
 then
 	mkdir -p "$CONFIGPATH"/tasks
 fi
-taskdefinitions=`ls "$CONFIGPATH"/tasks/*.json 2>/dev/null` 
-USERTASK_TOTAL=$(count_non_empty_lines "$taskdefinitions")
+taskdefinitions=("$CONFIGPATH"/tasks/*.json)
+USERTASK_TOTAL=${#taskdefinitions[@]}
 USERTASK_INDEX=0
 for task in $taskdefinitions ; do
   if [ -e "$task" ] ; then
@@ -492,18 +491,7 @@ for task in $taskdefinitions ; do
 		taskname=${taskname// /_}
 		taskname=${taskname//\(/_}
 		taskname=${taskname//\)/_}
-		version="0"
-		if [ -f "$task" ]; then
-			ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*[0-9]+' "$task" | head -n1 || true)
-			if [ -n "$ver_line" ]; then
-				version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*//')
-			else
-				ver_line=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+"' "$task" | head -n1 || true)
-				if [ -n "$ver_line" ]; then
-					version=$(printf '%s' "$ver_line" | sed -E 's/.*:[[:space:]]*"([0-9]+)"/\1/')
-				fi
-			fi
-		fi
+		version=$(json_version "$task")
 		if [ -z "$version" ] ; then
 			version=0
 			echo -e $"\e[93mWarning: Invalid Version definition: $task \e[0m"
@@ -513,6 +501,7 @@ for task in $taskdefinitions ; do
 		fi
   fi
 done
+shopt -u nullglob
 log_step_end "Preparing task folders" "$task_prepare_started"
 
 # PLACE HINT FILES
