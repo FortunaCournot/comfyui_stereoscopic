@@ -16,6 +16,7 @@ CONFIGFILE=./user/default/comfyui_stereoscopic/config.ini
 
 # Marker for GUI to show that forward.sh is currently active.
 FORWARD_ACTIVE_LOCK=./user/default/comfyui_stereoscopic/.forwardactive
+FORWARD_LASTRUN_FILE=./user/default/comfyui_stereoscopic/forward_last_run.properties
 
 if [ -e $CONFIGFILE ] ; then
 	loglevel=$(awk -F "=" '/loglevel=/ {print $2}' $CONFIGFILE) ; loglevel=${loglevel:-0}
@@ -97,6 +98,35 @@ fs_adjust_move_counts() {
 	fs_update_prop "$typ|$srckey_dir" -1
 	fs_update_prop "any|$destkey_dir" 1
 	fs_update_prop "$typ|$destkey_dir" 1
+}
+
+forward_last_run_read() {
+	local key="$1"
+	[ -f "$FORWARD_LASTRUN_FILE" ] || return 0
+	awk -F "=" -v k="$key" '$1==k { print $2; exit }' "$FORWARD_LASTRUN_FILE"
+}
+
+forward_last_run_write() {
+	local key="$1"
+	local value="$2"
+	local tmpf
+
+	mkdir -p ./user/default/comfyui_stereoscopic 2>/dev/null || true
+	tmpf=$(mktemp 2>/dev/null || echo "$FORWARD_LASTRUN_FILE.tmp")
+	if [ -f "$FORWARD_LASTRUN_FILE" ] ; then
+		awk -F "=" -v k="$key" -v v="$value" 'BEGIN{OFS=FS} $1==k {$2=v; found=1} {print} END{if(!found) print k, v}' "$FORWARD_LASTRUN_FILE" > "$tmpf" && mv "$tmpf" "$FORWARD_LASTRUN_FILE"
+	else
+		echo "$key=$value" > "$tmpf"
+		mv "$tmpf" "$FORWARD_LASTRUN_FILE"
+	fi
+}
+
+should_skip_old_forward_file() {
+	local file="$1"
+	local file_mtime
+	[ -n "$FORWARD_LASTRUN_TS" ] || return 1
+	file_mtime=$(stat --format=%Y "$file" 2>/dev/null) || return 1
+	[ "$file_mtime" -le "$FORWARD_LASTRUN_TS" ]
 }
 
 
@@ -205,6 +235,10 @@ then
 else
 
 	sourcestage=$1
+	FORWARD_LASTRUN_TS=$(forward_last_run_read "$sourcestage")
+	if ! printf '%s' "$FORWARD_LASTRUN_TS" | grep -Eq '^[0-9]+$' ; then
+		FORWARD_LASTRUN_TS=
+	fi
 	
 	if [ -e output/vr/"$sourcestage"/forward.txt ] ; then
 
@@ -360,6 +394,9 @@ else
 								IFS="$OIFS"
 								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no video files.\e[0m"
 								for file in $FILES ; do
+									if should_skip_old_forward_file "$file" ; then
+										continue
+									fi
 									RULEFAILED=
 									if [ ! -z "$conditionalrules" ] ; then
 										
@@ -399,6 +436,9 @@ else
 								IFS="$OIFS"
 								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no image files.\e[0m"
 								for file in $FILES ; do
+									if should_skip_old_forward_file "$file" ; then
+										continue
+									fi
 									RULEFAILED=
 									if [ ! -z "$conditionalrules" ] ; then
 									
@@ -459,6 +499,9 @@ else
 										IFS="$OIFS"
 										[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$VFILES" ] && echo -e $"\e[2m""     $destination: no video files to auto-move to output.""\e[0m"
 										for file in $VFILES ; do
+											if should_skip_old_forward_file "$file" ; then
+												continue
+											fi
 											capfile="${file%.*}.txt"
 											if [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
 												if mv -f -- "$file" output/vr/$destination ; then
@@ -482,6 +525,7 @@ else
 				exit 1
 			fi
 		done < $forwarddef
+		forward_last_run_write "$sourcestage" "$(date +%s)"
 	else
 		[ $loglevel -ge 2 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"
 	fi
