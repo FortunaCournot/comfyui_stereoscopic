@@ -51,6 +51,9 @@ The current pattern list is intentionally small and conservative. It focuses on
 clearly fatal states such as:
 - `Exception in thread ... prompt_worker`
 - `torch.AcceleratorError`
+- `torch.OutOfMemoryError`
+- `torch.cuda.OutOfMemoryError`
+- `CUDA out of memory`
 - `CUDA error: unknown error`
 - `cudaErrorUnknown`
 - `device-side assertions`
@@ -118,6 +121,9 @@ import time
 CRASH_PATTERNS = [
     re.compile(r"Exception in thread .*prompt_worker", re.IGNORECASE),
     re.compile(r"torch\.AcceleratorError", re.IGNORECASE),
+    re.compile(r"torch(?:\.cuda)?\.OutOfMemoryError", re.IGNORECASE),
+    re.compile(r"CUDA out of memory", re.IGNORECASE),
+    re.compile(r"Allocation on device .*would exceed allowed memory", re.IGNORECASE),
     re.compile(r"CUDA error: unknown error", re.IGNORECASE),
     re.compile(r"cudaErrorUnknown", re.IGNORECASE),
     re.compile(r"device-side assertions", re.IGNORECASE),
