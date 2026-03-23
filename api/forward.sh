@@ -209,6 +209,24 @@ has_forward_media_candidates() {
 	find "$dir" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' -o -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.gif' \) -print -quit 2>/dev/null | grep -q .
 }
 
+list_forward_video_files() {
+	local dir="$1"
+	if [ -n "$FORWARD_LASTRUN_REF" ] && [ -e "$FORWARD_LASTRUN_REF" ] ; then
+		find "$dir" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' \) -newer "$FORWARD_LASTRUN_REF" 2>/dev/null
+	else
+		find "$dir" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' \) 2>/dev/null
+	fi
+}
+
+list_forward_image_files() {
+	local dir="$1"
+	if [ -n "$FORWARD_LASTRUN_REF" ] && [ -e "$FORWARD_LASTRUN_REF" ] ; then
+		find "$dir" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.gif' \) -newer "$FORWARD_LASTRUN_REF" 2>/dev/null
+	else
+		find "$dir" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.gif' \) 2>/dev/null
+	fi
+}
+
 
 CheckProbeValue() {
     kopv="$1"
@@ -466,7 +484,7 @@ else
 							if [[ $i == "video" ]] ; then
 								OIFS="$IFS"
 								IFS=$'\n'
-								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm' -o -name '*.MP4' -o -name '*.WEBM'`
+								FILES=`list_forward_video_files "output/vr/$sourcestage"`
 								IFS="$OIFS"
 								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no video files.\e[0m"
 								for file in $FILES ; do
@@ -508,7 +526,7 @@ else
 							elif  [[ $i == "image" ]] ; then
 								OIFS="$IFS"
 								IFS=$'\n'
-								FILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o  -name '*.PNG' -o -name '*.JPG' -o -name '*.JPEG' -o -name '*.WEBP'`
+								FILES=`list_forward_image_files "output/vr/$sourcestage"`
 								IFS="$OIFS"
 								[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$FILES" ] && echo -e $"\e[2m""     $destination: no image files.\e[0m"
 								for file in $FILES ; do
@@ -571,7 +589,7 @@ else
 										mkdir -p output/vr/$destination 2>/dev/null
 										OIFS="$IFS"
 										IFS=$'\n'
-										VFILES=`find output/vr/"$sourcestage" -maxdepth 1 -type f -iname '*.mp4' -o -iname '*.webm' -o -iname '*.ts' 2>/dev/null`
+										VFILES=`list_forward_video_files "output/vr/$sourcestage"`
 										IFS="$OIFS"
 										[ $DEBUG_AUTOFORWARD_RULES -gt 0 ] && [ -z "$VFILES" ] && echo -e $"\e[2m""     $destination: no video files to auto-move to output.""\e[0m"
 										for file in $VFILES ; do
