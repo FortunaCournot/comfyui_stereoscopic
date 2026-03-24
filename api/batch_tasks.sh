@@ -273,7 +273,7 @@ else
 		for nextinputfile in "${TASKFILES[@]}"; do
 			[ -e "$nextinputfile" ] || continue
 			# pipelinepause must be checked at the start of the inner loop
-			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && echo "Batch pause requested." && exit 0
 			processed_any=1
 			FOLDER_INDEX=$((FOLDER_INDEX + 1))
 
