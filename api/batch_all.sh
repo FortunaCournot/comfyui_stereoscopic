@@ -353,7 +353,8 @@ elif [ -d "custom_nodes" ]; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		./custom_nodes/comfyui_stereoscopic/api/batch_tasks.sh || exit 1
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
-		
+		[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
+
 		TASKDIR=`find output/vr/tasks -maxdepth 1 -type d`
 		for task in $TASKDIR; do
 			task=${task#output/vr/tasks/}
