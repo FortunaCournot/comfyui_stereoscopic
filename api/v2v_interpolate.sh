@@ -89,7 +89,7 @@ else
 	echo "========== $PROGRESS""interpolate fps $multiplicator""x "`echo $INPUT | grep -oP "$regex"`" =========="
 
 	PIXELLIMIT=$(( 150000 * VRAM ))
-	if [[ $INPUT == *"_SBS_LR"* ]] ; then
+	if [[ $INPUT == *"_fullsbs"* ]] ; then
 		PIXELLIMIT=$(( 2 * PIXELLIMIT ))
 	fi
 	
@@ -166,7 +166,7 @@ else
 	startjob=$start
 	
 	JOBLIST="$SPLITINPUT"
-	if [[ $INPUT == *"_SBS_LR"* ]] ; then
+	if [[ $INPUT == *"_fullsbs"* ]] ; then
 		echo "Splitting..."
 		JOBLIST=
 		set -x
@@ -316,7 +316,7 @@ else
 		
 	done
 	
-	if [[ $INPUT == *"_SBS_LR"* ]] ; then
+	if [[ $INPUT == *"_fullsbs"* ]] ; then
 		rm -f -- "$TARGETPREFIX""-right-input.mp4" "$TARGETPREFIX""-left-input.mp4"
 
 		echo "Joining..."

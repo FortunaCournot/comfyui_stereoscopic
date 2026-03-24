@@ -94,21 +94,21 @@ rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 in
 cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_image.png ./input/vr/fullsbs
 cp -f ./custom_nodes/comfyui_stereoscopic/tests/input/test_video.mp4 ./input/vr/fullsbs
 ./custom_nodes/comfyui_stereoscopic/api/batch_sbsconverter.sh 1.0 0.0
-if [ -e input/vr/fullsbs/test_video.mp4 ] || [ ! -e input/vr/fullsbs/done/test_video.mp4 ] || [ ! -e output/vr/fullsbs/test_video_SBS_LR.mp4 ] ; then
+if [ -e input/vr/fullsbs/test_video.mp4 ] || [ ! -e input/vr/fullsbs/done/test_video.mp4 ] || [ ! -e output/vr/fullsbs/test_video_fullsbs.mp4 ] ; then
 	echo -e $"\e[91mTest video sbs converter failed.\e[0m"
 	echo -e $"\e[91mTo skip tests, manually delete file '.install' in folder \e[96m./custom_nodes/comfyui_stereoscopic/.test\e[0m"
 	echo "Error: Test video sbs converter failed." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
 	exit 1
 fi
-if [ -e input/vr/fullsbs/test_image.png ] || [ ! -e input/vr/fullsbs/done/test_image.png ] || [ ! -e output/vr/fullsbs/test_image_SBS_LR.png ] ; then
+if [ -e input/vr/fullsbs/test_image.png ] || [ ! -e input/vr/fullsbs/done/test_image.png ] || [ ! -e output/vr/fullsbs/test_image_fullsbs.png ] ; then
 	echo -e $"\e[91mTest image sbs converter failed.\e[0m"
 	echo -e $"\e[91mTo skip tests, manually delete file '.install' in folder \e[96m./custom_nodes/comfyui_stereoscopic/.test\e[0m"
 	echo "Error: Test image sbs converter failed." >custom_nodes/comfyui_stereoscopic/.test/errorlog.txt
 	exit 1
 fi
-mv -f -- output/vr/fullsbs/test_image_SBS_LR.png output/vr/fullsbs/test_video_SBS_LR.mp4 custom_nodes/comfyui_stereoscopic/.test/$INTERNAL_VERSION  2>/dev/null
-rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png output/vr/fullsbs/test_image_SBS_LR.png 2>/dev/null
-rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 output/vr/fullsbs/test_video_SBS_LR.mp4 2>/dev/null
+mv -f -- output/vr/fullsbs/test_image_fullsbs.png output/vr/fullsbs/test_video_fullsbs.mp4 custom_nodes/comfyui_stereoscopic/.test/$INTERNAL_VERSION  2>/dev/null
+rm -f -- input/vr/fullsbs/test_image.png input/vr/fullsbs/done/test_image.png output/vr/fullsbs/test_image_fullsbs.png 2>/dev/null
+rm -f -- input/vr/fullsbs/test_video.mp4 input/vr/fullsbs/done/test_video.mp4 output/vr/fullsbs/test_video_fullsbs.mp4 2>/dev/null
 echo -e $"####### \e[92mTEST STEP SUCCEEDED\e[0m ######"
 echo " "
 

@@ -245,8 +245,8 @@ CheckProbeValue() {
 	elif [ "$key" = "tvai" ] ; then
 		if [ -d "$TVAI_BIN_DIR" ] ; then value1="true" ; else value1="false" ; fi
 	elif [ "$key" = "sbs" ] ; then
-		if [[ "$file" = *"_SBS_LR"* ]] ; then value1="true" ; else value1="false" ; fi
-		if [[ "$file" = *"_SBS_LR"* ]] ; then echo "_SBS_LR check true for $file"; else echo "_SBS_LR check false for $file" ; fi
+		if [[ "$file" = *"_fullsbs"* ]] ; then value1="true" ; else value1="false" ; fi
+		if [[ "$file" = *"_fullsbs"* ]] ; then echo "_fullsbs check true for $file"; else echo "_fullsbs check false for $file" ; fi
 	elif [ "$key" = "image" ] ; then
 		lcfile="${file,,}"
 		if [[ "$lcfile" = *".png" ]] || [[ "$lcfile" = *".webp" ]] || [[ "$lcfile" = *".jpg" ]] || [[ "$lcfile" = *".jpeg" ]] || [[ "$lcfile" = *".gif" ]] ; then value1="true" ; else value1="false" ; fi
@@ -331,6 +331,16 @@ then
     echo "E.g.: $0 fullsbs"
 	exit 1
 else
+
+	# Summary mode: when set to 1, aggregate moved file counts per destination
+	SUMMARY_MODE=${SUMMARY_MODE:-0}
+	if [ "$SUMMARY_MODE" = "1" ]; then
+		declare -A MOVE_COUNTS 2>/dev/null || true
+		incr_move_count() {
+			local label="$1"
+			MOVE_COUNTS["$label"]=$(( ${MOVE_COUNTS["$label"]:-0} + 1 ))
+		}
+	fi
 
 	sourcestage=$1
 	FORWARD_LASTRUN_TS=$(forward_last_run_read "$sourcestage")
@@ -515,7 +525,14 @@ else
 								   	capfile="${file%.*}.txt"
 													if [ -z "$RULEFAILED" ] && [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
 														if mv -f -- "$file" "$DEST_INPUT_DIR" ; then
-															echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+															if [ "${SUMMARY_MODE}" = "1" ] ; then
+																dest_label="$destination"
+																dest_label="${dest_label#tasks/}"
+																dest_label="${dest_label#tasks/_}"
+																incr_move_count "$dest_label"
+															else
+																echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+															fi
 															fs_adjust_move_counts "output/vr/$sourcestage" "$DEST_INPUT_DIR" "$(basename -- "$file")"
 														fi
 														if [ -s "$capfile" ] ; then
@@ -569,7 +586,14 @@ else
 											fi
 										fi
 										if mv -f -- "$file" "$TARGET_DIR" ; then
-											echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+											if [ "${SUMMARY_MODE}" = "1" ] ; then
+												dest_label="$destination"
+												dest_label="${dest_label#tasks/}"
+												dest_label="${dest_label#tasks/_}"
+												incr_move_count "$dest_label"
+											else
+												echo "$MOVEMSGPREFIX""Moved ""$file"" --> $destination" && MOVEMSGPREFIX=
+											fi
 											fs_adjust_move_counts "output/vr/$sourcestage" "$TARGET_DIR" "$(basename -- "$file")"
 										fi
 										if [ -s "$capfile" ] ; then
@@ -599,7 +623,14 @@ else
 											capfile="${file%.*}.txt"
 											if [ `stat --format=%Y "$file"` -le $(( `date +%s` - $DELAY )) ] ; then
 												if mv -f -- "$file" output/vr/$destination ; then
-													echo "$MOVEMSGPREFIX""Moved ""$file"" --> output/$destination" && MOVEMSGPREFIX=
+													if [ "${SUMMARY_MODE}" = "1" ] ; then
+														dest_label="$destination"
+														dest_label="${dest_label#tasks/}"
+														dest_label="${dest_label#tasks/_}"
+														incr_move_count "$dest_label"
+													else
+														echo "$MOVEMSGPREFIX""Moved ""$file"" --> output/$destination" && MOVEMSGPREFIX=
+													fi
 													fs_adjust_move_counts "output/vr/$sourcestage" "output/vr/$destination" "$(basename -- "$file")"
 												fi
 												[ -s "$capfile" ] && mv -f -- "$capfile" output/vr/$destination
@@ -621,6 +652,22 @@ else
 		done < $forwarddef
 		if ! has_forward_media_candidates "$FORWARD_SOURCE_DIR" ; then
 			forward_last_run_write "$sourcestage" "$(date +%s)"
+		fi
+
+		# If summary mode requested, print aggregated counts and exit
+		if [ "${SUMMARY_MODE}" = "1" ] ; then
+			# Build comma-separated list like: "3 taskC, 4 taskD"
+			if [ ${#MOVE_COUNTS[@]} -eq 0 ] ; then
+				echo "()"
+			else
+				first=1
+				out=""
+				for k in "${!MOVE_COUNTS[@]}"; do
+					if [ $first -eq 1 ] ; then first=0; else out="$out, "; fi
+					out="$out${MOVE_COUNTS[$k]} $k"
+				done
+				echo "($out)"
+			fi
 		fi
 	else
 		[ $loglevel -ge 2 ] &&  echo -e $"\e[2m""     no forward.txt file\e[0m"

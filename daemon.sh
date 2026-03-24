@@ -411,10 +411,10 @@ else
 		global_move_started=$(now_epoch)
 		mkdir -p input/vr/scaling input/vr/fullsbs
 		# scaling -> fullsbs
-		GLOBIGNORE="*_SBS_LR*.*"
+		GLOBIGNORE="*_fullsbs*.*"
 		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/scaling/*.mp4 output/vr/scaling/*.png output/vr/scaling/*.jpg output/vr/scaling/*.jpeg output/vr/scaling/*.PNG output/vr/scaling/*.JPG output/vr/scaling/*.JPEG input/vr/fullsbs output/vr/scaling/*.webm output/vr/scaling/*.WEBM input/vr/fullsbs  >/dev/null 2>&1
 		# slides -> fullsbs
-		GLOBIGNORE="*_SBS_LR*.*"
+		GLOBIGNORE="*_fullsbs*.*"
 		[ $PIPELINE_AUTOFORWARD -ge 1 ] && mv -f -- output/vr/slides/*.* input/vr/fullsbs  >/dev/null 2>&1
 		# dubbing -> scaling
 		#GLOBIGNORE="*_x?*.mp4"
@@ -423,7 +423,7 @@ else
 		unset GLOBIGNORE		
 
 		# FAILSAFE
-		mv -f -- input/vr/fullsbs/*_SBS_LR*.* output/vr/fullsbs  >/dev/null 2>&1
+		mv -f -- input/vr/fullsbs/*_fullsbs*.* output/vr/fullsbs  >/dev/null 2>&1
 		log_step_if_slow "Global pre-batch forwarding" "$global_move_started" 2
 		
 		status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`

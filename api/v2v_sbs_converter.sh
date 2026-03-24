@@ -110,7 +110,7 @@ else
 	uuid=$(openssl rand -hex 16)
 	TARGETPREFIX=${INPUT##*/}
 	INPUT=`realpath "$INPUT"`
-	TARGETPREFIX_SBS=${TARGETPREFIX%.*}"_SBS_LR"
+	TARGETPREFIX_SBS=${TARGETPREFIX%.*}"_fullsbs"
 	TARGETPREFIX_CALL=vr/fullsbs/intermediate/$TARGETPREFIX_SBS
 	TARGETPREFIX=output/vr/fullsbs/intermediate/$TARGETPREFIX_SBS
 	INPUTPREFIX=input/vr/fullsbs/intermediate/$TARGETPREFIX_SBS

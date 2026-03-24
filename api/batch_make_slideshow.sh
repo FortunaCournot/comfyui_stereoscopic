@@ -205,8 +205,8 @@ else
 		TARGETPREFIX=${TARGETPREFIX##*/}
 		TARGETPREFIX=${TARGETPREFIX%.*}
 		TAGS=
-		if [[ $TARGETPREFIX == *"_SBS_LR"* ]] ; then
-			TAGS="_SBS_LR"
+		if [[ $TARGETPREFIX == *"_fullsbs"* ]] ; then
+			TAGS="_fullsbs"
 		fi
 		TARGETPREFIX=${TARGETPREFIX%%_*}
 		

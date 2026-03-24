@@ -14,7 +14,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 if test $# -ne 1
 then
     echo "Usage: $0 input"
-    echo "E.g.: $0 SmallIconicTown_SBS_LR.mp4"
+    echo "E.g.: $0 SmallIconicTown_fullsbs.mp4"
 else
 	cd $COMFYUIPATH
 

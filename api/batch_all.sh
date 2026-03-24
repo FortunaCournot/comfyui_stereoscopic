@@ -355,13 +355,35 @@ elif [ -d "custom_nodes" ]; then
 		rm -f user/default/comfyui_stereoscopic/.daemonstatus
 		[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 
-		TASKDIR=`find output/vr/tasks -maxdepth 1 -type d`
-		for task in $TASKDIR; do
-			task=${task#output/vr/tasks/}
-			if [ ! -z $task ] ; then
-				[ $PIPELINE_AUTOFORWARD -ge 1 ] && ( ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task || exit 1 )
-			fi
-		done
+		# Build task list (skip '.'), then iterate with progress bar and per-task summary
+		TASKDIR_LIST=$(find output/vr/tasks -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+		TOTAL=$(echo "$TASKDIR_LIST" | sed '/^\s*$/d' | wc -l | tr -d '[:space:]')
+		if [ -z "$TOTAL" ] || [ "$TOTAL" -eq 0 ] ; then
+			TOTAL=0
+		fi
+		if [ "$TOTAL" -gt 0 ] ; then
+			idx=0
+			WIDTH=30
+			while IFS= read -r taskdir; do
+				[ -z "$taskdir" ] && continue
+				task=${taskdir#output/vr/tasks/}
+				idx=$((idx+1))
+				if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
+					filled=$(( idx * WIDTH / TOTAL ))
+					empty=$(( WIDTH - filled ))
+					filled_str=$(awk -v n="$filled" 'BEGIN{for(i=0;i<n;i++) printf "#"}')
+					empty_str=$(awk -v n="$empty" 'BEGIN{for(i=0;i<n;i++) printf "-"}')
+					BAR="[$filled_str$empty_str]"
+					SUMMARY=$(SUMMARY_MODE=1 ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task)
+					rc=$?
+					if [ $rc -ne 0 ]; then exit $rc; fi
+					SUMMARY=$(echo "$SUMMARY" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+					printf '%s %s %s\n' "$BAR" "$task" "$SUMMARY"
+				fi
+			done <<EOF
+$TASKDIR_LIST
+EOF
+		fi
 
 	fi
 	

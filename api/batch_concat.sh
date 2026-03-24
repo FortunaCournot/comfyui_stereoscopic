@@ -125,8 +125,8 @@ else
 			BASE=${nextinputfile##*/}
 			BASE=${BASE%_*}
 			SUFFIX=""
-			if echo "$IMGANDVIDFILES" | grep -q "_SBS_LR" ; then
-				SUFFIX="_SBS_LR"
+			if echo "$IMGANDVIDFILES" | grep -q "_fullsbs" ; then
+				SUFFIX="_fullsbs"
 			fi
 			TARGET=$(normalize_rename_path "output/vr/concat/${BASE}-${NOW}${SUFFIX}.mp4")
 			cd output/vr/concat/intermediate

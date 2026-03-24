@@ -15,7 +15,7 @@ COMFYUIPATH=`realpath $(dirname "$0")/../../..`
 if test $# -lt 2
 then
     echo "Usage: $0 output input..."
-    echo "E.g.: $0  output/vr/singleloop/test_SBS_LR.mp4 video1.mp4 video2.mp4 video3.mp4"
+    echo "E.g.: $0  output/vr/singleloop/test_fullsbs.mp4 video1.mp4 video2.mp4 video3.mp4"
 else
 	
 	cd $COMFYUIPATH

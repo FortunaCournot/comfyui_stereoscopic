@@ -134,19 +134,19 @@ else
 			mv -- "$nextinputfile" "$newfn"
 			
 			TARGETPREFIX=${newfn##*/}
-			if [[ "$TARGETPREFIX" = "*_SBS_LR.*" ]]; then
+			if [[ "$TARGETPREFIX" = "*_fullsbs.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
 				mv -fv -- $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K.*" ]]; then
+			elif [[ "$TARGETPREFIX" = "*_fullsbs_4K.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
 				mv -fv -- $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_DUB.*" ]]; then
+			elif [[ "$TARGETPREFIX" = "*_fullsbs_DUB.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
 				mv -fv -- $newfn output/vr/fullsbs/final
-			elif [[ "$TARGETPREFIX" = "*_SBS_LR_4K_DUB.*" ]]; then
+			elif [[ "$TARGETPREFIX" = "*_fullsbs_4K_DUB.*" ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs/final
 				mv -fv -- $newfn output/vr/fullsbs/final
@@ -174,7 +174,7 @@ else
 			newfn=$(normalize_rename_path "input/vr/fullsbs/${nextinputfile##*/}")
 			mv -- "$nextinputfile" "$newfn" 
 			
-			if [[ "$newfn" == *_SBS_LR* ]]; then
+			if [[ "$newfn" == *_fullsbs* ]]; then
 				echo "Skipping $newfn (already SBS)"
 				mkdir -p output/vr/fullsbs
 				mv -fv -- $newfn output/vr/fullsbs

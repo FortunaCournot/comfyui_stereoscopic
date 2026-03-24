@@ -151,7 +151,7 @@ else
 	TVAI_FILTER_STRING_IP="$TVAI_FILTER_STRING_IP""$TARGETFPS"
 
 	JOBLIST="$INPUT"
-	if [[ $INPUT == *"_SBS_LR"* ]] ; then
+	if [[ $INPUT == *"_fullsbs"* ]] ; then
 		echo "Splitting..."
 		JOBLIST=
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -v quiet -stats -y -i "$INPUT" -filter_complex "[0]crop=iw/2:ih:0:0[left];[0]crop=iw/2:ih:ow:0[right]" -map "[left]" "$TARGETPREFIX""-left-input.mp4" -map "[right]" "$TARGETPREFIX""-right-input.mp4"
@@ -213,7 +213,7 @@ else
 		
 	done
 
-	if [[ $INPUT == *"_SBS_LR"* ]] ; then
+	if [[ $INPUT == *"_fullsbs"* ]] ; then
 		echo "Joining..."
 
 		rm -f -- "$TARGETPREFIX""-right-input.mp4" "$TARGETPREFIX""-left-input.mp4"

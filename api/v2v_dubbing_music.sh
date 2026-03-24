@@ -207,7 +207,7 @@ else
 	fi
 
 	DUBINPUT="$SPLITINPUT"
-	if [[ "$DUBINPUT" == *"_SBS_LR"* ]] ; then
+	if [[ "$DUBINPUT" == *"_fullsbs"* ]] ; then
 		nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$DUBINPUT" -vf "crop=iw/2:ih:0:0" "$DUBBINGDIR/tmpleft.mp4"
 		echo "SBS LR detected"
 		SPLITINPUT="$DUBBINGDIR/tmpleft.mp4"

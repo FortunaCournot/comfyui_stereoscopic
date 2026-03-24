@@ -231,7 +231,7 @@ if __name__ == "__main__":
     img916 = make_grid_image_916()
     sbs916 = np.concatenate([img916, img916], axis=1)
     out_sbs916 = cap_image(sbs916, 8192)
-    cv2.imwrite(f"gridbase_{out_sbs916.shape[1]}x{out_sbs916.shape[0]}_RANDOM{ts}_SBS_LR.png", out_sbs916)
+    cv2.imwrite(f"gridbase_{out_sbs916.shape[1]}x{out_sbs916.shape[0]}_RANDOM{ts}_fullsbs.png", out_sbs916)
     img916_fish, _, _ = cosinus_fisheye_transform(img916, deg_per_step=15, output_scale=2.0, debug_name=f"debug_916_{ts}")
     sbs916_fish = np.concatenate([img916_fish, img916_fish], axis=1)
     mid_col916 = sbs916_fish.shape[1] // 2
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     img = make_grid_image()
     sbs = np.concatenate([img, img], axis=1)
     out_sbs = cap_image(sbs, 8192)
-    cv2.imwrite(f"gridbase_{out_sbs.shape[1]}x{out_sbs.shape[0]}_RANDOM{ts}_SBS_LR.png", out_sbs)
+    cv2.imwrite(f"gridbase_{out_sbs.shape[1]}x{out_sbs.shape[0]}_RANDOM{ts}_fullsbs.png", out_sbs)
     spacing = 512
     deg_per_step = 15
     img_fish, _, _ = cosinus_fisheye_transform(img, deg_per_step=deg_per_step, output_scale=2.0, debug_name=f"debug_169_{ts}")
@@ -297,7 +297,7 @@ if __name__ == "__main__":
     # SBS: actual horizontal duplication
     sbs43 = np.concatenate([img43, img43], axis=1)
     out_sbs43 = cap_image(sbs43, 8192)
-    cv2.imwrite(f"gridbase_{out_sbs43.shape[1]}x{out_sbs43.shape[0]}_RANDOM{ts}_SBS_LR.png", out_sbs43)
+    cv2.imwrite(f"gridbase_{out_sbs43.shape[1]}x{out_sbs43.shape[0]}_RANDOM{ts}_fullsbs.png", out_sbs43)
     # Fisheye for 4:3 (same transformation as before)
     img43_fish, _, _ = cosinus_fisheye_transform(img43, deg_per_step=15, output_scale=2.0, debug_name=f"debug_43_{ts}")
     sbs43_fish = np.concatenate([img43_fish, img43_fish], axis=1)
