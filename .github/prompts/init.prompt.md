@@ -17,3 +17,9 @@ What this prompt does:
 Notes:
 - If you want an automated import, run `./.github/scripts/import_memories.sh` as a maintainer and commit the generated files before running `/init` in other developer environments.
 - This prompt intentionally avoids creating or committing repository files to keep initialization safe and reviewable.
+
+Language preference (user-scoped):
+- This prompt will ask whether you want to create a user-scoped memory recording your preferred language for agent interactions (for example, `German`). If you choose to create it, the prompt will offer instructions to create `/memories/preferred_language.md` locally; it will not commit or push that file.
+- Repository maintainers may prefer that user-scoped memories are created by each developer locally rather than committed to the repository.
+
+If you (the current user) want me to create a local user-scoped memory now, run the `/init create-language-memory` action or create `/memories/preferred_language.md` manually with your preference.
