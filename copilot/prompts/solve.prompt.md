@@ -1,13 +1,12 @@
 ---
 name: "solve"
-description: "Continue solution planning for a numbered workspace issue from .github/issues"
+description: "Continue solution planning for a numbered workspace quickissue from copilot/quickissues"
 argument-hint: "Issue number, for example: 1"
 agent: "plan"
----
 Continue the solution planning for workspace issue `${input:issueNumber:Enter the issue number, for example 1}`.
 
-Requirements:
-- Search [../issues](../issues/) for a file whose name starts with the exact numeric prefix `<issueNumber>_`.
+- Requirements:
+- Search `../copilot/quickissues` for a file whose name starts with the exact numeric prefix `<issueNumber>_`.
 - If no matching file exists, stop and report that the issue number was not found. Suggest running `/issues`.
 - Read the matching issue file completely before planning.
 - Use the issue file as the primary problem statement.

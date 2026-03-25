@@ -1,11 +1,14 @@
 #!/bin/sh
-# Automatic import script: convert .github/memories/*.md into prompts or instructions
-# Note: a migrated copy exists at copilot/scripts/import_memories.sh — prefer that for new workflows
+# Automatic import script: convert copilot/memories/*.md into prompts or instructions
+# Use the repository `copilot/` location for canonical prompts, instructions and memories
 set -eu
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-MEM_DIR="$ROOT_DIR/.github/memories"
-PROMPTS_DIR="$ROOT_DIR/.github/prompts"
-INSTR_DIR="$ROOT_DIR/.github/instructions"
+# Use canonical copilot/ location
+MEM_DIR="$ROOT_DIR/copilot/memories"
+PROMPTS_DIR="$ROOT_DIR/copilot/prompts"
+INSTR_DIR="$ROOT_DIR/copilot/instructions"
+
+echo "Import source: ${MEM_DIR#$ROOT_DIR/} -> targets: ${PROMPTS_DIR#$ROOT_DIR/}, ${INSTR_DIR#$ROOT_DIR/}"
 
 mkdir -p "$PROMPTS_DIR" "$INSTR_DIR"
 
@@ -18,7 +21,7 @@ for f in "$MEM_DIR"/*.md; do
         out="$INSTR_DIR/${name_no_ext}.instructions.md"
         cat > "$out" <<EOF
     ---
-    description: "Repository instruction imported from memories/${base}"
+    description: "Repository instruction imported from copilot/memories/${base}"
     applyTo: "**/*"
     ---
 
@@ -30,7 +33,7 @@ for f in "$MEM_DIR"/*.md; do
         cat > "$out" <<EOF
     ---
     name: "${name_no_ext}"
-    description: "Imported from memories/${base}"
+    description: "Imported from copilot/memories/${base}"
     agent: "agent"
     ---
 
@@ -49,4 +52,4 @@ case "$(grep -Fx ".test/" "$GITIGNORE" 2>/dev/null || true)" in
     *) echo ".test/ already in .gitignore" ;;
 esac
 
-echo "Import complete. Review generated files under .github/prompts/ and .github/instructions/ (or see copilot/prompts/ and copilot/instructions/ for the migrated location)"
+echo "Import complete. Review generated files under copilot/prompts/ and copilot/instructions/"

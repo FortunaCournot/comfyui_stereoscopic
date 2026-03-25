@@ -1,3 +1,0 @@
-- ComfyUI fatal crash detection is centralized in api/python/comfyui_logwatch.py via CRASH_PATTERNS.
-- Batch/workflow shell scripts rely on api/tasks/lib_failover.sh reading the .comfyui_logwatch_crash marker, not on parsing stack traces directly.
-- For new fatal ComfyUI classes like VRAM OOM, prefer adding narrow line-based patterns in comfyui_logwatch.py instead of modifying production batch scripts.

@@ -1,8 +1,7 @@
 ---
 name: "issues"
-description: "List numbered workspace issue files from .github/issues and summarize their current status"
+description: "List numbered workspace quickissue files from copilot/quickissues and summarize their current status"
 agent: "agent"
----
 List all open workspace issues stored in [../issues](../issues/).
 
 Requirements:
@@ -16,4 +15,4 @@ Requirements:
 Output format:
 `<number> - <title> - <status>`
 
-If no numbered issue files exist, say that no workspace issues are currently tracked in [../issues](../issues/).
+-- If no numbered quickissue files exist, say that no workspace quickissues are currently tracked in [../copilot/quickissues](../copilot/quickissues).
