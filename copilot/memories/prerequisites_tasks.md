@@ -1,0 +1,1 @@
+- In api/prerequisites.sh, task JSONs are stored in Bash arrays; iterating with $array only processes the first element. Use "${array[@]}" for task folder preparation and derived task directory loops.

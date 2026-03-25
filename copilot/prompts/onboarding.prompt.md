@@ -4,7 +4,7 @@ agent: "agent"
 ---
 Run this prompt once after a fresh checkout to verify that this repository is prepared for the VS Code Agent and other developers.
 
-- Goals:
+Goals:
 - Verify that repository-scoped prompts exist under `copilot/prompts/` and workspace instructions under `copilot/instructions/`.
 - Ensure the local test folder `.test/` exists and is listed in `.gitignore`.
 - Do not create or commit prompt/instruction files; these must be created and committed separately (for example, via the `import_memories.sh` script run by a maintainer).
@@ -21,7 +21,6 @@ Notes:
 
 Language preference (user-scoped):
 - This prompt will ask whether you want to create a user-scoped memory recording your preferred language for agent interactions (for example, `German`). If you choose to create it, the prompt will offer instructions to create `/memories/preferred_language.md` locally; it will not commit or push that file.
-- Repository maintainers may prefer that user-scoped memories are created by each developer locally rather than committed to the repository.
 
 Language preference (user-scoped):
 - Before prompting the user to create a language preference, this onboarding verifier will first check whether a user-scoped memory file `/memories/preferred_language.md` already exists for the current developer.
@@ -64,7 +63,7 @@ Notes:
 - The slash actions also work (`/onboarding set-language German`, `/onboarding clear-language`). Use whichever form you prefer; the agent recognises these examples and will update your local user memory accordingly.
 
 Verification outcome:
--- After running `/onboarding`, you will receive a report listing:
+- After running `/onboarding`, you will receive a report listing:
   - All files under `copilot/memories/`.
   - Which of those are represented under `copilot/prompts/`, `copilot/instructions/` or `.github/issues/`.
   - Any missing items that a maintainer should import and commit (suggested `./copilot/scripts/import_memories.sh` usage).
@@ -72,4 +71,3 @@ Verification outcome:
 - If a user language preference is present, the verifier will report it using the English label, for example:
 
   Preferred_Language: German  — Change with a prompt like: SetPreferredLanguage Spanish
-

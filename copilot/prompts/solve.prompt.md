@@ -2,7 +2,7 @@
 name: "solve"
 description: "Continue solution planning for a numbered workspace issue from .github/issues"
 argument-hint: "Issue number, for example: 1"
-agent: "Plan"
+agent: "plan"
 ---
 Continue the solution planning for workspace issue `${input:issueNumber:Enter the issue number, for example 1}`.
 
