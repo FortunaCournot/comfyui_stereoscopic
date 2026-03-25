@@ -1,6 +1,6 @@
 ---
 name: "onboarding"
-description: "One-time repository onboarding verifier: check that repo-scoped prompts/instructions and local defaults are present. This prompt will NOT create or commit prompt/instruction files."
+description: "One-time repository onboarding verifier: check that repo-scoped prompts/instructions and local defaults are present. On Windows the prompt will automatically create a local junction `.github/prompts` -> `copilot/prompts` if it is missing (local change only)."
 agent: "agent"
 ---
 Run this prompt once after a fresh checkout to verify that this repository is prepared for the VS Code Agent and other developers.
@@ -11,6 +11,7 @@ Goals:
 - Do not create or commit prompt/instruction files; these must be created and committed separately (for example, via the `import_memories.sh` script run by a maintainer).
 
 What this prompt does:
+0. On Windows: check whether `.github/prompts` exists and points to `copilot/prompts`. If `.github/prompts` is missing or not a junction, the prompt will run the helper script `copilot/scripts/create_junction.ps1` to create a local junction `.github/prompts` -> `copilot/prompts`, removing an empty `.github/prompts` folder first if necessary. The prompt will report the commands it ran. This operation is local and will not commit or push changes unless you explicitly request `--commit`.
 1. Lists `copilot/prompts/` and `copilot/instructions/` and reports any missing entries referenced in `copilot/memories/`.
 2. Ensures `.test/` exists and that `.gitignore` contains `.test/`; if `.test/` is missing, it will offer to create it locally but will not commit `.gitignore` changes.
 3. Reads `copilot/memories/` and lists each memory file found. For each memory file the prompt will report whether a corresponding prompt/instruction/issue file exists in the repository and will list any missing conversions. This is a verification step only — the prompt will not create or commit files.
