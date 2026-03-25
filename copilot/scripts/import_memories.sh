@@ -9,10 +9,12 @@ COPILOT_DIR="$(cd "$SCRIPTS_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$SCRIPTS_DIR/../.." && pwd)"
 
 MEM_DIR="$COPILOT_DIR/memories"
-PROMPTS_DIR="$COPILOT_DIR/prompts"
-INSTR_DIR="$COPILOT_DIR/instructions"
+# Local generated output (not tracked)
+LOCAL_DIR="$REPO_ROOT/.copilot_local"
+PROMPTS_DIR="$LOCAL_DIR/prompts"
+INSTR_DIR="$LOCAL_DIR/instructions"
 
-echo "Import source: ${MEM_DIR#$COPILOT_DIR/} -> targets: ${PROMPTS_DIR#$COPILOT_DIR/}, ${INSTR_DIR#$COPILOT_DIR/}"
+echo "Import source: ${MEM_DIR#$COPILOT_DIR/} -> local targets: ${PROMPTS_DIR#$REPO_ROOT/}, ${INSTR_DIR#$REPO_ROOT/}"
 
 mkdir -p "$PROMPTS_DIR" "$INSTR_DIR"
 
@@ -47,13 +49,18 @@ for f in "$MEM_DIR"/*.md; do
     fi
 done
 
-# Ensure .test/ exists and is in .gitignore
 TEST_DIR="$REPO_ROOT/.test"
 GITIGNORE="$REPO_ROOT/.gitignore"
 mkdir -p "$TEST_DIR"
 case "$(grep -Fx ".test/" "$GITIGNORE" 2>/dev/null || true)" in
     "") echo ".test/" >> "$GITIGNORE" && echo "Appended .test/ to root .gitignore" || true ;;
     *) echo ".test/ already in root .gitignore" ;;
+esac
+
+# Ensure local output dir is ignored
+case "$(grep -Fx ".copilot_local/" "$GITIGNORE" 2>/dev/null || true)" in
+    "") echo ".copilot_local/" >> "$GITIGNORE" && echo "Appended .copilot_local/ to root .gitignore" || true ;;
+    *) echo ".copilot_local/ already in root .gitignore" ;;
 esac
 
 echo "Import complete. Review generated files under ${PROMPTS_DIR#$COPILOT_DIR/} and ${INSTR_DIR#$COPILOT_DIR/}"

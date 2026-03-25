@@ -8,10 +8,18 @@ try {
     # script is in <repo>/copilot/scripts, repo root is two levels up
     $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptRoot)
     $githubPrompts = Join-Path $repoRoot '.github\prompts'
+    # point junction to local generated prompts by default
+    $localPrompts = Join-Path $repoRoot '.copilot_local\prompts'
+
     $copilotPrompts = Join-Path $repoRoot 'copilot\prompts'
 
-    if (-not (Test-Path $copilotPrompts)) {
-        Write-Output "Target folder '$copilotPrompts' does not exist. Nothing to link.";
+    # Prefer local generated prompts as target if available
+    if (Test-Path $localPrompts) {
+        $target = $localPrompts
+    } elseif (Test-Path $copilotPrompts) {
+        $target = $copilotPrompts
+    } else {
+        Write-Output "No target prompt folder found (neither $localPrompts nor $copilotPrompts). Nothing to link";
         exit 1
     }
 
@@ -34,15 +42,15 @@ try {
     }
 
     # Create junction using cmd mklink for compatibility
-    $cmd = "cmd /c mklink /J `"$githubPrompts`" `"$copilotPrompts`""
+    $cmd = "cmd /c mklink /J `"$githubPrompts`" `"$target`""
     Write-Output "Creating junction: $cmd"
-    $proc = Start-Process -FilePath cmd -ArgumentList "/c mklink /J `"$githubPrompts`" `"$copilotPrompts`"" -NoNewWindow -Wait -PassThru
+    $proc = Start-Process -FilePath cmd -ArgumentList "/c mklink /J `"$githubPrompts`" `"$target`"" -NoNewWindow -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
         Write-Output "mklink failed with exit code $($proc.ExitCode)"
         exit $proc.ExitCode
     }
 
-    Write-Output "Junction created: $githubPrompts -> $copilotPrompts"
+    Write-Output "Junction created: $githubPrompts -> $target"
 
     if ($Commit) {
         Push-Location $repoRoot
