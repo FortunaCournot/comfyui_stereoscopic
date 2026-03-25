@@ -139,6 +139,43 @@ idle_waiting_endline() {
 	fi
 }
 
+compute_task_count_with_spinner() {
+	local tmp_file task_pid spinner_frame spinner_visible task_count
+	tmp_file=$(mktemp 2>/dev/null || echo "./user/default/comfyui_stereoscopic/.taskcount.$$".tmp)
+	compute_task_count >"$tmp_file" 2>/dev/null &
+	task_pid=$!
+	spinner_frame=0
+	spinner_visible=0
+
+	while kill -0 "$task_pid" 2>/dev/null; do
+		if [ "${loglevel:-0}" -ge 0 ] && [ -t 1 ] && [ "$spinner_frame" -ge 5 ] ; then
+			case $((spinner_frame % 4)) in
+				0) spinner_char='|' ;;
+				1) spinner_char='/' ;;
+				2) spinner_char='-' ;;
+				*) spinner_char='\\' ;;
+			esac
+			spinner_visible=1
+			printf '\r\e[2mCounting task files %s\e[0m                     ' "$spinner_char"
+		fi
+		spinner_frame=$((spinner_frame + 1))
+		sleep 0.2
+	done
+
+	wait "$task_pid" 2>/dev/null || true
+	if [ "$spinner_visible" -eq 1 ] ; then
+		idle_waiting_clear_line
+	fi
+
+	if [ -f "$tmp_file" ] ; then
+		task_count=$(cat "$tmp_file" 2>/dev/null)
+		rm -f -- "$tmp_file" 2>/dev/null
+		printf '%s\n' "${task_count:-0}"
+	else
+		printf '0\n'
+	fi
+}
+
 mkdir -p input/vr/slideshow input/vr/dubbing/sfx input/vr/dubbing/music input/vr/scaling input/vr/fullsbs input/vr/scaling/override input/vr/singleloop input/vr/slides input/vr/concat input/vr/ignorename input/vr/downscale/4K input/vr/caption input/vr/check/rate input/vr/check/released
 mkdir -p output/vr/check/rate output/vr/check/released
 
@@ -349,7 +386,8 @@ else
 			break
 		fi
 
-		# Run scanner in background to keep iteration responsive; wait for it before using values
+		# Run scanner synchronously once per loop iteration before using the refreshed values.
+		# Despite the older wording, this does not run in the background because there is no '&'.
 		scan_started=$(now_epoch)
 		"$PY_EXEC" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
 		log_step_if_slow "Filesystem scan before batch evaluation" "$scan_started" 2
@@ -457,7 +495,7 @@ else
 			WMECOUNT=$(read_fs_status images "input/vr/watermark/encrypt")
 			WMDCOUNT=$(read_fs_status images "input/vr/watermark/decrypt")
 			CAPCOUNT=$(read_fs_status any "input/vr/caption")
-			TASKCOUNT=$(compute_task_count)
+			TASKCOUNT=$(compute_task_count_with_spinner)
 			idle_waiting_append_dot_if_slow "$count_started" 2 || log_step_if_slow_verbose "Incoming file and task count refresh" "$count_started" 2
 
 
