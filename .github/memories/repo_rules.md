@@ -33,3 +33,6 @@ This file records the repository-scoped rules derived from the session plan and 
 
 Notes
 - These repository-scoped memories are the canonical, versioned record. Individual developers may keep local user-scoped memories for personal preferences (language, editor, shell) under `/memories/` — these should not be committed to the repository unless explicitly desired.
+
+Repository commit rule
+- Repository-scoped memories that are intended as the canonical, versioned record (for example the rules in this file, workspace prompts, and `.github/issues/` Quick-Issues) SHOULD be created and committed into the repository so they are visible to all contributors and to automation that depends on them. The repository policy is: when a memory is intended to be repo-scoped, it belongs under `.github/memories/`, `.github/prompts/`, `.github/instructions/` or `.github/issues/` and must be added and committed by a maintainer during normal change review.

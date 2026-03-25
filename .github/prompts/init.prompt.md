@@ -12,6 +12,7 @@ Goals:
 What this prompt does:
 1. Lists `.github/prompts/` and `.github/instructions/` and reports any missing entries referenced in `.github/memories/`.
 2. Ensures `.test/` exists and that `.gitignore` contains `.test/`; if `.test/` is missing, it will offer to create it locally but will not commit `.gitignore` changes.
+4. Reads `.github/memories/` and lists each memory file found. For each memory file the prompt will report whether a corresponding prompt/instruction/issue file exists in the repository and will list any missing conversions. This is a verification step only — the prompt will not create or commit files.
 3. Provides a summary and actionable next steps (for example, run `./.github/scripts/import_memories.sh` and commit the resulting files) but will not perform creation or commits itself.
 
 Notes:
@@ -23,3 +24,9 @@ Language preference (user-scoped):
 - Repository maintainers may prefer that user-scoped memories are created by each developer locally rather than committed to the repository.
 
 If you (the current user) want me to create a local user-scoped memory now, run the `/init create-language-memory` action or create `/memories/preferred_language.md` manually with your preference.
+
+Verification outcome:
+- After running `/init`, you will receive a report listing:
+	- All files under `.github/memories/`.
+	- Which of those are represented under `.github/prompts/`, `.github/instructions/` or `.github/issues/`.
+	- Any missing items that a maintainer should import and commit (suggested `./.github/scripts/import_memories.sh` usage).
