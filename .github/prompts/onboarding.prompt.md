@@ -25,19 +25,27 @@ Language preference (user-scoped):
 
 Language preference (user-scoped):
 - Before prompting the user to create a language preference, this onboarding verifier will first check whether a user-scoped memory file `/memories/preferred_language.md` already exists for the current developer.
-- If a language memory exists, the prompt will report the detected language (for example: "Bevorzugte Sprache: Deutsch") and show concise instructions how to change it locally (see below).
+- If a language memory exists, the prompt will report the detected language using an English label (for example: "Preferred_Language: German") and show concise instructions how to change it via an agent action (see below).
 - If no language memory exists, the prompt will offer the option to create one locally via the `/onboarding create-language-memory` action and will show the exact file contents to write. The prompt will not commit or push any files.
 
-How to set or change your preferred language locally:
-- Create or edit the file `/memories/preferred_language.md` in your workspace (this is a local, user-scoped memory; do not commit it unless you explicitly want to share the preference):
+How to set, change, or clear your preferred language via the agent:
+- You do not need to edit files yourself. Instead, send the agent one of the following actions (the agent will create/update/remove the local user-scoped memory on your behalf; the agent will not commit or push repository changes):
 
-  Bevorzugte_Sprache: Deutsch
+- Set or change language (example):
 
-  Ich bevorzuge, dass der Agent mit mir im Chat auf Deutsch kommuniziert.
+  /onboarding set-language German
 
-- To change the language, update the `Bevorzugte_Sprache:` value to your new preference and save the file. To remove the preference, delete the file; the onboarding verifier will then offer to create a new one.
+- Create the language memory if missing (equivalent):
 
-If you (the current user) want me to create a local user-scoped memory now, run the `/onboarding create-language-memory` action or create `/memories/preferred_language.md` manually with your preference.
+  /onboarding create-language-memory German
+
+- Clear/remove the language preference:
+
+  /onboarding clear-language
+
+- After performing any of the above, the agent will report the currently configured preference using the English label `Preferred_Language:` (for example: `Preferred_Language: German`).
+
+If you (the current user) want me to create or update the local user-scoped memory now, send `/onboarding set-language <Language>` or `/onboarding create-language-memory <Language>`.
 
 Verification outcome:
 - After running `/onboarding`, you will receive a report listing:
