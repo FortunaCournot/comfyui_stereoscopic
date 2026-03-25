@@ -47,8 +47,29 @@ How to set, change, or clear your preferred language via the agent:
 
 If you (the current user) want me to create or update the local user-scoped memory now, send `/onboarding set-language <Language>` or `/onboarding create-language-memory <Language>`.
 
+Simple user prompt examples:
+- Short command (recommended):
+
+  SetPreferredLanguage German
+
+- Natural language (works too):
+
+  Please set my preferred language to German
+
+- Clear preference:
+
+  ClearPreferredLanguage
+
+Notes:
+- The slash actions also work (`/onboarding set-language German`, `/onboarding clear-language`). Use whichever form you prefer; the agent recognises these examples and will update your local user memory accordingly.
+
 Verification outcome:
 - After running `/onboarding`, you will receive a report listing:
   - All files under `.github/memories/`.
   - Which of those are represented under `.github/prompts/`, `.github/instructions/` or `.github/issues/`.
   - Any missing items that a maintainer should import and commit (suggested `./.github/scripts/import_memories.sh` usage).
+
+- If a user language preference is present, the verifier will report it using the English label, for example:
+
+  Preferred_Language: German  — Change with a prompt like: SetPreferredLanguage Spanish
+
