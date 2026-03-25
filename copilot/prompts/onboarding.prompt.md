@@ -47,6 +47,16 @@ How to set, change, or clear your preferred language via the agent:
 
 If you (the current user) want me to create or update the local user-scoped memory now, send `/onboarding set-language <Language>` or `/onboarding create-language-memory <Language>`.
 
+Junction management (local only):
+- Create local junction: If you want the agent to create a local junction so that `.github/prompts` points to `copilot/prompts`, send the action `/onboarding create-junction`.
+  - This will attempt to create the junction locally on Windows using `cmd /c mklink /J .github\prompts copilot\prompts` or PowerShell `New-Item -ItemType Junction -Path .github\prompts -Target .\copilot\prompts` if supported. The agent will remove an empty `.github/prompts` folder first if necessary. The agent will not push or commit changes by default.
+  - If you prefer the agent to also update `.gitignore` and remove any previously tracked `.github/prompts` entries from the index, use `/onboarding create-junction --commit` and the agent will run `git add .gitignore; git rm -r --cached .github/prompts || true; git commit -m "Ignore local junction .github/prompts"` locally.
+
+- Remove local junction: Send `/onboarding remove-junction` to remove the `.github/prompts` junction (this deletes the junction entry only; the `copilot/prompts` folder is left intact).
+
+Notes:
+- These actions are local developer conveniences and will not create or commit repository-scoped prompt files unless you explicitly ask for the `--commit` variant. The agent will report what it changed and show the exact commands it ran.
+
 Simple user prompt examples:
 name: "onboarding"
 description: "One-time repository onboarding verifier: check that repo-scoped prompts/instructions and local defaults are present. This prompt will NOT create or commit prompt/instruction files."
