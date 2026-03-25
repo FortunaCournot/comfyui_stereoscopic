@@ -38,9 +38,10 @@ ClearPreferredLanguage
 If no language is set the example should use `None`:
 ```
 Preferred_Language: None
-SetPreferredLanguage German
-CreatePreferredLanguage German
-ClearPreferredLanguage
+To change enter one of the following commands:
+> SetPreferredLanguage German
+> OrCreatePreferredLanguage German
+> ClearPreferredLanguage
 ```
 
 
