@@ -130,6 +130,8 @@ else
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
 	options="${options//\$INPUT/"$INPUT"}"
+	preinputoptions=`cat "$BLUEPRINTCONFIG" | grep -o '"preinputoptions":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	preinputoptions="${preinputoptions//\'/}"
 	
 	EXTENSION=`cat "$BLUEPRINTCONFIG" | grep -o '"extension":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	if [ -z "$EXTENSION" ] ; then
@@ -137,7 +139,7 @@ else
 	fi
 	
 	[ $loglevel -ge 2 ] && set -x
-	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT" $options "$TARGETPREFIX""$EXTENSION"
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y $preinputoptions -i "$INPUT" $options "$TARGETPREFIX""$EXTENSION"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
 	if [ -e "$TARGETPREFIX""$EXTENSION" ] && [ -s "$TARGETPREFIX""$EXTENSION" ] ; then
