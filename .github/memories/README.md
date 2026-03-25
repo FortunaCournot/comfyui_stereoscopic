@@ -19,7 +19,7 @@ To convert the files in this folder into prompt or instruction files you can:
 ./.github/scripts/import_memories.sh
 ```
 
-- Or use the `/init` workspace prompt which wraps the same functionality (it can run in `auto=true` mode).
+- Or use the `/onboarding` workspace prompt which wraps the same functionality (it can run in `auto=true` mode).
 
 Notes
 -----
