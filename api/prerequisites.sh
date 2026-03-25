@@ -463,7 +463,7 @@ shopt -s nullglob
 taskdefinitions=(custom_nodes/comfyui_stereoscopic/config/tasks/*.json)
 TASKDEF_TOTAL=${#taskdefinitions[@]}
 TASKDEF_INDEX=0
-for task in $taskdefinitions ; do
+for task in "${taskdefinitions[@]}" ; do
 	TASKDEF_INDEX=$((TASKDEF_INDEX + 1))
 	render_progress_bar "$TASKDEF_INDEX" "$TASKDEF_TOTAL" "Validate task: config/tasks/${task##*/}"
 	taskname=${task##*/}
@@ -481,7 +481,7 @@ fi
 taskdefinitions=("$CONFIGPATH"/tasks/*.json)
 USERTASK_TOTAL=${#taskdefinitions[@]}
 USERTASK_INDEX=0
-for task in $taskdefinitions ; do
+for task in "${taskdefinitions[@]}" ; do
   if [ -e "$task" ] ; then
 		USERTASK_INDEX=$((USERTASK_INDEX + 1))
 		render_progress_bar "$USERTASK_INDEX" "$USERTASK_TOTAL" "Validate user task: user/tasks/${task##*/}"
@@ -523,10 +523,10 @@ if [ ! -e "$CONFIGPATH"/"rebuild_autoforward.sh" ] ; then
 		render_progress_bar "$STAGE_INDEX" "$STAGE_TOTAL" "Create stage done folder: $stagepath/done"
 		mkdir -p $stagepath/done
 	done
-	TASKDIR=`find tasks -maxdepth 1 -type d`
-	DONE_TASK_TOTAL=$(printf '%s\n' "$TASKDIR" | awk 'NF && $0 != "tasks" { count++ } END { print count + 0 }')
+	readarray -t TASKDIR < <(find tasks -maxdepth 1 -type d)
+	DONE_TASK_TOTAL=$(printf '%s\n' "${TASKDIR[@]}" | awk 'NF && $0 != "tasks" { count++ } END { print count + 0 }')
 	DONE_TASK_INDEX=0
-	for task in $TASKDIR; do
+	for task in "${TASKDIR[@]}"; do
 		task=${task#tasks/}
 		if [ ! -z $task ] ; then
 			DONE_TASK_INDEX=$((DONE_TASK_INDEX + 1))
