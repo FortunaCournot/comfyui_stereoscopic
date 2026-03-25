@@ -1,3 +1,4 @@
+---
 name: "onboarding"
 description: "One-time repository onboarding verifier: check that repo-scoped prompts/instructions and local defaults are present. This prompt will NOT create or commit prompt/instruction files."
 agent: "agent"
