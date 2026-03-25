@@ -2,7 +2,7 @@
 name: "solve"
 description: "Continue solution planning for a numbered workspace quickissue from copilot/quickissues"
 argument-hint: "Issue number, for example: 1"
-agent: "plan"
+agent: "Plan"
 Continue the solution planning for workspace issue `${input:issueNumber:Enter the issue number, for example 1}`.
 
 - Requirements:
