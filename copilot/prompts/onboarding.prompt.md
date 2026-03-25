@@ -11,42 +11,43 @@ Goals:
 - Do not create or commit prompt/instruction files; these must be created and committed separately (for example, via the `import_memories.sh` script run by a maintainer).
 
 What this prompt does:
-0. On Windows: check whether `.github/prompts` exists and points to `copilot/prompts`. If `.github/prompts` is missing or not a junction, the prompt will run the helper script `copilot/scripts/create_junction.ps1` to create a local junction `.github/prompts` -> `copilot/prompts`, removing an empty `.github/prompts` folder first if necessary. The prompt will report the commands it ran. This operation is local and will not commit or push changes unless you explicitly request `--commit`.
-1. Lists `copilot/prompts/` and `copilot/instructions/` and reports any missing entries referenced in `copilot/memories/`.
-2. Ensures `.test/` exists and that `.gitignore` contains `.test/`; if `.test/` is missing, it will offer to create it locally but will not commit `.gitignore` changes.
-3. Reads `copilot/memories/` and lists each memory file found. For each memory file the prompt will report whether a corresponding prompt/instruction/issue file exists in the repository and will list any missing conversions. This is a verification step only — the prompt will not create or commit files.
-4. Provides a summary and actionable next steps (for example, run `./copilot/scripts/import_memories.sh` and commit the resulting files) but will not perform creation or commits itself.
+1. On Windows: check whether `.github/prompts` exists and points to `copilot/prompts`. If `.github/prompts` is missing or not a junction, the prompt will run the helper script `copilot/scripts/create_junction.ps1` to create a local junction `.github/prompts` -> `copilot/prompts`, removing an empty `.github/prompts` folder first if necessary. The prompt will report the commands it ran. This operation is local and will not commit or push changes unless you explicitly request `--commit`.
+2. Lists `copilot/prompts/` and `copilot/instructions/` and reports any missing entries referenced in `copilot/memories/`.
+3. Ensures `.test/` exists and that `.gitignore` contains `.test/`; if `.test/` is missing, it will offer to create it locally but will not commit `.gitignore` changes.
+4. Reads `copilot/memories/` and lists each memory file found. For each memory file the prompt will report whether a corresponding prompt/instruction/issue file exists in the repository and will list any missing conversions. This is a verification step only — the prompt will not create or commit files.
+5. Provides a summary and actionable next steps (for example, run `./copilot/scripts/import_memories.sh` and commit the resulting files) but will not perform creation or commits itself.
+6. Reports the currently configured preferred language if a user-scoped memory exists, and shows instructions to set or change it via agent actions. If no preference is set, it will report `Preferred_Language: None` and show instructions to create one. Details:
+- If a language memory exists, the prompt will report the detected language using an English label (for example: "Preferred_Language: German") and show concise instructions how to change it via an agent action (see below).
+- If no language memory exists, the prompt will show the options to create one locally via the `/onboarding create-language-memory` action and will show the exact file contents to write. The prompt will not commit or push any files.
+
+Behavior when run:
+- The prompt MUST always output a single line exactly in the form `Preferred_Language: <Language>`.
+  - If no language is configured, the value MUST be `None`, e.g. `Preferred_Language: None`.
+- Immediately after that line the prompt MUST display these three one-line commands (exact text) that the user can send to change the preference:
+  - `SetPreferredLanguage <Language>`
+  - `CreatePreferredLanguage <Language>`
+  - `ClearPreferredLanguage`
+
+Examples the agent should always show (replace `<Language>` as appropriate):
+```
+Preferred_Language: German
+SetPreferredLanguage Spanish
+CreatePreferredLanguage Spanish
+ClearPreferredLanguage
+```
+If no language is set the example should use `None`:
+```
+Preferred_Language: None
+SetPreferredLanguage German
+CreatePreferredLanguage German
+ClearPreferredLanguage
+```
+
 
 Notes:
 - If you want an automated import, run `./copilot/scripts/import_memories.sh` as a maintainer and commit the generated files before running `/onboarding` in other developer environments.
 - This prompt intentionally avoids creating or committing repository files to keep initialization safe and reviewable.
 
-Language preference (user-scoped):
-- This prompt will ask whether you want to create a user-scoped memory recording your preferred language for agent interactions (for example, `German`). If you choose to create it, the prompt will offer instructions to create `/memories/preferred_language.md` locally; it will not commit or push that file.
-
-Language preference (user-scoped):
-- Before prompting the user to create a language preference, this onboarding verifier will first check whether a user-scoped memory file `/memories/preferred_language.md` already exists for the current developer.
-- If a language memory exists, the prompt will report the detected language using an English label (for example: "Preferred_Language: German") and show concise instructions how to change it via an agent action (see below).
-- If no language memory exists, the prompt will offer the option to create one locally via the `/onboarding create-language-memory` action and will show the exact file contents to write. The prompt will not commit or push any files.
-
-How to set, change, or clear your preferred language via the agent:
-- You do not need to edit files yourself. Instead, send the agent one of the following actions (the agent will create/update/remove the local user-scoped memory on your behalf; the agent will not commit or push repository changes):
-
-- Set or change language (example):
-
-  /onboarding set-language German
-
-- Create the language memory if missing (equivalent):
-
-  /onboarding create-language-memory German
-
-- Clear/remove the language preference:
-
-  /onboarding clear-language
-
-- After performing any of the above, the agent will report the currently configured preference using the English label `Preferred_Language:` (for example: `Preferred_Language: German`).
-
-If you (the current user) want me to create or update the local user-scoped memory now, send `/onboarding set-language <Language>` or `/onboarding create-language-memory <Language>`.
 
 Junction management (local only):
 - Create local junction: If you want the agent to create a local junction so that `.github/prompts` points to `copilot/prompts`, send the action `/onboarding create-junction`.
