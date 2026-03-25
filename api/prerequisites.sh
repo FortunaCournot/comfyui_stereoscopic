@@ -52,7 +52,14 @@ render_progress_bar() {
 	local filled empty percent filled_bar empty_bar
 
 	[ "${loglevel:-0}" -ge 0 ] || return 0
-	[ -t 1 ] || return 0
+	# If stdout is not a TTY, try to write to the controlling terminal if available
+	if [ -t 1 ]; then
+		_PROG_OUT=""
+	elif [ -e /dev/tty ]; then
+		_PROG_OUT="/dev/tty"
+	else
+		_PROG_OUT=""
+	fi
 	[ "$total" -le 0 ] && total=1
 
 	filled=$((current * width / total))
@@ -63,9 +70,16 @@ render_progress_bar() {
 	filled_bar=${filled_bar// /#}
 	empty_bar=${empty_bar// /-}
 
-	printf '\r\e[2K\e[2m[%s%s] %3d%% (%d/%d) %s\e[0m' "$filled_bar" "$empty_bar" "$percent" "$current" "$total" "$label"
-	if [ "$current" -ge "$total" ] ; then
-		printf '\n'
+	if [ -n "$_PROG_OUT" ]; then
+		printf '\r\e[2K\e[2m[%s%s] %3d%% (%d/%d) %s\e[0m' "$filled_bar" "$empty_bar" "$percent" "$current" "$total" "$label" > "$_PROG_OUT"
+		if [ "$current" -ge "$total" ] ; then
+			printf '\n' > "$_PROG_OUT"
+		fi
+	else
+		printf '\r\e[2K\e[2m[%s%s] %3d%% (%d/%d) %s\e[0m' "$filled_bar" "$empty_bar" "$percent" "$current" "$total" "$label"
+		if [ "$current" -ge "$total" ] ; then
+			printf '\n'
+		fi
 	fi
 }
 
