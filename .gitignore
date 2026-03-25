@@ -138,3 +138,4 @@ alexa/script/alexa.pid
 
 # Local junction for Copilot prompts (do not track)
 .github/prompts/
+.copilot_local/

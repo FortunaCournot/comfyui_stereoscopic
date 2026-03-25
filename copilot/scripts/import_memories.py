@@ -22,11 +22,19 @@ for f in sorted(MEM_DIR.glob('*.md')):
     if KW.search(text):
         out=INSTR_DIR/f"{name_no_ext}.instructions.md"
         out.write_text('---\ndescription: "Repository instruction imported from copilot/memories/{}"\napplyTo: "**/*"\n---\n\n{}'.format(base, text), encoding='utf-8')
-        print(f"Imported {base} -> {out.relative_to(COPILOT_DIR)}")
+        try:
+            rel = out.relative_to(REPO_ROOT)
+        except Exception:
+            rel = out
+        print(f"Imported {base} -> {rel}")
     else:
         out=PROMPTS_DIR/f"{name_no_ext}.prompt.md"
         out.write_text('---\nname: "{}"\ndescription: "Imported from copilot/memories/{}"\nagent: "agent"\n---\n\n{}'.format(name_no_ext, base, text), encoding='utf-8')
-        print(f"Imported {base} -> {out.relative_to(COPILOT_DIR)}")
+        try:
+            rel = out.relative_to(REPO_ROOT)
+        except Exception:
+            rel = out
+        print(f"Imported {base} -> {rel}")
 # Ensure .test/ exists (at repo root) and that the root .gitignore contains it
 TEST_DIR=REPO_ROOT/".test"
 GITIGNORE=REPO_ROOT/".gitignore"
