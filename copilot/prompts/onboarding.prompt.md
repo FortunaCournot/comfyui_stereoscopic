@@ -1,6 +1,6 @@
 ---
 name: "onboarding"
-description: "One-time repository onboarding verifier: check that repo-scoped prompts/instructions and local defaults are present. On Windows the prompt will automatically create a local junction `.github/prompts` -> `copilot/prompts` if it is missing (local change only)."
+description: "One-time repository onboarding verifier: check that repo-scoped prompts/instructions and local defaults are present. This prompt will automatically import repository-scoped memories into `copilot/prompts/` and `copilot/instructions/` locally. On Windows the prompt will also create a local junction `.github/prompts` -> `copilot/prompts` if it is missing (local change only)."
 agent: "agent"
 ---
 Run this prompt once after a fresh checkout to verify that this repository is prepared for the VS Code Agent and other developers.
@@ -8,14 +8,14 @@ Run this prompt once after a fresh checkout to verify that this repository is pr
 Goals:
 - Verify that repository-scoped prompts exist under `copilot/prompts/` and workspace instructions under `copilot/instructions/`.
 - Ensure the local test folder `.test/` exists and is listed in `.gitignore`.
-- Do not create or commit prompt/instruction files; these must be created and committed separately (for example, via the `import_memories.sh` script run by a maintainer).
+- Automatically import `copilot/memories/` into `copilot/prompts/` and `copilot/instructions/` locally; the prompt will not commit or push generated files.
 
 What this prompt does:
 1. On Windows: check whether `.github/prompts` exists and points to `copilot/prompts`. If `.github/prompts` is missing or not a junction, the prompt will run the helper script `copilot/scripts/create_junction.ps1` to create a local junction `.github/prompts` -> `copilot/prompts`, removing an empty `.github/prompts` folder first if necessary. The prompt will report the commands it ran. This operation is local and will not commit or push changes unless you explicitly request `--commit`.
 2. Lists `copilot/prompts/` and `copilot/instructions/` and reports any missing entries referenced in `copilot/memories/`.
 3. Ensures `.test/` exists and that `.gitignore` contains `.test/`; if `.test/` is missing, it will offer to create it locally but will not commit `.gitignore` changes.
 4. Reads `copilot/memories/` and lists each memory file found. For each memory file the prompt will report whether a corresponding prompt/instruction/issue file exists in the repository and will list any missing conversions. This is a verification step only — the prompt will not create or commit files.
-5. Provides a summary and actionable next steps (for example, run `./copilot/scripts/import_memories.sh` and commit the resulting files) but will not perform creation or commits itself.
+5. Provides a summary and actionable next steps. The prompt automatically runs the import script to generate prompt/instruction files locally; it will not commit or push generated files.
 6. Reports the currently configured preferred language if a user-scoped memory exists, and shows instructions to set or change it via agent actions. If no preference is set, it will report `Preferred_Language: None` and show instructions to create one. Details:
 - If a language memory exists, the prompt will report the detected language using an English label (for example: "Preferred_Language: German") and show concise instructions how to change it via an agent action (see below).
 - If no language memory exists, the prompt will show the options to create one locally via the `/onboarding create-language-memory` action and will show the exact file contents to write. The prompt will not commit or push any files.
@@ -46,8 +46,8 @@ To change enter one of the following commands:
 
 
 Notes:
-- If you want an automated import, run `./copilot/scripts/import_memories.sh` as a maintainer and commit the generated files before running `/onboarding` in other developer environments.
-- This prompt intentionally avoids creating or committing repository files to keep initialization safe and reviewable.
+- The prompt automatically imports repository-scoped memories locally; it will not commit or push generated files. Review generated files under `copilot/prompts/` and `copilot/instructions/` before committing.
+ - This prompt still avoids making repository commits by default to keep initialization safe and reviewable.
 
 
 Junction management (local only):
@@ -62,7 +62,7 @@ Notes:
 
 Simple user prompt examples:
 name: "onboarding"
-description: "One-time repository onboarding verifier: check that repo-scoped prompts/instructions and local defaults are present. This prompt will NOT create or commit prompt/instruction files."
+description: "One-time repository onboarding verifier: check that repo-scoped prompts/instructions and local defaults are present. This prompt will automatically import repository-scoped memories into copilot/prompts and copilot/instructions locally and will NOT commit generated files."
 agent: "agent"
 ---
 Run this prompt once after a fresh checkout to verify that this repository is prepared for the VS Code Agent and other developers.
@@ -70,17 +70,17 @@ Run this prompt once after a fresh checkout to verify that this repository is pr
 Goals:
 - Verify that repository-scoped prompts exist under `copilot/prompts/` and workspace instructions under `copilot/instructions/`.
 - Ensure the local test folder `.test/` exists and is listed in `.gitignore`.
-- Do not create or commit prompt/instruction files; these must be created and committed separately (for example, via the `import_memories.sh` script run by a maintainer).
+- Automatically import `copilot/memories/` into `copilot/prompts/` and `copilot/instructions/` locally; the prompt will not commit or push generated files.
 
 What this prompt does:
 1. Lists `copilot/prompts/` and `copilot/instructions/` and reports any missing entries referenced in `copilot/memories/`.
 2. Ensures `.test/` exists and that `.gitignore` contains `.test/`; if `.test/` is missing, it will offer to create it locally but will not commit `.gitignore` changes.
 3. Reads `copilot/memories/` and lists each memory file found. For each memory file the prompt will report whether a corresponding prompt/instruction/issue file exists in the repository and will list any missing conversions. This is a verification step only — the prompt will not create or commit files.
-4. Provides a summary and actionable next steps (for example, run `./copilot/scripts/import_memories.sh` and commit the resulting files) but will not perform creation or commits itself.
+4. Provides a summary and actionable next steps. The prompt automatically runs the import script to generate prompt/instruction files locally; it will not commit or push generated files.
 
 Notes:
-- If you want an automated import, run `./copilot/scripts/import_memories.sh` as a maintainer and commit the generated files before running `/onboarding` in other developer environments.
-- This prompt intentionally avoids creating or committing repository files to keep initialization safe and reviewable.
+- The prompt automatically imports repository-scoped memories locally; it will not commit or push generated files. Review generated files under `copilot/prompts/` and `copilot/instructions/` before committing.
+ - This prompt still avoids making repository commits by default to keep initialization safe and reviewable.
 
 Language preference (user-scoped):
 - This prompt will ask whether you want to create a user-scoped memory recording your preferred language for agent interactions (for example, `German`). If you choose to create it, the prompt will offer instructions to create `/memories/preferred_language.md` locally; it will not commit or push that file.

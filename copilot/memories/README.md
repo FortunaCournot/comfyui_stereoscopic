@@ -24,4 +24,4 @@ To convert the files in this folder into prompt or instruction files you can:
 Notes
 -----
 - The import script uses heuristics to decide whether a memory should be an instruction (policy/style files) or a prompt (guidance). Review generated files under `copilot/prompts/` and `copilot/instructions/` before committing.
-- The script also ensures a `.test/` folder exists and is added to `.gitignore` for temporary test artifacts.
+ - The script uses heuristics to decide whether a memory should be an instruction (policy/style files) or a prompt (guidance). Review generated files under `copilot/prompts/` and `copilot/instructions/` before committing.
