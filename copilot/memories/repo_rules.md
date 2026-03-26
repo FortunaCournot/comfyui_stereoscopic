@@ -44,3 +44,9 @@ Repository commit rule
 - If a global copy exists, replace it with a repo‑local file in `copilot/memories/` and add a pointer from the global note to the committed repo file; remove or deactivate the global copy to avoid divergence.
 - Rationale: local, versioned memories enable review, history, and CI automation; global copies cause inconsistencies and cannot be reviewed through normal code review.
 - When a repository‑scoped memory file is modified, tooling or the maintainer SHOULD offer to run the `copilot/scripts/import_memories.sh` (or equivalent import tool) to regenerate the derived `prompts`/`instructions` so repository artifacts remain in sync. This action should be optional and performed locally (or as part of a reviewed commit) to allow verification before committing generated outputs.
+
+11) Policy: Memory tool `/memories/repo/` is NOT the repository
+- The memory tool path `/memories/repo/` is an INTERNAL Copilot system path — files created there are NOT visible or versioned in the workspace.
+- It is a common mistake to use `/memories/repo/` thinking it writes into the repository. It does NOT.
+- For any repo-scoped memory: ALWAYS create the file under `copilot/memories/` in the workspace, NOT under `/memories/repo/`.
+- After creating or updating a `copilot/memories/` file that reads like a policy or rule, ALWAYS also derive and create (or update) a corresponding `copilot/instructions/*.instructions.md` file so Copilot applies the policy automatically.
