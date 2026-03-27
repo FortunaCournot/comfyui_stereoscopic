@@ -11,7 +11,7 @@ class ScaleByFactor:
         return {
             "required": {
                 "image": ("IMAGE",),
-                "factor": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 8.0, "step": 0.1, "precision": 1}),
+                "factor": ("FLOAT", {"default": 1.0, "min": 0.001, "max": 8.0, "step": 0.001, "precision": 3}),
                 "algorithm": (["INTER_LINEAR", "INTER_AREA", "INTER_NEAREST", "INTER_CUBIC", "INTER_LANCZOS4"], {"default": "INTER_LINEAR"}),
                 "roundexponent": ("INT", {"default": 1, "min": 0, "max": 4, "steps": 1}),
             }
@@ -185,7 +185,7 @@ class CalculateDimensions:
                 "width": ("INT", {"default": 800, "min": 64, "max": 4096}),
                 "height": ("INT", {"default": 450, "min": 64, "max": 2160}),
                 "baseresolution": ("INT", {"default": 720, "min": 512, "max": 2160}),
-                "factor": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 4.0, "step": 0.1, "precision": 1 }),
+                "factor": ("FLOAT", {"default": 1.0, "min": 0.001, "max": 4.0, "step": 0.001, "precision": 3 }),
                 "roundexponent": ("INT", {"default": 4, "min": 0, "max": 6, "step": 1}),
             }
         }

@@ -126,19 +126,37 @@ else
 		assertlimit "false" "$parameterkv"
 	done
 	
-	
+	duration=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$INPUT" | awk '{print $1}')
+	echo "duration: $duration"
+
+	tail=`cat "$BLUEPRINTCONFIG" | grep -o '"tail":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	tail="${tail//\'/}"
+	if [ ! -z "$tail" ] ; then
+		echo "tail: $tail"
+		duration_minus_tail=$(awk "BEGIN {print $duration - $tail}")
+		echo "duration minus tail: $duration_minus_tail"
+	fi
+
+
 	options=`cat "$BLUEPRINTCONFIG" | grep -o '"options":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	options="${options//\'/}"
 	options="${options//\$INPUT/"$INPUT"}"
-	preinputoptions=`cat "$BLUEPRINTCONFIG" | grep -o '"preinputoptions":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
+	echo "options: $options"
+	options=$(eval echo "$options")
+	echo "options after envsubst: $options"
+	preinputoptions=$(eval echo "$preinputoptions")
+	echo "preinputoptions after envsubst: $preinputoptions"
+	
+	preinputoptions=`cat "$BLUEPRINTCONFIG" | grep -o '"preinputoptions":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/' | envsubst`
 	preinputoptions="${preinputoptions//\'/}"
+	echo "preinputoptions: $preinputoptions"
 	
 	EXTENSION=`cat "$BLUEPRINTCONFIG" | grep -o '"extension":[^"]*"[^"]*"' | sed -E 's/".*".*"(.*)"/\1/'`
 	if [ -z "$EXTENSION" ] ; then
 		EXTENSION="."${INPUT##*.}
 	fi
 	
-	[ $loglevel -ge 2 ] && set -x
+	[ $loglevel -ge 0 ] && set -x
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y $preinputoptions -i "$INPUT" $options "$TARGETPREFIX""$EXTENSION"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	

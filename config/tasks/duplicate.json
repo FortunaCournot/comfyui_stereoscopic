@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blueprint": "ffmpeg-v2v",
+  "options": "-an -filter_complex [0:v][0:v]concat=n=2:v=1:a=0 -c:v libx264 -crf 22",
+  "input": "video",
+  "output": "video",
+}
