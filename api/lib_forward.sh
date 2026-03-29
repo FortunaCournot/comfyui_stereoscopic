@@ -64,9 +64,28 @@ list_active_task_dirs() {
     find output/vr/tasks -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null
 }
 
+append_forward_summary_line() {
+    local label="$1"
+    local summary_raw="$2"
+
+    summary_raw="$(printf '%s' "$summary_raw" | tr -d '\r')"
+    summary_raw="${summary_raw#(}"
+    summary_raw="${summary_raw%)}"
+
+    [ -z "$summary_raw" ] && return 0
+
+    if [ -z "${FORWARD_SUMMARY_LINES:-}" ] ; then
+        FORWARD_SUMMARY_LINES="  - $label: $summary_raw"
+    else
+        FORWARD_SUMMARY_LINES="$FORWARD_SUMMARY_LINES
+  - $label: $summary_raw"
+    fi
+}
+
 do_autoforward() {
-    echo -e $"\e[2mSearching for files left to forward and cleanup.\e[0m"
+    echo -e $"\e[94mInfo:\e[0m Searching for files left to forward and cleanup."
     FS_STATUS_FILE="${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}"
+    FORWARD_SUMMARY_LINES=""
 
     get_status_count() {
         typ="$1"; shift || true
@@ -101,7 +120,8 @@ do_autoforward() {
         FILECOUNT=$(get_status_count any "output/vr/$stagepath")
         # forward.txt + one media
         if [ "$FILECOUNT" -gt 1 ] ; then
-            ./custom_nodes/comfyui_stereoscopic/api/forward.sh $stagepath || exit 1
+            SUMMARY_OUT=$(SUMMARY_MODE=1 ./custom_nodes/comfyui_stereoscopic/api/forward.sh "$stagepath") || exit 1
+            append_forward_summary_line "$stagepath" "$SUMMARY_OUT"
         fi
     done
 
@@ -110,7 +130,8 @@ do_autoforward() {
 			CURRENT_ITEM=$((CURRENT_ITEM + 1))
             render_progress_bar "$CURRENT_ITEM" "$TOTAL_ITEMS" "Forward/cleanup: tasks/$task"
             [ "${loglevel:-0}" -ge 1 ] && echo " - tasks/$task"
-            ./custom_nodes/comfyui_stereoscopic/api/forward.sh tasks/$task || exit 1
+            SUMMARY_OUT=$(SUMMARY_MODE=1 ./custom_nodes/comfyui_stereoscopic/api/forward.sh "tasks/$task") || exit 1
+            append_forward_summary_line "tasks/$task" "$SUMMARY_OUT"
         fi
     done
 
@@ -127,6 +148,12 @@ do_autoforward() {
         output/vr/caption/intermediate input/vr/caption/intermediate \
         output/vr/interpolate/intermediate input/vr/interpolate/intermediate \
         output/vr/tasks/intermediate output/vr/tasks/*/intermediate 2>/dev/null
+
+    if [ "${loglevel:-0}" -ge 0 ] && [ -n "$FORWARD_SUMMARY_LINES" ] ; then
+        printf '\n'
+        echo -e $"\e[94mInfo:\e[0m Autoforward move summary:"
+        printf '%s\n' "$FORWARD_SUMMARY_LINES"
+    fi
 }
 
 return 0

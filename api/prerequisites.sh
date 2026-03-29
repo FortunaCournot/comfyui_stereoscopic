@@ -615,13 +615,15 @@ if [ -e "custom_nodes/comfyui_stereoscopic/.test/.install" ] ; then
 	fi
 fi
 
-# Do initial auto-forward and cleanup (externalized)
-. ./custom_nodes/comfyui_stereoscopic/api/lib_forward.sh
-if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
-	do_autoforward
-else
-	echo -e $"\e[94mInfo:\e[0m Auto-Forward deactivated."
-fi
+# Do not run full auto-forward during prerequisites anymore.
+# It is intentionally handled only in the daemon loop (0 -> 1 transition).
+# Keep this block commented for quick rollback/reference.
+# . ./custom_nodes/comfyui_stereoscopic/api/lib_forward.sh
+# if [ $PIPELINE_AUTOFORWARD -ge 1 ] ; then
+# 	do_autoforward
+# else
+# 	echo -e $"\e[94mInfo:\e[0m Auto-Forward deactivated."
+# fi
 
 POSITIVESFXPATH="$CONFIGPATH/dubbing_sfx_positive.txt"
 NEGATIVESFXPATH="$CONFIGPATH/dubbing_sfx_negative.txt"
