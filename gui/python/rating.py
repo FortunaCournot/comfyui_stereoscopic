@@ -7565,12 +7565,42 @@ class InpaintCropWidget(CropWidget):
         self.frame_style = self.style_combo.currentData()
         self.apply_crop()
 
+    def _slider_hover_cursor_for_orientation(self, orientation):
+        return Qt.SizeHorCursor if orientation == Qt.Horizontal else Qt.SizeVerCursor
+
+    def _is_slider_handle_hovered(self, slider, pos):
+        opt = QStyleOptionSlider()
+        slider.initStyleOption(opt)
+        hit = slider.style().hitTestComplexControl(QStyle.CC_Slider, opt, pos, slider)
+        return hit == QStyle.SC_SliderHandle
+
+    def eventFilter(self, obj, event):
+        try:
+            if isinstance(obj, QSlider) and getattr(obj, "_use_handle_hover_cursor", False):
+                event_type = event.type()
+                if event_type in (QEvent.Enter, QEvent.HoverMove, QEvent.MouseMove, QEvent.MouseButtonPress, QEvent.MouseButtonRelease):
+                    pos_getter = getattr(event, "pos", None)
+                    pos = pos_getter() if callable(pos_getter) else obj.mapFromGlobal(QCursor.pos())
+                    if self._is_slider_handle_hovered(obj, pos):
+                        obj.setCursor(self._slider_hover_cursor_for_orientation(obj.orientation()))
+                    else:
+                        obj.unsetCursor()
+                elif event_type == QEvent.Leave:
+                    obj.unsetCursor()
+        except Exception:
+            pass
+        return super().eventFilter(obj, event)
+
     # ----------- SLIDERS -----------
     def create_slider(self, orientation, inverted):
         slider = QSlider(orientation)
         slider.setMinimum(0)
         slider.setSingleStep(1)
         slider.setTracking(True)
+        slider.setMouseTracking(True)
+        slider.setAttribute(Qt.WA_Hover, True)
+        slider._use_handle_hover_cursor = True
+        slider.installEventFilter(self)
         slider.setInvertedAppearance(inverted)
         if orientation==Qt.Horizontal:
             slider.setStyleSheet("QSlider::handle:Horizontal { background-color: black; border: 2px solid white;}")
