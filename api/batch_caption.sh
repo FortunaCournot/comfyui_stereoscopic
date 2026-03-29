@@ -193,7 +193,7 @@ else
 				sleep 1
 				if [[ $WAIT -ge $CAPTION_TIMEOUT ]] ; then
 					echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
-					exit 1
+					exit 0
 				fi
 			done
 			sleep 1
@@ -303,7 +303,7 @@ else
 					sleep 1
 					if [ $WAIT -ge $CAPTION_TIMEOUT ] ; then
 						echo -e $"\e[91mError:\e[0m ComfyUI prompt is taking to long."
-						exit 1
+						exit 0
 					fi
 				done
 				sleep 1
