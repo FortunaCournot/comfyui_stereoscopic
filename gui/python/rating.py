@@ -7096,7 +7096,7 @@ class InpaintOverlay(QWidget):
         try:
             self.control_widget = QWidget(self)
             # Container with black background and gold border
-            self.control_widget.setStyleSheet("background-color: black; border: 2px solid gold; border-radius: 6px;")
+            self.control_widget.setStyleSheet("background-color: red; border: 2px solid gold; border-radius: 6px;")
             vlayout = QVBoxLayout(self.control_widget)
             # left-align children so controls sit aligned to the left edge
             try:
@@ -7176,6 +7176,8 @@ class InpaintOverlay(QWidget):
             layout3.addWidget(self.execute_button)
             vlayout.addLayout(layout3)
             self.control_widget.hide()
+            # Debug-Ausgabe: Kontrolle erzeugt
+            print("[INPAINT DEBUG] _create_controls: control_widget created, hidden, size:", self.control_widget.size(), flush=True)
             # Connect signals
             self.brush_slider.valueChanged.connect(self._on_brush_slider_changed)
             self.clear_button.clicked.connect(lambda: self.clear_mask())
@@ -7183,10 +7185,11 @@ class InpaintOverlay(QWidget):
             self.execute_button.clicked.connect(lambda: self.executeRequested.emit())
             # compute control widget width to avoid overlap
             self._position_controls()
-        except Exception:
+        except Exception as e:
             self.control_widget = None
             self.brush_slider = None
             self.brush_label = None
+            print("[INPAINT DEBUG] _create_controls: Exception:", e, flush=True)
 
     def _position_controls(self):
         if self.control_widget is None:
@@ -7311,17 +7314,26 @@ class InpaintCropWidget(CropWidget):
 
     def setInpaintMode(self, enabled: bool):
         self.inpaint_mode = bool(enabled)
-        self.overlay.clear_mask()
         if self.overlay is None:
+            print("[INPAINT DEBUG] setInpaintMode: overlay is None", flush=True)
             return
+        # Overlay-Debug-Ausgaben
+        print("[INPAINT DEBUG] setInpaintMode: overlay visible:", self.overlay.isVisible(), flush=True)
+        print("[INPAINT DEBUG] setInpaintMode: overlay size:", self.overlay.size(), flush=True)
+        print("[INPAINT DEBUG] setInpaintMode: overlay pos:", self.overlay.pos(), "geo:", self.overlay.geometry(), flush=True)
+        parent_ov = self.overlay.parent()
+        print("[INPAINT DEBUG] setInpaintMode: overlay parent:", type(parent_ov), parent_ov, flush=True)
+        self.overlay.clear_mask()
         # Keep overlay visible so mask is always shown; intercept events only in inpaint mode
         try:
             if enabled:
                 self.overlay.show()
+                print("[INPAINT DEBUG] setInpaintMode: overlay.show() called", flush=True)
             else:
                 self.overlay.hide()
-        except Exception:
-            pass
+                print("[INPAINT DEBUG] setInpaintMode: overlay.hide() called", flush=True)
+        except Exception as e:
+            print("[INPAINT DEBUG] setInpaintMode: Exception in overlay show/hide:", e, flush=True)
 
         # Toggle event transparency so overlay intercepts events only when inpaint_mode
         self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents, not self.inpaint_mode)
@@ -7329,30 +7341,35 @@ class InpaintCropWidget(CropWidget):
         try:
             # Always use ArrowCursor in the drawing area
             self.overlay.setCursor(QCursor(Qt.ArrowCursor))
-        except Exception:
-            pass
+        except Exception as e:
+            print("[INPAINT DEBUG] setInpaintMode: Exception in setCursor:", e, flush=True)
 
         # Show/hide control widget, position it and ensure it accepts mouse events when visible
         try:
             if hasattr(self.overlay, 'control_widget') and self.overlay.control_widget is not None:
                 if self.inpaint_mode:
                     try:
+                        self.overlay.control_widget.move(8, 8)
                         self.overlay.control_widget.show()
+                        self.overlay.control_widget.raise_()
+                        print("[INPAINT DEBUG] setInpaintMode: control_widget.show() called, size:", self.overlay.control_widget.size(), flush=True)
+                        print("[INPAINT DEBUG] setInpaintMode: control_widget pos:", self.overlay.control_widget.pos(), "geo:", self.overlay.control_widget.geometry(), flush=True)
+                        parent = self.overlay.control_widget.parent()
+                        print("[INPAINT DEBUG] setInpaintMode: control_widget parent:", type(parent), parent, flush=True)
                         # reposition and size correctly
                         self.overlay._position_controls()
-                        # make sure it's on top and accepts events
-                        self.overlay.control_widget.raise_()
                         self.overlay.control_widget.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print("[INPAINT DEBUG] setInpaintMode: Exception in control_widget show:", e, flush=True)
                 else:
                     try:
                         self.overlay.control_widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)
                         self.overlay.control_widget.hide()
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+                        print("[INPAINT DEBUG] setInpaintMode: control_widget.hide() called", flush=True)
+                    except Exception as e:
+                        print("[INPAINT DEBUG] setInpaintMode: Exception in control_widget hide:", e, flush=True)
+        except Exception as e:
+            print("[INPAINT DEBUG] setInpaintMode: Exception in control_widget block:", e, flush=True)
 
     def getInpaintMask(self) -> QImage:
         """Return the current inpaint mask as QImage (transparent = not masked)."""
