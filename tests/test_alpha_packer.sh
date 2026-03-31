@@ -36,14 +36,14 @@ ffmpeg -y -i input.mp4 -i output_ALPHA.mov -filter_complex "\
 [1:v]crop=iw/4:ih/2:1*iw/4:1*ih/2,scale=iw*0.8:ih*0.8[ov5]; \
 [1:v]crop=iw/4:ih/2:2*iw/4:1*ih/2,scale=iw*0.8:ih*0.8[ov6]; \
 [1:v]crop=iw/4:ih/2:3*iw/4:1*ih/2,scale=iw*0.8:ih*0.8[ov7]; \
-[0:v][ov0]overlay=x=0*W/4:y=0*H/2[tmp1]; \
-[tmp1][ov1]overlay=x=1*W/4:y=0*H/2[tmp2]; \
-[tmp2][ov2]overlay=x=2*W/4:y=0*H/2[tmp3]; \
-[tmp3][ov3]overlay=x=3*W/4:y=0*H/2[tmp4]; \
-[tmp4][ov4]overlay=x=0*W/4:y=1*H/2[tmp5]; \
-[tmp5][ov5]overlay=x=1*W/4:y=1*H/2[tmp6]; \
-[tmp6][ov6]overlay=x=2*W/4:y=1*H/2[tmp7]; \
-[tmp7][ov7]overlay=x=3*W/4:y=1*H/2" \
+[0:v][ov0]overlay=x=0*W/4:y=H-overlay_h[tmp1]; \
+[tmp1][ov1]overlay=x=1*W/4:y=H-overlay_h[tmp2]; \
+[tmp2][ov2]overlay=x=2*W/4:y=H-overlay_h[tmp3]; \
+[tmp3][ov3]overlay=x=3*W/4:y=H-overlay_h[tmp4]; \
+[tmp4][ov4]overlay=x=0*W/4:y=0[tmp5]; \
+[tmp5][ov5]overlay=x=1*W/4:y=0[tmp6]; \
+[tmp6][ov6]overlay=x=2*W/4:y=0[tmp7]; \
+[tmp7][ov7]overlay=x=3*W/4:y=0" \
 -c:v libx265 -pix_fmt yuv420p output.mp4 || exit 1
 exit 0
 
