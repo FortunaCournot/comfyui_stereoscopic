@@ -15,8 +15,8 @@ class StereoToVR180Filter(BaseImageFilter):
     ]
     # Aktiviert den Filter für Bilder und Videos
     supported_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO]
-    # Aktiviert die Vorschau für Bilder und Videos
-    preview_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO]
+    # Vorschau nur für Bilder
+    preview_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE]
 
     # duplicate of _remap_rectilinear_to_fisheye for experimentation/comparison
     def _remap_rectilinear_to_fisheye_v2(self, src_rgb, fov_in_deg: float, strength: float):

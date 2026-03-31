@@ -1412,6 +1412,7 @@ class RateAndCutDialog(QDialog):
             self.isPaused = False
             self.currentFile = None
             self.currentIndex = -1
+            self.isVideo = False  # Fix: ensure attribute exists
 
             # Clipboard state
             self.clipboard_has_image = False
@@ -2972,6 +2973,10 @@ class RateAndCutDialog(QDialog):
         if not isinstance(active, BaseImageFilter):
             return False
         content_type = self._get_current_content_type()
+        # Wenn Video im Pausemodus, immer Preview erlauben
+        if content_type == BaseImageFilter.CONTENT_TYPE_VIDEO and getattr(self, 'isVideo', False):
+            if hasattr(self, 'display') and getattr(self.display, 'isPaused', lambda: False)():
+                return True
         return content_type in self._get_filter_preview_supported_content_types(active)
 
     def _pixmap_to_pil_rgba(self, pixmap: QPixmap):
@@ -3042,20 +3047,32 @@ class RateAndCutDialog(QDialog):
 
     def apply_active_content_filter_to_cv_frame(self, cv_frame):
         if cv_frame is None or getattr(cv_frame, "size", 0) == 0:
+            if TRACELEVEL <= 0:
+                print("[DEBUG] cv_frame is None or empty", flush=True)
             return cv_frame
 
         if not self._is_filter_supported_for_current_content():
+            if TRACELEVEL <= 0:
+                print(f"[DEBUG] Filter {getattr(self, 'active_content_filter', None)} not supported for current content type: {self._get_current_content_type()}", flush=True)
             return cv_frame
 
         try:
             rgb_image = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
             pil_image = Image.fromarray(rgb_image).convert("RGB")
+            if TRACELEVEL <= 0:
+                print(f"[DEBUG] Applying filter {getattr(self, 'active_content_filter', None)} to frame", flush=True)
             filtered = self.apply_active_content_filter(pil_image)
             if not isinstance(filtered, Image.Image):
+                if TRACELEVEL <= 0:
+                    print("[DEBUG] Filter did not return PIL.Image.Image", flush=True)
                 return cv_frame
             filtered_rgb = np.array(filtered.convert("RGB"), dtype=np.uint8)
+            if TRACELEVEL <= 0:
+                print("[DEBUG] Filter applied successfully", flush=True)
             return cv2.cvtColor(filtered_rgb, cv2.COLOR_RGB2BGR)
-        except Exception:
+        except Exception as e:
+            if TRACELEVEL <= 0:
+                print(f"[DEBUG] Exception in filter application: {e}", flush=True)
             return cv_frame
 
     def _show_frame_export_progress(self, total_frames: int):
@@ -4437,12 +4454,15 @@ class RateAndCutDialog(QDialog):
                     self.trimAndCrop_updater(recreated, input, output, success)
                     return
 
-                active_filter_id = ""
-                try:
-                    active_filter_id = str(getattr(self.active_content_filter, 'filter_id', '') or '').strip().lower()
-                except Exception:
-                    active_filter_id = ""
-                use_frame_export = active_filter_id == "grayscale" and self._is_filter_supported_for_current_content()
+                # Nutze den Python-Exportpfad für alle Video-Filter, die für den aktuellen Content unterstützt werden
+                use_frame_export = False
+                if self._is_filter_supported_for_current_content():
+                    active_filter = getattr(self, 'active_content_filter', None)
+                    if active_filter and hasattr(active_filter, 'supported_content_types'):
+                        if BaseImageFilter.CONTENT_TYPE_VIDEO in getattr(active_filter, 'supported_content_types', []):
+                            filter_id = str(getattr(active_filter, 'filter_id', 'none')).strip().lower()
+                            if filter_id and filter_id != 'none':
+                                use_frame_export = True
 
                 if use_frame_export:
                     pingpong_active = bool(getattr(self, 'playtype_pingpong', False) or getattr(getattr(self, 'display', None), 'pingPongModeEnabled', False))
@@ -4571,10 +4591,13 @@ class RateAndCutDialog(QDialog):
 
     def trimAndCrop_frames_worker(self, recreated, input, output, trimA, trimB, x, y, out_w, out_h, pingpong_active):
         startAsyncTask()
-        success = False
+        success = True
         cap = None
         tmp_video = None
         writer = None
+        # --- Patch: Set content type to video for export ---
+        old_isVideo = getattr(self, 'isVideo', False)
+        self.isVideo = True
         try:
             cap, tmp_video = open_videocapture_with_tmp(input)
             if cap is None or not cap.isOpened():
@@ -4648,12 +4671,11 @@ class RateAndCutDialog(QDialog):
                     writer.write(frame)
                     written_frames += 1
                     self.frame_export_progress_signal.emit(written_frames, max(1, total_frames_to_write))
-
-            success = os.path.exists(output) and os.path.getsize(output) > 0
         except Exception:
             print(traceback.format_exc(), flush=True)
             success = False
         finally:
+            self.isVideo = old_isVideo
             try:
                 if writer is not None:
                     writer.release()
@@ -4670,6 +4692,14 @@ class RateAndCutDialog(QDialog):
                 except Exception:
                     pass
 
+            # Erfolg nur, wenn Datei existiert und Größe > 0
+            try:
+                if os.path.exists(output) and os.path.getsize(output) > 0:
+                    success = True
+                else:
+                    success = False
+            except Exception:
+                success = False
             QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, success))
 
             

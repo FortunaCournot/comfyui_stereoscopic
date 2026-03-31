@@ -115,8 +115,8 @@ class BrightnessContrastSaturationFilter(BaseImageFilter):
     filter_id = "bcs"
     display_name = "content filter: brightness/contrast/saturation"
     icon_name = "filter64_bcs.png"
-    supported_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE]
-    preview_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE]
+    supported_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO]
+    preview_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO]
 
     # (name, default, min, max, has_mid)
     parameter_defaults = [

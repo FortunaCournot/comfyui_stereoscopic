@@ -7,8 +7,8 @@ class GrayscaleFilter(BaseImageFilter):
     filter_id = "grayscale"
     display_name = "content filter: grayscale"
     icon_name = "filter64_grayscale.png"
-    supported_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE]
-    preview_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE]
+    supported_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO]
+    preview_content_types = [BaseImageFilter.CONTENT_TYPE_IMAGE, BaseImageFilter.CONTENT_TYPE_VIDEO]
 
     def transform(self, image: Image.Image) -> Image.Image:
         if image is None:

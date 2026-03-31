@@ -1,3 +1,25 @@
+# Leere das GUI-Log beim Start der Anwendung
+def clear_gui_log():
+    try:
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        for widget in app.allWidgets():
+            if hasattr(widget, 'clear') and callable(widget.clear):
+                widget.clear()
+            # Entferne NUL-Zeichen aus Textfeldern
+            if hasattr(widget, 'toPlainText') and callable(widget.toPlainText):
+                txt = widget.toPlainText()
+                if '\x00' in txt:
+                    widget.setPlainText(txt.replace('\x00', ''))
+            if hasattr(widget, 'text') and callable(widget.text):
+                txt = widget.text()
+                if '\x00' in txt:
+                    widget.setText(txt.replace('\x00', ''))
+    except Exception:
+        pass
+
+def main():
+    clear_gui_log()
 import os
 import re
 import base64
@@ -1541,7 +1563,7 @@ class SpreadsheetApp(QMainWindow):
 
                     if found_path:
                         self.current_processing_file = found_path
-                        # If processing file changed, consider auto-scrolling to the active stage.
+                        # If
                         try:
                             if prev_processing != self.current_processing_file:
                                 # set pending scroll to activestage so we can scroll after table rebuild
@@ -2488,9 +2510,11 @@ class SpreadsheetApp(QMainWindow):
             pass
 
         try:
-            os.remove(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.guiactive"))
-        except OSError as e:
-            print("Error: %s - %s." % (e.filename, e.strerror))
+            guiactive_path = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.guiactive")
+            if os.path.exists(guiactive_path):
+                os.remove(guiactive_path)
+        except Exception:
+            pass
         event.accept()
 
     def show_pipeline(self, state):
