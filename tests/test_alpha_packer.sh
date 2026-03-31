@@ -27,7 +27,24 @@ radius=$((qwidth / 2))
 rm tmp_input.png
 echo "width: $width; height: $height; qwidth: $qwidth; qheight: $qheight; radius: $radius"
 
-ffmpeg -y -i input.mp4 -i output_ALPHA.mov -filter_complex "[0:v][1:v]overlay=format=auto" -c:v libx265 -pix_fmt yuv420p output.mp4 || exit 1
+ffmpeg -y -i input.mp4 -i output_ALPHA.mov -filter_complex "\
+[1:v]crop=iw/4:ih/2:0*iw/4:0*ih/2,scale=iw*0.8:ih*0.8[ov0]; \
+[1:v]crop=iw/4:ih/2:1*iw/4:0*ih/2,scale=iw*0.8:ih*0.8[ov1]; \
+[1:v]crop=iw/4:ih/2:2*iw/4:0*ih/2,scale=iw*0.8:ih*0.8[ov2]; \
+[1:v]crop=iw/4:ih/2:3*iw/4:0*ih/2,scale=iw*0.8:ih*0.8[ov3]; \
+[1:v]crop=iw/4:ih/2:0*iw/4:1*ih/2,scale=iw*0.8:ih*0.8[ov4]; \
+[1:v]crop=iw/4:ih/2:1*iw/4:1*ih/2,scale=iw*0.8:ih*0.8[ov5]; \
+[1:v]crop=iw/4:ih/2:2*iw/4:1*ih/2,scale=iw*0.8:ih*0.8[ov6]; \
+[1:v]crop=iw/4:ih/2:3*iw/4:1*ih/2,scale=iw*0.8:ih*0.8[ov7]; \
+[0:v][ov0]overlay=x=0*W/4:y=0*H/2[tmp1]; \
+[tmp1][ov1]overlay=x=1*W/4:y=0*H/2[tmp2]; \
+[tmp2][ov2]overlay=x=2*W/4:y=0*H/2[tmp3]; \
+[tmp3][ov3]overlay=x=3*W/4:y=0*H/2[tmp4]; \
+[tmp4][ov4]overlay=x=0*W/4:y=1*H/2[tmp5]; \
+[tmp5][ov5]overlay=x=1*W/4:y=1*H/2[tmp6]; \
+[tmp6][ov6]overlay=x=2*W/4:y=1*H/2[tmp7]; \
+[tmp7][ov7]overlay=x=3*W/4:y=1*H/2" \
+-c:v libx265 -pix_fmt yuv420p output.mp4 || exit 1
 exit 0
 
 # Early exit for testing overlay step only. ignore rest of the script for now.
