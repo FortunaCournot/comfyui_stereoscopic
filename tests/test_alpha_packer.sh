@@ -27,7 +27,12 @@ radius=$((qwidth / 2))
 rm tmp_input.png
 echo "width: $width; height: $height; qwidth: $qwidth; qheight: $qheight; radius: $radius"
 
-rm -f left.mp4 right.mp4 mask.mp4 left_masked.mp4 right_masked.mp4 mask.avi
+ffmpeg -y -i input.mp4 -i output_ALPHA.mov -filter_complex "[0:v][1:v]overlay=format=auto" -c:v libx265 -pix_fmt yuv420p output.mp4 || exit 1
+exit 0
+
+# Early exit for testing overlay step only. ignore rest of the script for now.
+
+rm -f left.mp4 right.mp4 mask.mp4 left_masked.mp4 right_masked.mp4 mask.avi output_ALPHA.mov 
 
 echo "[STEP] Croppe linkes Video aus alpha.mp4"
 ffmpeg -y -i alpha.mp4 -vf "crop=${qwidth}:${height}:0:0" -c:v libx265 -pix_fmt yuv420p -profile:v main -movflags +faststart left.mp4 || exit 1
@@ -59,8 +64,11 @@ ffmpeg -y -i right.mp4 -i mask.png -filter_complex "[0][1]alphamerge" -c:v png -
 echo "[STEP] Hstack zu FullSBS"
 ffmpeg -y -i left_masked.mov -i right_masked.mov -filter_complex "hstack=inputs=2" -c:v png -pix_fmt rgba -auto-alt-ref 0 output_ALPHA.mov || exit 1
 
-echo "[STEP] Aufräumen: Lösche Zwischendateien"
-# rm -f left.mp4 right.mp4 mask.mp4 left_masked.mov right_masked.mov mask.avi
+echo "[STEP] Überlagere output_ALPHA.mov auf input.mp4 (Alpha-Test)"
+ffmpeg -y -i input.mp4 -i output_ALPHA.mov -filter_complex "[0:v][1:v]overlay=format=auto" -c:v libx265 -pix_fmt yuv420p output.mp4 || exit 1
 
-echo "Fertig! output_ALPHA.mov wurde erzeugt."
+echo "[STEP] Aufräumen: Lösche Zwischendateien"
+# rm -f left.mp4 right.mp4 mask.mp4 left_masked.mov right_masked.mov mask.avi output_ALPHA.mov
+
+echo "Fertig! output.mov wurde erzeugt."
 
