@@ -64,9 +64,12 @@ def setup_logging() -> None:
     if root.handlers:
         root.handlers.clear()
 
-    handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
-    root.addHandler(handler)
+
+    # Schreibe alle Log-Ausgaben in eine eigene Logdatei mit UTF-8-Encoding
+    stream_logfile = os.path.abspath(os.path.join(CURRENT_DIR, "../script/alexa_stdout.log"))
+    stream_handler = logging.FileHandler(stream_logfile, encoding="utf-8")
+    stream_handler.setFormatter(JsonFormatter())
+    root.addHandler(stream_handler)
 
     os.makedirs(os.path.dirname(ACCESS_LOG_FILE), exist_ok=True)
     werkzeug_logger = logging.getLogger("werkzeug")
