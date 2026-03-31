@@ -2690,11 +2690,13 @@ class RateAndCutDialog(QDialog):
                     self.cropWidget.refresh_filtered_view()
                 except Exception:
                     pass
-            else:
-                try:
+            # Only refresh for video if filter supports video preview
+            try:
+                is_video = self._get_current_content_type() == BaseImageFilter.CONTENT_TYPE_VIDEO
+                if not is_video or self._is_filter_preview_supported_for_current_content():
                     self.refresh_filtered_view()
-                except Exception:
-                    pass
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -2747,13 +2749,14 @@ class RateAndCutDialog(QDialog):
         self._update_selected_filter_tooltip()
 
         try:
-            if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None and not self.isVideo:
+            if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None:
                 self.cropWidget.refresh_filtered_view()
         except Exception:
             pass
         try:
-            # For non-cut display refresh, call the main refresh wrapper
-            if not getattr(self, 'cutMode', False):
+            # Only refresh for video if filter supports video preview
+            is_video = self._get_current_content_type() == BaseImageFilter.CONTENT_TYPE_VIDEO
+            if not is_video or self._is_filter_preview_supported_for_current_content():
                 self.refresh_filtered_view()
         except Exception:
             pass
@@ -2819,13 +2822,14 @@ class RateAndCutDialog(QDialog):
         self._save_content_filter_parameter_values()
         self._update_filter_settings_action_state()
         try:
-            if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None and not self.isVideo:
+            if self.cutMode and hasattr(self, 'cropWidget') and self.cropWidget is not None:
                 self.cropWidget.refresh_filtered_view()
         except Exception:
             pass
         try:
-            # Also refresh main display preview when parameters change
-            if not getattr(self, 'cutMode', False):
+            # Only refresh for video if filter supports video preview
+            is_video = self._get_current_content_type() == BaseImageFilter.CONTENT_TYPE_VIDEO
+            if not is_video or self._is_filter_preview_supported_for_current_content():
                 self.refresh_filtered_view()
         except Exception:
             pass
