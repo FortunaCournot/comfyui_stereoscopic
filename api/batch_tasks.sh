@@ -274,6 +274,10 @@ else
 			[ -e "$nextinputfile" ] || continue
 			# pipelinepause must be checked at the start of the inner loop
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && echo "Batch pause requested." && exit 0
+			if is_disabled "$cand1" || is_disabled "$cand2" ; then
+				echo -e $"\e[90mdisabled - skipping task folder $cand1 / $cand2\e[0m"
+				break
+			fi
 			processed_any=1
 			FOLDER_INDEX=$((FOLDER_INDEX + 1))
 
