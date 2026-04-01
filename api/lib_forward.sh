@@ -92,16 +92,16 @@ do_autoforward() {
         dir="$1"
             case "$typ" in
                 any)
-                    count_files_any_ext "$dir"
+                    count_files_with_exts "$dir" any
                     ;;
                 images)
-                    count_files_with_exts "$dir" png jpg jpeg webp
+                    count_files_with_exts "$dir" images
                     ;;
                 videos)
-                    count_files_with_exts "$dir" mp4 webm ts mkv avi mov
+                    count_files_with_exts "$dir" videos
                     ;;
                 audio)
-                    count_files_with_exts "$dir" flac mp3 wav aac m4a
+                    count_files_with_exts "$dir" audio
                     ;;
                 *)
                     echo 0

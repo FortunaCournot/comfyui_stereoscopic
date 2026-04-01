@@ -116,7 +116,7 @@ else
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y -i "$INPUT" $options "$TARGETPREFIX""$seqformat"".mp4"
 	set +x && [ $loglevel -ge 2 ] && set -x
 	
-	COUNT=$(count_files_with_exts "output/vr/tasks/intermediate" mp4)
+	COUNT=$(count_files_with_exts "output/vr/tasks/intermediate" videos)
 	if [ $COUNT -gt 0 ] ; then
 		FILES=`find output/vr/tasks/intermediate -maxdepth 1 -type f -name '*.mp4'`
 		mv -- $FILES $FINALTARGETFOLDER

@@ -97,7 +97,7 @@ else
 	done 2>/dev/null
 
 	# (canonical lib_fs sourcing handled above)
-	COUNT=$(count_files_with_exts "input/vr/slideshow" png jpg jpeg)
+	COUNT=$(count_files_with_exts "input/vr/slideshow" images)
 	INDEX=0
 	INTERMEDIATEFOLDER=output/vr/slideshow/intermediate
 	mkdir -p "$INTERMEDIATEFOLDER"

@@ -100,7 +100,7 @@ else
 	else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
-	COUNT=$(count_files_with_exts "input/vr/concat" mp4)
+	COUNT=$(count_files_with_exts "input/vr/concat" videos)
 	INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		echo "concat" >user/default/comfyui_stereoscopic/.daemonstatus

@@ -117,7 +117,7 @@ else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
 
-	COUNT=$(count_files_with_exts "input/vr/scaling" mp4 webm)
+	COUNT=$(count_files_with_exts "input/vr/scaling" videos)
 	[ $loglevel -ge 1 ] && echo "Video Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
@@ -170,7 +170,7 @@ else
 	rm -f input/vr/scaling/BATCHPROGRESS.TXT
 	
 
-	COUNT=$(count_files_with_exts "input/vr/scaling" png jpg jpeg webp)
+	COUNT=$(count_files_with_exts "input/vr/scaling" images)
 	declare -i INDEX=0
 	[ $loglevel -ge 1 ] && echo "Image Count: $COUNT"
 	if [[ $COUNT -gt 0 ]] ; then

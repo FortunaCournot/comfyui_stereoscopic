@@ -131,7 +131,7 @@ else
 	else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
-	COUNT=$(count_files_with_exts "input/vr/caption" mp4 webm)
+	COUNT=$(count_files_with_exts "input/vr/caption" videos)
 	declare -i INDEX=0
 	declare -i WAIT=0
 	if [[ $COUNT -gt 0 ]] ; then
@@ -249,7 +249,7 @@ else
 	fi	
 
 		# lib_fs already sourced above
-	COUNT=$(count_files_with_exts "input/vr/caption" png jpg jpeg webp)
+	COUNT=$(count_files_with_exts "input/vr/caption" images)
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then

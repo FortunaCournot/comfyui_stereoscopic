@@ -108,7 +108,7 @@ else
 	else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
-	COUNT=$(count_files_with_exts "input/vr/interpolate" mp4 webm)
+	COUNT=$(count_files_with_exts "input/vr/interpolate" videos)
 	[ $loglevel -ge 1 ] && echo "Video Count: $COUNT"
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then

@@ -35,16 +35,16 @@ COMFYUIPORT=$(awk -F "=" '/COMFYUIPORT=/ {print $2}' $CONFIGFILE) ; COMFYUIPORT=
 find ./input/vr -name test_* -exec rm -rf -- {} \;  2>/dev/null
 find ./output/vr -name test_* -exec rm -rf -- {} \;  2>/dev/null
 
-SLIDECOUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm)
-SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" png)
-DUBSFXCOUNT=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
-SCALECOUNT=$(count_files_with_exts "input/vr/scaling" mp4 webm png jpg jpeg)
-SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 webm png jpg jpeg)
-OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" mp4 webm png jpg jpeg)
-SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" mp4 webm)
-CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
-WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" mp4 webm png jpg jpeg)
-WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" mp4 webm png jpg jpeg)
+SLIDECOUNT=$(count_files_with_exts "input/vr/slides" images videos)
+SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" images)
+DUBSFXCOUNT=$(count_files_with_exts "input/vr/dubbing/sfx" videos)
+SCALECOUNT=$(count_files_with_exts "input/vr/scaling" videos images)
+SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" videos images)
+OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" videos images)
+SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" videos)
+CONCATCOUNT=$(count_files_with_exts "input/vr/concat" videos)
+WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" videos images)
+WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" videos images)
 
 COUNT=$(( DUBSFXCOUNT + SCALECOUNT + SBSCOUNT + OVERRIDECOUNT + SINGLELOOPCOUNT + CONCATCOUNT + WMECOUNT + WMDCOUNT ))
 if [[ $COUNT -gt 0 ]] || [[ $SLIDECOUNT -gt 0 ]] || [[ $SLIDESBSCOUNT -gt 0 ]] ; then

@@ -157,7 +157,7 @@ else
 	else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
-	COUNT=$(count_files_with_exts "input/vr/watermark/decrypt" png jpg jpeg)
+	COUNT=$(count_files_with_exts "input/vr/watermark/decrypt" images)
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then

@@ -247,7 +247,7 @@ else
 		echo $NOLINE "Prompting $p/$PARALLELITY ...         \r"
 		mkdir -p $DUBBINGDIR/$p
 
-		SEGCOUNT=$(count_files_with_exts "$SEGDIR" mp4)
+		SEGCOUNT=$(count_files_with_exts "$SEGDIR" videos)
 
 		declare -i i=0
 		declare -i pindex=0
@@ -309,7 +309,7 @@ else
 
 		cd "$DUBBINGDIR/$p"
 		echo "" >list.txt
-		COUNT=$(count_files_with_exts "." flac)
+		COUNT=$(count_files_with_exts "." audio)
 		if [[ $COUNT -eq 0 ]] ; then
 			PARALLELITY=$p
 			cd "$COMFYUIPATH"

@@ -118,7 +118,7 @@ else
 	else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
-	COUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 webm)
+	COUNT=$(count_files_with_exts "input/vr/fullsbs" videos)
 	declare -i INDEX=0
 	if [[ $COUNT -gt 0 ]] ; then
 		VIDEOFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.mp4' -o -name '*.webm'`
@@ -158,7 +158,7 @@ else
 	fi	
 	
 	# lib_fs already sourced above (canonical)
-	COUNT=$(count_files_with_exts "input/vr/fullsbs" png jpg jpeg webp)
+	COUNT=$(count_files_with_exts "input/vr/fullsbs" images)
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then

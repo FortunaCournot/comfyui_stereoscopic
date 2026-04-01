@@ -41,6 +41,101 @@ export PYTHON
 FS_STATUS_FILE=${FS_STATUS_FILE:-user/default/comfyui_stereoscopic/.fs_status.properties}
 export FS_STATUS_FILE
 
+_FS_IMAGE_EXTS="png jpg jpeg webp"
+_FS_VIDEO_EXTS="mp4 webm ts mkv avi mov"
+_FS_AUDIO_EXTS="flac mp3 wav aac m4a"
+
+_fs_append_unique_token() {
+    list="$1"
+    token="$2"
+    case " $list " in
+        *" $token "*)
+            echo "$list"
+            ;;
+        *)
+            if [ -n "$list" ]; then
+                echo "$list $token"
+            else
+                echo "$token"
+            fi
+            ;;
+    esac
+}
+
+_fs_parse_count_args() {
+    FS_COUNT_CLASSES=""
+    FS_COUNT_EXTS=""
+
+    for raw in "$@"; do
+        token="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | sed 's/^\.//')"
+        case "$token" in
+            "")
+                ;;
+            any|images|videos|audio)
+                FS_COUNT_CLASSES="$(_fs_append_unique_token "$FS_COUNT_CLASSES" "$token")"
+                ;;
+            png|jpg|jpeg|webp)
+                FS_COUNT_CLASSES="$(_fs_append_unique_token "$FS_COUNT_CLASSES" "images")"
+                ;;
+            mp4|webm|ts|mkv|avi|mov)
+                FS_COUNT_CLASSES="$(_fs_append_unique_token "$FS_COUNT_CLASSES" "videos")"
+                ;;
+            flac|mp3|wav|aac|m4a)
+                FS_COUNT_CLASSES="$(_fs_append_unique_token "$FS_COUNT_CLASSES" "audio")"
+                ;;
+            *)
+                FS_COUNT_EXTS="$(_fs_append_unique_token "$FS_COUNT_EXTS" "$token")"
+                ;;
+        esac
+    done
+
+    if [ -z "$FS_COUNT_CLASSES$FS_COUNT_EXTS" ]; then
+        FS_COUNT_CLASSES="any"
+    fi
+}
+
+_fs_classes_include_any() {
+    case " ${FS_COUNT_CLASSES:-} " in
+        *" any "*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+_fs_expand_count_exts() {
+    expanded=""
+    for typ in ${FS_COUNT_CLASSES:-}; do
+        case "$typ" in
+            images)
+                for ext in $_FS_IMAGE_EXTS; do
+                    expanded="$(_fs_append_unique_token "$expanded" "$ext")"
+                done
+                ;;
+            videos)
+                for ext in $_FS_VIDEO_EXTS; do
+                    expanded="$(_fs_append_unique_token "$expanded" "$ext")"
+                done
+                ;;
+            audio)
+                for ext in $_FS_AUDIO_EXTS; do
+                    expanded="$(_fs_append_unique_token "$expanded" "$ext")"
+                done
+                ;;
+        esac
+    done
+
+    for ext in ${FS_COUNT_EXTS:-}; do
+        expanded="$(_fs_append_unique_token "$expanded" "$ext")"
+    done
+
+    echo "$expanded"
+}
+
+_fs_read_status_value() {
+    typ="$1"
+    lookup="$2"
+    awk -F"=" -v k="$typ|$lookup" '$1==k{print $2; exit}' "$FS_STATUS_FILE" 2>/dev/null
+}
+
 _fs_status_is_fresh_for_dir() {
     dir="$1"
     [ -f "$FS_STATUS_FILE" ] || return 1
@@ -248,30 +343,50 @@ printf "%d" "$n"
 count_files_with_exts() {
     _trace_start
     dir="$1"; shift || true
-    # If status file present, map requested extensions to a category
+    _fs_parse_count_args "$@"
+
     if _fs_status_is_fresh_for_dir "$dir"; then
-        # lowercase and normalize single ext (or first ext)
-        ext_lc="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/^\.//')"
-        # define categories consistent with compute_fs_status.py
-        case "$ext_lc" in
-            png|jpg|jpeg|webp)
-                typ=images ;;
-            mp4|webm|ts|mkv|avi|mov)
-                typ=videos ;;
-            flac|mp3|wav|aac|m4a)
-                typ=audio ;;
-            *) typ=any ;;
-        esac
         lookup="$(_normalize_lookup_dir "$dir")"
-        val=$(awk -F"=" -v k="$typ|$lookup" '$1==k{print $2; exit}' "$FS_STATUS_FILE" 2>/dev/null)
-        if [ -n "$val" ]; then
-            echo "$val"
-            _trace_end count_files_with_exts "$dir" "$@"
-            return
+        if [ -z "$FS_COUNT_EXTS" ]; then
+            if _fs_classes_include_any; then
+                val="$(_fs_read_status_value any "$lookup")"
+                if [ -n "$val" ]; then
+                    echo "$val"
+                    _trace_end count_files_with_exts "$dir" "$@"
+                    return
+                fi
+            else
+                total=0
+                found_all=1
+                for typ in $FS_COUNT_CLASSES; do
+                    val="$(_fs_read_status_value "$typ" "$lookup")"
+                    if [ -z "$val" ]; then
+                        found_all=0
+                        break
+                    fi
+                    total=$((total + val))
+                done
+                if [ $found_all -eq 1 ]; then
+                    echo "$total"
+                    _trace_end count_files_with_exts "$dir" "$@"
+                    return
+                fi
+            fi
         fi
         # If not found in status file, fall back to live count (covers temp folders, cwd=".", etc.)
     fi
-    result=$(_py_count "$dir" exts "$@")
+
+    if _fs_classes_include_any && [ -z "$FS_COUNT_EXTS" ]; then
+        result=$(_py_count "$dir" any)
+    else
+        expanded_exts="$(_fs_expand_count_exts)"
+        if [ -z "$expanded_exts" ]; then
+            result=$(_py_count "$dir" any)
+        else
+            set -- $expanded_exts
+            result=$(_py_count "$dir" exts "$@")
+        fi
+    fi
     echo "$result"
     _trace_end count_files_with_exts "$dir" "$@"
 }
@@ -299,11 +414,20 @@ if [ -z "$PYTHON" ]; then
     count_files_with_exts() {
         _trace_start
         dir="$1"; shift || true
+        _fs_parse_count_args "$@"
         if [ ! -d "$dir" ]; then
             echo 0; _trace_end count_files_with_exts "$dir" "$@"; return
         fi
+        if _fs_classes_include_any && [ -z "$FS_COUNT_EXTS" ]; then
+            result=$(find "$dir" -maxdepth 1 -type f -name '*.*' 2>/dev/null | wc -l)
+            echo "$result"
+            _trace_end count_files_with_exts "$dir" "$@"
+            return
+        fi
+
+        expanded_exts="$(_fs_expand_count_exts)"
         total=0
-        for ext in "$@"; do
+        for ext in $expanded_exts; do
             e="$ext"
             case "$e" in
                 .* ) e="${e#*.}" ;;

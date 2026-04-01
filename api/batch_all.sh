@@ -121,7 +121,7 @@ elif [ -d "custom_nodes" ]; then
 	#./custom_nodes/comfyui_stereoscopic/api/clear.sh || exit 1
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	CAPCOUNT=$(count_files_with_exts "input/vr/caption" mp4 webm png jpg jpeg webp)
+	CAPCOUNT=$(count_files_with_exts "input/vr/caption" videos images)
 	# zero if caption stage disabled
 	if [ ${CAPCOUNT:-0} -gt 0 ] && is_disabled "caption"; then CAPCOUNT=0; echo "skipped caption stage"; fi
 	if [ $CAPCOUNT -gt 0 ] ; then
@@ -134,8 +134,8 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SCALECOUNT=$(count_files_with_exts "input/vr/scaling" mp4 png jpg jpeg webm webp)
-	OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" mp4 png jpg jpeg webm webp)
+	SCALECOUNT=$(count_files_with_exts "input/vr/scaling" videos images)
+	OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" videos images)
 	# zero if scaling stage disabled
 	if { [ ${SCALECOUNT:-0} -gt 0 ] || [ ${OVERRIDECOUNT:-0} -gt 0 ]; } && is_disabled "scaling"; then SCALECOUNT=0; OVERRIDECOUNT=0; echo "skipped scaling stage"; fi
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
@@ -164,7 +164,7 @@ elif [ -d "custom_nodes" ]; then
 
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SLIDECOUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm webp)
+	SLIDECOUNT=$(count_files_with_exts "input/vr/slides" images videos)
 	# zero if slides stage disabled
 	if [ ${SLIDECOUNT:-0} -gt 0 ] && is_disabled "slides"; then SLIDECOUNT=0; echo "skipped slides stage"; fi
 	if [ $SLIDECOUNT -ge 2 ]; then
@@ -182,7 +182,7 @@ elif [ -d "custom_nodes" ]; then
 	
 	
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 png jpg jpeg webm webp)
+	SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" videos images)
 	# zero if fullsbs stage disabled
 	if [ ${SBSCOUNT:-0} -gt 0 ] && is_disabled "fullsbs"; then SBSCOUNT=0; echo "skipped fullsbs stage"; fi
 	if [ $SBSCOUNT -ge 1 ]; then
@@ -200,7 +200,7 @@ elif [ -d "custom_nodes" ]; then
 	fi
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	INTERPOLATECOUNT=$(count_files_with_exts "input/vr/interpolate" mp4 webm)
+	INTERPOLATECOUNT=$(count_files_with_exts "input/vr/interpolate" videos)
 	# zero if interpolate stage disabled
 	if [ ${INTERPOLATECOUNT:-0} -gt 0 ] && is_disabled "interpolate"; then INTERPOLATECOUNT=0; echo "skipped interpolate stage"; fi
 	if [ $INTERPOLATECOUNT -gt 0 ] ; then
@@ -214,7 +214,7 @@ elif [ -d "custom_nodes" ]; then
 
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" mp4 webm)
+	SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" videos)
 	# zero if singleloop stage disabled
 	if [ ${SINGLELOOPCOUNT:-0} -gt 0 ] && is_disabled "singleloop"; then SINGLELOOPCOUNT=0; echo "skipped singleloop stage"; fi
 	if [ $SINGLELOOPCOUNT -ge 1 ]; then
@@ -231,7 +231,7 @@ elif [ -d "custom_nodes" ]; then
 
 	
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" png)
+	SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" images)
 	# zero if slideshow stage disabled
 	if [ ${SLIDESBSCOUNT:-0} -gt 0 ] && is_disabled "slideshow"; then SLIDESBSCOUNT=0; echo "skipped slideshow stage"; fi
 	if [ $SLIDESBSCOUNT -ge 2 ]; then
@@ -248,8 +248,8 @@ elif [ -d "custom_nodes" ]; then
 
 
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
-	OVERRIDECOUNT=$(count_files_with_exts "input/vr/concat/ignorename" mp4)
+	CONCATCOUNT=$(count_files_with_exts "input/vr/concat" videos)
+	OVERRIDECOUNT=$(count_files_with_exts "input/vr/concat/ignorename" videos)
 	# zero if concat stage disabled
 	if { [ ${CONCATCOUNT:-0} -gt 0 ] || [ ${OVERRIDECOUNT:-0} -gt 0 ]; } && is_disabled "concat"; then CONCATCOUNT=0; OVERRIDECOUNT=0; echo "skipped concat stage"; fi
 	if [ $CONCATCOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
@@ -273,7 +273,7 @@ elif [ -d "custom_nodes" ]; then
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	DUBCOUNTSFX=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
+	DUBCOUNTSFX=$(count_files_with_exts "input/vr/dubbing/sfx" videos)
 	# zero if dubbing/sfx disabled
 	if [ ${DUBCOUNTSFX:-0} -gt 0 ] && is_disabled "dubbing/sfx"; then DUBCOUNTSFX=0; echo "skipped dubbing/sfx stage"; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
@@ -298,7 +298,7 @@ elif [ -d "custom_nodes" ]; then
 
 	### SKIP IF DEPENDENCY CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	DUBCOUNTMUSIC=$(count_files_with_exts "input/vr/dubbing/music" mp4 webm)
+	DUBCOUNTMUSIC=$(count_files_with_exts "input/vr/dubbing/music" videos)
 	# zero if dubbing/music disabled
 	if [ ${DUBCOUNTMUSIC:-0} -gt 0 ] && is_disabled "dubbing/music"; then DUBCOUNTMUSIC=0; echo "skipped dubbing/music stage"; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTMUSIC -gt 0 ]; then
@@ -323,8 +323,8 @@ elif [ -d "custom_nodes" ]; then
 
 	### SKIP IF CONFIG CHECK FAILED ###
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
-	WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" png jpg jpeg)
-	WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" png jpg jpeg)
+	WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" images)
+	WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" images)
 	# zero if watermark stages disabled
 	if [ ${WMECOUNT:-0} -gt 0 ] && is_disabled "watermark/encrypt"; then WMECOUNT=0; echo "skipped watermark/encrypt stage"; fi
 	if [ ${WMDCOUNT:-0} -gt 0 ] && is_disabled "watermark/decrypt"; then WMDCOUNT=0; fi

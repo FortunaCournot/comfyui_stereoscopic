@@ -106,7 +106,7 @@ else
 	else
 		echo "Error: required lib_fs not found at canonical path: $LIB_FS"; exit 1;
 	fi
-	COUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm webp)
+	COUNT=$(count_files_with_exts "input/vr/slides" images videos)
 	INDEX=0
 	TARGETFOLDER=output/vr/slides
 	INTERMEDIATEFOLDER="$TARGETFOLDER"/intermediate
