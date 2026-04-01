@@ -30,6 +30,7 @@ import traceback
 import urllib.request
 import urllib.parse
 import webbrowser
+from typing import Any, cast
 from random import randrange
 from threading import Thread
 from urllib.error import HTTPError
@@ -39,7 +40,7 @@ import requests
 from PIL import Image
 import shutil
 import tempfile
-from PyQt5.QtCore import (QRect, QSize, Qt, QThread, QTimer)
+from PyQt5.QtCore import (QEvent, QObject, QRect, QSize, Qt, QThread, QTimer)
 from PyQt5.QtGui import (QBrush, QColor, QCursor, QFont, QIcon, QPainter, QPen, QPixmap,
                          QPalette, QPainterPath, QFontMetrics)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
@@ -59,6 +60,107 @@ path = os.path.dirname(os.path.abspath(__file__))
 # Add the current directory to the path so we can import local modules
 if path not in sys.path:
     sys.path.append(path)
+
+_early_splash = None
+_SPLASH_SHOW_EVENT_TYPES = {
+    event_type for event_type in (
+        getattr(QEvent, "Show", None),
+        getattr(QEvent, "ShowToParent", None),
+    )
+    if event_type is not None
+}
+_SPLASH_WINDOW_FLAG_NAMES = (
+    "SplashScreen",
+    "FramelessWindowHint",
+    "WindowStaysOnTopHint",
+)
+_SPLASH_ATTR_TRANSLUCENT = getattr(Qt, "WA_TranslucentBackground", None)
+_SPLASH_ATTR_SHOW_WITHOUT_ACTIVATING = getattr(Qt, "WA_ShowWithoutActivating", None)
+
+
+class _SplashCloser(QObject):
+    def __init__(self, splash):
+        super().__init__()
+        self._splash = splash
+
+    def eventFilter(self, watched, event):
+        if event.type() in _SPLASH_SHOW_EVENT_TYPES:
+            try:
+                if self._splash is not None:
+                    self._splash.close()
+                    self._splash.deleteLater()
+                    self._splash = None
+            except Exception:
+                pass
+            try:
+                watched.removeEventFilter(self)
+            except Exception:
+                pass
+        return False
+
+
+def _resolve_splash_banner_path():
+    candidates = [
+        os.path.abspath(os.path.join(path, "../img/banner.png")),
+        os.path.abspath(os.path.join(path, "../../docs/icon/banner.png")),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def create_early_splash(app):
+    banner_path = _resolve_splash_banner_path()
+    if app is None or not banner_path:
+        return None
+    pixmap = QPixmap(banner_path)
+    if pixmap.isNull():
+        return None
+
+    splash = QLabel(None)
+    for flag_name in _SPLASH_WINDOW_FLAG_NAMES:
+        flag = getattr(Qt, flag_name, None)
+        if flag is not None:
+            splash.setWindowFlag(cast(Any, flag), True)
+    if _SPLASH_ATTR_TRANSLUCENT is not None:
+        splash.setAttribute(_SPLASH_ATTR_TRANSLUCENT, True)
+    if _SPLASH_ATTR_SHOW_WITHOUT_ACTIVATING is not None:
+        splash.setAttribute(_SPLASH_ATTR_SHOW_WITHOUT_ACTIVATING, True)
+    splash.setPixmap(pixmap)
+    splash.setFixedSize(pixmap.size())
+    splash.setScaledContents(True)
+
+    screen = app.primaryScreen()
+    geometry = screen.availableGeometry() if screen is not None else QDesktopWidget().availableGeometry()
+    splash.move(
+        geometry.x() + int((geometry.width() - pixmap.width()) / 2),
+        geometry.y() + int((geometry.height() - pixmap.height()) / 2),
+    )
+    splash.show()
+    splash.raise_()
+    app.processEvents()
+    return splash
+
+
+def attach_splash_to_window(window, splash):
+    if window is None or splash is None:
+        return None
+    closer = _SplashCloser(splash)
+    window._early_splash_closer = closer
+    window.installEventFilter(closer)
+    return closer
+
+
+_bootstrap_app = None
+if __name__ == "__main__":
+    try:
+        daemon_lock = os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")
+        if len(sys.argv) == 1 and os.path.exists(daemon_lock):
+            _bootstrap_app = QApplication.instance() or QApplication(sys.argv)
+            _early_splash = create_early_splash(_bootstrap_app)
+    except Exception:
+        _bootstrap_app = None
 
 # Import our implementations
 from rating import RateAndCutDialog, StyledIcon, pil2pixmap, getFilesWithoutEdit, getFilesOnlyEdit, getFilesOnlyReady, rescanFilesToRate, scanFilesToRate, initCutMode, config, VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, TRACELEVEL
@@ -4257,15 +4359,24 @@ if __name__ == "__main__":
         elif os.path.exists(os.path.join(path, "../../../../user/default/comfyui_stereoscopic/.daemonactive")):
             app = None
             try:
+                app = _bootstrap_app or QApplication.instance() or QApplication(sys.argv)
+                if _early_splash is None:
+                    _early_splash = create_early_splash(app)
                 initCutMode()
                 scanFilesToRate()
                 
                 global window, cb
-                app = QApplication(sys.argv)
                 
                 window = SpreadsheetApp()
+                attach_splash_to_window(window, _early_splash)
                 window.show()
+                app.processEvents()
             except:
+                try:
+                    if _early_splash is not None:
+                        _early_splash.close()
+                except Exception:
+                    pass
                 print(traceback.format_exc(), flush=True)
             if not app is None:
                 sys.exit(app.exec_())
