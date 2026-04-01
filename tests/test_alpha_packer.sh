@@ -253,20 +253,24 @@ build_alpha_with_ffmpeg_chromakey() {
 	ffmpeg -y -i input.mp4 -vf "gblur=sigma=${FFMPEG_KEY_PREBLUR},chromakey=${FFMPEG_KEY_COLOR}:${FFMPEG_KEY_SIMILARITY}:${FFMPEG_KEY_BLEND},format=yuva420p,alphaextract,format=yuv420p" -c:v libx264 -crf 18 alpha.mp4
 }
 
-echo "[STEP] Erzeuge alpha.mp4 mit KEYER_MODE=${KEYER_MODE}"
-case "$KEYER_MODE" in
-	opencv-hls)
-		build_alpha_with_hls_keyer || exit 1
-		;;
-	ffmpeg-chromakey)
-		build_alpha_with_ffmpeg_chromakey || exit 1
-		;;
-	*)
-		echo "[ERROR] Unbekannter KEYER_MODE: $KEYER_MODE" >&2
-		echo "[ERROR] Gueltige Werte: opencv-hls, ffmpeg-chromakey" >&2
-		exit 1
-		;;
-esac
+if [ -s alpha.mp4 ]; then
+	echo "[STEP] Ueberspringe Alpha-Erzeugung, vorhandenes alpha.mp4 wird verwendet."
+else
+	echo "[STEP] Erzeuge alpha.mp4 mit KEYER_MODE=${KEYER_MODE}"
+	case "$KEYER_MODE" in
+		opencv-hls)
+			build_alpha_with_hls_keyer || exit 1
+			;;
+		ffmpeg-chromakey)
+			build_alpha_with_ffmpeg_chromakey || exit 1
+			;;
+		*)
+			echo "[ERROR] Unbekannter KEYER_MODE: $KEYER_MODE" >&2
+			echo "[ERROR] Gueltige Werte: opencv-hls, ffmpeg-chromakey" >&2
+			exit 1
+			;;
+	esac
+fi
 
 
 # 1. Variablen aus input.mp4 ermitteln
@@ -285,12 +289,6 @@ echo "width: $width; height: $height; qwidth: $qwidth; qheight: $qheight; radius
 
 rm -f left.mp4 right.mp4 mask.png left_masked.mov right_masked.mov mask.avi alphalayer.mov output_ALPHA.mp4
 
-echo "[STEP] Croppe linkes Video aus alpha.mp4"
-ffmpeg -y -i alpha.mp4 -vf "crop=${qwidth}:${height}:0:0" -c:v libx265 -pix_fmt yuv420p -profile:v main -movflags +faststart left.mp4 || exit 1
-
-echo "[STEP] Croppe rechtes Video aus alpha.mp4"
-ffmpeg -y -i alpha.mp4 -vf "crop=${qwidth}:${height}:${qwidth}:0" -c:v libx265 -pix_fmt yuv420p -profile:v main -movflags +faststart right.mp4 || exit 1
-
 echo "[STEP] Erzeuge Masken-Video (Graustufen-Maske mit weißem Kreis)"
 # ffmpeg -y -f lavfi -i "nullsrc=size=${qwidth}x${height}:duration=5:rate=25" -vf "geq=lum=255*lte((X-${radius})^2+(Y-${height}/2)^2\,${radius}*${radius}),format=gray" -c:v libx265 -pix_fmt yuv420p -profile:v main -movflags +faststart mask.mp4 || exit 1
 
@@ -299,12 +297,18 @@ echo "[STEP] Erzeuge Masken-Bild (Graustufen, PNG)"
 #ffmpeg -y -f lavfi -i "nullsrc=size=${qwidth}x${height}" -vf "geq=lum=255*lte((X-${radius})^2+(Y-${height}/2)^2\,${radius}*${radius}),format=gray" -frames:v 1 mask.png || exit 1
 ffmpeg -y -f lavfi -i "nullsrc=size=${qwidth}x${height}" -vf "geq=lum=255*lte(((X-${qwidth}/2)^2)/(${radius_x}^2)+((Y-${height}/2)^2)/(${radius}^2)\,1),format=gray" -frames:v 1 mask.png || exit 1
 
+echo "[STEP] Croppe linkes Video aus alpha.mp4"
+ffmpeg -y -i alpha.mp4 -vf "crop=${qwidth}:${height}:0:0" -c:v libx265 -pix_fmt yuv420p -profile:v main -movflags +faststart left.mp4 || exit 1
+
+echo "[STEP] Croppe rechtes Video aus alpha.mp4"
+ffmpeg -y -i alpha.mp4 -vf "crop=${qwidth}:${height}:${qwidth}:0" -c:v libx265 -pix_fmt yuv420p -profile:v main -movflags +faststart right.mp4 || exit 1
+
 echo "[STEP] Konvertiere Maske nach AVI (gray, ffv1)"
 
 # Standard: ffv1 (gray)
 #ffmpeg -y -i mask.mp4 -c:v ffv1 -pix_fmt gray mask.avi || exit 1
 
-# Alternative: rawvideo (gray) für mplayer-Kompatibilität
+# Alternative: rawvideo (gray) fuer mplayer-Kompatibilitaet
 #ffmpeg -y -i mask.mp4 -c:v rawvideo -pix_fmt gray mask_raw.avi || exit 1
 
 echo "[STEP] Alphamerge links"
@@ -316,7 +320,7 @@ ffmpeg -y -i right.mp4 -i mask.png -filter_complex "[0][1]alphamerge" -c:v png -
 echo "[STEP] Hstack zu FullSBS"
 ffmpeg -y -i left_masked.mov -i right_masked.mov -filter_complex "hstack=inputs=2" -c:v png -pix_fmt rgba -auto-alt-ref 0 alphalayer.mov || exit 1
 
-echo "[STEP] Überlagere alphalayer.mov auf input.mp4"
+echo "[STEP] Ueberlagere alphalayer.mov auf input.mp4"
 ffmpeg -y -i input.mp4 -i alphalayer.mov -filter_complex "\
 [1:v]crop=iw/4:ih/2:0*iw/4:0*ih/2,scale=iw*0.8:ih*0.8[ov0]; \
 [1:v]crop=iw/4:ih/2:1*iw/4:0*ih/2,scale=iw*0.8:ih*0.8[ov1]; \
