@@ -153,8 +153,7 @@ else
 		done
 	fi	
 
-	IMGFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
-	if [ -z "$COMFYUIPATH" ]; then
+		if [ -z "$COMFYUIPATH" ]; then
 		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
 	fi
 	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
@@ -167,6 +166,7 @@ else
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
+		IMGFILES=`find input/vr/watermark/encrypt -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
 		for nextinputfile in $IMGFILES ; do
 			[ -e "$nextinputfile" ] || continue
 			if [ ! -e $nextinputfile ] ; then

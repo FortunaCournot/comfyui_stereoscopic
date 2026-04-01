@@ -157,12 +157,12 @@ else
 		rm  -f input/vr/fullsbs/BATCHPROGRESS.TXT 
 	fi	
 	
-	IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webp'`
 	# lib_fs already sourced above (canonical)
 	COUNT=$(count_files_with_exts "input/vr/fullsbs" png jpg jpeg webp)
 	INDEX=0
 	rm -f intermediateimagefiles.txt
 	if [[ $COUNT -gt 0 ]] ; then
+		IMGFILES=`find input/vr/fullsbs -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webp'`
 		for nextinputfile in $IMGFILES ; do
 			[ -e "$nextinputfile" ] || continue
 			[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0

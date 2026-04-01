@@ -96,7 +96,6 @@ else
 		[ "$new" = "$f" ] || mv -- "$f" "$new"
 	done 2>/dev/null
 
-	IMGFILES=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
 	# (canonical lib_fs sourcing handled above)
 	COUNT=$(count_files_with_exts "input/vr/slideshow" png jpg jpeg)
 	INDEX=0
@@ -106,7 +105,7 @@ else
 	rm -rf "$INTERMEDIATEFOLDER"/*  >/dev/null 2>&1
 	
 	if [[ $COUNT -gt 1 ]] ; then
-	
+		IMGFILES=`find input/vr/slideshow -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG'`
 		INPUTOPT=
 		FILTEROPT=
 		CURRENTOFFSET=0

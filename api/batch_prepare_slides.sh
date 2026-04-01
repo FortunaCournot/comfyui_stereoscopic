@@ -97,8 +97,7 @@ else
 		[ "$new" = "$f" ] || mv -- "$f" "$new"
 	done 2>/dev/null
 
-	IMGFILES=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp'`
-	if [ -z "$COMFYUIPATH" ]; then
+		if [ -z "$COMFYUIPATH" ]; then
 		echo "Error: COMFYUIPATH not set in $(basename \"$0\") (cwd=$(pwd)). Start script from repository root."; exit 1;
 	fi
 	LIB_FS="$COMFYUIPATH/custom_nodes/comfyui_stereoscopic/api/lib_fs.sh"
@@ -117,7 +116,7 @@ else
 	rm -rf "$INTERMEDIATEFOLDER"/*  >/dev/null 2>&1
 	
 	if [[ $COUNT -gt 0 ]] ; then
-	
+		IMGFILES=`find input/vr/slides -maxdepth 1 -type f -name '*.png' -o -name '*.PNG' -o -name '*.jpg' -o -name '*.JPG' -o -name '*.jpeg' -o -name '*.JPEG' -o -name '*.webm' -o -name '*.webp'`
 		INPUTOPT=
 		FILTEROPT=
 		CURRENTOFFSET=0

@@ -123,7 +123,7 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	CAPCOUNT=$(count_files_with_exts "input/vr/caption" mp4 webm png jpg jpeg webp)
 	# zero if caption stage disabled
-	if [ ${CAPCOUNT:-0} -gt 0 ] && is_disabled "caption"; then CAPCOUNT=0; fi
+	if [ ${CAPCOUNT:-0} -gt 0 ] && is_disabled "caption"; then CAPCOUNT=0; echo "skipped caption stage"; fi
 	if [ $CAPCOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "******** CAPTION *********"
@@ -137,7 +137,7 @@ elif [ -d "custom_nodes" ]; then
 	SCALECOUNT=$(count_files_with_exts "input/vr/scaling" mp4 png jpg jpeg webm webp)
 	OVERRIDECOUNT=$(count_files_with_exts "input/vr/scaling/override" mp4 png jpg jpeg webm webp)
 	# zero if scaling stage disabled
-	if { [ ${SCALECOUNT:-0} -gt 0 ] || [ ${OVERRIDECOUNT:-0} -gt 0 ]; } && is_disabled "scaling"; then SCALECOUNT=0; OVERRIDECOUNT=0; fi
+	if { [ ${SCALECOUNT:-0} -gt 0 ] || [ ${OVERRIDECOUNT:-0} -gt 0 ]; } && is_disabled "scaling"; then SCALECOUNT=0; OVERRIDECOUNT=0; echo "skipped scaling stage"; fi
 	if [ $SCALECOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
 		MEMFREE=`awk '/MemFree/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
 		MEMTOTAL=`awk '/MemTotal/ { printf "%.0f \n", $2/1024/1024 }' /proc/meminfo`
@@ -166,7 +166,7 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SLIDECOUNT=$(count_files_with_exts "input/vr/slides" png jpg jpeg webm webp)
 	# zero if slides stage disabled
-	if [ ${SLIDECOUNT:-0} -gt 0 ] && is_disabled "slides"; then SLIDECOUNT=0; fi
+	if [ ${SLIDECOUNT:-0} -gt 0 ] && is_disabled "slides"; then SLIDECOUNT=0; echo "skipped slides stage"; fi
 	if [ $SLIDECOUNT -ge 2 ]; then
 		# PREPARE 4K SLIDES
 		# In:  input/vr/slides
@@ -184,7 +184,7 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SBSCOUNT=$(count_files_with_exts "input/vr/fullsbs" mp4 png jpg jpeg webm webp)
 	# zero if fullsbs stage disabled
-	if [ ${SBSCOUNT:-0} -gt 0 ] && is_disabled "fullsbs"; then SBSCOUNT=0; fi
+	if [ ${SBSCOUNT:-0} -gt 0 ] && is_disabled "fullsbs"; then SBSCOUNT=0; echo "skipped fullsbs stage"; fi
 	if [ $SBSCOUNT -ge 1 ]; then
 		# SBS CONVERTER: Video -> Video, Image -> Image
 		# In:  input/vr/fullsbs
@@ -202,7 +202,7 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	INTERPOLATECOUNT=$(count_files_with_exts "input/vr/interpolate" mp4 webm)
 	# zero if interpolate stage disabled
-	if [ ${INTERPOLATECOUNT:-0} -gt 0 ] && is_disabled "interpolate"; then INTERPOLATECOUNT=0; fi
+	if [ ${INTERPOLATECOUNT:-0} -gt 0 ] && is_disabled "interpolate"; then INTERPOLATECOUNT=0; echo "skipped interpolate stage"; fi
 	if [ $INTERPOLATECOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
 		[ $loglevel -ge 0 ] && echo "****** INTERPOLATE *******"
@@ -216,7 +216,7 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SINGLELOOPCOUNT=$(count_files_with_exts "input/vr/singleloop" mp4 webm)
 	# zero if singleloop stage disabled
-	if [ ${SINGLELOOPCOUNT:-0} -gt 0 ] && is_disabled "singleloop"; then SINGLELOOPCOUNT=0; fi
+	if [ ${SINGLELOOPCOUNT:-0} -gt 0 ] && is_disabled "singleloop"; then SINGLELOOPCOUNT=0; echo "skipped singleloop stage"; fi
 	if [ $SINGLELOOPCOUNT -ge 1 ]; then
 		# SINGLE LOOP
 		# In:  input/vr/singleloop_in
@@ -233,7 +233,7 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	SLIDESBSCOUNT=$(count_files_with_exts "input/vr/slideshow" png)
 	# zero if slideshow stage disabled
-	if [ ${SLIDESBSCOUNT:-0} -gt 0 ] && is_disabled "slideshow"; then SLIDESBSCOUNT=0; fi
+	if [ ${SLIDESBSCOUNT:-0} -gt 0 ] && is_disabled "slideshow"; then SLIDESBSCOUNT=0; echo "skipped slideshow stage"; fi
 	if [ $SLIDESBSCOUNT -ge 2 ]; then
 		# MAKE SLIDESHOW
 		# In:  input/vr/slideshow
@@ -251,7 +251,7 @@ elif [ -d "custom_nodes" ]; then
 	CONCATCOUNT=$(count_files_with_exts "input/vr/concat" mp4)
 	OVERRIDECOUNT=$(count_files_with_exts "input/vr/concat/ignorename" mp4)
 	# zero if concat stage disabled
-	if { [ ${CONCATCOUNT:-0} -gt 0 ] || [ ${OVERRIDECOUNT:-0} -gt 0 ]; } && is_disabled "concat"; then CONCATCOUNT=0; OVERRIDECOUNT=0; fi
+	if { [ ${CONCATCOUNT:-0} -gt 0 ] || [ ${OVERRIDECOUNT:-0} -gt 0 ]; } && is_disabled "concat"; then CONCATCOUNT=0; OVERRIDECOUNT=0; echo "skipped concat stage"; fi
 	if [ $CONCATCOUNT -ge 1 ] || [ $OVERRIDECOUNT -ge 1 ]; then
 		# CONCAT
 		# In:  input/vr/concat_in
@@ -275,7 +275,7 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	DUBCOUNTSFX=$(count_files_with_exts "input/vr/dubbing/sfx" mp4 webm)
 	# zero if dubbing/sfx disabled
-	if [ ${DUBCOUNTSFX:-0} -gt 0 ] && is_disabled "dubbing/sfx"; then DUBCOUNTSFX=0; fi
+	if [ ${DUBCOUNTSFX:-0} -gt 0 ] && is_disabled "dubbing/sfx"; then DUBCOUNTSFX=0; echo "skipped dubbing/sfx stage"; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTSFX -gt 0 ]; then
 		if [ -x "$(command -v nvidia-smi)" ]; then
 			# DUBBING: Video -> Video with SFX
@@ -300,7 +300,7 @@ elif [ -d "custom_nodes" ]; then
 	[ -e user/default/comfyui_stereoscopic/.pipelinepause ] && exit 0
 	DUBCOUNTMUSIC=$(count_files_with_exts "input/vr/dubbing/music" mp4 webm)
 	# zero if dubbing/music disabled
-	if [ ${DUBCOUNTMUSIC:-0} -gt 0 ] && is_disabled "dubbing/music"; then DUBCOUNTMUSIC=0; fi
+	if [ ${DUBCOUNTMUSIC:-0} -gt 0 ] && is_disabled "dubbing/music"; then DUBCOUNTMUSIC=0; echo "skipped dubbing/music stage"; fi
 	if [[ -z $DUBBING_DEP_ERROR ]] && [ $DUBCOUNTMUSIC -gt 0 ]; then
 		if [ -x "$(command -v nvidia-smi)" ]; then
 			# DUBBING: Video -> Video with music
@@ -326,7 +326,7 @@ elif [ -d "custom_nodes" ]; then
 	WMECOUNT=$(count_files_with_exts "input/vr/watermark/encrypt" png jpg jpeg)
 	WMDCOUNT=$(count_files_with_exts "input/vr/watermark/decrypt" png jpg jpeg)
 	# zero if watermark stages disabled
-	if [ ${WMECOUNT:-0} -gt 0 ] && is_disabled "watermark/encrypt"; then WMECOUNT=0; fi
+	if [ ${WMECOUNT:-0} -gt 0 ] && is_disabled "watermark/encrypt"; then WMECOUNT=0; echo "skipped watermark/encrypt stage"; fi
 	if [ ${WMDCOUNT:-0} -gt 0 ] && is_disabled "watermark/decrypt"; then WMDCOUNT=0; fi
 	if [ $WMECOUNT -gt 0 ] ; then
 		[ $loglevel -ge 1 ] && echo "**************************"
