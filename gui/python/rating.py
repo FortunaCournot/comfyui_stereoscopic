@@ -114,6 +114,49 @@ _logged_invalid_inpaint_tasks = set()
 # Temp file cleanup list and worker
 TEMP_FILES_TO_CLEANUP = []
 _temp_cleanup_thread_started = False
+_ui_dispatcher = None
+
+
+class _UIThreadDispatcher(QObject):
+    dispatch = pyqtSignal(object)
+
+    def __init__(self):
+        super().__init__()
+        self.dispatch.connect(self._invoke, Qt.QueuedConnection)
+
+    @pyqtSlot(object)
+    def _invoke(self, callback):
+        try:
+            callback()
+        except Exception:
+            print(traceback.format_exc(), flush=True)
+
+
+def _get_ui_dispatcher():
+    global _ui_dispatcher
+    app = QApplication.instance()
+    if app is None:
+        return None
+    if _ui_dispatcher is None:
+        dispatcher = _UIThreadDispatcher()
+        dispatcher.moveToThread(app.thread())
+        _ui_dispatcher = dispatcher
+    return _ui_dispatcher
+
+
+def run_on_ui_thread(callback):
+    app = QApplication.instance()
+    if app is None:
+        callback()
+        return
+    if QThread.currentThread() == app.thread():
+        callback()
+        return
+    dispatcher = _get_ui_dispatcher()
+    if dispatcher is None:
+        callback()
+        return
+    dispatcher.dispatch.emit(callback)
 
 def _temp_cleanup_worker():
     while True:
@@ -1236,7 +1279,7 @@ class FilterParameterMenu(QMenu):
             self._set_controls_enabled(False)
             QApplication.setOverrideCursor(Qt.WaitCursor)
             QApplication.processEvents()
-            QTimer.singleShot(0, partial(self._apply_parameter_change, param_name, value))
+            run_on_ui_thread(partial(self._apply_parameter_change, param_name, value))
         except Exception:
             self._set_controls_enabled(True)
             try:
@@ -2446,7 +2489,7 @@ class RateAndCutDialog(QDialog):
                 
             scanFilesToRate()   # can block on some drives
 
-            QTimer.singleShot(0, partial(self.switchDirectory_updater, override, dirpath, filename, op_id))
+            run_on_ui_thread(partial(self.switchDirectory_updater, override, dirpath, filename, op_id))
         except:
             endAsyncTask()
             if not url is None:
@@ -4098,7 +4141,7 @@ class RateAndCutDialog(QDialog):
                 
             scanFilesToRate()   # can block on some drives
 
-            QTimer.singleShot(0, partial(self.customfolder_updater, override, dirpath))
+            run_on_ui_thread(partial(self.customfolder_updater, override, dirpath))
         except:
             print(traceback.format_exc(), flush=True) 
 
@@ -4201,10 +4244,10 @@ class RateAndCutDialog(QDialog):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
-            QTimer.singleShot(0, partial(self.updateExif_updater, True, cmd))
+            run_on_ui_thread(partial(self.updateExif_updater, True, cmd))
         except subprocess.CalledProcessError as se:
             print(traceback.format_exc(), flush=True) 
-            QTimer.singleShot(0, partial(self.updateExif_updater, False, cmd))
+            run_on_ui_thread(partial(self.updateExif_updater, False, cmd))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
@@ -4236,7 +4279,7 @@ class RateAndCutDialog(QDialog):
                 print("Executing", cmd2, flush=True)
             cp = subprocess.run(cmd2, shell=True, check=False, close_fds=True)
             
-            QTimer.singleShot(0, partial(self.sceneFinder_updater, pathtofile, tmp.name, out.name))
+            run_on_ui_thread(partial(self.sceneFinder_updater, pathtofile, tmp.name, out.name))
         except subprocess.CalledProcessError as se:
             print(traceback.format_exc(), flush=True) 
             os.unlink(tmp.name)
@@ -4339,12 +4382,12 @@ class RateAndCutDialog(QDialog):
                 if not os.path.exists(source) and os.path.exists(capfile):
                     shutil.move(capfile, replace_file_suffix(destination, ".txt"))
             if countdown<0:
-                QTimer.singleShot(0, partial(self.move_updater, index, recreated, False))
+                run_on_ui_thread(partial(self.move_updater, index, recreated, False))
             else:
-                QTimer.singleShot(0, partial(self.move_updater, index, recreated, True))
+                run_on_ui_thread(partial(self.move_updater, index, recreated, True))
         except:
             print(traceback.format_exc(), flush=True) 
-            QTimer.singleShot(0, partial(self.move_updater, index, recreated, False))
+            run_on_ui_thread(partial(self.move_updater, index, recreated, False))
 
 
     def move_updater(self, index, recreated, success):
@@ -4700,17 +4743,17 @@ class RateAndCutDialog(QDialog):
                     success = False
             except Exception:
                 success = False
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, success))
+            run_on_ui_thread(partial(self.trimAndCrop_updater, recreated, input, output, success))
 
             
     def trimAndCrop_worker(self, cmd, recreated, input, output):
         startAsyncTask()
         try:
             cp = subprocess.run(cmd, shell=True, check=True, close_fds=True)
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, True))
+            run_on_ui_thread(partial(self.trimAndCrop_updater, recreated, input, output, True))
 
         except subprocess.CalledProcessError as se:
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, False))
+            run_on_ui_thread(partial(self.trimAndCrop_updater, recreated, input, output, False))
         except:
             print(traceback.format_exc(), flush=True)                
             endAsyncTask()
@@ -4729,14 +4772,14 @@ class RateAndCutDialog(QDialog):
                     os.remove(intermediate)
             except Exception:
                 pass
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, True))
+            run_on_ui_thread(partial(self.trimAndCrop_updater, recreated, input, output, True))
         except subprocess.CalledProcessError as se:
             try:
                 if os.path.exists(intermediate):
                     os.remove(intermediate)
             except Exception:
                 pass
-            QTimer.singleShot(0, partial(self.trimAndCrop_updater, recreated, input, output, False))
+            run_on_ui_thread(partial(self.trimAndCrop_updater, recreated, input, output, False))
         except Exception:
             print(traceback.format_exc(), flush=True)
             try:
@@ -5067,9 +5110,9 @@ class RateAndCutDialog(QDialog):
                 print("Executing "  + cmd2, flush=True)
                 cp = subprocess.run(cmd2, shell=True, check=True, close_fds=True)
                 os.remove(temporaryfile)
-                QTimer.singleShot(0, partial(self.takeSnapshot_updater, True, recreated, output))
+                run_on_ui_thread(partial(self.takeSnapshot_updater, True, recreated, output))
             except subprocess.CalledProcessError as se:
-                QTimer.singleShot(0, partial(self.takeSnapshot_updater, False, recreated, ""))
+                run_on_ui_thread(partial(self.takeSnapshot_updater, False, recreated, ""))
 
         except Exception:
             print(traceback.format_exc(), flush=True) 
@@ -5266,7 +5309,7 @@ class RateAndCutDialog(QDialog):
 
             scanFilesToRate()   # can block on some drives
 
-            QTimer.singleShot(0, partial(self.switchDirectory_updater, False, "", filename))
+            run_on_ui_thread(partial(self.switchDirectory_updater, False, "", filename))
         except:
             endAsyncTask()
             print(traceback.format_exc(), flush=True) 
@@ -5459,6 +5502,30 @@ class VideoThread(QThread):
         self.WarnOdd=False
         #print("Created thread with uid " + str(uid) , flush=True)
 
+    def _apply_slider_setup(self, frame_count, fps, interval, vlength):
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(frame_count-1)
+        self.slider.setValue(0)
+        if vlength > 7200:
+            self.slider.setTickPosition(QSlider.TicksBothSides)
+        elif vlength > 120:
+            self.slider.setTickPosition(QSlider.TicksAbove)
+        else:
+            self.slider.setTickPosition(QSlider.TicksBelow)
+        self.slider.setTickInterval(interval)
+        self.slider.setSingleStep(1)
+        self.slider.setPageStep(int(fps))
+        self.slider.valueChanged.connect(self.sliderChanged)
+        self.slider.registerForMouseEvent(self.onSliderMouseClick)
+
+    def _set_slider_value(self, value):
+        if value != self.slider.value():
+            self.slider.blockSignals(True)
+            try:
+                self.slider.setValue(value)
+            finally:
+                self.slider.blockSignals(False)
+
     def run(self):
         enterUITask()
         
@@ -5468,7 +5535,7 @@ class VideoThread(QThread):
         
         if not os.path.exists(self.filepath):
             print("Failed to open", self.filepath, flush=True)
-            self.onVideoLoaded(-1, 1.0, 0.0)
+            run_on_ui_thread(partial(self.onVideoLoaded, -1, 1.0, 0.0))
             leaveUITask()
             return
 
@@ -5490,7 +5557,7 @@ class VideoThread(QThread):
                 except Exception:
                     pass
             self.cap = None
-            self.onVideoLoaded(-1, 1.0, 0.0)
+            run_on_ui_thread(partial(self.onVideoLoaded, -1, 1.0, 0.0))
             leaveUITask()
             return
 
@@ -5502,35 +5569,24 @@ class VideoThread(QThread):
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
         if TRACELEVEL >= 1:
             print("Started video. framecount:", self.frame_count, "fps:", self.fps, flush=True)
-        
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(self.frame_count-1)
-        self.slider.setValue(0)
+
         if self.fps<1.0:
             self.fps=1.0
         interval=int(self.fps)
         vlength = (self.frame_count-1) / self.fps
         if vlength > 7200:
-            self.slider.setTickPosition(QSlider.TicksBothSides)
             interval=3600*interval
         elif vlength > 120:
-            self.slider.setTickPosition(QSlider.TicksAbove)
             interval=60*interval
-        else:
-            self.slider.setTickPosition(QSlider.TicksBelow)
-        self.slider.setTickInterval(interval)
-        self.slider.setSingleStep(1)        
-        self.slider.setPageStep(int(self.fps))        
-        self.slider.valueChanged.connect(self.sliderChanged)
-        self.slider.registerForMouseEvent(self.onSliderMouseClick)
+        run_on_ui_thread(partial(self._apply_slider_setup, self.frame_count, self.fps, interval, vlength))
 
         videoActive=True
 
         leaveUITask()
 
         try:
-            self.onVideoLoaded(self.frame_count, self.fps, vlength)
-            self.update(self.pause)
+            run_on_ui_thread(partial(self.onVideoLoaded, self.frame_count, self.fps, vlength))
+            run_on_ui_thread(partial(self.update, self.pause))
 
             self.currentFrame=-1      # before start. first frame will be number 0
             self.lastLoadedFrame= -1
@@ -5576,7 +5632,7 @@ class VideoThread(QThread):
                                 if ret and not cv_img is None:
                                     self.currentFrame+=1
                                     self.lastLoadedFrame=self.currentFrame
-                                    self.slider.setValue(self.currentFrame)
+                                    run_on_ui_thread(partial(self._set_slider_value, self.currentFrame))
                                     self.change_pixmap_signal.emit(cv_img, self.uid)
                                 else:
                                     if self.pingPongModeEnabled:
@@ -5690,13 +5746,7 @@ class VideoThread(QThread):
         if ret and self._run_flag:
             self.currentFrame=frame_number
             self.lastLoadedFrame=frame_number
-            #print("seek", frame_number, self.slider.value(), flush=True)
-            if (frame_number!=self.slider.value()):
-                self.slider.blockSignals(True)
-                try:
-                    self.slider.setValue(self.currentFrame)
-                finally:
-                    self.slider.blockSignals(False)
+            run_on_ui_thread(partial(self._set_slider_value, self.currentFrame))
             self.change_pixmap_signal.emit(cv_img, self.uid)
             #QTimer.singleShot(100, partial(self.seekUpdate, cv_img))
         else:
