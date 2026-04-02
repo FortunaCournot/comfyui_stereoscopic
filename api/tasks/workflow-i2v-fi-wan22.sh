@@ -195,7 +195,7 @@ else
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/done
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
-	  rm -rf -- "$INTERMEDIATE_INPUT_FOLDER"
+	    rm -rf -- "$INTERMEDIATE_INPUT_FOLDER"
 		echo -e $"\e[92mtask done.\e[0m"
 	else
 		if [ -z "$INTERMEDIATE" ]; then

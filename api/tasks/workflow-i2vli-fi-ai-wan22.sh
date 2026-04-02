@@ -395,6 +395,7 @@ else
 			echo -e $"\e[33mWarning:\e[0m \e[97mFound ${COUNT} scene intersections in ${FINALTARGET}\e[0m"
 			mkdir -p output/vr/tasks/$TASKNAME/warning
 			mv -- "$FINALTARGET" output/vr/tasks/$TASKNAME/warning
+			mv -- "$FINALTARGETIMG" output/vr/tasks/$TASKNAME/warning
 		fi
 		rm -f "$TMP"
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
