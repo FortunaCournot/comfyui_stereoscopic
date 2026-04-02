@@ -82,6 +82,7 @@ else
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+	SCENEDETECTION_THRESHOLD_DEFAULT=$(awk -F "=" '/SCENEDETECTION_THRESHOLD_DEFAULT=/ {print $2}' $CONFIGFILE) ; SCENEDETECTION_THRESHOLD_DEFAULT=${SCENEDETECTION_THRESHOLD_DEFAULT:-0.1}
 
 #	status=`true &>/dev/null </dev/tcp/$COMFYUIHOST/$COMFYUIPORT && echo open || echo closed`
 #	if [ "$status" = "closed" ]; then
@@ -196,6 +197,24 @@ else
 		mv -- "$INTERMEDIATE" "$FINALTARGET"
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/done
+
+		# --- Scene detection (count intersections) ---
+		SCENE_THRESHOLD=${SCENEDETECTION_THRESHOLD_DEFAULT:-0.1}
+		TMP=$(mktemp)
+		# Run ffmpeg scene detection; ignore errors but collect stderr for showinfo
+		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -y -i "$FINALTARGET" -filter:v "select='gt(scene,${SCENE_THRESHOLD})',showinfo" -f null - 2>>"$TMP" || true
+		COUNT=$(grep -c 'pts_time:' "$TMP" 2>/dev/null || true)
+		COUNT=${COUNT:-0}
+		# Accept either zero intersections OR explicit ignore flag in blueprint
+		IGNORE_SECTIONS=`cat "$BLUEPRINTCONFIG" | grep -o '"ignoresections":[^,}]*' | sed -E 's/.*:[[:space:]]*"?([^" ]+)"?/\1/'` ; IGNORE_SECTIONS=${IGNORE_SECTIONS:-false}
+		if [ "$COUNT" -eq 0 ] || [ "$IGNORE_SECTIONS" = "true" ] ; then
+			echo -e $"\e[34mInfo:\e[0m \e[97mFound ${COUNT} scene intersections in ${FINALTARGET}\e[0m"
+		else
+			echo -e $"\e[33mWarning:\e[0m \e[97mFound ${COUNT} scene intersections in ${FINALTARGET}\e[0m"
+			mkdir -p output/vr/tasks/$TASKNAME/warning
+			mv -- "$FINALTARGET" output/vr/tasks/$TASKNAME/warning
+		fi
+		rm -f "$TMP"
 		echo -e $"\e[92mtask done.\e[0m"
 	else
 		if [ -z "$INTERMEDIATE" ]; then

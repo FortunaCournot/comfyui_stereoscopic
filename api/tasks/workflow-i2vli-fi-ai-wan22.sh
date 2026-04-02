@@ -80,6 +80,7 @@ else
 	FFMPEGPATHPREFIX=$(awk -F "=" '/FFMPEGPATHPREFIX=/ {print $2}' $CONFIGFILE) ; FFMPEGPATHPREFIX=${FFMPEGPATHPREFIX:-""}
 
 	EXIFTOOLBINARY=$(awk -F "=" '/EXIFTOOLBINARY=/ {print $2}' $CONFIGFILE) ; EXIFTOOLBINARY=${EXIFTOOLBINARY:-""}
+	SCENEDETECTION_THRESHOLD_DEFAULT=$(awk -F "=" '/SCENEDETECTION_THRESHOLD_DEFAULT=/ {print $2}' $CONFIGFILE) ; SCENEDETECTION_THRESHOLD_DEFAULT=${SCENEDETECTION_THRESHOLD_DEFAULT:-0.1}
 
 	until [ "$queuecount" = "0" ]
 	do
@@ -114,11 +115,7 @@ else
 	then
 		PROGRESS=`cat input/vr/tasks/BATCHPROGRESS.TXT`" "
 	fi
-	regex="[^/]*$"
-	echo "========== $PROGRESS"`echo $INPUT | grep -oP "$regex"`" =========="
-	
-    rm -rf -- output/vr/tasks/intermediate
-	mkdir -p  output/vr/tasks/intermediate
+
 
 	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams V:0 -show_entries stream=bit_rate,width,height,r_frame_rate,duration,nb_frames -of json -i "$INPUT" >output/vr/tasks/intermediate/probe.txt`
 	`"$FFMPEGPATHPREFIX"ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=codec_type -of json -i "$INPUT" >>output/vr/tasks/intermediate/probe.txt`
@@ -384,8 +381,24 @@ else
 		#mv -- "$INTERMEDIATECAP" "$FINALTARGETCAP"
 		mkdir -p input/vr/tasks/$TASKNAME/done
 		mv -- "$ORIGINALINPUT" input/vr/tasks/$TASKNAME/done
+
+		# --- Scene detection & intersection count ---
+		SCENE_THRESHOLD=${SCENEDETECTION_THRESHOLD_DEFAULT:-0.1}
+		TMP=$(mktemp)
+		"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -y -i "$FINALTARGET" -filter:v "select='gt(scene,${SCENE_THRESHOLD})',showinfo" -f null - 2>>"$TMP" || true
+		COUNT=$(grep -c 'pts_time:' "$TMP" 2>/dev/null || true)
+		COUNT=${COUNT:-0}
+		IGNORE_SECTIONS=`cat "$BLUEPRINTCONFIG" | grep -o '"ignoresections\":[^,}]*' | sed -E 's/.*:[[:space:]]*"?([^" ]+)"?/\1/'` ; IGNORE_SECTIONS=${IGNORE_SECTIONS:-false}
+		if [ "$COUNT" -eq 0 ] || [ "$IGNORE_SECTIONS" = "true" ] ; then
+			echo -e $"\e[34mInfo:\e[0m \e[97mFound ${COUNT} scene intersections in ${FINALTARGET}\e[0m"
+		else
+			echo -e $"\e[33mWarning:\e[0m \e[97mFound ${COUNT} scene intersections in ${FINALTARGET}\e[0m"
+			mkdir -p output/vr/tasks/$TASKNAME/warning
+			mv -- "$FINALTARGET" output/vr/tasks/$TASKNAME/warning
+		fi
+		rm -f "$TMP"
 		rm -f -- "$TARGETPREFIX""$EXTENSION" 2>/dev/null
-	  rm -rf -- "$INTERMEDIATE_INPUT_FOLDER"
+		rm -rf -- "$INTERMEDIATE_INPUT_FOLDER"
 		echo -e $"\e[92mtask done.\e[0m"
 	else
 		if [ -z "$INTERMEDIATE" ]; then
