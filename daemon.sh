@@ -204,6 +204,9 @@ if ! command -v count_files_any_ext >/dev/null 2>&1 || ! command -v count_files_
 	echo "Error: lib_fs functions missing after sourcing $LIB_FS in $(basename \"$0\") (cwd=$(pwd))"; exit 1;
 fi
 
+# Source forward helper once (avoid re-sourcing inside loop)
+. ./custom_nodes/comfyui_stereoscopic/api/lib_forward.sh
+
 
 # Use Systempath for python by default, but set it explictly for comfyui portable.
 PYTHON_BIN_PATH=
@@ -378,6 +381,8 @@ else
 
 	INITIALRUN=TRUE
 	TVAIREPORTED=-1
+    # Treat first loop as a new FS status to trigger an initial autoforward
+    FS_STATUS_NEW=1
 	while true;
 	do
 		iteration_started=$(now_epoch)
@@ -386,11 +391,8 @@ else
 			break
 		fi
 
-		# Run scanner synchronously once per loop iteration before using the refreshed values.
-		# Despite the older wording, this does not run in the background because there is no '&'.
-		scan_started=$(now_epoch)
-		"$PY_EXEC" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
-		log_step_if_slow "Filesystem scan before batch evaluation" "$scan_started" 2
+		# (Filesystem scan moved later to be executed as late as possible before
+		# the FS status comparison and autoforward trigger.)
 
     	# Check availablity of TVAI server
 		tvai_check_started=$(now_epoch)
@@ -564,16 +566,59 @@ else
 				idle_waiting_append_dot || log_step_end_verbose "Forwarding output from check/released" "$released_started"
 			fi
 			
-			# CHECK FOR FORWAPIPELINE_AUTOFORWARD ACTIVATION IN CONFIG AND DO A FULL FORWARD OVER ALL STAGES AND TASKS.
-			# Source forward helper and trigger full forward only when PIPELINE_AUTOFORWARD
-			# changed from 0 to 1 since the last loop iteration.
-			. ./custom_nodes/comfyui_stereoscopic/api/lib_forward.sh
-			if [ "$PREV_PIPELINE_AUTOFORWARD" -eq 0 ] && [ "$PIPELINE_AUTOFORWARD" -ge 1 ] ; then
+			# Run scanner synchronously once per loop iteration just before the quick
+			# comparison so the previous `.prev` copy is as recent as possible and we
+			# detect changes (timestamp/content) quickly. Use a fast binary compare
+			# (cmp -s) later when needed.
+			scan_started=$(now_epoch)
+			if [ -f "$FS_STATUS_FILE" ] ; then
+				cp -f -- "$FS_STATUS_FILE" "$FS_STATUS_FILE".prev 2>/dev/null || true
+			else
+				rm -f -- "$FS_STATUS_FILE".prev 2>/dev/null || true
+			fi
+
+			"$PY_EXEC" ./custom_nodes/comfyui_stereoscopic/api/compute_fs_status.py >/dev/null 2>&1 || true
+
+			log_step_if_slow "Filesystem scan before batch evaluation" "$scan_started" 2
+
+			# QUICK compare previous and new FS status before using the flags.
+			if [ -f "$FS_STATUS_FILE" ] && [ -f "$FS_STATUS_FILE".prev ]; then
+				cmp -s "$FS_STATUS_FILE".prev "$FS_STATUS_FILE"
+				rc=$?
+				if [ "$rc" -eq 0 ]; then
+					FS_STATUS_CHANGED=0
+				elif [ "$rc" -eq 1 ]; then
+					FS_STATUS_CHANGED=1
+				else
+					log_info "cmp error (rc=$rc) while comparing FS status; treating as changed"
+					FS_STATUS_CHANGED=1
+				fi
+			else
+				if [ -f "$FS_STATUS_FILE" ] && [ ! -f "$FS_STATUS_FILE".prev ]; then
+					FS_STATUS_CHANGED=1
+				else
+					FS_STATUS_CHANGED=0
+				fi
+			fi
+
+			# CHECK FOR "PIPELINE_AUTOFORWARD" ACTIVATION IN CONFIG AND DO A FULL FORWARD OVER ALL STAGES AND TASKS.
+			# Trigger full forward when PIPELINE_AUTOFORWARD changed from 0 to 1 since the last loop iteration
+			# OR when the filesystem status file changed since we last computed it, or when this is
+			# the first loop iteration (FS_STATUS_NEW=1). The latter allows very fast detection of
+			# newly produced outputs that must be forwarded.
+			if ( [ "$PREV_PIPELINE_AUTOFORWARD" -eq 0 ] && [ "$PIPELINE_AUTOFORWARD" -ge 1 ] ) \
+			   || ( [ "${FS_STATUS_CHANGED:-0}" -eq 1 ] && [ "$PIPELINE_AUTOFORWARD" -ge 1 ] ) \
+			   || ( [ "${FS_STATUS_NEW:-0}" -eq 1 ] && [ "$PIPELINE_AUTOFORWARD" -ge 1 ] ) ; then
 				idle_waiting_endline
 				autoforward_started=$(now_epoch)
 				log_step_start "Running autoforward cleanup across stages and tasks"
 				do_autoforward
 				log_step_end "Running autoforward cleanup across stages and tasks" "$autoforward_started"
+				# reset the flags so we don't re-run autoforward on the same change
+				FS_STATUS_CHANGED=0
+				rm -f -- "$FS_STATUS_FILE".prev 2>/dev/null || true
+				# clear the initial-new flag after first run
+				unset FS_STATUS_NEW 2>/dev/null || true
 			fi
 			# update previous value for next iteration
 			PREV_PIPELINE_AUTOFORWARD=$PIPELINE_AUTOFORWARD
