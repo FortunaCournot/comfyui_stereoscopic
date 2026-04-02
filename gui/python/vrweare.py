@@ -1887,6 +1887,29 @@ class SpreadsheetApp(QMainWindow):
                                         value = ""
                                     if forward:
                                         value = value + " ➤"
+                                    # Check for a warning subfolder under the output folder. If present and contains
+                                    # user files, prefix the cell with "{!N}" and force an orange color (highest priority).
+                                    try:
+                                        folder_out = os.path.join(path, "../../../../output/vr/" + stage_name)
+                                        warn_dir = os.path.join(folder_out, "warning")
+                                        if os.path.exists(warn_dir):
+                                            try:
+                                                warn_files = next(os.walk(warn_dir))[2]
+                                                # filter similar to main scanners: ignore .txt and metadata
+                                                warn_files = [f for f in warn_files if not f.lower().endswith('.txt')]
+                                                warn_files = [f for f in warn_files if '.' in f]
+                                                warn_files = [f for f in warn_files if f.lower() not in IGNORED_BASENAMES]
+                                                warn_count = len(warn_files)
+                                            except Exception:
+                                                warn_count = 0
+                                        else:
+                                            warn_count = 0
+                                        if warn_count > 0:
+                                            value = f"{{!{warn_count}}} " + value
+                                            color = DISABLED_GREEN_OVERRIDE_COLOR
+                                            displayRequired = True
+                                    except Exception:
+                                        pass
                                 else:
                                     value = "?"
                                     color = "red"
