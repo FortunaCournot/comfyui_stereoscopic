@@ -315,11 +315,9 @@ else
 			cd "$COMFYUIPATH"
 			echo ""
 			echo -e $"\e[91mError:\e[0m@$p/$PARALLELITY: No flac files!"
-			#echo -e $"\e[93mWarning:\e[0m@$p/$PARALLELITY: No flac files. Skipped dubbing."
-			#cp -fv $INPUT $FINALTARGETFOLDER
-			#mkdir -p ./input/vr/dubbing/music/done
-			#mv -fv $INPUT ./input/vr/dubbing/music/done
-			exit 1
+			mkdir -p ./input/vr/dubbing/music/error
+			mv -fv $INPUT ./input/vr/dubbing/music/error
+			exit 0
 		else
 			for f in *.flac; do
 				"$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -y  -i $f -af "afade=d=0.05,areverse,afade=d=0.05,areverse" "faded"$f
