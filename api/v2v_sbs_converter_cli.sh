@@ -135,7 +135,7 @@ else
 	"$FFMPEGPATHPREFIX"ffprobe "$INTERMEDIATEPREFIX"".mp4" 2>/dev/null
 	status=$?
 	if [ $status -ne 0 ] ; then
-		echo -e $"\e[91mError\e[0m: Converter failed - retry with low resolution fallback."
+		echo -e $"\e[91mError\e[0m: Converter failed - retry (1st) with low resolution fallback."
 		rm -f -- "$INTERMEDIATEPREFIX"".mp4" >/dev/null
 		INPUT2="$INPUT"
 		if [ $RESW -gt 2400 ] ; then
@@ -163,18 +163,52 @@ else
 		fi
 		"$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" --quality "$VIDEOQUALITYPRESET" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale $depth_scale --depth-offset $depth_offset --blur-radius $blur_radius --symmetric
 		"$FFMPEGPATHPREFIX"ffprobe "$INTERMEDIATEPREFIX"".mp4" 2>/dev/null
-		status=$?
-		if [ $status -ne 0 ] ; then
-			echo -e $"\e[91mError\e[0m: Converter failed."
-			mkdir -p $CWD/input/vr/fullsbs/error
-			mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
-			exit -1
-		fi
+
+    status=$?
+    if [ $status -ne 0 ] ; then
+      echo -e $"\e[91mError\e[0m: Converter failed - retry (2nd) with low resolution fallback."
+      rm -f -- "$INTERMEDIATEPREFIX"".mp4" >/dev/null
+      INPUT2="$INPUT"
+      if [ $RESW -gt 1280 ] ; then
+        nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=1280:-2" "$INTERMEDIATEPREFIX""-dw"".mp4" 
+        if [ ! -s "$INTERMEDIATEPREFIX""-dw"".mp4" ] ; then
+          echo -e $"\e[91mError\e[0m: Rescale width failed."
+          mkdir -p $CWD/input/vr/fullsbs/error
+          mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
+          exit -1
+        else
+          INPUT2="$INTERMEDIATEPREFIX""-dw"".mp4"
+        fi
+      fi
+      RESH=`"$FFMPEGPATHPREFIX"ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 $INPUT2`
+      if [ $RESH -gt 1280 ] ; then
+        nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INPUT2" -filter:v "scale=-2:1280" "$INTERMEDIATEPREFIX""-dh"".mp4" 
+        if [ ! -s "$INTERMEDIATEPREFIX""-dh"".mp4" ] ; then
+          echo -e $"\e[91mError\e[0m: Rescale height failed."
+          mkdir -p $CWD/input/vr/fullsbs/error
+          mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
+          exit -1
+        else
+          INPUT2="$INTERMEDIATEPREFIX""-dh"".mp4"
+        fi
+      fi
+      "$PYTHON_BIN_PATH"python.exe $SCRIPTPATH -i "$INPUT2" -o "$INTERMEDIATEPREFIX"".mp4" --quality "$VIDEOQUALITYPRESET" --model "depth-anything/Depth-Anything-V2-Small-hf" --depth-scale $depth_scale --depth-offset $depth_offset --blur-radius $blur_radius --symmetric
+      "$FFMPEGPATHPREFIX"ffprobe "$INTERMEDIATEPREFIX"".mp4" 2>/dev/null
+      status=$?  
+      if [ $status -ne 0 ] ; then
+        ls -la 
+        echo -e $"\e[91mError\e[0m: Converter failed (ffprobe detected)."
+        mkdir -p $CWD/input/vr/fullsbs/error
+        mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
+        exit -1
+      fi
+    fi
 	fi
 	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4"
 	end=`date +%s`
 	
 	if [ ! -s "$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4" ] ; then
+    ls -la "$FINALTARGETFOLDER"
 		echo -e $"\e[91mError\e[0m: Converter failed."
 		mkdir -p $CWD/input/vr/fullsbs/error
 		mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
