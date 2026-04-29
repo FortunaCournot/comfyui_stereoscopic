@@ -5,6 +5,68 @@ from PIL import Image
 from math import floor, sqrt
 from typing import Iterable
 
+
+def _safe_resize(current_image_np, newwidth, newheight, algo, image_pil=None):
+    """Resize with best-effort GPU (UMat) first, then CPU cv2, then PIL fallback.
+    Avoid using UMat for very large buffers to prevent OpenCL OOM/CL_OUT_OF_RESOURCES.
+    """
+    # detect OpenCL availability safely
+    use_opencl = False
+    try:
+        if hasattr(cv2, 'ocl') and hasattr(cv2.ocl, 'haveOpenCL') and callable(cv2.ocl.haveOpenCL):
+            try:
+                use_opencl = bool(cv2.ocl.haveOpenCL())
+            except Exception:
+                use_opencl = False
+    except Exception:
+        use_opencl = False
+
+    # estimate buffer size
+    try:
+        bytesize = int(getattr(current_image_np, 'nbytes', np.prod(current_image_np.shape) * current_image_np.dtype.itemsize))
+    except Exception:
+        bytesize = 0
+
+    # conservative GPU threshold (48 MB)
+    max_gpu_bytes = 48 * 1024 * 1024
+
+    # Try UMat path only when OpenCL seems available and buffer isn't huge
+    if use_opencl and bytesize and bytesize <= max_gpu_bytes:
+        try:
+            gpu_mat = cv2.UMat(current_image_np)
+            result_mat = cv2.resize(gpu_mat, dsize=(newwidth, newheight), interpolation=algo)
+            if hasattr(result_mat, 'get'):
+                return result_mat.get()
+            return result_mat
+        except Exception as e:
+            print(f"[scaling._safe_resize] UMat path failed, falling back: {e}")
+
+    # CPU OpenCV path (most compatible)
+    try:
+        return cv2.resize(current_image_np, dsize=(newwidth, newheight), interpolation=algo)
+    except Exception as e:
+        print(f"[scaling._safe_resize] CPU cv2.resize failed, trying PIL fallback: {e}")
+
+    # PIL fallback
+    try:
+        if image_pil is None:
+            image_pil = Image.fromarray(current_image_np)
+        pil_map = {
+            cv2.INTER_NEAREST: Image.NEAREST,
+            cv2.INTER_LINEAR: Image.BILINEAR,
+            cv2.INTER_CUBIC: Image.BICUBIC,
+            cv2.INTER_LANCZOS4: Image.LANCZOS,
+            cv2.INTER_AREA: Image.BILINEAR,
+        }
+        resample = pil_map.get(algo, Image.BILINEAR)
+        pil_res = image_pil.resize((newwidth, newheight), resample=resample)
+        return np.array(pil_res)
+    except Exception as e:
+        print(f"[scaling._safe_resize] PIL fallback also failed: {e}")
+
+    # last resort: return original
+    return current_image_np
+
 class ScaleByFactor:
     @classmethod
     def INPUT_TYPES(cls):
@@ -69,11 +131,12 @@ INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood.  "
 
                 newwidth=int( width * factor / round ) * round
                 newheight=int( height * factor / round ) * round
-                # print(f"[ScaleByFactor] dimension: {width} x {height} -> {newwidth} x {newheight} ")
-                
-                gpu_mat = cv2.UMat(current_image_np)
-                result_mat = cv2.resize(gpu_mat, dsize=(newwidth, newheight), interpolation=algo)
-                image_res=cv2.UMat.get(result_mat)
+                # ensure dimensions are at least 1
+                newwidth = max(1, int(newwidth))
+                newheight = max(1, int(newheight))
+
+                # Use a robust resize helper that tries GPU (UMat) then CPU cv2, then PIL fallback
+                image_res = _safe_resize(current_image_np, newwidth, newheight, algo, image_pil=image_pil)
                 # Convert to tensor
                 image_tensor = torch.tensor(image_res.astype(np.float32) / 255.0)
                 # Add to our batch lists
@@ -157,11 +220,13 @@ INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood.  "
 
                 newwidth=int( width * factor / round ) * round
                 newheight=int( height * factor / round ) * round
+                # ensure dimensions are at least 1
+                newwidth = max(1, int(newwidth))
+                newheight = max(1, int(newheight))
                 # print(f"[ScaleToResolution] dimension: {width} x {height} -> {newwidth} x {newheight} ")
-                
-                gpu_mat = cv2.UMat(current_image_np)
-                result_mat = cv2.resize(gpu_mat, dsize=(newwidth, newheight), interpolation=algo)
-                image_res=cv2.UMat.get(result_mat)
+
+                # Use a robust resize helper that tries GPU (UMat) then CPU cv2, then PIL fallback
+                image_res = _safe_resize(current_image_np, newwidth, newheight, algo, image_pil=image_pil)
                 # Convert to tensor
                 image_tensor = torch.tensor(image_res.astype(np.float32) / 255.0)
                 # Add to our batch lists
