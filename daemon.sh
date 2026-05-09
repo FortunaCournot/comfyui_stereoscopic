@@ -100,7 +100,7 @@ TVAI_LAST_HTTP_CODE=
 
 tvai_server_available() {
 	# Keep --ssl-no-revoke for the Windows/Git Bash TVAI probe to match the daemon's existing curl behavior.
-	TVAI_LAST_HTTP_CODE=$(curl --ssl-no-revoke -s -o /dev/null -w "%{http_code}" "$TVAI_SERVER_URL" 2>/dev/null)
+	TVAI_LAST_HTTP_CODE=$(curl --ssl-no-revoke -I -s -o /dev/null -w "%{http_code}" "$TVAI_SERVER_URL" 2>/dev/null)
 	[ -n "$TVAI_LAST_HTTP_CODE" ] && [ "$TVAI_LAST_HTTP_CODE" -gt 0 ] && [ "$TVAI_LAST_HTTP_CODE" -lt 400 ]
 }
 
