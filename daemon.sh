@@ -94,16 +94,13 @@ log_step_if_slow() {
 }
 
 TVAI_SERVER_URL=https://topazlabs.com/
-TVAI_AUTH_EXPIRY_MINUTES=43200
+TVAI_AUTH_EXPIRY_DAYS=30
+TVAI_AUTH_EXPIRY_MINUTES=$((TVAI_AUTH_EXPIRY_DAYS * 24 * 60))
 TVAI_LAST_HTTP_CODE=
 
 tvai_server_available() {
-	local tmp_file
-	tmp_file=$(mktemp)
-	curl --ssl-no-revoke -v -s -o - -I "$TVAI_SERVER_URL" >/dev/null 2>"$tmp_file"
-	TVAI_LAST_HTTP_CODE=$(grep "HTTP/1.1 " "$tmp_file" | cut -d ' ' -f3)
-	rm -f -- "$tmp_file"
-	[ -n "$TVAI_LAST_HTTP_CODE" ] && [ "$TVAI_LAST_HTTP_CODE" -lt 400 ]
+	TVAI_LAST_HTTP_CODE=$(curl --ssl-no-revoke -s -o /dev/null -w '%{http_code}' "$TVAI_SERVER_URL" 2>/dev/null)
+	[ -n "$TVAI_LAST_HTTP_CODE" ] && [ "$TVAI_LAST_HTTP_CODE" -gt 0 ] && [ "$TVAI_LAST_HTTP_CODE" -lt 400 ]
 }
 
 IDLE_WAITING_ACTIVE=0
