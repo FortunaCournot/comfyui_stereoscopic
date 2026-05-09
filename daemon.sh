@@ -406,7 +406,7 @@ else
 		# (Filesystem scan moved later to be executed as late as possible before
 		# the FS status comparison and autoforward trigger.)
 
-    	# Check availablity of TVAI server
+		# Check availability of TVAI server
 		tvai_check_started=$(now_epoch)
 		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ $TVAIREPORTED -ne 0 ] ; then
 			if ! tvai_server_available ; then
@@ -438,7 +438,7 @@ else
 				else
 					echo -e $"\e[93mWarning:\e[0m TVAI authentication is older than 30 days, but TVAI server not present ( $TVAI_LAST_HTTP_CODE )."
 					echo "Authentication remains valid for this daemon run."
-					echo "Restart the daemon to retry the one-time auth check when the server is reachable."
+					echo "Restart the daemon when the server is reachable to retry the authentication expiry check (performed once per daemon start)."
 				fi
 			fi
 		fi
