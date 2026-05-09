@@ -93,6 +93,17 @@ log_step_if_slow() {
 	fi
 }
 
+TVAI_LAST_HTTP_CODE=
+
+tvai_server_available() {
+	local tmp_file
+	tmp_file=$(mktemp)
+	curl --ssl-no-revoke -v -s -o - -I https://topazlabs.com/ >/dev/null 2>"$tmp_file"
+	TVAI_LAST_HTTP_CODE=$(grep "HTTP/1.1 " "$tmp_file" | cut -d ' ' -f3)
+	rm -f -- "$tmp_file"
+	[ -n "$TVAI_LAST_HTTP_CODE" ] && [ "$TVAI_LAST_HTTP_CODE" -lt 400 ]
+}
+
 IDLE_WAITING_ACTIVE=0
 IDLE_WAITING_SUFFIX=
 
@@ -381,6 +392,7 @@ else
 
 	INITIALRUN=TRUE
 	TVAIREPORTED=-1
+	TVAI_AUTH_CHECK_DONE=0
     # Treat first loop as a new FS status to trigger an initial autoforward
     FS_STATUS_NEW=1
 	while true;
@@ -397,13 +409,10 @@ else
     	# Check availablity of TVAI server
 		tvai_check_started=$(now_epoch)
 		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ $TVAIREPORTED -ne 0 ] ; then
-			TMP_FILE=$(mktemp)
-			curl --ssl-no-revoke -v -s -o - -I https://topazlabs.com/ >/dev/null 2>$TMP_FILE
-			HTTP_CODE=`grep "HTTP/1.1 " $TMP_FILE | cut -d ' ' -f3`
-			if [ -z "$HTTP_CODE" ] || [ $HTTP_CODE -ge 400 ] ; then
+			if ! tvai_server_available ; then
 				if [ $TVAIREPORTED -lt 1 ] ; then
 				TVAIREPORTED=1
-				echo -e $"\e[93mWarning: TVAI server not present ( $HTTP_CODE ).\e[0m"
+				echo -e $"\e[93mWarning: TVAI server not present ( $TVAI_LAST_HTTP_CODE ).\e[0m"
 				sleep 4
 				fi
 			else
@@ -412,15 +421,21 @@ else
 				fi
 				TVAIREPORTED=0
 			fi
-			rm "$TMP_FILE"    
 		fi
 		log_step_if_slow "TVAI availability check" "$tvai_check_started" 2
 
 		# Is there is a limit a TVAI login is valid? Enforce re-login before watermark is applied.
-		#if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [[ $(find "$TVAI_MODEL_DIR"/auth.tpz -mtime +40 -print) ]]; then
-		#  echo "TVAI authentication exists but is older than 40 days - invalidated."
-		#  mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
-		#fi
+		if [ $TVAI_AUTH_CHECK_DONE -eq 0 ] && [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] ; then
+			TVAI_AUTH_CHECK_DONE=1
+			if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [ -n "$(find "$TVAI_MODEL_DIR"/auth.tpz -mmin +43200 -print -quit 2>/dev/null)" ] ; then
+				if tvai_server_available ; then
+					echo "TVAI authentication exists but is older than 30 days - invalidated."
+					mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
+				else
+					echo -e $"\e[93mWarning:\e[0m TVAI authentication is older than 30 days, but TVAI server not present ( $TVAI_LAST_HTTP_CODE ). Skipping invalidation until daemon restart."
+				fi
+			fi
+		fi
 
 		tvai_login_started=
 		if [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] && [ ! -e "$TVAI_MODEL_DIR"/auth.tpz ] ; then
