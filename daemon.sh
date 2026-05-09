@@ -433,12 +433,12 @@ else
 			fi
 			if [ -n "$auth_tpz_expired" ] ; then
 				if tvai_server_available ; then
-					echo "TVAI authentication exists but is older than 30 days - invalidated."
+					echo "TVAI authentication exists but is older than ${TVAI_AUTH_EXPIRY_DAYS} days - invalidated."
 					mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
 				else
-					echo -e $"\e[93mWarning:\e[0m TVAI authentication is older than 30 days, but TVAI server not present ( $TVAI_LAST_HTTP_CODE )."
+					echo -e $"\e[93mWarning:\e[0m TVAI authentication is older than ${TVAI_AUTH_EXPIRY_DAYS} days, but TVAI server not present ( $TVAI_LAST_HTTP_CODE )."
 					echo "Authentication remains valid for this daemon run."
-					echo "Restart the daemon when the server is reachable to retry the authentication expiry check (performed once per daemon start)."
+					echo "To retry the authentication expiry check, restart the daemon when the server is reachable (check is performed once per daemon start)."
 				fi
 			fi
 		fi
