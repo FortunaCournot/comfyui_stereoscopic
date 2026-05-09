@@ -425,13 +425,17 @@ else
 
 		# Is there is a limit a TVAI login is valid? Enforce re-login before watermark is applied.
 		if [ $TVAI_AUTH_CHECK_DONE -eq 0 ] && [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] ; then
+			auth_tpz_expired=
 			TVAI_AUTH_CHECK_DONE=1
-			if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [ -n "$(find "$TVAI_MODEL_DIR"/auth.tpz -mmin +"$TVAI_AUTH_EXPIRY_MINUTES" -print -quit 2>/dev/null)" ] ; then
+			if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] ; then
+				auth_tpz_expired=$(find "$TVAI_MODEL_DIR"/auth.tpz -mmin +"$TVAI_AUTH_EXPIRY_MINUTES" -print -quit 2>/dev/null)
+			fi
+			if [ -n "$auth_tpz_expired" ] ; then
 				if tvai_server_available ; then
 					echo "TVAI authentication exists but is older than 30 days - invalidated."
 					mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
 				else
-					echo -e $"\e[93mWarning:\e[0m TVAI authentication is older than 30 days, but TVAI server not present ( $TVAI_LAST_HTTP_CODE ). Skipping invalidation until daemon restart."
+					echo -e $"\e[93mWarning:\e[0m TVAI authentication is older than 30 days, but TVAI server not present ( $TVAI_LAST_HTTP_CODE ). Skipping invalidation for this daemon session; retry requires a daemon restart."
 				fi
 			fi
 		fi
