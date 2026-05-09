@@ -99,6 +99,7 @@ TVAI_AUTH_EXPIRY_MINUTES=$((TVAI_AUTH_EXPIRY_DAYS * 24 * 60))
 TVAI_LAST_HTTP_CODE=
 
 tvai_server_available() {
+	# Keep --ssl-no-revoke for the Windows/Git Bash TVAI probe to match the daemon's existing curl behavior.
 	TVAI_LAST_HTTP_CODE=$(curl --ssl-no-revoke -s -o /dev/null -w '%{http_code}' "$TVAI_SERVER_URL" 2>/dev/null)
 	[ -n "$TVAI_LAST_HTTP_CODE" ] && [ "$TVAI_LAST_HTTP_CODE" -gt 0 ] && [ "$TVAI_LAST_HTTP_CODE" -lt 400 ]
 }
@@ -436,7 +437,7 @@ else
 					mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
 				else
 					echo -e $"\e[93mWarning:\e[0m TVAI authentication is older than 30 days, but TVAI server not present ( $TVAI_LAST_HTTP_CODE )."
-					echo "Skipping invalidation for this daemon session. Retry requires a daemon restart."
+					echo "Authentication remains valid until a daemon restart can retry with the server reachable."
 				fi
 			fi
 		fi
