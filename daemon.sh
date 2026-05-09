@@ -93,12 +93,14 @@ log_step_if_slow() {
 	fi
 }
 
+TVAI_SERVER_URL=https://topazlabs.com/
+TVAI_AUTH_EXPIRY_MINUTES=43200
 TVAI_LAST_HTTP_CODE=
 
 tvai_server_available() {
 	local tmp_file
 	tmp_file=$(mktemp)
-	curl --ssl-no-revoke -v -s -o - -I https://topazlabs.com/ >/dev/null 2>"$tmp_file"
+	curl --ssl-no-revoke -v -s -o - -I "$TVAI_SERVER_URL" >/dev/null 2>"$tmp_file"
 	TVAI_LAST_HTTP_CODE=$(grep "HTTP/1.1 " "$tmp_file" | cut -d ' ' -f3)
 	rm -f -- "$tmp_file"
 	[ -n "$TVAI_LAST_HTTP_CODE" ] && [ "$TVAI_LAST_HTTP_CODE" -lt 400 ]
@@ -427,7 +429,7 @@ else
 		# Is there is a limit a TVAI login is valid? Enforce re-login before watermark is applied.
 		if [ $TVAI_AUTH_CHECK_DONE -eq 0 ] && [ -e "$TVAI_BIN_DIR" ] && [ -e "$TVAI_MODEL_DIR" ] ; then
 			TVAI_AUTH_CHECK_DONE=1
-			if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [ -n "$(find "$TVAI_MODEL_DIR"/auth.tpz -mmin +43200 -print -quit 2>/dev/null)" ] ; then
+			if [ -e "$TVAI_MODEL_DIR"/auth.tpz ] && [ -n "$(find "$TVAI_MODEL_DIR"/auth.tpz -mmin +"$TVAI_AUTH_EXPIRY_MINUTES" -print -quit 2>/dev/null)" ] ; then
 				if tvai_server_available ; then
 					echo "TVAI authentication exists but is older than 30 days - invalidated."
 					mv -f -- "$TVAI_MODEL_DIR"/auth.tpz "$TVAI_MODEL_DIR"/auth-invalidated.tpz
