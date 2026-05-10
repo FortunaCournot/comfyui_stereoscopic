@@ -199,7 +199,7 @@ else
 		echo -e $"\e[92mtask done.\e[0m"
 	else
 		if [ -z "$INTERMEDIATE" ]; then
-			echo -e $"\e[91mError:\e[0m Task failed. No intermediate video found (prefix: $SEARCH_PREFIX, ext: $EXTENSION)."
+			echo -e $"\e[91mError:\e[0m Task failed. ComfyUI produced no output (prefix: $SEARCH_PREFIX, ext: $EXTENSION)."
 		else
 			echo -e $"\e[91mError:\e[0m Task failed. Intermediate video exists but has zero length: $INTERMEDIATE"
 		fi
