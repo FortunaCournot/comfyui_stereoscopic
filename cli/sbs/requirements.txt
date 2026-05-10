@@ -1,3 +1,5 @@
+torch>=2.4,<2.7
+torchvision>=0.19,<0.22
 numpy
 numba
 opencv-python
@@ -8,4 +10,3 @@ matplotlib
 transformers
 nvidia-ml-py
 av
-
