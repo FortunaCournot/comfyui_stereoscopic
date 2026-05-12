@@ -220,12 +220,12 @@ else
 	if [ ! -s "$FINALTARGET" ] ; then
     ls -la "$FINALTARGETFOLDER"
 		echo -e $"\e[91mError\e[0m: Converter failed."
-		mkdir -p $CWD/input/vr/fullsbs/error
-		mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
-		exit -1
+		mkdir -p "$CWD"/input/vr/fullsbs/error
+		mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/error
+		exit 1
 	fi
 
-	mv -fv -- $INPUT $CWD/input/vr/fullsbs/done
+	mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/done
 	rm -f -- "$INPUT2" >/dev/null
 	runtime=$((end-startjob))
 	echo -e $"\e[92mdone.\e[0m duration: $runtime""s.                         "
