@@ -214,14 +214,6 @@ else
 	fi
 	rm -f -- "$INTERMEDIATEPREFIX"".mp4" >/dev/null
 	end=`date +%s`
-	
-	if [ ! -s "$FINALTARGET" ] ; then
-    ls -la "$FINALTARGETFOLDER"
-		echo -e $"\e[91mError\e[0m: Converter failed."
-		mkdir -p "$CWD"/input/vr/fullsbs/error
-		mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/error
-		exit 1
-	fi
 
 	mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/done
 	rm -f -- "$INPUT2" >/dev/null
