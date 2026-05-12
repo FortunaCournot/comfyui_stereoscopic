@@ -204,10 +204,20 @@ else
       fi
     fi
 	fi
-	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4"
+	FINALTARGET="$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4"
+	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGET"
+	FASTSTARTTARGET="$INTERMEDIATEPREFIX""-faststart.mp4"
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$FINALTARGET" -c copy -movflags +faststart "$FASTSTARTTARGET"
+	if [ ! -s "$FASTSTARTTARGET" ] ; then
+		echo -e $"\e[91mError\e[0m: Faststart conversion failed."
+		mkdir -p $CWD/input/vr/fullsbs/error
+		mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
+		exit -1
+	fi
+	mv -f -- "$FASTSTARTTARGET" "$FINALTARGET"
 	end=`date +%s`
 	
-	if [ ! -s "$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4" ] ; then
+	if [ ! -s "$FINALTARGET" ] ; then
     ls -la "$FINALTARGETFOLDER"
 		echo -e $"\e[91mError\e[0m: Converter failed."
 		mkdir -p $CWD/input/vr/fullsbs/error
@@ -223,4 +233,3 @@ else
 	
 fi
 exit 0
-
