@@ -208,6 +208,7 @@ else
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INTERMEDIATEPREFIX"".mp4" -c copy -movflags +faststart "$FINALTARGET"
 	if [ ! -s "$FINALTARGET" ] ; then
 		echo -e $"\e[91mError\e[0m: Faststart remux failed (output file missing or empty)."
+		rm -f -- "$INTERMEDIATEPREFIX"".mp4" >/dev/null
 		mkdir -p "$CWD"/input/vr/fullsbs/error
 		mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/error
 		exit 1
