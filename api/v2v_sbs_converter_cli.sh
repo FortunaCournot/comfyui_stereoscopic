@@ -205,16 +205,14 @@ else
     fi
 	fi
 	FINALTARGET="$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4"
-	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGET"
-	FASTSTARTTARGET="$INTERMEDIATEPREFIX""-faststart.mp4"
-	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$FINALTARGET" -c copy -movflags +faststart "$FASTSTARTTARGET"
-	if [ ! -s "$FASTSTARTTARGET" ] ; then
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INTERMEDIATEPREFIX"".mp4" -c copy -movflags +faststart "$FINALTARGET"
+	if [ ! -s "$FINALTARGET" ] ; then
 		echo -e $"\e[91mError\e[0m: Faststart remux failed (output file missing or empty)."
 		mkdir -p "$CWD"/input/vr/fullsbs/error
 		mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/error
 		exit 1
 	fi
-	mv -f -- "$FASTSTARTTARGET" "$FINALTARGET"
+	rm -f -- "$INTERMEDIATEPREFIX"".mp4" >/dev/null
 	end=`date +%s`
 	
 	if [ ! -s "$FINALTARGET" ] ; then
