@@ -209,7 +209,7 @@ else
 	FASTSTARTTARGET="$INTERMEDIATEPREFIX""-faststart.mp4"
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$FINALTARGET" -c copy -movflags +faststart "$FASTSTARTTARGET"
 	if [ ! -s "$FASTSTARTTARGET" ] ; then
-		echo -e $"\e[91mError\e[0m: Faststart conversion failed."
+		echo -e $"\e[91mError\e[0m: Faststart remux failed (output file missing or empty)."
 		mkdir -p "$CWD"/input/vr/fullsbs/error
 		mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/error
 		exit 1
