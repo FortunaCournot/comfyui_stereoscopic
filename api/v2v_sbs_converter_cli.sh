@@ -204,18 +204,21 @@ else
       fi
     fi
 	fi
-	mv "$INTERMEDIATEPREFIX"".mp4" "$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4"
-	end=`date +%s`
-	
-	if [ ! -s "$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4" ] ; then
-    ls -la "$FINALTARGETFOLDER"
-		echo -e $"\e[91mError\e[0m: Converter failed."
-		mkdir -p $CWD/input/vr/fullsbs/error
-		mv -fv -- $INPUT $CWD/input/vr/fullsbs/error
-		exit -1
+	FINALTARGET="$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4"
+	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INTERMEDIATEPREFIX"".mp4" -c copy -movflags +faststart "$FINALTARGET"
+	remux_status=$?
+	if [ "$remux_status" -ne 0 ] || [ ! -s "$FINALTARGET" ] ; then
+		echo -e $"\e[91mError\e[0m: Faststart remux failed (ffmpeg exit=$remux_status, output missing/empty)."
+		rm -f -- "$INTERMEDIATEPREFIX"".mp4" >/dev/null
+		rm -f -- "$FINALTARGET" >/dev/null
+		mkdir -p "$CWD"/input/vr/fullsbs/error
+		mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/error
+		exit 1
 	fi
+	rm -f -- "$INTERMEDIATEPREFIX"".mp4" >/dev/null
+	end=`date +%s`
 
-	mv -fv -- $INPUT $CWD/input/vr/fullsbs/done
+	mv -fv -- "$INPUT" "$CWD"/input/vr/fullsbs/done
 	rm -f -- "$INPUT2" >/dev/null
 	runtime=$((end-startjob))
 	echo -e $"\e[92mdone.\e[0m duration: $runtime""s.                         "
@@ -223,4 +226,3 @@ else
 	
 fi
 exit 0
-
