@@ -207,7 +207,7 @@ else
 	FINALTARGET="$FINALTARGETFOLDER"/"$TARGETPREFIX_SBS"".mp4"
 	nice "$FFMPEGPATHPREFIX"ffmpeg -hide_banner -loglevel error -stats -y -i "$INTERMEDIATEPREFIX"".mp4" -c copy -movflags +faststart "$FINALTARGET"
 	remux_status=$?
-	if [ $remux_status -ne 0 ] || [ ! -s "$FINALTARGET" ] ; then
+	if [ "$remux_status" -ne 0 ] || [ ! -s "$FINALTARGET" ] ; then
 		echo -e $"\e[91mError\e[0m: Faststart remux failed (ffmpeg exit=$remux_status, output missing/empty)."
 		rm -f -- "$INTERMEDIATEPREFIX"".mp4" >/dev/null
 		rm -f -- "$FINALTARGET" >/dev/null
