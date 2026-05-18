@@ -1,6 +1,7 @@
 import argparse
 import os
 import glob
+import time
 import numpy as np
 import cv2
 import torch
@@ -23,6 +24,11 @@ class DepthEstimator:
     def __init__(self):
         self.device = torch.device("cpu")  # default CPU
         self.model_id = None
+        
+        self.cuda_available = False
+        self.sm = 0.0
+        
+        self.bf16_supported = False
         self.processor = None
         self.model = None
 
@@ -30,8 +36,15 @@ class DepthEstimator:
         if self._cuda_ok():
             print("Using CUDA")
             self.device = torch.device("cuda")
+
+            major, minor = torch.cuda.get_device_capability()
+            self.sm = major + minor / 10
+            self.bf16_supported = torch.cuda.is_bf16_supported()
+            self.cuda_available = True
+
+            print(f"CUDA capability: SM {self.sm:.1f}")
         else:
-            torch.set_num_threads(os.cpu_count()) 
+            torch.set_num_threads(os.cpu_count())
             print("Using CPU")
 
     def _cuda_ok(self) -> bool:
@@ -43,9 +56,62 @@ class DepthEstimator:
         except Exception as e:
             print("WARN CUDA not usable:", repr(e))
             return False
+            
+    def resolve_autocast_mode(self, autocast: str | None) -> str | None:
+        """
+        Resolve CLI/preset autocast mode into runtime mode:
+        None / "float16" / "bfloat16"
+        """
+
+        if autocast is None:
+            autocast = "auto"
+
+        if autocast == "none":
+            print("AMP autocast: disabled")
+            return None
+
+        if self.device.type != "cuda" or not self.cuda_available:
+            if autocast == "auto":
+                print("AMP autocast: auto -> disabled (CUDA unavailable)")
+            else:
+                print(f"AMP autocast: {autocast} -> disabled (CUDA unavailable)")
+            return None
+
+        if autocast == "auto":
+            if self.bf16_supported and self.sm >= 8.9:
+                print(f"AMP autocast: auto -> bfloat16 (SM {self.sm:.1f})")
+                return "bfloat16"
+
+            if self.sm >= 8.0:
+                print(f"AMP autocast: auto -> float16 (SM {self.sm:.1f})")
+                return "float16"
+
+            print(f"AMP autocast: auto -> disabled (SM {self.sm:.1f})")
+            return None
+
+        if autocast == "bfloat16":
+            if self.bf16_supported:
+                print("AMP autocast: bfloat16")
+                return "bfloat16"
+
+            if self.sm >= 8.0:
+                print(f"AMP autocast: bfloat16 unsupported -> float16 (SM {self.sm:.1f})")
+                return "float16"
+
+            print(f"AMP autocast: bfloat16 unsupported -> disabled (SM {self.sm:.1f})")
+            return None
+
+        if autocast == "float16":
+            if self.sm >= 8.0:
+                print("AMP autocast: float16")
+                return "float16"
+
+            print(f"AMP autocast: float16 requested -> disabled (SM {self.sm:.1f})")
+            return None
+
+        raise ValueError(f"Unknown autocast mode: {autocast}")
 
 
-        
     def load_model(self, model_id: str,cudnn_benchmark: bool):
         """
         Load model only if it's not already loaded or if different model requested.
@@ -88,11 +154,7 @@ class DepthEstimator:
         # Amp autocast check
         if self.device.type == "cuda" and autocast is not None:
             if autocast == "bfloat16":
-                if torch.cuda.is_bf16_supported():
-                    ac_dtype = torch.bfloat16
-                else:
-                    print("bfloat16 is not supported on this GPU. Falling back to float16.")
-                    ac_dtype = torch.float16
+                ac_dtype = torch.bfloat16
 
             elif autocast == "float16":
                 ac_dtype = torch.float16
