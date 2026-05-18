@@ -214,6 +214,7 @@ def validate_config(params, parser=None):
     codec = params.get("codec")
     preset = params.get("preset") 
     video_quality = params.get("quality")  or params.get("video_quality")
+    infer_accum_batches = params.get("infer_accum_batches")
     
     def fail(msg):
         if parser:
@@ -230,6 +231,9 @@ def validate_config(params, parser=None):
             fail("--feeders must be 1 when --input-type=video")
         if output_path and not output_path.lower().endswith((".mp4", ".mkv", ".avi", ".mov")):
             fail("--output must be a video file path (with extension .mp4/.mkv/...)")
+        if infer_accum_batches is not None and infer_accum_batches < 1:
+            fail("--infer-accum-batches must be >= 1")
+        
 
     elif input_type == "folder":
         if input_path and not os.path.isdir(input_path):
@@ -243,7 +247,8 @@ def validate_config(params, parser=None):
                 fail(f"Failed to create output directory: {e}")
         if video_quality:
             fail(f"--quality is only supported for --input-type=video")
-            
+        if infer_accum_batches is not None and infer_accum_batches < 1:
+            fail("--infer-accum-batches must be >= 1")
 
     elif input_type == "i2i":
         if input_path and os.path.isfile(input_path):
@@ -309,6 +314,8 @@ def debug_report(ctx):
         print(f"Codec: {ctx.codec}")
         if ctx.autocast:
             print(f"AMP autocast: {ctx.autocast}")
+        if ctx.infer_accum_batches:
+            print(f"inference accumulate batches: {ctx.infer_accum_batches}")
         print(f"Queue sizes: raw={ctx.r_queue}, input={ctx.in_queue}, "
               f"process={ctx.p_queue}, save={ctx.s_queue}")
               
