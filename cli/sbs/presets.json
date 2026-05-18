@@ -10,19 +10,21 @@
       "r_queue": 8,
       "in_queue": 8,
       "p_queue": 8,
-      "s_queue": 8
+      "s_queue": 8,
+      "autocast": "auto"
     },
     "balance": {
       "model_name": "depth-anything/Depth-Anything-V2-Base-hf",
       "batch_size": 5,
-      "n_feeders": 1,
+      "n_feeders": 2,
       "n_preprocess": 2,
       "n_processors": 8,
       "n_savers": 4,
       "r_queue": 16,
       "in_queue": 16,
       "p_queue": 16,
-      "s_queue": 16
+      "s_queue": 16,
+      "autocast": "auto"
     },
     "max_quality": {
       "model_name": "depth-anything/Depth-Anything-V2-Large-hf",
@@ -34,7 +36,8 @@
       "r_queue": 16,
       "in_queue": 16,
       "p_queue": 16,
-      "s_queue": 16
+      "s_queue": 16,
+      "autocast": "auto"
     }
   },
   "video": {
@@ -49,7 +52,8 @@
       "in_queue": 6,
       "p_queue": 6,
       "s_queue": 6,
-      "codec": "auto"
+      "codec": "auto",
+      "autocast": "auto"
     },
     "balance": {
       "model_name": "depth-anything/Depth-Anything-V2-Base-hf",
@@ -62,7 +66,8 @@
       "in_queue": 16,
       "p_queue": 16,
       "s_queue": 16,
-      "codec": "auto"
+      "codec": "auto",
+      "autocast": "auto"
     },
     "max_quality": {
       "model_name": "depth-anything/Depth-Anything-V2-Large-hf",
@@ -75,7 +80,8 @@
       "in_queue": 16,
       "p_queue": 16,
       "s_queue": 16,
-      "codec": "auto"
+      "codec": "auto",
+      "autocast": "auto"
     }
   }
 }
