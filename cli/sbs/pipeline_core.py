@@ -1,5 +1,5 @@
 from threading import Thread
-from queue import Queue
+from queue import Queue,Empty
 from dataclasses import dataclass, field
 import threading
 import numpy as np
@@ -43,6 +43,7 @@ class PipelineContext:
     codec: str
     version: str
     autocast: str | None = None
+    infer_accum_batches: int | None = None
     
     # calculated fields
     H: int = 0
@@ -223,6 +224,7 @@ class PipelineContext:
 
             #start_c = time.perf_counter()
             # Call for processing
+            
             sbs_images = SBSConverter.process(
                 base_image,
                 depth_image,
@@ -232,6 +234,7 @@ class PipelineContext:
                 blur_radius,
                 symetric
             )
+            
             #end_c = time.perf_counter()
             #print(f"Waited {end_c - start_c:.3f} s on converting")
             #print(f"Save queue size: {save_queue.qsize()}/{save_queue.maxsize}")
@@ -250,62 +253,104 @@ class PipelineContext:
                 except EOFError:
                     return
                 
-    @staticmethod   
-    def gpu_worker_loop(estimator, queue: Queue, process_queue: Queue ,model_name, n_preprocess: int,H_orig, W_orig,n_processors: int,cudnn_benchmark: bool,input_type: str,autocast: str | None):
+    @staticmethod
+    def gpu_worker_loop(estimator, queue: Queue, process_queue: Queue, model_name, n_preprocess: int, H_orig,W_orig, n_processors: int, cudnn_benchmark: bool, input_type: str, autocast: str | None, infer_accum_batches: int,):
         """
-        Runs depth inference on GPU for batches and sends results to processing queue.
+        Runs depth inference on the GPU with buffering.
         """
+
         copy_stream = torch.cuda.Stream() if torch.cuda.is_available() else None
         
         done_count = 0
-        while True:
-            #start_wait = time.perf_counter()
-            try:
-                item = queue.get()
-            except EOFError:
-                return
-            #end_wait = time.perf_counter() - start_wait
-            #print(f"Waited {end_wait:.3f} s on queue.get()")
-            if item is None:
-                done_count += 1 # tracks how many preprocess workers finished 
-                if done_count == n_preprocess:
-                    break
-                continue
-                
-            indices, names, pixel_values, indexed_images = item
-            depth_tensor = estimator.predict_batch_tensor(pixel_values,cudnn_benchmark, target_size=(H_orig, W_orig),model_name=model_name,autocast=autocast)
+        pending_items = []
 
+        def flush_pending(pending_items):
+            if not pending_items:
+                return True
 
+            # sizes of original mini-batches
+            chunk_sizes = [item[2].shape[0] for item in pending_items]
+
+            # glue all the items into one big batch.
+            merged_pixel_values = torch.cat([item[2] for item in pending_items],dim=0)
+
+            # inference
+            depth_tensor = estimator.predict_batch_tensor(
+                merged_pixel_values,
+                cudnn_benchmark,
+                target_size=(H_orig, W_orig),
+                model_name=model_name,
+                autocast=autocast,
+            )
+
+            # D2H
             if copy_stream is not None:
                 cpu_buf = torch.empty(
                     depth_tensor.shape,
                     dtype=depth_tensor.dtype,
                     device="cpu",
-                    pin_memory=True
+                    pin_memory=True,
                 )
 
-                compute_stream = torch.cuda.current_stream()  # default (or current) 
+                compute_stream = torch.cuda.current_stream()
 
                 with torch.cuda.stream(copy_stream):
-                    copy_stream.wait_stream(compute_stream)  
+                    copy_stream.wait_stream(compute_stream)
                     cpu_buf.copy_(depth_tensor, non_blocking=True)
                     ev = torch.cuda.Event(enable_timing=False)
                     ev.record(copy_stream)
-
-                payload = (indices, cpu_buf, ev, indexed_images) if input_type == "video" \
-                          else (names, cpu_buf, ev, indexed_images)
             else:
-                # CPU-only fallback
                 cpu_buf = depth_tensor.detach().cpu().float()
                 ev = None
-                payload = (indices, cpu_buf, ev, indexed_images) if input_type == "video" \
-                          else (names, cpu_buf, ev, indexed_images)
-            
+
+            # cut back to the original dimensions
+            start = 0
+            for item, chunk_size in zip(pending_items, chunk_sizes):
+                indices, names, _pixel_values, indexed_images = item
+                chunk_depth = cpu_buf[start:start + chunk_size]
+                start += chunk_size
+
+                if input_type == "video":
+                    payload = (indices, chunk_depth, ev, indexed_images)
+                else:
+                    payload = (names, chunk_depth, ev, indexed_images)
+
+                try:
+                    process_queue.put(payload)
+                except EOFError:
+                    return False
+
+            return True
+
+        while True:
             try:
-                process_queue.put(payload)
+                item = queue.get()
             except EOFError:
                 return
-            
+
+            if item is None:
+                done_count += 1
+
+                # when all preprocess workers have completed 
+                # finish the rest and exit
+                if done_count == n_preprocess:
+                    if not flush_pending(pending_items):
+                        return
+                    break
+
+                continue
+
+            pending_items.append(item)
+
+            if len(pending_items) < infer_accum_batches:
+                continue
+
+            if not flush_pending(pending_items):
+                return
+
+            pending_items.clear()
+
+        # finishing process workers
         for _ in range(n_processors):
             try:
                 process_queue.put(None)
